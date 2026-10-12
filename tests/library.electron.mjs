@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, mkdir, realpath, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
@@ -36,14 +36,15 @@ async function run() {
     await writeFile(path.join(dir, 'notes.txt'), '')
     const empty = path.join(dir, 'empty')
     await mkdir(empty)
-    await mkdir(path.join(dir, 'folder.mp3'))
-    await writeFile(path.join(dir, 'folder.mp3', 'nested.wav'), wav)
-    await mkdir(path.join(dir, 'folder.mp3', 'deep'))
-    await writeFile(path.join(dir, 'folder.mp3', 'deep', 'track2.WAV'), wav)
+    const album = path.join(dir, 'folder #1.mp3')
+    await mkdir(album)
+    await writeFile(path.join(album, 'nested.wav'), wav)
+    await mkdir(path.join(album, 'deep'))
+    await writeFile(path.join(album, 'deep', 'track2.WAV'), wav)
     const expected = [
       'broken.mp3',
-      path.join('folder.mp3', 'nested.wav'),
-      path.join('folder.mp3', 'deep', 'track2.WAV'),
+      path.join('folder #1.mp3', 'nested.wav'),
+      path.join('folder #1.mp3', 'deep', 'track2.WAV'),
       'track2.WAV',
       'track10.wav'
     ]
@@ -52,6 +53,10 @@ async function run() {
     await waitFor(() => BrowserWindow.getAllWindows().length > 0, 'window creation')
     assert.equal(BrowserWindow.getAllWindows().length, 1, 'Only one window should open')
     const window = BrowserWindow.getAllWindows()[0]
+    const nativeDrags = []
+    window.webContents.startDrag = (item) => {
+      nativeDrags.push(item)
+    }
     window.webContents.on('console-message', (event) => {
       if (event.level === 'error') console.error(`Renderer: ${event.message}`)
     })
@@ -61,9 +66,12 @@ async function run() {
       })
     await waitFor(() => execute('!!document.querySelector("button")'), 'renderer initialization')
     assert.equal(await execute('typeof window.api.library.readDir'), 'function')
+    assert.equal(await execute('typeof window.api.library.startDrag'), 'function')
     assert.equal(await execute('document.querySelector(".audio-files")'), null)
     await execute(`
       globalThis.waveformFetches = [];
+      globalThis.dragErrors = [];
+      globalThis.unsubscribeDragErrors = window.api.library.onDragError(error => globalThis.dragErrors.push(error));
       const originalFetch = window.fetch.bind(window);
       window.fetch = (...args) => {
         if (String(args[0]).startsWith('sample:')) globalThis.waveformFetches.push(String(args[0]));
@@ -82,6 +90,12 @@ async function run() {
 
     async function preview(index) {
       await execute(`document.querySelectorAll(".preview-button")[${index}].click()`)
+    }
+    async function drag(index) {
+      return execute(`
+        document.querySelectorAll(".audio-files li")[${index}]
+          .dispatchEvent(new DragEvent("dragstart", { bubbles: true, cancelable: true, dataTransfer: new DataTransfer() }))
+      `)
     }
 
     selections.push(dir)
@@ -116,6 +130,42 @@ async function run() {
       await execute('fetch("sample://audio/not-authorized").then(response => response.status)'),
       403
     )
+
+    assert.ok(
+      await execute(
+        'Array.from(document.querySelectorAll(".audio-files li")).every(row => row.draggable)'
+      )
+    )
+    assert.equal(await drag(1), false, 'HTML dragging must be canceled in favor of native dragging')
+    await waitFor(() => nativeDrags.length === 1, 'native file drag IPC')
+    assert.equal(nativeDrags[0].file, await realpath(path.join(album, 'nested.wav')))
+    assert.equal(nativeDrags[0].icon.isEmpty(), false)
+    assert.deepEqual(nativeDrags[0].icon.getSize(), { width: 64, height: 64 })
+
+    await execute('window.api.library.startDrag("file:///not-a-library-sample.wav")')
+    await waitFor(() => execute('globalThis.dragErrors.length === 1'), 'unauthorized drag error')
+    assert.equal(nativeDrags.length, 1, 'Arbitrary file paths must not be dragged')
+
+    await execute('document.querySelector(".audio-files li:last-child").scrollIntoView()')
+    await waitFor(
+      () => execute('!document.querySelector(".audio-files li:last-child canvas").hidden'),
+      'last sample waveform before file removal'
+    )
+    await rm(path.join(dir, 'track10.wav'))
+    await drag(4)
+    await waitFor(
+      () => execute('!!document.querySelector(".audio-files li:last-child .sample-drag-error")'),
+      'missing sample drag error'
+    )
+    assert.equal(nativeDrags.length, 1)
+    assert.ok(
+      await execute('document.querySelector(".sample-drag-error").textContent.includes("ENOENT")')
+    )
+    await writeFile(path.join(dir, 'track10.wav'), wav)
+    await drag(4)
+    await waitFor(() => nativeDrags.length === 2, 'dragging restored sample')
+    assert.equal(await execute('document.querySelector(".sample-drag-error")'), null)
+    await execute('window.scrollTo(0, 0)')
 
     await execute('document.querySelector("audio").muted = true')
     await execute(`
@@ -233,6 +283,8 @@ async function run() {
         'globalThis.previousAudio.paused && !globalThis.previousAudio.hasAttribute("src")'
       )
     )
+    await drag(1)
+    await waitFor(() => nativeDrags.length === 3, 'dragging after folder selection cancellation')
 
     await open(path.join(dir, 'missing'))
     assert.ok(
@@ -251,6 +303,21 @@ async function run() {
       await execute(`fetch(${JSON.stringify(firstUrl)}).then(response => response.status)`),
       403,
       'Previous folders must no longer be available to the audio protocol'
+    )
+    const failures = await execute('globalThis.dragErrors.length')
+    await execute(`window.api.library.startDrag(${JSON.stringify(firstUrl)})`)
+    await waitFor(
+      () => execute(`globalThis.dragErrors.length === ${failures + 1}`),
+      'revoked drag source'
+    )
+    assert.equal(nativeDrags.length, 3, 'Previous libraries must not remain draggable')
+    await execute('globalThis.unsubscribeDragErrors()')
+    await execute(`window.api.library.startDrag(${JSON.stringify(firstUrl)})`)
+    await delay(50)
+    assert.equal(
+      await execute('globalThis.dragErrors.length'),
+      failures + 1,
+      'Unsubscribed error listeners must not receive events'
     )
 
     await execute('globalThis.waveformFetches.length = 0')
@@ -283,7 +350,7 @@ async function run() {
       'waveforms after scrolling'
     )
     console.log(
-      'PASS: recursive listing, waveforms, lazy loading, streaming, playback, stop/switch, errors and cleanup'
+      'PASS: recursive listing, waveforms, playback, native drag IPC/payload, access checks and cleanup'
     )
   } catch (error) {
     console.error(error)

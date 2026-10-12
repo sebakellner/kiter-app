@@ -22,10 +22,16 @@ export function registerAudioSources(files: AudioFile[]): AudioSample[] {
   })
 }
 
+export function getAudioSource(audioUrl: string): string | undefined {
+  const url = new URL(audioUrl)
+  return url.protocol === 'sample:' && url.hostname === 'audio'
+    ? sources.get(url.pathname.slice(1))
+    : undefined
+}
+
 export function registerAudioProtocol(): void {
   protocol.handle('sample', async (request) => {
-    const url = new URL(request.url)
-    const source = url.hostname === 'audio' ? sources.get(url.pathname.slice(1)) : undefined
+    const source = getAudioSource(request.url)
     if (!source) {
       return new Response('Sample no autorizado', { status: 403, headers: corsHeaders })
     }

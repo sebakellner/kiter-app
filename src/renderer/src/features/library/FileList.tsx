@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import type { AudioSample } from '@shared/ipc'
+import type { AudioDragError, AudioSample } from '@shared/ipc'
 import { Waveform } from './Waveform'
 
 type Props = {
@@ -15,6 +15,9 @@ export function FileList({ files }: Props): React.JSX.Element {
   const [selected, setSelected] = useState<AudioSample | null>(null)
   const [playing, setPlaying] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [dragError, setDragError] = useState<AudioDragError | null>(null)
+
+  useEffect(() => window.api.library.onDragError(setDragError), [])
 
   useEffect(() => {
     const audio = player.current
@@ -74,13 +77,27 @@ export function FileList({ files }: Props): React.JSX.Element {
 
   return (
     <>
+      <p className="sample-drag-hint">
+        Arrastra un sample a tu DAW para importar el archivo original.
+      </p>
       <ul className="audio-files" aria-label="Archivos de audio">
         {files.map((file) => (
-          <li key={file.audioUrl} title={file.path} data-audio-url={file.audioUrl}>
+          <li
+            key={file.audioUrl}
+            title={`${file.path}\nArrastra este sample a tu DAW`}
+            data-audio-url={file.audioUrl}
+            draggable
+            onDragStart={(event) => {
+              event.preventDefault()
+              setDragError(null)
+              window.api.library.startDrag(file.audioUrl)
+            }}
+          >
             <div className="sample-heading">
               <span className="sample-name">{file.relativePath}</span>
               <button
                 type="button"
+                draggable={false}
                 className="preview-button"
                 aria-label={`${selected?.audioUrl === file.audioUrl && playing ? 'Detener' : 'Reproducir'} ${file.relativePath}`}
                 aria-pressed={selected?.audioUrl === file.audioUrl && playing}
@@ -93,6 +110,11 @@ export function FileList({ files }: Props): React.JSX.Element {
             {selected?.audioUrl === file.audioUrl && error && (
               <p role="alert" className="sample-error">
                 {error}
+              </p>
+            )}
+            {dragError?.audioUrl === file.audioUrl && (
+              <p role="alert" className="sample-error sample-drag-error">
+                {dragError.message}
               </p>
             )}
           </li>

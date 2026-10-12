@@ -59,6 +59,15 @@ code {
 .audio-files li {
   padding: 12px 0;
   border-bottom: 1px solid var(--ev-c-gray-3);
+  cursor: grab;
+}
+
+.audio-files li:active {
+  cursor: grabbing;
+}
+
+.sample-drag-hint {
+  color: var(--ev-c-text-2);
 }
 
 .sample-heading {

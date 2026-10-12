@@ -18,6 +18,12 @@ Aplicacion de escritorio con Electron, React y TypeScript para listar archivos d
 - Pulsa **Preview** para escuchar un sample y **Detener** para pararlo.
   Un reproductor compartido permite pausar, buscar y ajustar el volumen.
   Reproducir otro sample detiene el anterior; abrir una carpeta detiene la preview.
+- Arrastra una fila desde el nombre o la onda hacia Ableton Live u otro DAW.
+  Se usa el arrastre nativo del sistema operativo con el archivo original,
+  no la URL interna ni un archivo temporal. No se mueve ni modifica el sample.
+  El destino debe aceptar archivos externos y soportar el formato de audio.
+  Se arrastra un sample por gesto; no hay seleccion multiple.
+  Si el archivo deja de estar disponible, se muestra el error en su fila.
 - Los archivos se sirven por un protocolo local de Electron con identificadores
   opacos, limitado a la biblioteca cargada. No se exponen rutas de disco como URLs.
 - Si el navegador no soporta un codec o el archivo esta danado/no disponible,
@@ -42,6 +48,10 @@ La prueba de Electron automatiza la seleccion del directorio para comprobar
 el flujo completo entre la interfaz, el preload y el proceso principal,
 incluyendo ondas de archivos WAV reales, reproduccion, rangos de lectura,
 cambio de sample, parada, errores de codec y carga diferida al desplazarse.
+Tambien comprueba el evento de arrastre, el puente IPC, la ruta e icono enviados
+a `webContents.startDrag`, y el rechazo de archivos no disponibles/no autorizados.
+La llamada al arrastre del sistema se sustituye en esa prueba: la recepcion
+real del archivo en Ableton Live u otro DAW requiere una prueba manual.
 
 ## TypeScript
 

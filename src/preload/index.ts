@@ -1,6 +1,6 @@
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
-import { IPC, type Api } from '@shared/ipc'
+import { IPC, type Api, type AudioDragError } from '@shared/ipc'
 
 // Custom APIs for renderer
 const api: Api = {
@@ -8,7 +8,15 @@ const api: Api = {
     openFolder: () => ipcRenderer.invoke(IPC.dialog.openFolder)
   },
   library: {
-    readDir: (dir) => ipcRenderer.invoke(IPC.library.readDir, dir)
+    readDir: (dir) => ipcRenderer.invoke(IPC.library.readDir, dir),
+    startDrag: (audioUrl) => ipcRenderer.send(IPC.library.startDrag, audioUrl),
+    onDragError: (listener) => {
+      const handler = (_event: IpcRendererEvent, error: AudioDragError): void => listener(error)
+      ipcRenderer.on(IPC.library.dragError, handler)
+      return () => {
+        ipcRenderer.removeListener(IPC.library.dragError, handler)
+      }
+    }
   }
 }
 
