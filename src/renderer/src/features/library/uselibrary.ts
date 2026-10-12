@@ -1,15 +1,15 @@
 import { useCallback, useRef, useState } from 'react'
-import type { AudioFile } from '@shared/ipc'
+import type { AudioSample } from '@shared/ipc'
 
 export function useLibrary(): {
   dir: string | null
-  files: AudioFile[]
+  files: AudioSample[]
   loading: boolean
   error: string | null
   openFolder: () => Promise<void>
 } {
   const [dir, setDir] = useState<string | null>(null)
-  const [files, setFiles] = useState<AudioFile[]>([])
+  const [files, setFiles] = useState<AudioSample[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const opening = useRef(false)

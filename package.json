@@ -11,7 +11,7 @@
     "typecheck:node": "tsc --noEmit -p tsconfig.node.json --composite false",
     "typecheck:web": "tsc --noEmit -p tsconfig.web.json --composite false",
     "typecheck": "npm run typecheck:node && npm run typecheck:web",
-    "test": "node --experimental-strip-types --test tests/library.test.ts",
+    "test": "node --experimental-strip-types --test tests/*.test.*",
     "test:app": "npm run build && electron tests/library.electron.mjs",
     "start": "electron-vite preview",
     "dev": "electron-vite dev",

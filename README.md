@@ -12,6 +12,18 @@ Aplicacion de escritorio con Electron, React y TypeScript para listar archivos d
   No se siguen enlaces simbolicos, evitando ciclos y salidas de la carpeta.
   El filtro usa la extension, no verifica el contenido del audio.
 - La lista indica el total y permite desplazarse si hay muchos archivos.
+- Cada sample muestra su forma de onda y duracion cuando su fila se acerca a
+  la zona visible. Las ondas se procesan de una en una y se guardan hasta 256
+  resultados en memoria; los buffers de audio decodificados se liberan.
+- Pulsa **Preview** para escuchar un sample y **Detener** para pararlo.
+  Un reproductor compartido permite pausar, buscar y ajustar el volumen.
+  Reproducir otro sample detiene el anterior; abrir una carpeta detiene la preview.
+- Los archivos se sirven por un protocolo local de Electron con identificadores
+  opacos, limitado a la biblioteca cargada. No se exponen rutas de disco como URLs.
+- Si el navegador no soporta un codec o el archivo esta danado/no disponible,
+  se muestra un error en su fila sin bloquear el resto de la biblioteca.
+  Decodificar archivos muy largos puede ser costoso; no se decodifica toda la
+  biblioteca al abrirla. La cache es de sesion y se renueva al cargar una carpeta.
 - Cancelar conserva la lista anterior. Si la lectura falla, se muestra el error
   y se conserva la ultima carpeta leida correctamente. Si una subcarpeta no se
   puede leer, se informa el error en lugar de mostrar una lista incompleta.
@@ -21,13 +33,15 @@ Aplicacion de escritorio con Electron, React y TypeScript para listar archivos d
 Con Node.js 22.18 o superior:
 
 ```bash
-pnpm test       # Filtrado, subcarpetas, enlaces, orden y errores de lectura
+pnpm test       # Biblioteca, picos de onda, cache, cancelacion y cola de decodificacion
 pnpm test:app   # Compila y prueba la app real con Electron (requiere escritorio)
 pnpm lint
 ```
 
 La prueba de Electron automatiza la seleccion del directorio para comprobar
-el flujo completo entre la interfaz, el preload y el proceso principal.
+el flujo completo entre la interfaz, el preload y el proceso principal,
+incluyendo ondas de archivos WAV reales, reproduccion, rangos de lectura,
+cambio de sample, parada, errores de codec y carga diferida al desplazarse.
 
 ## TypeScript
 
