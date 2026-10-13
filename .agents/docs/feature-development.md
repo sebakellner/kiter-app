@@ -127,12 +127,12 @@ example in this guide:
    URLs and streams local audio.
 5. [Preload](../../src/preload/index.ts) exposes the explicit bridge methods
    and a removable drag-error listener.
-6. [Library hook](../../src/renderer/src/features/library/uselibrary.ts) owns
+6. [Library hook](../../src/renderer/src/features/library/hooks/useLibrary.ts) owns
    folder selection, loading, favorite updates, and the last successfully loaded list.
-7. [File list](../../src/renderer/src/features/library/FileList.tsx) composes
+7. [File list](../../src/renderer/src/features/library/components/FileList/index.ts) composes
    rows, favorite controls/filter, shared preview, and native drag initiation.
-8. [Waveform component](../../src/renderer/src/features/library/Waveform.tsx)
-   and [waveform processing](../../src/renderer/src/features/library/waveformData.ts)
+8. [Waveform component](../../src/renderer/src/features/library/components/Waveform/index.ts)
+   and [waveform processing](../../src/renderer/src/features/library/components/Waveform/waveformData.ts)
    provide visible-row analysis, drawing, and bounded cached results.
 9. [Library tests](../../tests/library.test.ts),
    [waveform tests](../../tests/waveform.test.mjs), and

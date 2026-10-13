@@ -38,8 +38,8 @@ or permission to introduce dependencies without an implementation requirement.
 | [Audio service](../../src/main/services/audio/index.ts) | In-memory authorization of the loaded library and local audio streaming. |
 | [Preload](../../src/preload/index.ts) | Typed methods exposed through `contextBridge`. |
 | [Shared contracts](../../src/shared/ipc.ts) | Channels, request-facing API, and sample transfer types. |
-| [Library UI](../../src/renderer/src/features/library/FileList.tsx) | Sample rows, current-folder favorite filter, shared preview, and native dragging. |
-| [Waveform processing](../../src/renderer/src/features/library/waveformData.ts) | Serialized, cancellable decoding and bounded peak caching. |
+| [Library UI](../../src/renderer/src/features/library/components/FileList/index.ts) | Sample rows, current-folder favorite filter, shared preview, and native dragging. |
+| [Waveform processing](../../src/renderer/src/features/library/components/Waveform/waveformData.ts) | Serialized, cancellable decoding and bounded peak caching. |
 
 The folder view remains session-scoped, while sample UUIDs and favorites persist
 in SQLite under `userData`. Sample URLs are temporary capabilities, not durable

@@ -19,7 +19,6 @@ See [Common Guidelines](common-guidelines.md) for coding rules,
 | `src/main/` | Privileged services and native operations, not UI behavior. |
 
 These are ownership conventions, not directories to scaffold in advance.
-The current library keeps components directly in its feature folder.
 
 - Cross-feature use does not automatically make a domain component generic.
   Share domain UI through its owning feature when that dependency is appropriate.
@@ -92,6 +91,18 @@ the list cannot accidentally create one audio player per sample.
   that obscure ownership. Resolve cycles by fixing dependencies.
 - Internal tests may exercise implementation helpers when appropriate;
   integration tests should verify consumer-visible behavior.
+
+## Styles
+
+- Keep component-specific CSS beside its implementation and import it from
+  the component, not a central stylesheet. Consumers receive the styles through
+  the component's public API.
+- Keep global CSS focused on resets, fonts, shared tokens, and application
+  foundations. Feature layout and domain-specific styles belong to their feature.
+- Use ordinary CSS with descriptive, prefixed component classes under the
+  current setup. Do not introduce a styling framework solely for organization.
+- Reorganize existing styles incrementally. Preserve cascade order,
+  specificity, focus, disabled states, and consumer layout when moving rules.
 
 ## State, Resources, and Accessibility
 
