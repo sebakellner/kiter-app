@@ -4,7 +4,7 @@ import { rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
-import { app, BrowserWindow, dialog } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain } from 'electron'
 import { createWav } from './wav.mjs'
 
 const selections = []
@@ -14,7 +14,7 @@ dialog.showOpenDialog = async () => {
   await delay(50)
   assert.ok(selections.length > 0, 'Unexpected folder dialog')
   const selected = selections.shift()
-  return { canceled: selected === null, filePaths: selected === null ? [] : [selected] }
+  return { canceled: selected === null, filePaths: typeof selected === 'string' ? [selected] : [] }
 }
 
 async function waitFor(check, label) {
@@ -149,6 +149,72 @@ async function run() {
       },
       'Colocated library styles must preserve layout and cascade overrides'
     )
+
+    await writeFile(path.join(dir, 'ipc-frame.html'), '<iframe src="ipc-child.html"></iframe>')
+    await writeFile(path.join(dir, 'ipc-child.html'), '<p>Local IPC test frame</p>')
+    const frameWindow = new BrowserWindow({
+      show: false,
+      webPreferences: {
+        nodeIntegration: true,
+        nodeIntegrationInSubFrames: true,
+        contextIsolation: false,
+        sandbox: false
+      }
+    })
+    let subframeDrags = 0
+    let dragRequestReceived = false
+    frameWindow.webContents.startDrag = () => {
+      subframeDrags++
+    }
+    const onSubframeDrag = (event) => {
+      if (event.sender === frameWindow.webContents) dragRequestReceived = true
+    }
+    ipcMain.on('library:startDrag', onSubframeDrag)
+    try {
+      await frameWindow.loadFile(path.join(dir, 'ipc-frame.html'))
+      await waitFor(
+        () =>
+          frameWindow.webContents.mainFrame.frames.some((frame) =>
+            frame.url.endsWith('ipc-child.html')
+          ),
+        'local child frame'
+      )
+      const child = frameWindow.webContents.mainFrame.frames.find((frame) =>
+        frame.url.endsWith('ipc-child.html')
+      )
+      const sample = await execute(
+        '({ id: document.querySelector("[data-sample-id]").dataset.sampleId, url: document.querySelector("[data-audio-url]").dataset.audioUrl })'
+      )
+      const requests = [
+        ['dialog:openFolder'],
+        ['library:readDir', dir],
+        ['library:setFavorite', sample.id, true]
+      ]
+      const previousDialogCalls = dialogCalls
+      const outcomes = await child.executeJavaScript(`
+        Promise.all(${JSON.stringify(requests)}.map(async ([channel, ...args]) => {
+          try {
+            await require("electron").ipcRenderer.invoke(channel, ...args);
+            return { channel, accepted: true };
+          } catch (error) {
+            return { channel, accepted: false, message: error.message };
+          }
+        }))
+      `)
+      for (const outcome of outcomes) {
+        assert.equal(outcome.accepted, false, `${outcome.channel} must reject subframes`)
+        assert.match(outcome.message, /Unauthorized IPC request/)
+      }
+      assert.equal(dialogCalls, previousDialogCalls, 'Rejected frames must not open dialogs')
+      await child.executeJavaScript(
+        `require("electron").ipcRenderer.send("library:startDrag", ${JSON.stringify(sample.url)})`
+      )
+      await waitFor(() => dragRequestReceived, 'rejected subframe drag')
+      assert.equal(subframeDrags, 0, 'Rejected frames must not start native dragging')
+    } finally {
+      ipcMain.removeListener('library:startDrag', onSubframeDrag)
+      frameWindow.destroy()
+    }
 
     await waitFor(
       () => execute('!!document.querySelector("canvas:not([hidden])")'),
@@ -325,6 +391,14 @@ async function run() {
     )
     await drag(1)
     await waitFor(() => nativeDrags.length === 3, 'dragging after folder selection cancellation')
+
+    await open(undefined)
+    assert.ok(
+      await execute(
+        'document.querySelector(".library-error").textContent.includes("did not return a directory")'
+      )
+    )
+    assert.deepEqual(await names(), expected)
 
     await open(path.join(dir, 'missing'))
     assert.ok(

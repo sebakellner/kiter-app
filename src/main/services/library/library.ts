@@ -1,8 +1,32 @@
-import { readdir } from 'node:fs/promises'
+import { readdir, realpath } from 'node:fs/promises'
 import path from 'node:path'
-import type { AudioFile } from '../../../shared/ipc'
+import type { AudioFile, CatalogSample } from '../../../shared/ipc'
+import type { Catalog } from '../catalog'
 
 const AUDIO_EXT = new Set(['.mp3', '.wav', '.flac', '.ogg', '.m4a', '.aac'])
+
+export async function importLibraryFolder(
+  directory: string,
+  catalog: Pick<Catalog, 'importFolder'>
+): Promise<CatalogSample[]> {
+  let root: string
+  const canonicalFiles: AudioFile[] = []
+  try {
+    root = await realpath(directory)
+    const files = await readAudioDir(root)
+    for (const file of files) {
+      canonicalFiles.push({ ...file, path: await realpath(file.path) })
+    }
+  } catch (error) {
+    const code =
+      error instanceof Error && 'code' in error && typeof error.code === 'string'
+        ? error.code
+        : 'CATALOG_READ_FAILED'
+    console.error('Library import failed:', code)
+    throw new Error(`Unable to load the folder (${code}). Check folder access and catalog storage.`)
+  }
+  return catalog.importFolder(root, canonicalFiles)
+}
 
 export async function readAudioDir(dirPath: string): Promise<AudioFile[]> {
   const files: AudioFile[] = []

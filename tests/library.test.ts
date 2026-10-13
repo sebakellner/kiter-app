@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict'
-import { chmod, mkdtemp, mkdir, rm, symlink, writeFile } from 'node:fs/promises'
+import { chmod, mkdtemp, mkdir, realpath, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { test } from 'node:test'
-import { readAudioDir } from '../src/main/services/library/library.ts'
+import type { AudioFile, CatalogSample } from '../src/shared/ipc.ts'
+import { importLibraryFolder, readAudioDir } from '../src/main/services/library/library.ts'
 
 test('lists only supported audio files, with full paths and natural ordering', async () => {
   const dir = await mkdtemp(path.join(tmpdir(), 'kiter-library-'))
@@ -119,6 +120,67 @@ test('rejects unreadable paths instead of returning an empty list', async () => 
     const file = path.join(dir, 'file.mp3')
     await writeFile(file, '')
     await assert.rejects(readAudioDir(file), { code: 'ENOTDIR' })
+  } finally {
+    await rm(dir, { recursive: true, force: true })
+  }
+})
+
+test('prepares canonical locations before importing and returns catalog identities and favorites', async (t) => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'kiter-library-import-'))
+  const importFolder = t.mock.fn(
+    async (_root: string, files: AudioFile[]): Promise<CatalogSample[]> =>
+      files.map((file) => ({ ...file, id: '00000000-0000-4000-8000-000000000001', favorite: true }))
+  )
+  try {
+    await mkdir(path.join(dir, 'nested'))
+    await writeFile(path.join(dir, 'nested', 'song.wav'), '')
+    const root = await realpath(dir)
+    const file = {
+      name: 'song.wav',
+      path: await realpath(path.join(dir, 'nested', 'song.wav')),
+      relativePath: path.join('nested', 'song.wav')
+    }
+    assert.deepEqual(await importLibraryFolder(dir, { importFolder }), [
+      { ...file, id: '00000000-0000-4000-8000-000000000001', favorite: true }
+    ])
+    assert.equal(importFolder.mock.callCount(), 1)
+    assert.deepEqual(importFolder.mock.calls[0].arguments, [root, [file]])
+  } finally {
+    await rm(dir, { recursive: true, force: true })
+  }
+})
+
+test('does not import a failed scan or expose personal paths in its error', async (t) => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'kiter-library-import-error-'))
+  const importFolder = t.mock.fn(async () => [])
+  try {
+    await assert.rejects(
+      importLibraryFolder(path.join(dir, 'missing'), { importFolder }),
+      (error: unknown) => {
+        assert.ok(error instanceof Error)
+        assert.match(error.message, /ENOENT/)
+        assert.ok(!error.message.includes(dir))
+        return true
+      }
+    )
+    assert.equal(importFolder.mock.callCount(), 0)
+  } finally {
+    await rm(dir, { recursive: true, force: true })
+  }
+})
+
+test('preserves a catalog failure instead of returning a successful empty import', async (t) => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'kiter-library-catalog-error-'))
+  const failure = new Error('Catalog write failed')
+  const importFolder = t.mock.fn(async () => {
+    throw failure
+  })
+  try {
+    await assert.rejects(
+      importLibraryFolder(dir, { importFolder }),
+      (error: unknown) => error === failure
+    )
+    assert.equal(importFolder.mock.callCount(), 1)
   } finally {
     await rm(dir, { recursive: true, force: true })
   }

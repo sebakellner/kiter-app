@@ -1,1 +1,1 @@
-export { readAudioDir } from './library'
+export { importLibraryFolder, readAudioDir } from './library'
