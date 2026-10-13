@@ -161,4 +161,8 @@ architecture, file integrity rules, and validation commands.
   and do not create empty guides or speculative documentation scaffolding.
 - Agent guidance is not a feature changelog. Document user-facing behavior
   and limitations in the [README](../../README.md) or existing feature docs.
+- Generic guides document shared conventions, not individual component APIs,
+  defaults, CSS classes, or implementation details. Keep component-specific
+  documentation with its owning module when needed; simple components may be
+  sufficiently documented by their types, implementation, and tests.
 - Keep implementation status accurate; do not describe roadmap items as shipped.
