@@ -121,15 +121,16 @@ example in this guide:
    sample, and drag-facing API.
 2. [Library service](../../src/main/services/library.ts) discovers audio recursively.
 3. [Library handlers](../../src/main/ipc/library.ts) connect discovery and
-   native dragging, resolving authorized samples to real files.
+   catalog imports, favorite writes, and native dragging, resolving authorized
+   samples to real files.
 4. [Audio service](../../src/main/services/audio.ts) authorizes session sample
    URLs and streams local audio.
 5. [Preload](../../src/preload/index.ts) exposes the explicit bridge methods
    and a removable drag-error listener.
 6. [Library hook](../../src/renderer/src/features/library/uselibrary.ts) owns
-   folder selection, loading, and the last successfully loaded list.
+   folder selection, loading, favorite updates, and the last successfully loaded list.
 7. [File list](../../src/renderer/src/features/library/FileList.tsx) composes
-   rows, shared preview controls, and native drag initiation.
+   rows, favorite controls/filter, shared preview, and native drag initiation.
 8. [Waveform component](../../src/renderer/src/features/library/Waveform.tsx)
    and [waveform processing](../../src/renderer/src/features/library/waveformData.ts)
    provide visible-row analysis, drawing, and bounded cached results.
@@ -140,5 +141,6 @@ example in this guide:
 
 This example demonstrates wiring and ownership, not a guarantee that every
 current implementation detail meets future catalog requirements. Its session
-URLs are not persistent IDs, and existing Spanish UI text still needs migration
-to the English-first release policy.
+URLs are not persistent IDs. The [catalog store](../../src/main/services/catalogStore.ts)
+persists UUIDs and favorites; [catalog tests](../../tests/catalog.test.ts) and
+[restart verification](../../tests/favorites-restart.mjs) cover that slice.

@@ -7,12 +7,13 @@ scope, [Architecture](architecture.md) for technical ownership, and
 
 ## Status and Scope
 
-This is a conceptual model for Kiter's local sample library, not a database
-schema or a claim that the described entities already exist.
+This combines the implemented catalog slice with a conceptual model for future
+library features. Planned entities are not a claim of implementation.
 
 The [current shared contract](../../src/shared/ipc.ts) defines `AudioFile`,
-`AudioSample`, and drag errors for a session-scoped listing. It has no persistent
-sample IDs, kits, classification records, favorite lists, or durable tasks.
+`CatalogSample`, `AudioSample`, `FavoriteState`, and drag errors. Sample UUIDs
+and favorite marks are persistent; kits, classifications, named favorite lists,
+and durable tasks are not implemented.
 Extend those contracts incrementally as features are implemented; do not replace
 working listing types with a speculative complete model.
 
@@ -22,8 +23,8 @@ policies must be agreed before their implementation.
 
 ## Identity and Sources of Truth
 
-- A sample's durable ID identifies its catalog record, not its filename,
-  current path, content hash, or temporary audio URL.
+- A sample's durable UUID identifies its catalog record, not its filename,
+  content hash, or temporary audio URL. The initial lookup policy is location-based.
 - Filesystem observations describe what exists on disk. Catalog data describes
   user organization and references. Neither can silently overwrite the other.
 - Technical metadata comes from an identified source file version. User data
@@ -32,6 +33,29 @@ policies must be agreed before their implementation.
   become persisted membership, favorite, or task references.
 - Same-name files are not necessarily the same sample; equal content does not
   authorize merging records or deleting one of the files.
+
+## Implemented Identity Policy
+
+- Canonicalize selected roots and discovered file locations with `realpath`.
+  A unique exact canonical path maps to one persistent sample UUID.
+- Reopening the same location recovers its ID and favorite. Overlapping roots
+  share that record through many-to-many root/sample associations.
+- Different locations remain different samples even with equal names/content.
+  Symlink discovery remains excluded by the scanner.
+- Missing files retain IDs and favorites; successful rescans mark absent
+  associations unavailable without deleting records.
+- No automatic move/relink or source-version detection exists. A file moved
+  externally gets a new ID; replacing a file at the same location inherits the
+  location record. This limitation was accepted for the initial slice, not a
+  content-identity guarantee.
+- `favorite` is a persisted boolean on the sample. Writes never modify audio.
+  The filter is limited to the current folder; named lists are a separate
+  planned concept. Folder selection itself is not restored after restart.
+- Audio URLs are regenerated on import and remain session authorization
+  capabilities; never persist them as sample references.
+
+See [Data Access](data-access.md#implemented-catalog-and-favorites) for the
+schema and storage lifecycle.
 
 ## Core Entities (Planned)
 
@@ -177,7 +201,7 @@ must not be treated as disposable cache data.
 - Kit/category/owner cardinalities, ordering rules, and naming uniqueness.
 - Whether category hierarchy or inherited kit classifications are needed.
 - Whether one sample may track multiple physical locations and how copies,
-  overlapping roots, external edits, and relinking are reconciled.
+  external edits, and relinking evolve beyond the implemented location policy.
 - Favorite-list semantics, removal policies, and managed cover-asset retention.
 - Automatic suggestion rules and whether confidence values are meaningful.
 - Export layout/metadata format and file-conflict resolution options.

@@ -141,6 +141,14 @@ validation tool is introduced.
   production reset APIs solely for tests.
 - Tests changing global state must not run concurrently in the same process.
   Run mutating integration fixtures independently unless isolation is proven.
+- Set Electron `userData` to a temporary test directory before importing the
+  application entrypoint; never write a test catalog into real user data.
+- Close database handles and wait for the worker before deleting fixtures.
+  Use normal application quit to cover shutdown, not `app.exit`.
+- Test restart durability with separate Electron processes sharing only the
+  isolated fixture. Renderer reload alone does not prove persistence.
+  [Favorites restart verification](../../tests/favorites-restart.mjs) runs
+  save, remove, and verify phases as part of `pnpm test:app`.
 
 ## Filesystem and Domain Coverage
 

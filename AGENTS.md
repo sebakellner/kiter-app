@@ -81,9 +81,11 @@ These features define Kiter's direction; they are not all implemented:
 
 The existing foundation includes recursive folder scanning, extension-based
 filtering, a sample list, on-demand waveforms and duration, preview playback
-with a shared player, and native dragging of one file per gesture.
+with a shared player, and native dragging of one file per gesture. A local SQLite
+catalog stores canonical-location sample IDs and favorites; the current-folder
+favorites filter and marks survive reopening the folder after an app restart.
 
-Kits, cover images, classifications, global search, favorites, centralization,
+Kits, cover images, classifications, global search, named favorite lists, centralization,
 export, and automation remain planned until code and tests demonstrate their
 implementation.
 
@@ -94,8 +96,8 @@ setup. Update this distinction as features are delivered.
 
 | Area | Desired convention or release goal | Current state |
 | --- | --- | --- |
-| Language | English-only first release, documentation, and code comments. | Agent guides are in English; existing UI/error strings and other documentation still contain Spanish. |
-| Persistence | A durable local catalog with stable sample identities. | Session-scoped folder listing and in-memory authorization; no persistent catalog or database. |
+| Language | English-only first release, documentation, and code comments. | Library UI and errors, README, and agent guides are in English. |
+| Persistence | A durable local catalog with stable sample identities. | SQLite schema v1 in a worker; sample UUIDs and favorites persist by canonical location. Audio URLs remain session-scoped; relocation/relinking and automatic folder restoration are not implemented. |
 | Platforms | Equivalent core workflows on macOS and Windows. | Automated development validation has been performed on macOS; Windows and packaged-app validation are not established by this documentation. |
 | Native dragging | Real-file import into compatible DAWs on both target platforms. | The Electron test substitutes `startDrag`; automated payload checks do not establish actual DAW reception. |
 

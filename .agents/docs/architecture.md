@@ -25,24 +25,28 @@ or permission to introduce dependencies without an implementation requirement.
   virtualization when justified, rather than adding infrastructure speculatively.
 - **Cross-platform:** maintain equivalent core behavior on macOS and Windows.
 - **English-first:** the initial release's UI and documentation are in English.
-  Existing Spanish strings remain migration work, not the desired convention.
 
 ## Current Foundation
 
 | Layer | Current responsibility |
 | --- | --- |
 | [Main entry point](../../src/main/index.ts) | Application lifecycle, protocol registration, IPC registration, and window creation. |
-| [Main IPC](../../src/main/ipc/library.ts) | Folder-read commands and native drag requests. |
+| [Main IPC](../../src/main/ipc/library.ts) | Authorized folder import, favorite writes, and native drag requests. |
+| [Catalog](../../src/main/services/catalog.ts) | Asynchronous worker requests and shutdown ownership. |
+| [Catalog store](../../src/main/services/catalogStore.ts) | SQLite schema v1, transactional imports, durable identities, and favorites, executed in a worker. |
 | [Library service](../../src/main/services/library.ts) | Recursive audio discovery and deterministic listing. |
 | [Audio service](../../src/main/services/audio.ts) | In-memory authorization of the loaded library and local audio streaming. |
 | [Preload](../../src/preload/index.ts) | Typed methods exposed through `contextBridge`. |
 | [Shared contracts](../../src/shared/ipc.ts) | Channels, request-facing API, and sample transfer types. |
-| [Library UI](../../src/renderer/src/features/library/FileList.tsx) | Sample rows, shared preview player, and native drag initiation. |
+| [Library UI](../../src/renderer/src/features/library/FileList.tsx) | Sample rows, current-folder favorite filter, shared preview, and native dragging. |
 | [Waveform processing](../../src/renderer/src/features/library/waveformData.ts) | Serialized, cancellable decoding and bounded peak caching. |
 
-The current library is a session-scoped folder listing, not a persistent catalog.
-Sample URLs are temporary capabilities, not durable sample identities.
-There is no implemented database, task journal, kit model, or global search index.
+The folder view remains session-scoped, while sample UUIDs and favorites persist
+in SQLite under `userData`. Sample URLs are temporary capabilities, not durable
+sample identities. There is no task journal, kit model, global search index,
+automatic restore of the selected folder, or relocation/relinking workflow.
+See [Data Access](data-access.md#implemented-catalog-and-favorites) for storage,
+driver, schema, failure behavior, and backup limitations.
 
 ## Process Boundaries
 
@@ -57,6 +61,7 @@ Preload: contextBridge
     v
 Main: validation -> application services -> filesystem / catalog / native APIs
     |
+    +-- catalog worker -> SQLite (serialized imports and favorite writes)
     +-- bounded background analysis when required
 
 Authorized audio protocol -> streamed bytes -> preview / waveform consumer
@@ -100,10 +105,11 @@ Kits and favorite lists reference sample IDs, not copies of files. Importing a
 folder and creating a kit are distinct operations: neither implies relocation.
 Centralization is a separate, user-approved file operation.
 
-## Catalog and Storage (Planned)
+## Catalog and Storage
 
-- Assign stable sample and kit IDs when persistence is introduced. Keep file
-  location separate from identity so renaming does not break relationships.
+- Sample UUIDs are implemented with the initial
+  [canonical-location policy](domain-model.md#implemented-identity-policy).
+  Kit IDs and identity-preserving file operations remain planned.
 - Track imported roots and file availability. Keep missing samples in the
   catalog so users can locate or relink them without losing kit/favorite data.
 - Separate observed file metadata, user-edited metadata, and derived analysis.
@@ -111,20 +117,21 @@ Centralization is a separate, user-approved file operation.
 - Keep the authoritative catalog in application-managed local storage under
   Electron's `userData` location, separate from user-selected audio directories.
   A catalog record does not authorize arbitrary disk access.
-- A local SQLite catalog is a candidate for transactional relationships and
-  indexed search, not an installed dependency or settled driver choice.
-  Select storage and its Electron-compatible driver when persistence is scoped;
-  validate packaging on both target platforms before adopting it.
+- The local SQLite catalog uses Electron's built-in experimental `node:sqlite`
+  in a worker. Development integration is validated on macOS; worker loading,
+  driver support, and packaging still need validation in distributed apps on
+  both target platforms.
 - Keep storage behind small domain-specific query/update functions. Avoid a
   generic repository framework or exposing storage queries to the renderer.
-- Version schemas and migrations; define backup and recovery before shipping
-  persistent mutations. Keep recoverable analysis caches separate from user data.
-- Store cover assets in an app-managed location when imported; reference them
+- Schema v1 is versioned; newer schemas fail without resetting user data.
+  Backup/recovery UX and future migrations remain release work. Keep recoverable
+  analysis caches separate from user data.
+- **Planned:** store cover assets in an app-managed location when imported; reference them
   from kits. Cache thumbnails and validate file type/size before processing.
-- Detect file changes using observed size/time/version information. Invalidate
+- **Planned:** detect file changes using observed size/time/version information. Invalidate
   derived data when a source changes. Use content hashing only when needed:
   file names and paths alone cannot establish that two samples are duplicates.
-- External moves and edits require reconciliation; filesystem watchers are
+- **Planned:** external moves and edits require reconciliation; filesystem watchers are
   hints, not an authoritative catalog. Start with explicit rescans and add
   watchers when needed. Never silently merge uncertain file identities.
 
