@@ -62,7 +62,9 @@ export const Waveform = memo(function Waveform({ audioUrl, name }: Props): React
         aria-label={`Waveform of ${name}`}
       />
       {data ? (
-        <span className="sample-duration">{data.duration.toFixed(2)} s</span>
+        <span className="sample-duration" data-testid="sample-duration">
+          {data.duration.toFixed(2)} s
+        </span>
       ) : error ? (
         <span className="sample-error" role="alert">
           {error}

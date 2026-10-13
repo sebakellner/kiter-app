@@ -1,476 +1,279 @@
 import assert from 'node:assert/strict'
-import { mkdtemp, mkdir, realpath, rm, writeFile } from 'node:fs/promises'
-import { rmSync } from 'node:fs'
+import { mkdir, writeFile } from 'node:fs/promises'
+import { mkdirSync, mkdtempSync, rmSync } from 'node:fs'
+import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
-import { app, BrowserWindow, dialog, ipcMain } from 'electron'
+import { performance } from 'node:perf_hooks'
+import { app, BrowserWindow, dialog } from 'electron'
 import { createWav } from './wav.mjs'
+import {
+  verifyListingAndStyles,
+  verifyMainFrameAuthorization,
+  verifyWaveformsAndDragging,
+  verifyPlaybackAndStreaming,
+  verifyFolderOutcomesAndRevocation,
+  verifyLazyWaveforms
+} from './library.scenarios.mjs'
 
-const selections = []
-let dialogCalls = 0
-dialog.showOpenDialog = async () => {
-  dialogCalls++
-  await delay(50)
-  assert.ok(selections.length > 0, 'Unexpected folder dialog')
-  const selected = selections.shift()
-  return { canceled: selected === null, filePaths: typeof selected === 'string' ? [selected] : [] }
-}
+const WAIT_TIMEOUT_MS = 10000
+const POLL_INTERVAL_MS = 25
+const LARGE_FOLDER_SAMPLE_COUNT = 100
+const FIXTURE_WRITE_BATCH_SIZE = 10
 
 async function waitFor(check, label) {
-  const deadline = Date.now() + 10000
-  while (Date.now() < deadline) {
+  const deadline = performance.now() + WAIT_TIMEOUT_MS
+  while (performance.now() < deadline) {
     if (await check()) return
-    await delay(25)
+    await delay(POLL_INTERVAL_MS)
   }
   throw new Error(`Timed out: ${label}`)
 }
 
-async function run() {
-  const dir = await mkdtemp(path.join(tmpdir(), 'kiter-app-test-'))
-  try {
-    app.setPath('userData', dir)
-    await import('../out/main/index.js')
-    const wav = createWav()
-    await writeFile(path.join(dir, 'track2.WAV'), wav)
-    await writeFile(path.join(dir, 'track10.wav'), wav)
-    await writeFile(path.join(dir, 'broken.mp3'), 'invalid audio')
-    await writeFile(path.join(dir, 'notes.txt'), '')
-    const empty = path.join(dir, 'empty')
-    await mkdir(empty)
-    const album = path.join(dir, 'folder #1.mp3')
-    await mkdir(album)
-    await writeFile(path.join(album, 'nested.wav'), wav)
-    await mkdir(path.join(album, 'deep'))
-    await writeFile(path.join(album, 'deep', 'track2.WAV'), wav)
-    const expected = [
+async function createFixtures(directory) {
+  const samples = path.join(directory, 'samples')
+  const empty = path.join(directory, 'empty')
+  const large = path.join(directory, 'large')
+  const data = path.join(directory, 'data')
+  const album = path.join(samples, 'folder #1.mp3')
+  const wav = createWav()
+  for (const folder of [path.join(album, 'deep'), empty, large, data]) {
+    await mkdir(folder, { recursive: true })
+  }
+  for (const relative of [
+    'track2.WAV',
+    'track10.wav',
+    'folder #1.mp3/nested.wav',
+    'folder #1.mp3/deep/track2.WAV'
+  ]) {
+    await writeFile(path.join(samples, relative), wav)
+  }
+  await writeFile(path.join(samples, 'broken.mp3'), 'invalid audio')
+  await writeFile(path.join(samples, 'notes.txt'), '')
+  for (let offset = 0; offset < LARGE_FOLDER_SAMPLE_COUNT; offset += FIXTURE_WRITE_BATCH_SIZE) {
+    await Promise.all(
+      Array.from(
+        { length: Math.min(FIXTURE_WRITE_BATCH_SIZE, LARGE_FOLDER_SAMPLE_COUNT - offset) },
+        (_, index) => writeFile(path.join(large, `audio${offset + index}.wav`), wav)
+      )
+    )
+  }
+  return {
+    directory,
+    samples,
+    empty,
+    large,
+    data,
+    wav,
+    largeSampleCount: LARGE_FOLDER_SAMPLE_COUNT,
+    validSample: path.join('folder #1.mp3', 'nested.wav'),
+    otherSample: path.join('folder #1.mp3', 'deep', 'track2.WAV'),
+    missingSample: 'track10.wav',
+    invalidSample: 'broken.mp3',
+    expected: [
       'broken.mp3',
       path.join('folder #1.mp3', 'nested.wav'),
       path.join('folder #1.mp3', 'deep', 'track2.WAV'),
       'track2.WAV',
       'track10.wav'
     ]
+  }
+}
 
+async function run() {
+  let directory
+  let exitCode = 0
+  const originalDialog = dialog.showOpenDialog
+  let window
+  let originalStartDrag
+  let onConsoleMessage
+  let execute
+  const consoleErrors = []
+  const selections = []
+  let dialogCalls = 0
+  const onWindowCreated = (_, createdWindow) => {
+    if (window) return
+    window = createdWindow
+    onConsoleMessage = (event) => {
+      if (event.level === 'error') consoleErrors.push(event.message)
+    }
+    window.webContents.on('console-message', onConsoleMessage)
+  }
+  try {
+    directory = mkdtempSync(path.join(tmpdir(), 'kiter-app-test-'))
+    const data = path.join(directory, 'data')
+    mkdirSync(data)
+    dialog.showOpenDialog = async () => {
+      dialogCalls++
+      assert.ok(selections.length > 0, 'Unexpected folder dialog')
+      const selection = selections.shift()
+      if (selection.release) await selection.release
+      return {
+        canceled: selection.directory === null,
+        filePaths: typeof selection.directory === 'string' ? [selection.directory] : []
+      }
+    }
+    app.setPath('userData', data)
+    app.on('browser-window-created', onWindowCreated)
+    // Load the CommonJS entry before yielding, so protocol registration precedes app readiness.
+    createRequire(import.meta.url)('../out/main/index.js')
+    const fixtures = await createFixtures(directory)
     await app.whenReady()
     await waitFor(() => BrowserWindow.getAllWindows().length > 0, 'window creation')
     assert.equal(BrowserWindow.getAllWindows().length, 1, 'Only one window should open')
-    const window = BrowserWindow.getAllWindows()[0]
+    assert.equal(window, BrowserWindow.getAllWindows()[0])
+    window.setSize(1000, 700)
     const nativeDrags = []
+    originalStartDrag = window.webContents.startDrag
     window.webContents.startDrag = (item) => {
       nativeDrags.push(item)
     }
-    window.webContents.on('console-message', (event) => {
-      if (event.level === 'error') console.error(`Renderer: ${event.message}`)
-    })
-    const execute = (code) =>
+    execute = (code) =>
       window.webContents.executeJavaScript(code, true).catch((cause) => {
         throw new Error(`Renderer script failed: ${code.slice(0, 200)}`, { cause })
       })
-    await waitFor(() => execute('!!document.querySelector("button")'), 'renderer initialization')
-    assert.equal(await execute('typeof window.api.library.readDir'), 'function')
-    assert.equal(await execute('typeof window.api.library.startDrag'), 'function')
-    assert.equal(await execute('document.querySelector(".audio-files")'), null)
+    await waitFor(
+      () => execute('!!document.querySelector("[data-testid=open-folder]")'),
+      'renderer initialization'
+    )
     await execute(`
-      globalThis.waveformFetches = [];
-      globalThis.dragErrors = [];
-      globalThis.unsubscribeDragErrors = window.api.library.onDragError(error => globalThis.dragErrors.push(error));
-      const originalFetch = window.fetch.bind(window);
+      globalThis.libraryTest = { waveformFetches: [], dragErrors: [], unexpectedErrors: [] };
+      const state = globalThis.libraryTest;
+      const originalFetch = window.fetch;
+      const onError = event => state.unexpectedErrors.push(event.message);
+      const onRejection = event => state.unexpectedErrors.push(String(event.reason?.message ?? event.reason));
+      window.addEventListener("error", onError);
+      window.addEventListener("unhandledrejection", onRejection);
       window.fetch = (...args) => {
-        if (String(args[0]).startsWith('sample:')) globalThis.waveformFetches.push(String(args[0]));
-        return originalFetch(...args);
+        if (String(args[0]).startsWith("sample:")) state.waveformFetches.push(String(args[0]));
+        return originalFetch.apply(window, args);
+      };
+      state.unsubscribeDragErrors = window.api.library.onDragError(error => state.dragErrors.push(error));
+      state.dispose = () => {
+        state.unsubscribeDragErrors();
+        window.fetch = originalFetch;
+        window.removeEventListener("error", onError);
+        window.removeEventListener("unhandledrejection", onRejection);
       };
       void 0;
     `)
 
-    async function open(selected) {
-      selections.push(selected)
-      await execute('document.querySelector("button").click()')
-      await waitFor(() => execute('!document.querySelector("button").disabled'), 'folder reading')
-    }
-    const names = () =>
-      execute('Array.from(document.querySelectorAll(".sample-name"), item => item.textContent)')
-
-    async function preview(index) {
-      await execute(`document.querySelectorAll(".preview-button")[${index}].click()`)
-    }
-    async function drag(index) {
-      return execute(`
-        document.querySelectorAll(".audio-files li")[${index}]
-          .dispatchEvent(new DragEvent("dragstart", { bubbles: true, cancelable: true, dataTransfer: new DataTransfer() }))
-      `)
-    }
-
-    selections.push(dir)
-    await execute(
-      'document.querySelector("button").click(); document.querySelector("button").click()'
-    )
-    await waitFor(
-      () => execute('!document.querySelector("button").disabled'),
-      'initial folder reading'
-    )
-    assert.equal(dialogCalls, 1, 'Repeated clicks must not open concurrent dialogs')
-    assert.deepEqual(await names(), expected)
-    assert.ok(
-      await execute(`
-      Array.from(document.querySelectorAll("button")).every(button =>
-        button.type === "button" && button.classList.contains("ui-button")
-      )
-    `),
-      'Library buttons must preserve native semantics and share the UI primitive styling'
-    )
-    assert.ok(await execute('document.body.textContent.includes("5 audio files")'))
-    assert.ok(
-      await execute(`
-        Array.from(document.querySelectorAll("button")).every(button => {
-          const style = getComputedStyle(button);
-          return style.paddingTop === "8px" && style.paddingRight === "16px" && style.cursor === "pointer";
-        })
-      `),
-      'Button styles must load through the component without changing the existing appearance'
-    )
-    assert.deepEqual(
-      await execute(`
-        ({
-          libraryPadding: getComputedStyle(document.querySelector("main")).padding,
-          libraryMaxWidth: getComputedStyle(document.querySelector("main")).maxWidth,
-          rowWrapping: getComputedStyle(document.querySelector("[data-sample-id]")).overflowWrap,
-          favoriteMargin: getComputedStyle(document.querySelector("[data-testid=favorite-toggle]")).marginBottom,
-          previewMargin: getComputedStyle(document.querySelector(".preview-button")).marginBottom,
-          playerLabelMargin: getComputedStyle(document.querySelector(".preview-player p")).marginBottom
-        })
-      `),
-      {
-        libraryPadding: '24px',
-        libraryMaxWidth: '960px',
-        rowWrapping: 'anywhere',
-        favoriteMargin: '0px',
-        previewMargin: '0px',
-        playerLabelMargin: '8px'
-      },
-      'Colocated library styles must preserve layout and cascade overrides'
-    )
-
-    await writeFile(path.join(dir, 'ipc-frame.html'), '<iframe src="ipc-child.html"></iframe>')
-    await writeFile(path.join(dir, 'ipc-child.html'), '<p>Local IPC test frame</p>')
-    const frameWindow = new BrowserWindow({
-      show: false,
-      webPreferences: {
-        nodeIntegration: true,
-        nodeIntegrationInSubFrames: true,
-        contextIsolation: false,
-        sandbox: false
-      }
-    })
-    let subframeDrags = 0
-    let dragRequestReceived = false
-    frameWindow.webContents.startDrag = () => {
-      subframeDrags++
-    }
-    const onSubframeDrag = (event) => {
-      if (event.sender === frameWindow.webContents) dragRequestReceived = true
-    }
-    ipcMain.on('library:startDrag', onSubframeDrag)
-    try {
-      await frameWindow.loadFile(path.join(dir, 'ipc-frame.html'))
-      await waitFor(
-        () =>
-          frameWindow.webContents.mainFrame.frames.some((frame) =>
-            frame.url.endsWith('ipc-child.html')
-          ),
-        'local child frame'
-      )
-      const child = frameWindow.webContents.mainFrame.frames.find((frame) =>
-        frame.url.endsWith('ipc-child.html')
-      )
-      const sample = await execute(
-        '({ id: document.querySelector("[data-sample-id]").dataset.sampleId, url: document.querySelector("[data-audio-url]").dataset.audioUrl })'
-      )
-      const requests = [
-        ['dialog:openFolder'],
-        ['library:readDir', dir],
-        ['library:setFavorite', sample.id, true]
-      ]
-      const previousDialogCalls = dialogCalls
-      const outcomes = await child.executeJavaScript(`
-        Promise.all(${JSON.stringify(requests)}.map(async ([channel, ...args]) => {
-          try {
-            await require("electron").ipcRenderer.invoke(channel, ...args);
-            return { channel, accepted: true };
-          } catch (error) {
-            return { channel, accepted: false, message: error.message };
-          }
+    let samples = new Map()
+    const refreshSamples = async () => {
+      const rows = await execute(`
+        Array.from(document.querySelectorAll("[data-sample-id]"), row => ({
+          id: row.dataset.sampleId, audioUrl: row.dataset.audioUrl,
+          relativePath: row.querySelector("[data-testid=sample-name]").textContent
         }))
       `)
-      for (const outcome of outcomes) {
-        assert.equal(outcome.accepted, false, `${outcome.channel} must reject subframes`)
-        assert.match(outcome.message, /Unauthorized IPC request/)
-      }
-      assert.equal(dialogCalls, previousDialogCalls, 'Rejected frames must not open dialogs')
-      await child.executeJavaScript(
-        `require("electron").ipcRenderer.send("library:startDrag", ${JSON.stringify(sample.url)})`
-      )
-      await waitFor(() => dragRequestReceived, 'rejected subframe drag')
-      assert.equal(subframeDrags, 0, 'Rejected frames must not start native dragging')
-    } finally {
-      ipcMain.removeListener('library:startDrag', onSubframeDrag)
-      frameWindow.destroy()
+      samples = new Map(rows.map((sample) => [sample.relativePath, sample]))
+      return rows
     }
-
-    await waitFor(
-      () => execute('!!document.querySelector("canvas:not([hidden])")'),
-      'waveform decoding'
-    )
-    assert.ok(await execute('document.querySelector(".sample-duration").textContent === "2.00 s"'))
-    assert.ok(
-      await execute(`
-      Array.from(document.querySelector("canvas:not([hidden])").getContext("2d")
-        .getImageData(0, 0, 640, 64).data).some((value, index) => index % 4 === 3 && value > 0)
-    `),
-      'Canvas must contain a waveform'
-    )
-    await waitFor(
-      () => execute('!!document.querySelector(".audio-files li:first-child .sample-error")'),
-      'unsupported audio error'
-    )
-    assert.equal(
-      await execute('fetch("sample://audio/not-authorized").then(response => response.status)'),
-      403
-    )
-
-    assert.ok(
-      await execute(
-        'Array.from(document.querySelectorAll(".audio-files li")).every(row => row.draggable)'
+    const sample = (relativePath) => {
+      const found = samples.get(relativePath)
+      assert.ok(found, `Missing fixture sample: ${relativePath}`)
+      return found
+    }
+    const rowCode = (relativePath) =>
+      `document.querySelector(${JSON.stringify(`[data-sample-id="${sample(relativePath).id}"]`)})`
+    const waitForFolder = async () => {
+      await waitFor(
+        () =>
+          execute(
+            'document.querySelector("main").getAttribute("aria-busy") === "false" && !document.querySelector("[data-testid=open-folder]").disabled'
+          ),
+        'folder reading'
       )
-    )
-    assert.equal(await drag(1), false, 'HTML dragging must be canceled in favor of native dragging')
-    await waitFor(() => nativeDrags.length === 1, 'native file drag IPC')
-    assert.equal(nativeDrags[0].file, await realpath(path.join(album, 'nested.wav')))
-    assert.equal(nativeDrags[0].icon.isEmpty(), false)
-    assert.deepEqual(nativeDrags[0].icon.getSize(), { width: 64, height: 64 })
-
-    await execute('window.api.library.startDrag("file:///not-a-library-sample.wav")')
-    await waitFor(() => execute('globalThis.dragErrors.length === 1'), 'unauthorized drag error')
-    assert.equal(nativeDrags.length, 1, 'Arbitrary file paths must not be dragged')
-
-    await execute('document.querySelector(".audio-files li:last-child").scrollIntoView()')
-    await waitFor(
-      () => execute('!document.querySelector(".audio-files li:last-child canvas").hidden'),
-      'last sample waveform before file removal'
-    )
-    await rm(path.join(dir, 'track10.wav'))
-    await drag(4)
-    await waitFor(
-      () => execute('!!document.querySelector(".audio-files li:last-child .sample-drag-error")'),
-      'missing sample drag error'
-    )
-    assert.equal(nativeDrags.length, 1)
-    assert.ok(
-      await execute('document.querySelector(".sample-drag-error").textContent.includes("ENOENT")')
-    )
-    await writeFile(path.join(dir, 'track10.wav'), wav)
-    await drag(4)
-    await waitFor(() => nativeDrags.length === 2, 'dragging restored sample')
-    assert.equal(await execute('document.querySelector(".sample-drag-error")'), null)
-    await execute('window.scrollTo(0, 0)')
-
-    await execute('document.querySelector("audio").muted = true')
-    await execute(`
-      const buttons = document.querySelectorAll(".preview-button");
-      buttons[1].click();
-      buttons[2].click();
-      buttons[1].click();
-    `)
-    await waitFor(
-      () =>
-        execute(
-          '!document.querySelector("audio").paused && document.querySelector("audio").currentTime > 0.05'
-        ),
-      'real sample playback'
-    )
-    assert.equal(await execute('document.querySelectorAll("audio").length'), 1)
-    assert.equal(
-      await execute('document.querySelectorAll(".preview-button[aria-pressed=true]").length'),
-      1
-    )
-    const firstUrl = await execute('document.querySelector("audio").src')
-    assert.equal(
-      await execute('document.querySelectorAll(".audio-files li")[1].dataset.audioUrl'),
-      firstUrl,
-      'Rapid switching must leave only the final sample playing'
-    )
-    assert.equal(await execute('document.querySelector(".audio-files p.sample-error")'), null)
-    await execute('document.querySelector("audio").pause()')
-    await waitFor(
-      () => execute('!document.querySelector(".preview-button[aria-pressed=true]")'),
-      'pausing with native controls'
-    )
-    await execute('document.querySelector("audio").play()')
-    await waitFor(
-      () => execute('!!document.querySelector(".preview-button[aria-pressed=true]")'),
-      'resuming with native controls'
-    )
-    const range = await execute(`
-      fetch(${JSON.stringify(firstUrl)}, { headers: { Range: "bytes=0-43" } })
-        .then(async response => ({ status: response.status, bytes: (await response.arrayBuffer()).byteLength }))
-    `)
-    assert.deepEqual(range, { status: 206, bytes: 44 }, 'Audio access must support ranged playback')
-    const suffix = await execute(`
-      fetch(${JSON.stringify(firstUrl)}, { headers: { Range: "bytes=-44" } })
-        .then(async response => ({ status: response.status, bytes: (await response.arrayBuffer()).byteLength }))
-    `)
-    assert.deepEqual(suffix, { status: 206, bytes: 44 })
-    const head = await execute(`
-      fetch(${JSON.stringify(firstUrl)}, { method: "HEAD" })
-        .then(async response => ({ status: response.status, bytes: (await response.arrayBuffer()).byteLength }))
-    `)
-    assert.deepEqual(head, { status: 200, bytes: 0 })
-    assert.equal(
-      await execute(
-        `fetch(${JSON.stringify(firstUrl)}, { headers: { Range: "bytes=999999999-" } }).then(response => response.status)`
-      ),
-      416
-    )
-
-    await preview(2)
-    await waitFor(
-      () =>
-        execute(
-          '!document.querySelector("audio").paused && document.querySelectorAll(".preview-button")[2].getAttribute("aria-pressed") === "true"'
-        ),
-      'switching samples'
-    )
-    assert.notEqual(await execute('document.querySelector("audio").src'), firstUrl)
-    assert.equal(
-      await execute('document.querySelectorAll(".preview-button[aria-pressed=true]").length'),
-      1
-    )
-    await preview(2)
-    assert.ok(await execute('document.querySelector("audio").paused'))
-    assert.equal(await execute('document.querySelector("audio").currentTime'), 0)
-
-    await preview(1)
-    await waitFor(
-      () =>
-        execute(
-          '!document.querySelector("audio").paused && document.querySelector("audio").currentTime > 0.05'
-        ),
-      'preview replay'
-    )
-    await execute(
-      'document.querySelector("audio").currentTime = document.querySelector("audio").duration - 0.04'
-    )
-    await waitFor(
-      () =>
-        execute(
-          'document.querySelector("audio").ended && !document.querySelector(".preview-button[aria-pressed=true]")'
-        ),
-      'playback ending'
-    )
-
-    await preview(0)
-    await waitFor(
-      () => execute('!!document.querySelector(".audio-files li:first-child p.sample-error")'),
-      'preview format error'
-    )
-    await preview(1)
-    await waitFor(
-      () =>
-        execute(
-          '!document.querySelector("audio").paused && document.querySelector("audio").currentTime > 0.05'
-        ),
-      'playback recovery'
-    )
-    await execute('void (globalThis.previousAudio = document.querySelector("audio"))')
-
-    await open(null)
-    assert.deepEqual(await names(), expected)
-    assert.ok(
-      await execute(
-        'globalThis.previousAudio.paused && !globalThis.previousAudio.hasAttribute("src")'
-      )
-    )
-    await drag(1)
-    await waitFor(() => nativeDrags.length === 3, 'dragging after folder selection cancellation')
-
-    await open(undefined)
-    assert.ok(
-      await execute(
-        'document.querySelector(".library-error").textContent.includes("did not return a directory")'
-      )
-    )
-    assert.deepEqual(await names(), expected)
-
-    await open(path.join(dir, 'missing'))
-    assert.ok(
-      await execute('document.querySelector(".library-error").textContent.includes("ENOENT")')
-    )
-    assert.equal(
-      await execute('document.querySelector(".library-directory").textContent'),
-      `Folder: ${dir}`
-    )
-    assert.deepEqual(await names(), expected)
-
-    await open(empty)
-    assert.ok(await execute('document.body.textContent.includes("No audio files")'))
-    assert.equal(await execute('document.querySelector(".library-error")'), null)
-    assert.equal(
-      await execute(`fetch(${JSON.stringify(firstUrl)}).then(response => response.status)`),
-      403,
-      'Previous folders must no longer be available to the audio protocol'
-    )
-    const failures = await execute('globalThis.dragErrors.length')
-    await execute(`window.api.library.startDrag(${JSON.stringify(firstUrl)})`)
-    await waitFor(
-      () => execute(`globalThis.dragErrors.length === ${failures + 1}`),
-      'revoked drag source'
-    )
-    assert.equal(nativeDrags.length, 3, 'Previous libraries must not remain draggable')
-    await execute('globalThis.unsubscribeDragErrors()')
-    await execute(`window.api.library.startDrag(${JSON.stringify(firstUrl)})`)
-    await delay(50)
-    assert.equal(
-      await execute('globalThis.dragErrors.length'),
-      failures + 1,
-      'Unsubscribed error listeners must not receive events'
-    )
-
-    await execute('globalThis.waveformFetches.length = 0')
-    await Promise.all(
-      Array.from({ length: 100 }, (_, index) =>
-        writeFile(path.join(empty, `audio${index}.wav`), wav)
-      )
-    )
-    await open(empty)
-    assert.equal((await names()).length, 100)
-    await waitFor(
-      () => execute('!!document.querySelector("canvas:not([hidden])")'),
-      'visible waveforms'
-    )
-    await delay(100)
-    assert.ok(
-      await execute(
-        'globalThis.waveformFetches.length > 0 && globalThis.waveformFetches.length < 20'
-      ),
-      'Waveforms must only load for visible rows and the small prefetch margin'
-    )
-    assert.ok(
-      await execute('document.documentElement.scrollHeight > window.innerHeight'),
-      'Long lists must be scrollable'
-    )
-    await execute('window.scrollTo(0, document.documentElement.scrollHeight)')
-    assert.ok(await execute('window.scrollY > 0'), 'Scrolling must not be blocked')
-    await waitFor(
-      () => execute('!document.querySelector(".audio-files li:last-child canvas").hidden'),
-      'waveforms after scrolling'
-    )
-    console.log(
-      'PASS: recursive listing, waveforms, playback, native drag IPC/payload, access checks and cleanup'
-    )
+      await refreshSamples()
+    }
+    const context = {
+      fixtures,
+      window,
+      execute,
+      waitFor,
+      nativeDrags,
+      sample,
+      rowCode,
+      refreshSamples,
+      dialogCalls: () => dialogCalls,
+      queueSelection: (directory, release) => selections.push({ directory, release }),
+      waitForFolder,
+      open: async (directory) => {
+        selections.push({ directory })
+        await execute('document.querySelector("[data-testid=open-folder]").click()')
+        await waitForFolder()
+      },
+      names: async () => (await refreshSamples()).map((item) => item.relativePath),
+      preview: (relativePath) =>
+        execute(`${rowCode(relativePath)}.querySelector("[data-testid=preview-toggle]").click()`),
+      drag: (relativePath) =>
+        execute(`${rowCode(relativePath)}.dispatchEvent(new DragEvent("dragstart", {
+        bubbles: true, cancelable: true, dataTransfer: new DataTransfer()
+      }))`),
+      waitForPlaying: async (relativePath) =>
+        waitFor(
+          () =>
+            execute(`
+        !document.querySelector("audio").paused && document.querySelector("audio").currentTime > 0.05 &&
+        ${rowCode(relativePath)}.querySelector("[data-testid=preview-toggle]").getAttribute("aria-pressed") === "true"
+      `),
+          `playing ${relativePath}`
+        )
+    }
+    const scenarios = [
+      ['recursive listing and UI styles', verifyListingAndStyles],
+      ['main-frame IPC authorization', verifyMainFrameAuthorization],
+      ['waveforms and native drag payloads', verifyWaveformsAndDragging],
+      ['shared playback and audio streaming', verifyPlaybackAndStreaming],
+      ['folder outcomes and revoked access', verifyFolderOutcomesAndRevocation],
+      ['lazy waveforms and scrolling', verifyLazyWaveforms]
+    ]
+    for (const [name, scenario] of scenarios) {
+      const started = performance.now()
+      try {
+        await scenario(context)
+        assert.deepEqual(consoleErrors, [], 'Unexpected renderer console errors')
+        assert.deepEqual(
+          await execute('globalThis.libraryTest.unexpectedErrors'),
+          [],
+          'Unhandled renderer errors'
+        )
+        assert.equal(selections.length, 0, 'Every queued folder selection must be consumed')
+      } catch (cause) {
+        throw new Error(`Scenario failed: ${name}`, { cause })
+      }
+      console.log(`PASS: ${name} (${Math.round(performance.now() - started)} ms)`)
+    }
   } catch (error) {
     console.error(error)
-    process.exitCode = 1
+    exitCode = 1
   } finally {
-    app.once('will-quit', () => rmSync(dir, { recursive: true, force: true }))
+    dialog.showOpenDialog = originalDialog
+    app.removeListener('browser-window-created', onWindowCreated)
+    try {
+      if (execute && window && !window.isDestroyed()) {
+        await execute('globalThis.libraryTest?.dispose(); delete globalThis.libraryTest; void 0')
+      }
+    } catch (error) {
+      console.error('Electron test cleanup failed:', error)
+      exitCode = 1
+    } finally {
+      if (window && !window.isDestroyed()) {
+        if (originalStartDrag) window.webContents.startDrag = originalStartDrag
+        if (onConsoleMessage) window.webContents.removeListener('console-message', onConsoleMessage)
+      }
+    }
+    app.once('will-quit', (event) => {
+      event.preventDefault()
+      try {
+        if (directory) rmSync(directory, { recursive: true, force: true })
+      } catch (error) {
+        console.error('Electron fixture cleanup failed:', error)
+        exitCode = 1
+      }
+      app.exit(exitCode)
+    })
     app.quit()
   }
 }

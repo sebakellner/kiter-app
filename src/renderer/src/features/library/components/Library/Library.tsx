@@ -12,10 +12,14 @@ export function Library(): React.JSX.Element {
       <OpenFolderButton onClick={openFolder} loading={loading} />
 
       {!dir && <p>Open a folder to list its audio samples.</p>}
-      {dir && <p className="library-directory">Folder: {dir}</p>}
+      {dir && (
+        <p className="library-directory" data-testid="library-directory">
+          Folder: {dir}
+        </p>
+      )}
       {loading && <p role="status">Opening folder and loading samples...</p>}
       {error && (
-        <p role="alert" className="library-error">
+        <p role="alert" className="library-error" data-testid="library-error">
           {error}
         </p>
       )}

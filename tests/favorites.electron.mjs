@@ -171,7 +171,10 @@ async function run() {
     console.error(error)
     failed = true
   } finally {
-    process.exitCode = failed ? 1 : 0
+    app.once('will-quit', (event) => {
+      event.preventDefault()
+      app.exit(failed ? 1 : 0)
+    })
     app.quit()
   }
 }

@@ -110,11 +110,14 @@ export function FileList({ files, onFavoriteChanged }: Props): React.JSX.Element
             }}
           >
             <div className="sample-heading">
-              <span className="sample-name">{file.relativePath}</span>
+              <span className="sample-name" data-testid="sample-name">
+                {file.relativePath}
+              </span>
               <FavoriteButton file={file} onChanged={onFavoriteChanged} />
               <Button
                 draggable={false}
                 className="preview-button"
+                data-testid="preview-toggle"
                 aria-label={`${selected?.audioUrl === file.audioUrl && playing ? 'Stop' : 'Play'} ${file.relativePath}`}
                 aria-pressed={selected?.audioUrl === file.audioUrl && playing}
                 onClick={() => void togglePreview(file)}
@@ -124,7 +127,7 @@ export function FileList({ files, onFavoriteChanged }: Props): React.JSX.Element
             </div>
             <Waveform audioUrl={file.audioUrl} name={file.relativePath} />
             {selected?.audioUrl === file.audioUrl && error && (
-              <p role="alert" className="sample-error">
+              <p role="alert" className="sample-error" data-testid="preview-error">
                 {error}
               </p>
             )}

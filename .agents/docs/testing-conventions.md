@@ -144,7 +144,10 @@ validation tool is introduced.
 - Set Electron `userData` to a temporary test directory before importing the
   application entrypoint; never write a test catalog into real user data.
 - Close database handles and wait for the worker before deleting fixtures.
-  Use normal application quit to cover shutdown, not `app.exit`.
+  Start shutdown with `app.quit()` to cover the application's cleanup.
+  If the test needs an explicit exit status, call `app.exit(code)` only from
+  `will-quit`, after worker shutdown. `process.exitCode` alone is not sufficient
+  for Electron's normal quit path.
 - Test restart durability with separate Electron processes sharing only the
   isolated fixture. Renderer reload alone does not prove persistence.
   [Favorites restart verification](../../tests/favorites-restart.mjs) runs
@@ -199,6 +202,15 @@ Use [library.electron.mjs](../../tests/library.electron.mjs) as current prior ar
   bridge, handlers, protocol, and UI.
 - Wait for observable conditions with a deadline and useful failure labels.
   Avoid fixed sleeps as readiness checks and avoid polling without a timeout.
+- Organize long workflows into named sequential scenarios with explicit initial
+  state. Report the failed scenario and stop rather than continuing with invalid
+  shared state. Reuse the process, not implicit state left by an earlier scenario.
+- Use controlled gates for pending operations and delivery barriers for
+  unsubscription checks. A fixed sleep does not prove an event was processed.
+- Fail on unexpected renderer console errors, uncaught exceptions, and unhandled
+  rejections. Keep intentionally triggered failures distinct from these errors.
+- Scenario timings are diagnostic information, not performance benchmarks or
+  evidence of large-library scalability.
 - Return serializable results from `executeJavaScript`; DOM nodes, functions,
   and media objects cannot be returned across Electron's result bridge.
 - Treat renderer errors and failed assertions as failures. Exit nonzero and
