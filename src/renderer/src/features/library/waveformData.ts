@@ -31,7 +31,7 @@ export function loadWaveform(url: string, signal: AbortSignal): Promise<Waveform
     if (existing) return existing
 
     const response = await fetch(url, { signal })
-    if (!response.ok) throw new Error(`No se pudo leer el sample (HTTP ${response.status})`)
+    if (!response.ok) throw new Error(`Unable to read the sample (HTTP ${response.status})`)
     const bytes = await response.arrayBuffer()
     signal.throwIfAborted()
     const context = new AudioContext()

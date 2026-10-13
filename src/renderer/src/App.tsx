@@ -3,16 +3,16 @@ import { OpenFolderButton } from './features/library/OpenFolderButton'
 import { useLibrary } from './features/library/uselibrary'
 
 export default function App(): React.JSX.Element {
-  const { dir, files, loading, error, openFolder } = useLibrary()
+  const { dir, files, loading, error, openFolder, updateFavorite } = useLibrary()
 
   return (
     <main className="library" aria-busy={loading}>
-      <h1>Biblioteca de audio</h1>
+      <h1>Audio library</h1>
       <OpenFolderButton onClick={openFolder} loading={loading} />
 
-      {!dir && <p>Abre una carpeta para listar sus archivos de audio.</p>}
-      {dir && <p className="library-directory">Carpeta: {dir}</p>}
-      {loading && <p role="status">Abriendo carpeta y leyendo archivos...</p>}
+      {!dir && <p>Open a folder to list its audio samples.</p>}
+      {dir && <p className="library-directory">Folder: {dir}</p>}
+      {loading && <p role="status">Opening folder and loading samples...</p>}
       {error && (
         <p role="alert" className="library-error">
           {error}
@@ -21,8 +21,8 @@ export default function App(): React.JSX.Element {
 
       {dir && !loading && (
         <>
-          <p>{files.length} archivos de audio</p>
-          <FileList files={files} />
+          <p>{files.length} audio files</p>
+          <FileList files={files} onFavoriteChanged={updateFavorite} />
         </>
       )}
     </main>

@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict'
 import { mkdtemp, mkdir, realpath, rm, writeFile } from 'node:fs/promises'
+import { rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
 import { app, BrowserWindow, dialog } from 'electron'
 import { createWav } from './wav.mjs'
-import '../out/main/index.js'
 
 const selections = []
 let dialogCalls = 0
@@ -29,6 +29,8 @@ async function waitFor(check, label) {
 async function run() {
   const dir = await mkdtemp(path.join(tmpdir(), 'kiter-app-test-'))
   try {
+    app.setPath('userData', dir)
+    await import('../out/main/index.js')
     const wav = createWav()
     await writeFile(path.join(dir, 'track2.WAV'), wav)
     await writeFile(path.join(dir, 'track10.wav'), wav)
@@ -108,7 +110,7 @@ async function run() {
     )
     assert.equal(dialogCalls, 1, 'Repeated clicks must not open concurrent dialogs')
     assert.deepEqual(await names(), expected)
-    assert.ok(await execute('document.body.textContent.includes("5 archivos de audio")'))
+    assert.ok(await execute('document.body.textContent.includes("5 audio files")'))
 
     await waitFor(
       () => execute('!!document.querySelector("canvas:not([hidden])")'),
@@ -292,12 +294,12 @@ async function run() {
     )
     assert.equal(
       await execute('document.querySelector(".library-directory").textContent'),
-      `Carpeta: ${dir}`
+      `Folder: ${dir}`
     )
     assert.deepEqual(await names(), expected)
 
     await open(empty)
-    assert.ok(await execute('document.body.textContent.includes("No hay archivos de audio")'))
+    assert.ok(await execute('document.body.textContent.includes("No audio files")'))
     assert.equal(await execute('document.querySelector(".library-error")'), null)
     assert.equal(
       await execute(`fetch(${JSON.stringify(firstUrl)}).then(response => response.status)`),
@@ -356,8 +358,8 @@ async function run() {
     console.error(error)
     process.exitCode = 1
   } finally {
-    await rm(dir, { recursive: true, force: true })
-    app.exit(process.exitCode ?? 0)
+    app.once('will-quit', () => rmSync(dir, { recursive: true, force: true }))
+    app.quit()
   }
 }
 

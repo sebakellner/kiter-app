@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from 'react'
-import type { AudioSample } from '@shared/ipc'
+import type { AudioSample, FavoriteState } from '@shared/ipc'
 
 export function useLibrary(): {
   dir: string | null
@@ -7,6 +7,7 @@ export function useLibrary(): {
   loading: boolean
   error: string | null
   openFolder: () => Promise<void>
+  updateFavorite: (state: FavoriteState) => void
 } {
   const [dir, setDir] = useState<string | null>(null)
   const [files, setFiles] = useState<AudioSample[]>([])
@@ -21,18 +22,24 @@ export function useLibrary(): {
     setError(null)
     try {
       const selected = await window.api.dialog.openFolder()
-      if (!selected) return // el usuario canceló
+      if (!selected) return
 
       const nextFiles = await window.api.library.readDir(selected)
       setDir(selected)
       setFiles(nextFiles)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'No se pudo leer la carpeta')
+      setError(e instanceof Error ? e.message : 'Unable to read the folder')
     } finally {
       opening.current = false
       setLoading(false)
     }
   }, [])
 
-  return { dir, files, loading, error, openFolder }
+  const updateFavorite = useCallback((state: FavoriteState) => {
+    setFiles((current) =>
+      current.map((file) => (file.id === state.id ? { ...file, favorite: state.favorite } : file))
+    )
+  }, [])
+
+  return { dir, files, loading, error, openFolder, updateFavorite }
 }

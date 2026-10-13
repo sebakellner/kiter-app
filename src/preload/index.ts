@@ -9,6 +9,7 @@ const api: Api = {
   },
   library: {
     readDir: (dir) => ipcRenderer.invoke(IPC.library.readDir, dir),
+    setFavorite: (id, favorite) => ipcRenderer.invoke(IPC.library.setFavorite, id, favorite),
     startDrag: (audioUrl) => ipcRenderer.send(IPC.library.startDrag, audioUrl),
     onDragError: (listener) => {
       const handler = (_event: IpcRendererEvent, error: AudioDragError): void => listener(error)

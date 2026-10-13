@@ -81,6 +81,30 @@ code {
   min-width: 0;
 }
 
+.favorites-filter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.library .favorite-button {
+  margin-bottom: 0;
+}
+
+.favorite-button[aria-pressed='true'] {
+  background: #f0dc4e;
+}
+
+.sample-favorite {
+  max-width: 220px;
+}
+
+.sample-favorite .sample-error {
+  display: block;
+  font-size: 12px;
+}
+
 .library .preview-button {
   flex-shrink: 0;
   margin-bottom: 0;

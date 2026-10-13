@@ -7,8 +7,8 @@ type Props = {
 
 export function OpenFolderButton({ onClick, loading = false }: Props): JSX.Element {
   return (
-    <button type="button" onClick={onClick} disabled={loading}>
-      {loading ? 'Leyendo carpeta...' : 'Abrir carpeta'}
+    <button type="button" data-testid="open-folder" onClick={onClick} disabled={loading}>
+      {loading ? 'Loading folder...' : 'Open folder'}
     </button>
   )
 }

@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
-import type { AudioDragError, AudioSample } from '@shared/ipc'
+import type { AudioDragError, AudioSample, FavoriteState } from '@shared/ipc'
 import { Waveform } from './Waveform'
+import { FavoriteButton } from './FavoriteButton'
 
 type Props = {
   files: AudioSample[]
+  onFavoriteChanged: (state: FavoriteState) => void
 }
 
-export function FileList({ files }: Props): React.JSX.Element {
+export function FileList({ files, onFavoriteChanged }: Props): React.JSX.Element {
   const player = useRef<HTMLAudioElement>(null)
   const playback = useRef<{ version: number; pendingUrl: string | null }>({
     version: 0,
@@ -16,6 +18,8 @@ export function FileList({ files }: Props): React.JSX.Element {
   const [playing, setPlaying] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [dragError, setDragError] = useState<AudioDragError | null>(null)
+  const [favoritesOnly, setFavoritesOnly] = useState(false)
+  const visibleFiles = favoritesOnly ? files.filter((file) => file.favorite) : files
 
   useEffect(() => window.api.library.onDragError(setDragError), [])
 
@@ -37,7 +41,7 @@ export function FileList({ files }: Props): React.JSX.Element {
     const audio = player.current
     if (!audio) {
       setSelected(file)
-      setError('No se pudo inicializar el reproductor')
+      setError('Unable to initialize the preview player')
       return
     }
     const state = playback.current
@@ -63,8 +67,8 @@ export function FileList({ files }: Props): React.JSX.Element {
       await audio.play()
     } catch (reason) {
       if (state.version === version) {
-        const detail = reason instanceof Error ? reason.message : 'Error desconocido'
-        setError(`No se pudo reproducir el sample: ${detail}`)
+        const detail = reason instanceof Error ? reason.message : 'Unknown error'
+        setError(`Unable to play the sample: ${detail}`)
       }
     } finally {
       if (state.version === version) state.pendingUrl = null
@@ -72,20 +76,29 @@ export function FileList({ files }: Props): React.JSX.Element {
   }
 
   if (files.length === 0) {
-    return <p>No hay archivos de audio para mostrar.</p>
+    return <p>No audio files to display.</p>
   }
 
   return (
     <>
-      <p className="sample-drag-hint">
-        Arrastra un sample a tu DAW para importar el archivo original.
-      </p>
-      <ul className="audio-files" aria-label="Archivos de audio">
-        {files.map((file) => (
+      <p className="sample-drag-hint">Drag a sample into your DAW to import the original file.</p>
+      <label className="favorites-filter">
+        <input
+          type="checkbox"
+          data-testid="favorites-filter"
+          checked={favoritesOnly}
+          onChange={(event) => setFavoritesOnly(event.target.checked)}
+        />
+        Favorites in this folder
+      </label>
+      {favoritesOnly && visibleFiles.length === 0 && <p>No favorites in this folder yet.</p>}
+      <ul className="audio-files" aria-label="Audio files">
+        {visibleFiles.map((file) => (
           <li
             key={file.audioUrl}
-            title={`${file.path}\nArrastra este sample a tu DAW`}
+            title={`${file.path}\nDrag this sample into your DAW`}
             data-audio-url={file.audioUrl}
+            data-sample-id={file.id}
             draggable
             onDragStart={(event) => {
               event.preventDefault()
@@ -95,15 +108,16 @@ export function FileList({ files }: Props): React.JSX.Element {
           >
             <div className="sample-heading">
               <span className="sample-name">{file.relativePath}</span>
+              <FavoriteButton file={file} onChanged={onFavoriteChanged} />
               <button
                 type="button"
                 draggable={false}
                 className="preview-button"
-                aria-label={`${selected?.audioUrl === file.audioUrl && playing ? 'Detener' : 'Reproducir'} ${file.relativePath}`}
+                aria-label={`${selected?.audioUrl === file.audioUrl && playing ? 'Stop' : 'Play'} ${file.relativePath}`}
                 aria-pressed={selected?.audioUrl === file.audioUrl && playing}
                 onClick={() => void togglePreview(file)}
               >
-                {selected?.audioUrl === file.audioUrl && playing ? 'Detener' : 'Preview'}
+                {selected?.audioUrl === file.audioUrl && playing ? 'Stop' : 'Preview'}
               </button>
             </div>
             <Waveform audioUrl={file.audioUrl} name={file.relativePath} />
@@ -126,15 +140,13 @@ export function FileList({ files }: Props): React.JSX.Element {
           ref={player}
           controls
           preload="none"
-          aria-label="Reproductor de preview"
+          aria-label="Preview player"
           onPlaying={() => setPlaying(true)}
           onPause={() => setPlaying(false)}
           onEnded={() => setPlaying(false)}
           onError={() => {
             setPlaying(false)
-            setError(
-              'No se pudo reproducir el sample. Audio no compatible o archivo no disponible.'
-            )
+            setError('Unable to play the sample. Audio is unsupported or the file is unavailable.')
           }}
         />
       </div>

@@ -27,8 +27,8 @@ export const Waveform = memo(function Waveform({ audioUrl, name }: Props): React
       },
       (reason: unknown) => {
         if (!controller.signal.aborted) {
-          const detail = reason instanceof Error ? reason.message : 'Error desconocido'
-          setError(`No se pudo generar la onda. Audio no compatible o no disponible: ${detail}`)
+          const detail = reason instanceof Error ? reason.message : 'Unknown error'
+          setError(`Unable to generate the waveform. Unsupported or unavailable audio: ${detail}`)
         }
       }
     )
@@ -57,7 +57,7 @@ export const Waveform = memo(function Waveform({ audioUrl, name }: Props): React
         height={64}
         hidden={!data}
         role="img"
-        aria-label={`Forma de onda de ${name}`}
+        aria-label={`Waveform of ${name}`}
       />
       {data ? (
         <span className="sample-duration">{data.duration.toFixed(2)} s</span>
@@ -66,7 +66,9 @@ export const Waveform = memo(function Waveform({ audioUrl, name }: Props): React
           {error}
         </span>
       ) : (
-        <span className="waveform-status">{visible ? 'Calculando onda...' : 'Onda pendiente'}</span>
+        <span className="waveform-status">
+          {visible ? 'Calculating waveform...' : 'Waveform pending'}
+        </span>
       )}
     </div>
   )
