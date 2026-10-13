@@ -1,0 +1,20 @@
+.sample-waveform {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 64px;
+}
+
+.sample-waveform canvas {
+  width: calc(100% - 80px);
+  height: 64px;
+}
+
+.sample-duration {
+  min-width: 68px;
+  font-variant-numeric: tabular-nums;
+}
+
+.waveform-status {
+  color: var(--ev-c-text-2);
+}

@@ -1,4 +1,6 @@
 import { memo, useEffect, useRef, useState } from 'react'
+import '../../library.css'
+import './Waveform.css'
 import { loadWaveform, type WaveformData } from './waveformData'
 
 type Props = { audioUrl: string; name: string }

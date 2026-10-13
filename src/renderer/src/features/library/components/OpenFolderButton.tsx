@@ -1,4 +1,5 @@
-import { JSX } from 'react/jsx-runtime'
+import type { JSX } from 'react'
+import { Button } from '@renderer/components/ui/Button'
 
 type Props = {
   onClick: () => void
@@ -7,8 +8,8 @@ type Props = {
 
 export function OpenFolderButton({ onClick, loading = false }: Props): JSX.Element {
   return (
-    <button type="button" data-testid="open-folder" onClick={onClick} disabled={loading}>
+    <Button data-testid="open-folder" onClick={onClick} disabled={loading}>
       {loading ? 'Loading folder...' : 'Open folder'}
-    </button>
+    </Button>
   )
 }

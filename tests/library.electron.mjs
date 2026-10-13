@@ -110,7 +110,45 @@ async function run() {
     )
     assert.equal(dialogCalls, 1, 'Repeated clicks must not open concurrent dialogs')
     assert.deepEqual(await names(), expected)
+    assert.ok(
+      await execute(`
+      Array.from(document.querySelectorAll("button")).every(button =>
+        button.type === "button" && button.classList.contains("ui-button")
+      )
+    `),
+      'Library buttons must preserve native semantics and share the UI primitive styling'
+    )
     assert.ok(await execute('document.body.textContent.includes("5 audio files")'))
+    assert.ok(
+      await execute(`
+        Array.from(document.querySelectorAll("button")).every(button => {
+          const style = getComputedStyle(button);
+          return style.paddingTop === "8px" && style.paddingRight === "16px" && style.cursor === "pointer";
+        })
+      `),
+      'Button styles must load through the component without changing the existing appearance'
+    )
+    assert.deepEqual(
+      await execute(`
+        ({
+          libraryPadding: getComputedStyle(document.querySelector("main")).padding,
+          libraryMaxWidth: getComputedStyle(document.querySelector("main")).maxWidth,
+          rowWrapping: getComputedStyle(document.querySelector("[data-sample-id]")).overflowWrap,
+          favoriteMargin: getComputedStyle(document.querySelector("[data-testid=favorite-toggle]")).marginBottom,
+          previewMargin: getComputedStyle(document.querySelector(".preview-button")).marginBottom,
+          playerLabelMargin: getComputedStyle(document.querySelector(".preview-player p")).marginBottom
+        })
+      `),
+      {
+        libraryPadding: '24px',
+        libraryMaxWidth: '960px',
+        rowWrapping: 'anywhere',
+        favoriteMargin: '0px',
+        previewMargin: '0px',
+        playerLabelMargin: '8px'
+      },
+      'Colocated library styles must preserve layout and cascade overrides'
+    )
 
     await waitFor(
       () => execute('!!document.querySelector("canvas:not([hidden])")'),

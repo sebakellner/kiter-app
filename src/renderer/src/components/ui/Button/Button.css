@@ -1,0 +1,8 @@
+.ui-button {
+  padding: 8px 16px;
+  cursor: pointer;
+}
+
+.ui-button:disabled {
+  cursor: wait;
+}

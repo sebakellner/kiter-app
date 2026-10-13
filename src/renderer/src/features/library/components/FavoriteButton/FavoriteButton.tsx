@@ -1,4 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
+import '../../library.css'
+import './FavoriteButton.css'
+import { Button } from '@renderer/components/ui/Button'
 import type { AudioSample, FavoriteState } from '@shared/ipc'
 
 type Props = { file: AudioSample; onChanged: (state: FavoriteState) => void }
@@ -36,8 +39,7 @@ export function FavoriteButton({ file, onChanged }: Props): React.JSX.Element {
 
   return (
     <div className="sample-favorite">
-      <button
-        type="button"
+      <Button
         className="favorite-button"
         data-testid="favorite-toggle"
         draggable={false}
@@ -51,7 +53,7 @@ export function FavoriteButton({ file, onChanged }: Props): React.JSX.Element {
         onClick={() => void toggle()}
       >
         {pending ? 'Saving...' : file.favorite ? 'Favorited' : 'Favorite'}
-      </button>
+      </Button>
       {error && (
         <span role="alert" className="sample-error">
           {error}

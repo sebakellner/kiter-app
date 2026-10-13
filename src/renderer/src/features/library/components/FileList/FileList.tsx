@@ -1,7 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
+import '../../library.css'
+import './FileList.css'
+import { Button } from '@renderer/components/ui/Button'
 import type { AudioDragError, AudioSample, FavoriteState } from '@shared/ipc'
-import { Waveform } from './Waveform'
-import { FavoriteButton } from './FavoriteButton'
+import { Waveform } from '../Waveform'
+import { FavoriteButton } from '../FavoriteButton'
 
 type Props = {
   files: AudioSample[]
@@ -109,8 +112,7 @@ export function FileList({ files, onFavoriteChanged }: Props): React.JSX.Element
             <div className="sample-heading">
               <span className="sample-name">{file.relativePath}</span>
               <FavoriteButton file={file} onChanged={onFavoriteChanged} />
-              <button
-                type="button"
+              <Button
                 draggable={false}
                 className="preview-button"
                 aria-label={`${selected?.audioUrl === file.audioUrl && playing ? 'Stop' : 'Play'} ${file.relativePath}`}
@@ -118,7 +120,7 @@ export function FileList({ files, onFavoriteChanged }: Props): React.JSX.Element
                 onClick={() => void togglePreview(file)}
               >
                 {selected?.audioUrl === file.audioUrl && playing ? 'Stop' : 'Preview'}
-              </button>
+              </Button>
             </div>
             <Waveform audioUrl={file.audioUrl} name={file.relativePath} />
             {selected?.audioUrl === file.audioUrl && error && (

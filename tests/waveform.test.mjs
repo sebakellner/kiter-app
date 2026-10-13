@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { setTimeout as delay } from 'node:timers/promises'
-import { calculatePeaks, loadWaveform } from '../src/renderer/src/features/library/waveformData.ts'
+import {
+  calculatePeaks,
+  loadWaveform
+} from '../src/renderer/src/features/library/components/Waveform/waveformData.ts'
 
 test('peaks include both polarities, all channels and the final sample', () => {
   assert.deepEqual(calculatePeaks([new Float32Array([0, -1, 0.5, -0.25])], 2), [1, 0.5])

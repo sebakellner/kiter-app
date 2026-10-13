@@ -1,0 +1,19 @@
+.library {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.library h1,
+.library p,
+.library button {
+  margin-bottom: 16px;
+}
+
+.library-directory {
+  overflow-wrap: anywhere;
+}
+
+.library-error {
+  color: #ff8080;
+}

@@ -1,0 +1,16 @@
+.library .favorite-button {
+  margin-bottom: 0;
+}
+
+.favorite-button[aria-pressed='true'] {
+  background: #f0dc4e;
+}
+
+.sample-favorite {
+  max-width: 220px;
+}
+
+.sample-favorite .sample-error {
+  display: block;
+  font-size: 12px;
+}
