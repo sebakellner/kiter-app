@@ -32,10 +32,10 @@ or permission to introduce dependencies without an implementation requirement.
 | --- | --- |
 | [Main entry point](../../src/main/index.ts) | Application lifecycle, protocol registration, IPC registration, and window creation. |
 | [Main IPC](../../src/main/ipc/library.ts) | Authorized folder import, favorite writes, and native drag requests. |
-| [Catalog](../../src/main/services/catalog.ts) | Asynchronous worker requests and shutdown ownership. |
-| [Catalog store](../../src/main/services/catalogStore.ts) | SQLite schema v1, transactional imports, durable identities, and favorites, executed in a worker. |
-| [Library service](../../src/main/services/library.ts) | Recursive audio discovery and deterministic listing. |
-| [Audio service](../../src/main/services/audio.ts) | In-memory authorization of the loaded library and local audio streaming. |
+| [Catalog](../../src/main/services/catalog/index.ts) | Asynchronous worker requests and shutdown ownership. |
+| [Catalog store](../../src/main/services/catalog/catalogStore.ts) | SQLite schema v1, transactional imports, durable identities, and favorites, executed in a worker. |
+| [Library service](../../src/main/services/library/index.ts) | Recursive audio discovery and deterministic listing. |
+| [Audio service](../../src/main/services/audio/index.ts) | In-memory authorization of the loaded library and local audio streaming. |
 | [Preload](../../src/preload/index.ts) | Typed methods exposed through `contextBridge`. |
 | [Shared contracts](../../src/shared/ipc.ts) | Channels, request-facing API, and sample transfer types. |
 | [Library UI](../../src/renderer/src/features/library/FileList.tsx) | Sample rows, current-folder favorite filter, shared preview, and native dragging. |
@@ -47,6 +47,22 @@ sample identities. There is no task journal, kit model, global search index,
 automatic restore of the selected folder, or relocation/relinking workflow.
 See [Data Access](data-access.md#implemented-catalog-and-favorites) for storage,
 driver, schema, failure behavior, and backup limitations.
+
+### Service Modules
+
+- Group each service by responsibility under `src/main/services/<service>/`.
+  Keep its implementation, private helpers, and internal types together.
+- Each module has a small `index.ts` with explicit public exports. Application
+  consumers import the service folder; internal files use direct relative
+  imports rather than their own barrel. Do not add a global services barrel.
+- The catalog exports only `Catalog`. Its store, worker messages, and worker
+  entrypoint remain internal; importing the public API must not load SQLite
+  or execute worker startup in the main process.
+- The catalog worker remains a separate bundler entry, emitted beside the main
+  bundle. Moving its source must preserve the client's runtime worker path.
+- Isolated unit tests may import implementations directly, keeping pure
+  helpers independent of Electron and using explicit `.ts` paths for Node's
+  type-stripping runner. Integration tests exercise the public service APIs.
 
 ## Process Boundaries
 

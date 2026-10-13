@@ -133,6 +133,10 @@ conventions and [Architecture](.agents/docs/architecture.md) for process
 boundaries and architectural evolution. Keep product context and
 repository-wide safeguards here; expand topic documentation incrementally.
 
+When creating or reorganizing main-process services, follow
+[Service Modules](.agents/docs/architecture.md#service-modules): one folder per
+responsibility with a small explicit public API, not a global services barrel.
+
 ## File and Data Integrity
 
 - Importing, analyzing, previewing, and marking favorites must not modify audio.

@@ -13,10 +13,10 @@ session-scoped audio URLs.
 
 ## Implemented Catalog and Favorites
 
-- [Catalog](../../src/main/services/catalog.ts) owns one worker and asynchronous
+- [Catalog](../../src/main/services/catalog/index.ts) owns one worker and asynchronous
   `importFolder`, `setFavorite`, and `close` operations. The
-  [worker](../../src/main/services/catalogWorker.ts) owns the synchronous
-  [SQLite store](../../src/main/services/catalogStore.ts), so database work does
+  [worker](../../src/main/services/catalog/catalogWorker.ts) owns the synchronous
+  [SQLite store](../../src/main/services/catalog/catalogStore.ts), so database work does
   not block Electron's main thread.
 - Storage is `catalog.sqlite` under Electron's `userData`, not an audio folder.
   Built-in `node:sqlite` is experimental in the current Electron runtime; no

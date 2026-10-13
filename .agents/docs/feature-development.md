@@ -119,11 +119,11 @@ example in this guide:
 
 1. [Shared contracts](../../src/shared/ipc.ts) describe the current folder,
    sample, and drag-facing API.
-2. [Library service](../../src/main/services/library.ts) discovers audio recursively.
+2. [Library service](../../src/main/services/library/index.ts) discovers audio recursively.
 3. [Library handlers](../../src/main/ipc/library.ts) connect discovery and
    catalog imports, favorite writes, and native dragging, resolving authorized
    samples to real files.
-4. [Audio service](../../src/main/services/audio.ts) authorizes session sample
+4. [Audio service](../../src/main/services/audio/index.ts) authorizes session sample
    URLs and streams local audio.
 5. [Preload](../../src/preload/index.ts) exposes the explicit bridge methods
    and a removable drag-error listener.
@@ -141,6 +141,6 @@ example in this guide:
 
 This example demonstrates wiring and ownership, not a guarantee that every
 current implementation detail meets future catalog requirements. Its session
-URLs are not persistent IDs. The [catalog store](../../src/main/services/catalogStore.ts)
+URLs are not persistent IDs. The [catalog store](../../src/main/services/catalog/catalogStore.ts)
 persists UUIDs and favorites; [catalog tests](../../tests/catalog.test.ts) and
 [restart verification](../../tests/favorites-restart.mjs) cover that slice.

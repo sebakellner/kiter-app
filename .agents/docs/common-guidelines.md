@@ -8,6 +8,8 @@ architecture, file integrity rules, and validation commands.
 
 - Follow [Component Organization](component-organization.md) when creating
   or reorganizing React components, private pieces, and public exports.
+- Follow [Service Modules](architecture.md#service-modules) when creating
+  or reorganizing main-process services, their internal files, and public APIs.
 - Inspect the existing implementation and its callers before editing. Make
   complete, task-focused changes without unrelated refactoring.
 - Search for existing services, hooks, components, types, and utilities before

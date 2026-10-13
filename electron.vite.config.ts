@@ -8,7 +8,7 @@ export default defineConfig({
       rollupOptions: {
         input: {
           index: resolve('src/main/index.ts'),
-          catalogWorker: resolve('src/main/services/catalogWorker.ts')
+          catalogWorker: resolve('src/main/services/catalog/catalogWorker.ts')
         }
       }
     },
