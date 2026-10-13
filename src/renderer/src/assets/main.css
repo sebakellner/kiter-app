@@ -2,7 +2,7 @@
 
 body {
   overflow-y: auto;
-  background-image: url('./wavy-lines.svg');
+  background: #000;
   background-size: cover;
 }
 

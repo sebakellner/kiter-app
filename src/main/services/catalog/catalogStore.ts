@@ -2,45 +2,63 @@ import { randomUUID } from 'node:crypto'
 import { DatabaseSync } from 'node:sqlite'
 import type { AudioFile, CatalogSample, FavoriteState } from '../../../shared/ipc'
 
+const SQLITE_BUSY_TIMEOUT_MS = 5000
+const CATALOG_SCHEMA_VERSION = 1
+const UNVERSIONED_SCHEMA_VERSION = 0
+
 export class CatalogStore {
   private readonly db: DatabaseSync
 
   constructor(filename: string) {
     this.db = new DatabaseSync(filename)
     try {
-      this.db.exec('PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000;')
-
-      const version = this.db.prepare('PRAGMA user_version').get()?.user_version
-
-      if (version !== 0 && version !== 1) {
-        throw new Error('Catalog schema is newer than this application supports')
-      }
-      if (version === 0) {
-        this.db.exec(`
-          BEGIN IMMEDIATE;
-          CREATE TABLE roots (
-            id TEXT PRIMARY KEY,
-            path TEXT NOT NULL UNIQUE
-          ) STRICT;
-          CREATE TABLE samples (
-            id TEXT PRIMARY KEY,
-            path TEXT NOT NULL UNIQUE,
-            favorite INTEGER NOT NULL DEFAULT 0 CHECK (favorite IN (0, 1))
-          ) STRICT;
-          CREATE TABLE root_samples (
-            root_id TEXT NOT NULL REFERENCES roots(id),
-            sample_id TEXT NOT NULL REFERENCES samples(id),
-            available INTEGER NOT NULL CHECK (available IN (0, 1)),
-            PRIMARY KEY (root_id, sample_id)
-          ) STRICT;
-          PRAGMA user_version = 1;
-          COMMIT;
-        `)
-      }
+      this.configureDatabase()
+      this.initializeSchema()
     } catch (error) {
       this.db.close()
       throw error
     }
+  }
+
+  private configureDatabase(): void {
+    this.db.exec(`
+      PRAGMA foreign_keys = ON;
+      PRAGMA busy_timeout = ${SQLITE_BUSY_TIMEOUT_MS};
+    `)
+  }
+
+  private initializeSchema(): void {
+    const version = this.db.prepare('PRAGMA user_version').get()?.user_version
+    if (typeof version !== 'number' || !Number.isInteger(version) || version < 0) {
+      throw new Error('Invalid catalog schema version')
+    }
+    if (version === CATALOG_SCHEMA_VERSION) return
+    if (version !== UNVERSIONED_SCHEMA_VERSION) {
+      const compatibility = version > CATALOG_SCHEMA_VERSION ? 'newer' : 'older'
+      throw new Error(
+        `Catalog schema version ${version} is ${compatibility} than supported version ${CATALOG_SCHEMA_VERSION}`
+      )
+    }
+    this.db.exec(`
+      BEGIN IMMEDIATE;
+      CREATE TABLE roots (
+        id TEXT PRIMARY KEY,
+        path TEXT NOT NULL UNIQUE
+      ) STRICT;
+      CREATE TABLE samples (
+        id TEXT PRIMARY KEY,
+        path TEXT NOT NULL UNIQUE,
+        favorite INTEGER NOT NULL DEFAULT 0 CHECK (favorite IN (0, 1))
+      ) STRICT;
+      CREATE TABLE root_samples (
+        root_id TEXT NOT NULL REFERENCES roots(id),
+        sample_id TEXT NOT NULL REFERENCES samples(id),
+        available INTEGER NOT NULL CHECK (available IN (0, 1)),
+        PRIMARY KEY (root_id, sample_id)
+      ) STRICT;
+      PRAGMA user_version = ${CATALOG_SCHEMA_VERSION};
+      COMMIT;
+    `)
   }
 
   importFolder(root: string, files: AudioFile[]): CatalogSample[] {

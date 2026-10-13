@@ -35,6 +35,9 @@ session-scoped audio URLs.
   No global favorites query, named lists, automatic folder restore, or relink
   operation exists.
 - Schema initialization is transactional and uses `PRAGMA user_version`.
+  The store separates connection configuration from schema initialization.
+  Schema version and the 5,000 ms lock timeout are named implementation
+  constants; invalid version values are distinguished from incompatible schemas.
   Unsupported schemas, corruption, and storage failures are explicit errors;
   do not reset the catalog or fall back to a session-only successful write.
   There are no upgrade migrations or automatic backups yet. Before a future

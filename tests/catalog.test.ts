@@ -97,6 +97,37 @@ test('unsupported catalog versions are rejected without resetting the database',
   }
 })
 
+test('negative catalog versions are rejected as invalid without resetting the database', async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'kiter-catalog-invalid-version-'))
+  const filename = path.join(dir, 'catalog.sqlite')
+  const db = new DatabaseSync(filename)
+  try {
+    db.exec('PRAGMA user_version = -1; CREATE TABLE preserved(value TEXT);')
+    assert.throws(() => new CatalogStore(filename), /Invalid catalog schema version/)
+    assert.equal(db.prepare('PRAGMA user_version').get()?.user_version, -1)
+    assert.ok(db.prepare("SELECT name FROM sqlite_master WHERE name='preserved'").get())
+  } finally {
+    db.close()
+    await rm(dir, { recursive: true, force: true })
+  }
+})
+
+test('schema initialization rolls back all changes if table creation fails', async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'kiter-catalog-initialization-'))
+  const filename = path.join(dir, 'catalog.sqlite')
+  const db = new DatabaseSync(filename)
+  try {
+    db.exec("CREATE TABLE samples(value TEXT); INSERT INTO samples VALUES ('preserved');")
+    assert.throws(() => new CatalogStore(filename), /already exists/)
+    assert.equal(db.prepare('PRAGMA user_version').get()?.user_version, 0)
+    assert.equal(db.prepare("SELECT name FROM sqlite_master WHERE name='roots'").get(), undefined)
+    assert.equal(db.prepare('SELECT value FROM samples').get()?.value, 'preserved')
+  } finally {
+    db.close()
+    await rm(dir, { recursive: true, force: true })
+  }
+})
+
 test('a corrupt catalog fails explicitly without replacing its contents', async () => {
   const dir = await mkdtemp(path.join(tmpdir(), 'kiter-catalog-corrupt-'))
   const filename = path.join(dir, 'catalog.sqlite')
