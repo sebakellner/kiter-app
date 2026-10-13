@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { realpath, stat } from 'node:fs/promises'
 import { pathToFileURL } from 'node:url'
 import { net, protocol } from 'electron'
-import type { CatalogSample, AudioSample } from '../../shared/ipc'
+import type { CatalogSample, AudioSample } from '../../../shared/ipc'
 import { parseByteRange } from './audioRange'
 
 const sources = new Map<string, string>()

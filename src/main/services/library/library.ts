@@ -1,6 +1,6 @@
 import { readdir } from 'node:fs/promises'
 import path from 'node:path'
-import type { AudioFile } from '../../shared/ipc'
+import type { AudioFile } from '../../../shared/ipc'
 
 const AUDIO_EXT = new Set(['.mp3', '.wav', '.flac', '.ogg', '.m4a', '.aac'])
 

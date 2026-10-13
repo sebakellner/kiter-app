@@ -1,6 +1,6 @@
 import { join } from 'node:path'
 import { Worker } from 'node:worker_threads'
-import type { AudioFile, CatalogSample, FavoriteState } from '../../shared/ipc'
+import type { AudioFile, CatalogSample, FavoriteState } from '../../../shared/ipc'
 import type { CatalogReply, CatalogRequest } from './catalogMessages'
 
 export class Catalog {

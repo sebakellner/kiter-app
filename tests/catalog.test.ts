@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
 import { test } from 'node:test'
-import { CatalogStore } from '../src/main/services/catalogStore.ts'
+import { CatalogStore } from '../src/main/services/catalog/catalogStore.ts'
 
 test('stable IDs and favorites survive reopening, rescans and overlapping roots', async () => {
   const dir = await mkdtemp(path.join(tmpdir(), 'kiter-catalog-'))

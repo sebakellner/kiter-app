@@ -3,7 +3,7 @@ import { chmod, mkdtemp, mkdir, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { test } from 'node:test'
-import { readAudioDir } from '../src/main/services/library.ts'
+import { readAudioDir } from '../src/main/services/library/library.ts'
 
 test('lists only supported audio files, with full paths and natural ordering', async () => {
   const dir = await mkdtemp(path.join(tmpdir(), 'kiter-library-'))

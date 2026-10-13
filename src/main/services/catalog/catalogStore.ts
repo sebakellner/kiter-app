@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { DatabaseSync } from 'node:sqlite'
-import type { AudioFile, CatalogSample, FavoriteState } from '../../shared/ipc'
+import type { AudioFile, CatalogSample, FavoriteState } from '../../../shared/ipc'
 
 export class CatalogStore {
   private readonly db: DatabaseSync

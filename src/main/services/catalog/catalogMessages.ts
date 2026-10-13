@@ -1,4 +1,4 @@
-import type { AudioFile, CatalogSample, FavoriteState } from '../../shared/ipc'
+import type { AudioFile, CatalogSample, FavoriteState } from '../../../shared/ipc'
 
 export type CatalogRequest =
   | { requestId: number; action: 'import'; root: string; files: AudioFile[] }

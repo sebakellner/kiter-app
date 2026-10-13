@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { parseByteRange } from '../src/main/services/audioRange.ts'
+import { parseByteRange } from '../src/main/services/audio/audioRange.ts'
 
 test('parses bounded, open-ended and suffix byte ranges', () => {
   assert.deepEqual(parseByteRange('bytes=0-43', 100), { start: 0, end: 43 })
