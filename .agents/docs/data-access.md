@@ -52,6 +52,9 @@ session-scoped audio URLs.
   features consume explicit preload methods, not arbitrary paths or queries.
 - Validate callers and inputs at privileged boundaries. Shared TypeScript types
   do not replace runtime validation or sample authorization.
+  Apply consistent window and main-frame validation to all privileged channels,
+  including dialogs and native gestures. Keep cancellation distinct from an
+  unexpected missing result.
 - Keep handlers thin and contracts serializable. Stream audio through the
   authorized protocol rather than sending large buffers over IPC.
 - Surface meaningful failures; a failed query must not become an empty result.

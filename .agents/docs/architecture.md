@@ -34,7 +34,7 @@ or permission to introduce dependencies without an implementation requirement.
 | [Main IPC](../../src/main/ipc/library.ts) | Authorized folder import, favorite writes, and native drag requests. |
 | [Catalog](../../src/main/services/catalog/index.ts) | Asynchronous worker requests and shutdown ownership. |
 | [Catalog store](../../src/main/services/catalog/catalogStore.ts) | SQLite schema v1, transactional imports, durable identities, and favorites, executed in a worker. |
-| [Library service](../../src/main/services/library/index.ts) | Recursive audio discovery and deterministic listing. |
+| [Library service](../../src/main/services/library/index.ts) | Recursive audio discovery, canonical folder preparation, and catalog import coordination. |
 | [Audio service](../../src/main/services/audio/index.ts) | In-memory authorization of the loaded library and local audio streaming. |
 | [Preload](../../src/preload/index.ts) | Typed methods exposed through `contextBridge`. |
 | [Shared contracts](../../src/shared/ipc.ts) | Channels, request-facing API, and sample transfer types. |
