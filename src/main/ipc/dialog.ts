@@ -1,6 +1,9 @@
 import { dialog, ipcMain } from 'electron'
 import type { IpcMainInvokeEvent } from 'electron'
-import { IPC } from '../../shared/ipc'
+import { DIALOG_CHANNELS } from '../../shared/ipc'
+import type { IpcResult } from '../../shared/ipc'
+import { invokeResult } from './result'
+import { IpcError } from '../../shared/ipc/result'
 import { requireMainFrameWindow } from './authorize'
 
 async function handleOpenFolder(event: IpcMainInvokeEvent): Promise<string | null> {
@@ -12,11 +15,23 @@ async function handleOpenFolder(event: IpcMainInvokeEvent): Promise<string | nul
   const directory = result.filePaths[0]
   if (!directory) {
     console.error('Folder dialog returned no directory')
-    throw new Error('The folder dialog did not return a directory. Please try again.')
+    throw new IpcError(
+      'DIALOG_FAILED',
+      'The folder dialog did not return a directory. Please try again.'
+    )
   }
   return directory
 }
 
 export function registerDialogIpc(): void {
-  ipcMain.handle(IPC.dialog.openFolder, handleOpenFolder)
+  ipcMain.handle(DIALOG_CHANNELS.openFolder, (event): Promise<IpcResult<string | null>> =>
+    invokeResult(
+      'dialog.openFolder',
+      {
+        code: 'DIALOG_FAILED',
+        message: 'Unable to select a folder. Please try again.'
+      },
+      () => handleOpenFolder(event)
+    )
+  )
 }

@@ -8,17 +8,17 @@ file integrity, and validation.
 Read [Testing Conventions](.agents/docs/testing-conventions.md) before changing
 tests, fixtures, mocks, or validation workflows.
 
-| Guide | Read when |
-| --- | --- |
-| [Common Guidelines](.agents/docs/common-guidelines.md) | Changing code or tests: organization, reuse, imports, contracts, types, state, resource cleanup, UI, and errors. |
-| [Component Organization](.agents/docs/component-organization.md) | Creating, splitting, sharing, or moving React components, their private pieces, exports, and resource ownership. |
-| [Architecture](.agents/docs/architecture.md) | Changing process boundaries, domain responsibilities, persistence, filesystem workflows, background processing, or native integrations. |
-| [Domain Model](.agents/docs/domain-model.md) | Changing entities, identities, relationships, metadata, lifecycle behavior, or domain validation. |
-| [Testing Conventions](.agents/docs/testing-conventions.md) | Adding or changing tests, fixtures, mocks, validation commands, or platform and DAW verification. |
-| [Feature Development](.agents/docs/feature-development.md) | Adding or extending a feature end to end: scope, contracts, main/preload, UI, validation, and delivery. |
-| [UI Patterns](.agents/docs/ui-patterns.md) | Changing interactions, forms, dialogs, accessibility, or user feedback. |
-| [Data Access](.agents/docs/data-access.md) | Changing IPC, local data queries, mutation feedback, or persistence. |
-| [Release Process](.agents/docs/release-process.md) | Packaging, validating, or distributing macOS and Windows releases. |
+| Guide                                                            | Read when                                                                                                                               |
+| ---------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| [Common Guidelines](.agents/docs/common-guidelines.md)           | Changing code or tests: organization, reuse, imports, contracts, types, state, resource cleanup, UI, and errors.                        |
+| [Component Organization](.agents/docs/component-organization.md) | Creating, splitting, sharing, or moving React components, their private pieces, exports, and resource ownership.                        |
+| [Architecture](.agents/docs/architecture.md)                     | Changing process boundaries, domain responsibilities, persistence, filesystem workflows, background processing, or native integrations. |
+| [Domain Model](.agents/docs/domain-model.md)                     | Changing entities, identities, relationships, metadata, lifecycle behavior, or domain validation.                                       |
+| [Testing Conventions](.agents/docs/testing-conventions.md)       | Adding or changing tests, fixtures, mocks, validation commands, or platform and DAW verification.                                       |
+| [Feature Development](.agents/docs/feature-development.md)       | Adding or extending a feature end to end: scope, contracts, main/preload, UI, validation, and delivery.                                 |
+| [UI Patterns](.agents/docs/ui-patterns.md)                       | Changing interactions, forms, dialogs, accessibility, or user feedback.                                                                 |
+| [Data Access](.agents/docs/data-access.md)                       | Changing IPC, local data queries, mutation feedback, or persistence.                                                                    |
+| [Release Process](.agents/docs/release-process.md)               | Packaging, validating, or distributing macOS and Windows releases.                                                                      |
 
 Add guides incrementally when requested. Keep shared coding rules in their
 owning guide and index only files that exist; do not create additional guides
@@ -88,33 +88,35 @@ These features define Kiter's direction; they are not all implemented:
 The existing foundation includes recursive folder scanning, extension-based
 filtering, a sample list, on-demand waveforms and duration, preview playback
 with a shared player, and native dragging of one file per gesture. A local SQLite
-catalog stores canonical-location sample IDs and favorites; the current-folder
+database stores stable Sample UUIDs resolved through canonical source records
+and favorites; the current-folder
 favorites filter and marks survive reopening the folder after an app restart.
 
-The current catalog is a development prototype, not a compatibility baseline.
-The approved entity foundation starts from a clean SQLite database with
-`better-sqlite3`, all agreed organization entities, a local profile/Preferences,
-and managed covers/avatars. No
-prototype-data migration is required. This does not authorize automatic
+The fresh Drizzle/`better-sqlite3` foundation is implemented with 17 typed schema tables,
+shared domain contracts, transactional profile/Preferences bootstrap, and a
+worker connected to existing import/Favorite workflows, reviewed migrations and
+validated IPC result envelopes. Both earlier development databases are not opened,
+migrated, or deleted. This does not authorize automatic
 deletion/reset of local databases or source files. See
 [Domain Model](.agents/docs/domain-model.md) and
 [Data Access](.agents/docs/data-access.md) for the target design and delivery order.
 
-Local profiles and Preferences, Packs, Collections, managed images,
-classifications, global search, named favorite lists, centralization, export,
-and automation remain planned until code and tests demonstrate implementation.
+Profile/settings UI and player volume restoration, Pack/Collection operations
+and editors, managed image workflows, classification/credit operations, global
+search, named favorite lists, centralization, export, and automation remain
+planned. Schema/types alone do not deliver those features.
 
 Consult the [README](README.md) for current behavior, formats, limitations, and
 setup. Update this distinction as features are delivered.
 
 ### Goals Versus Implementation and Validation
 
-| Area | Desired convention or release goal | Current state |
-| --- | --- | --- |
-| Language | English-only first release, documentation, and code comments. | Library UI and errors, README, and agent guides are in English. |
-| Persistence | A durable local catalog with stable sample identities. | Prototype SQLite catalog in a worker; UUIDs and favorites persist by canonical location. The clean `better-sqlite3` foundation is planned, not implemented; relocation/relinking and folder restoration remain absent. |
-| Platforms | Equivalent core workflows on macOS and Windows. | Automated development validation has been performed on macOS; Windows and packaged-app validation are not established by this documentation. |
-| Native dragging | Real-file import into compatible DAWs on both target platforms. | The Electron test substitutes `startDrag`; automated payload checks do not establish actual DAW reception. |
+| Area            | Desired convention or release goal                              | Current state                                                                                                                                                                                                                     |
+| --------------- | --------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Language        | English-only first release, documentation, and code comments.   | Library UI and errors, README, and agent guides are in English.                                                                                                                                                                   |
+| Persistence     | A durable local catalog with stable sample identities.          | Fresh 17-table Drizzle/`better-sqlite3` database in a worker, committed migrations, separate Sample/source records and profile bootstrap. Development databases are not imported; relinking and folder restoration remain absent. |
+| Platforms       | Equivalent core workflows on macOS and Windows.                 | Automated development validation has been performed on macOS; Windows and packaged-app validation are not established by this documentation.                                                                                      |
+| Native dragging | Real-file import into compatible DAWs on both target platforms. | The Electron test substitutes `startDrag`; automated payload checks do not establish actual DAW reception.                                                                                                                        |
 
 Instructions describe the intended standard, not proof of implementation.
 Record validation evidence before updating support claims; a build target,
@@ -135,10 +137,14 @@ Kiter uses Electron, React, and TypeScript; it is not a web monorepo.
 
 - [src/main](src/main): filesystem access, services, dialogs, local protocols,
   and native operating system integration.
+- [src/main/db](src/main/db): private typed schema, connection, migrations,
+  operations and worker; public `DbClient` is infrastructure, not a domain entity.
 - [src/preload](src/preload): a minimal, typed bridge between Electron and the
   UI. Expose specific operations, not generic filesystem or IPC access.
 - [src/shared](src/shared): shared contracts and types. Keep them independent
   of UI dependencies and main-process services.
+- [src/shared/ipc](src/shared/ipc): domain-specific channels, named request DTOs
+  and validated `IpcResult<T>` envelopes; separate from DB rows and worker protocol.
 - [src/renderer/src](src/renderer/src): React UI, presentation state, and
   features organized by domain.
 - [tests](tests): library, audio processing, and integration tests.
@@ -196,6 +202,8 @@ pnpm lint            # ESLint
 pnpm test            # node:test tests, not watch mode
 pnpm test:app        # Build and Electron integration test; requires a desktop
 pnpm build           # Type checking and production build
+pnpm db:generate     # Generate migrations from typed schema; review SQL before committing
+pnpm db:check        # Validate migration metadata
 ```
 
 - TypeScript 7 provides `tsc` through `@typescript/native`. The `typescript`

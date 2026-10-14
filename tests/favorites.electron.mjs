@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
-import { DatabaseSync } from 'node:sqlite'
+import Database from 'better-sqlite3'
 import { app, BrowserWindow, dialog } from 'electron'
 
 const [phase, directory] = process.argv.slice(2)
@@ -58,7 +58,7 @@ async function run() {
       )
       // Revoke the UI's sample to exercise a real failed IPC write without optimistic success.
       await execute(
-        `window.api.library.readDir(${JSON.stringify(path.join(directory, 'empty'))}).then(() => null)`
+        `window.api.library.importFolder(${JSON.stringify(path.join(directory, 'empty'))}).then(result => { if (!result.ok) throw new Error(result.error.message); })`
       )
       await execute('document.querySelector("[data-testid=favorite-toggle]").click()')
       await waitFor(
@@ -111,7 +111,7 @@ async function run() {
     }
     if (phase !== 'verify') {
       const lock =
-        phase === 'save' ? new DatabaseSync(path.join(directory, 'data', 'catalog.sqlite')) : null
+        phase === 'save' ? new Database(path.join(directory, 'data', 'db', 'kiter.sqlite')) : null
       try {
         lock?.exec('BEGIN IMMEDIATE')
         await execute(
@@ -158,14 +158,26 @@ async function run() {
         assert.equal(await execute('document.querySelectorAll("[data-sample-id]").length'), 1)
       }
     }
-    const rejection = await execute(
-      'window.api.library.setFavorite("not-authorized", true).then(() => false, () => true)'
+    const rejection = await execute('window.api.library.setFavorite("not-authorized", true)')
+    assert.deepEqual(
+      rejection,
+      {
+        ok: false,
+        error: { code: 'INVALID_INPUT', message: 'Invalid or inactive sample' }
+      },
+      'Unknown IDs must be rejected'
     )
-    assert.equal(rejection, true, 'Unknown IDs must be rejected')
     const invalidBoolean = await execute(
-      `window.api.library.setFavorite(${JSON.stringify(id)}, "true").then(() => false, () => true)`
+      `window.api.library.setFavorite(${JSON.stringify(id)}, "true")`
     )
-    assert.equal(invalidBoolean, true, 'Non-boolean favorite state must be rejected')
+    assert.deepEqual(
+      invalidBoolean,
+      {
+        ok: false,
+        error: { code: 'INVALID_INPUT', message: 'Invalid or inactive sample' }
+      },
+      'Non-boolean favorite state must be rejected'
+    )
     console.log(`PASS: favorites restart phase ${phase}`)
   } catch (error) {
     console.error(error)

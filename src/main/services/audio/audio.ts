@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { realpath, stat } from 'node:fs/promises'
 import { pathToFileURL } from 'node:url'
 import { net, protocol } from 'electron'
-import type { CatalogSample, AudioSample } from '../../../shared/ipc'
+import type { LibrarySample, AudioSample } from '../../../shared/ipc'
 import { parseByteRange } from './audioRange'
 
 const sources = new Map<string, string>()
@@ -13,7 +13,7 @@ const corsHeaders = {
   'Access-Control-Expose-Headers': 'Content-Range, Accept-Ranges'
 }
 
-export function registerAudioSources(files: CatalogSample[]): AudioSample[] {
+export function registerAudioSources(files: LibrarySample[]): AudioSample[] {
   sources.clear()
   return files.map((file) => {
     const id = randomUUID()

@@ -5,7 +5,7 @@ import { BrowserWindow, ipcMain } from 'electron'
 
 export async function verifyListingAndStyles(ctx) {
   const { execute, fixtures, waitFor } = ctx
-  assert.equal(await execute('typeof window.api.library.readDir'), 'function')
+  assert.equal(await execute('typeof window.api.library.importFolder'), 'function')
   assert.equal(await execute('typeof window.api.library.startDrag'), 'function')
   assert.equal(await execute('document.querySelectorAll("[data-sample-id]").length'), 0)
   let releaseDialog
@@ -94,7 +94,7 @@ export async function verifyMainFrameAuthorization(ctx) {
   const onSubframeDrag = (event) => {
     if (event.sender === frameWindow.webContents) dragRequestReceived = true
   }
-  ipcMain.on('library:startDrag', onSubframeDrag)
+  ipcMain.on('library:start-drag', onSubframeDrag)
   try {
     await frameWindow.loadFile(path.join(fixtures.directory, 'ipc-frame.html'))
     await waitFor(
@@ -109,16 +109,16 @@ export async function verifyMainFrameAuthorization(ctx) {
     )
     const sample = ctx.sample(fixtures.validSample)
     const requests = [
-      ['dialog:openFolder'],
-      ['library:readDir', fixtures.samples],
-      ['library:setFavorite', sample.id, true]
+      ['dialog:open-folder'],
+      ['library:import-folder', { directory: fixtures.samples }],
+      ['library:set-favorite', { id: sample.id, favorite: true }]
     ]
     const previousDialogCalls = ctx.dialogCalls()
     const outcomes = await child.executeJavaScript(`
       Promise.all(${JSON.stringify(requests)}.map(async ([channel, ...args]) => {
         try {
-          await require("electron").ipcRenderer.invoke(channel, ...args);
-          return { channel, accepted: true };
+          const result = await require("electron").ipcRenderer.invoke(channel, ...args);
+          return { channel, accepted: result.ok, message: result.error?.message, code: result.error?.code };
         } catch (error) {
           return { channel, accepted: false, message: error.message };
         }
@@ -127,10 +127,11 @@ export async function verifyMainFrameAuthorization(ctx) {
     for (const outcome of outcomes) {
       assert.equal(outcome.accepted, false, `${outcome.channel} must reject subframes`)
       assert.match(outcome.message, /Unauthorized IPC request/)
+      assert.equal(outcome.code, 'UNAUTHORIZED')
     }
     assert.equal(ctx.dialogCalls(), previousDialogCalls, 'Rejected frames must not open dialogs')
     await child.executeJavaScript(
-      `require("electron").ipcRenderer.send("library:startDrag", ${JSON.stringify(sample.audioUrl)})`
+      `require("electron").ipcRenderer.send("library:start-drag", ${JSON.stringify(sample.audioUrl)})`
     )
     await waitFor(() => dragRequestReceived, 'rejected subframe drag')
     assert.equal(subframeDrags, 0, 'Rejected frames must not start native dragging')
@@ -141,7 +142,7 @@ export async function verifyMainFrameAuthorization(ctx) {
       'false'
     )
   } finally {
-    ipcMain.removeListener('library:startDrag', onSubframeDrag)
+    ipcMain.removeListener('library:start-drag', onSubframeDrag)
     frameWindow.destroy()
   }
 }

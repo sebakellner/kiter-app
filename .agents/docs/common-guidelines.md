@@ -54,7 +54,9 @@ architecture, file integrity rules, and validation commands.
   inputs. Validate them at the boundary before performing privileged operations.
 - Expose narrow, typed preload methods. Do not expose generic IPC channels,
   arbitrary file reads, or Electron event objects to the renderer.
-- Keep IPC channel names in the [shared contract](../../src/shared/ipc.ts).
+- Keep IPC channels and named request DTOs in the [shared contracts](../../src/shared/ipc/index.ts).
+  Use `domain:kebab-case` channels and validated `IpcResult<T>` envelopes for
+  requests; distinguish cancellation and empty success from failure.
   Resolve sample identifiers against the authorized library rather than
   trusting a renderer-supplied path.
 - Distinguish unsupported audio, missing files, invalid input, and operation
@@ -74,6 +76,9 @@ architecture, file integrity rules, and validation commands.
   the entire sample library to render the list.
 - Intentional persistence belongs in its owning module. Do not use browser
   storage as an implicit database or assume a persistence layer exists.
+- Keep Drizzle schema/row types private to [DB infrastructure](../../src/main/db).
+  Evolve tables through reviewed committed migrations, not schema push. Preserve
+  STRICT constraints, stable IDs and atomic rollback. Follow [Data Access](data-access.md).
 
 ## UI, Forms, and Feedback
 

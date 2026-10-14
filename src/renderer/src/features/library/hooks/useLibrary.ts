@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from 'react'
 import type { AudioSample, FavoriteState } from '@shared/ipc'
+import { unwrapIpcResult } from '@shared/ipc/result'
 
 export function useLibrary(): {
   dir: string | null
@@ -21,10 +22,10 @@ export function useLibrary(): {
     setLoading(true)
     setError(null)
     try {
-      const selected = await window.api.dialog.openFolder()
+      const selected = unwrapIpcResult(await window.api.dialog.openFolder())
       if (!selected) return
 
-      const nextFiles = await window.api.library.readDir(selected)
+      const nextFiles = unwrapIpcResult(await window.api.library.importFolder(selected))
       setDir(selected)
       setFiles(nextFiles)
     } catch (e) {

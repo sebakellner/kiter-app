@@ -1,21 +1,39 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
-import { IPC, type Api, type AudioDragError } from '@shared/ipc'
+import { DIALOG_CHANNELS, LIBRARY_CHANNELS, type Api } from '@shared/ipc'
+import { isFolderSelection } from '@shared/ipc/dialog'
+import { isAudioSamples, isAudioDragError, isFavoriteState } from '@shared/ipc/library'
+import { requireIpcResult } from '@shared/ipc/result'
 
 // Custom APIs for renderer
 const api: Api = {
   dialog: {
-    openFolder: () => ipcRenderer.invoke(IPC.dialog.openFolder)
+    openFolder: async () =>
+      requireIpcResult(await ipcRenderer.invoke(DIALOG_CHANNELS.openFolder), isFolderSelection)
   },
   library: {
-    readDir: (dir) => ipcRenderer.invoke(IPC.library.readDir, dir),
-    setFavorite: (id, favorite) => ipcRenderer.invoke(IPC.library.setFavorite, id, favorite),
-    startDrag: (audioUrl) => ipcRenderer.send(IPC.library.startDrag, audioUrl),
+    importFolder: async (directory) =>
+      requireIpcResult(
+        await ipcRenderer.invoke(LIBRARY_CHANNELS.importFolder, { directory }),
+        isAudioSamples
+      ),
+    setFavorite: async (id, favorite) =>
+      requireIpcResult(
+        await ipcRenderer.invoke(LIBRARY_CHANNELS.setFavorite, { id, favorite }),
+        isFavoriteState
+      ),
+    startDrag: (audioUrl) => ipcRenderer.send(LIBRARY_CHANNELS.startDrag, audioUrl),
     onDragError: (listener) => {
-      const handler = (_event: IpcRendererEvent, error: AudioDragError): void => listener(error)
-      ipcRenderer.on(IPC.library.dragError, handler)
+      const handler = (_event: IpcRendererEvent, error: unknown): void => {
+        if (!isAudioDragError(error)) {
+          console.error('Invalid drag error event:', 'PROTOCOL_ERROR')
+          return
+        }
+        listener(error)
+      }
+      ipcRenderer.on(LIBRARY_CHANNELS.dragError, handler)
       return () => {
-        ipcRenderer.removeListener(IPC.library.dragError, handler)
+        ipcRenderer.removeListener(LIBRARY_CHANNELS.dragError, handler)
       }
     }
   }

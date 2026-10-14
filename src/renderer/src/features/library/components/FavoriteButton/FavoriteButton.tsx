@@ -3,6 +3,7 @@ import '../../library.css'
 import './FavoriteButton.css'
 import { Button } from '@renderer/components/ui/Button'
 import type { AudioSample, FavoriteState } from '@shared/ipc'
+import { unwrapIpcResult } from '@shared/ipc/result'
 
 type Props = { file: AudioSample; onChanged: (state: FavoriteState) => void }
 
@@ -25,7 +26,7 @@ export function FavoriteButton({ file, onChanged }: Props): React.JSX.Element {
     setPending(true)
     setError(null)
     try {
-      const saved = await window.api.library.setFavorite(file.id, !file.favorite)
+      const saved = unwrapIpcResult(await window.api.library.setFavorite(file.id, !file.favorite))
       onChanged(saved)
     } catch (reason) {
       if (state.current.mounted) {

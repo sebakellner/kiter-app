@@ -11,12 +11,16 @@
     "typecheck:node": "tsc --noEmit -p tsconfig.node.json --composite false",
     "typecheck:web": "tsc --noEmit -p tsconfig.web.json --composite false",
     "typecheck": "npm run typecheck:node && npm run typecheck:web",
-    "test": "node --experimental-strip-types --test tests/*.test.*",
-    "test:app": "npm run build && electron tests/library.electron.mjs && node tests/favorites-restart.mjs",
-    "start": "electron-vite preview",
-    "dev": "electron-vite dev",
+    "test": "pnpm run rebuild:node && node --experimental-strip-types --test tests/*.test.*",
+    "test:app": "pnpm run rebuild:electron && npm run build && electron tests/library.electron.mjs && node tests/favorites-restart.mjs",
+    "start": "pnpm run rebuild:electron && electron-vite preview",
+    "dev": "pnpm run rebuild:electron && electron-vite dev",
     "build": "npm run typecheck && electron-vite build",
     "postinstall": "electron-builder install-app-deps",
+    "rebuild:node": "pnpm rebuild better-sqlite3",
+    "rebuild:electron": "electron-builder install-app-deps",
+    "db:generate": "drizzle-kit generate",
+    "db:check": "drizzle-kit check",
     "build:unpack": "npm run build && electron-builder --dir",
     "build:win": "npm run build && electron-builder --win",
     "build:mac": "electron-vite build && electron-builder --mac",
@@ -25,6 +29,8 @@
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.2",
     "@electron-toolkit/utils": "^4.0.0",
+    "better-sqlite3": "^13.0.3",
+    "drizzle-orm": "^0.45.4",
     "electron-updater": "^6.3.9"
   },
   "devDependencies": {
@@ -32,6 +38,7 @@
     "@electron-toolkit/eslint-config-ts": "^3.1.0",
     "@electron-toolkit/tsconfig": "^2.0.0",
     "@types/node": "^22.19.1",
+    "@types/better-sqlite3": "^9.6.0",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
     "@typescript/native": "npm:typescript@^7.0.2",
@@ -39,6 +46,7 @@
     "electron": "^39.2.6",
     "electron-builder": "^26.0.12",
     "electron-vite": "^5.0.0",
+    "drizzle-kit": "^0.31.11",
     "eslint": "^9.39.1",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^7.0.1",
@@ -48,11 +56,5 @@
     "react-dom": "^19.2.1",
     "typescript": "npm:@typescript/typescript6@^6.0.2",
     "vite": "^7.2.6"
-  },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "electron",
-      "esbuild"
-    ]
   }
 }
