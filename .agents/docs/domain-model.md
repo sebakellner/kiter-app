@@ -56,6 +56,8 @@ A Sample represents an audio resource in the catalog, not a temporary playback
 URL or merely a filename.
 
 - Has a stable catalog ID, display data, a source location, and availability.
+- Has an editable presentation name independent of its actual filename, and
+  optional notes. Editing presentation data never renames source audio.
 - Has zero or one origin Pack. A Sample without a Pack is a standalone Sample.
 - Can belong to any number of Collections.
 - Can have multiple Categories assigned directly to it.
@@ -71,18 +73,25 @@ duplicate source audio.
 A Pack represents a source package imported into Kiter, not a grouping manually
 assembled in the app.
 
-- Has its own stable ID and presentation data: name, cover, and other package
-  information whose required fields remain to be agreed.
+- Has its own stable ID and a required name, initially suggested from the
+  selected folder and editable without renaming that folder.
+- Can have an optional description and cover. Categories and Authors are
+  optional; their absence must not block import.
 - Groups Samples for which it is the origin Pack.
 - Can have multiple Categories assigned directly to it.
 - Can credit multiple Authors or collaborators. An Author can be credited on
-  multiple Packs; whether credits are required remains open.
+  multiple Packs.
 - Is distinct from the directory used to import it. A folder may supply a Pack,
   but its path is not the Pack's identity.
 
-Importing a directory does not by itself establish that every directory or
-subdirectory is a Pack. Pack boundaries and import mapping require a separate
-product decision. New groupings created inside Kiter are Collections, not Packs.
+On folder import, the user explicitly chooses standalone Samples or one Pack
+containing the discovered Samples in that folder and its subfolders. Subfolders
+do not automatically become separate Packs. A new Pack requires at least one
+associated Sample; an existing Pack can remain empty after removals or
+reassignments. Missing source files do not remove its memberships.
+
+Pack names may repeat. New groupings created inside Kiter are Collections,
+not Packs.
 
 ### Collection
 
@@ -95,6 +104,7 @@ A Collection is a user-created selection, independent of package origin.
 - Can combine Samples from several Packs and standalone Samples.
 - Has no Authors or Categories of its own in this stage.
 - Does not change a Sample's origin Pack, Categories, or Favorite mark.
+- Can be created empty. Collection names may repeat.
 
 The same Sample may appear once in each of several Collections. Removing it
 from one Collection does not remove it from the others or from the Library.
@@ -104,27 +114,33 @@ from one Collection does not remove it from the others or from the Library.
 A Category represents an organizational classification, not a measurement
 extracted from audio.
 
-- Has a stable ID and display name.
+- Has a stable ID and required display name.
+- Uses one flat, user-created and editable vocabulary shared by Samples and
+  Packs, with no hierarchy or mandatory predefined categories.
 - Samples and Packs can each have multiple Category assignments.
 - Pack Categories do not automatically become its Samples' Categories.
 - Category assignments are user-managed data, not disposable analysis output.
 
-Vocabulary, hierarchy, uniqueness, and whether some Categories apply only to
-Samples or only to Packs remain open. Inherited display or filtering behavior
-must not be introduced implicitly.
+Category names must be unique ignoring case and leading/trailing whitespace.
+Inherited display or filtering behavior must not be introduced implicitly.
 
 ### Author
 
 An Author represents a declared credit, not the person using this installation
 or the owner of its catalog.
 
-- Has a stable ID and display data.
+- Has a stable ID and required name; no additional profile fields in this stage.
 - Can be associated with multiple Packs.
 - A Pack can be associated with multiple Authors or collaborators.
 - Credits do not establish copyright ownership, a license, or usage rights.
 
-Credit roles and any direct Sample-level credits are not defined in this stage.
-Do not infer Sample authorship from Pack credits without an agreed rule.
+Credits do not distinguish author and collaborator roles in this stage. Author
+names may repeat because different people can have the same name; show existing
+name matches so the user can reuse an Author rather than accidentally duplicate
+one. Do not merge Authors by name.
+
+Direct Sample-level credits remain outside this stage. Do not infer Sample
+authorship from Pack credits.
 
 ## Relationships and Cardinalities
 
@@ -156,17 +172,44 @@ Pack / Collection -> cover reference
 | Pack to Author | Multiple credits per Pack; Authors are reusable across Packs. |
 | Sample to Favorite | One boolean mark; independent of Pack or Collection membership. |
 
-Whether empty Packs are valid and how Pack membership is edited remain open.
+The user can explicitly correct a Sample's origin by assigning an existing
+Pack, changing Packs, or leaving it standalone. This never moves audio or
+changes Collection memberships, direct Categories, or Favorites.
+
 These relationships do not require a separate class, table, or package for
 every concept.
+
+## Logical Data Profiles
+
+These profiles define information to preserve, not SQL tables, column types,
+or the final IPC payloads. Required names must contain non-whitespace text.
+Length limits and text validation must be agreed before implementing forms.
+
+| Concept | Required information | Optional information / associations |
+| --- | --- | --- |
+| Sample | Stable ID, source location reference, actual filename, availability, and Favorite boolean. | Presentation-name override, notes, zero or one origin Pack, Category assignments, and Collection memberships. |
+| Pack | Stable ID, name, and the source-directory association used to recognize reimports. | Description, cover reference, Category assignments, and Author credits. Origin Sample references follow the creation and empty-Pack rules above. |
+| Collection | Stable ID, name, and an ordered membership list, which can be empty. | Description and cover reference. |
+| Category | Stable ID and unique display name under the agreed matching policy. | Sample and Pack assignments. |
+| Author | Stable ID and name. | Pack credits; no credit roles in this stage. |
+
+When no presentation-name override exists, display the actual Sample filename.
+A rescan can refresh observed file information but must not replace an override
+or notes. Unknown technical measurements remain optional, never invented.
+
+Supporting records must represent registered source directories and their scan
+outcomes, file availability, and explicitly excluded canonical locations.
+Exclusion records preserve a removal decision, not the deleted Sample's former
+Favorite mark or annotations. Their physical representation belongs to schema
+design.
 
 ## Domain Operations and Rules
 
 ### Import and Rescan
 
 - Import discovers and registers files without moving or modifying audio.
-- Directory discovery and Pack registration are distinct concepts. Do not
-  assume a folder import must create a Pack or that a folder is a Collection.
+- Directory discovery and Pack registration are distinct concepts. Import
+  offers an explicit choice between standalone Samples and one origin Pack.
 - Rescanning must preserve user organization, Favorite marks, and memberships.
   It must not silently replace user edits with inferred data.
 - Repeated discovery of the same canonical location reuses the existing Sample.
@@ -174,9 +217,20 @@ every concept.
 - Same-name files are not necessarily the same Sample. Equal content does not
   authorize merging records or deleting files.
 
-An imported package that encounters Samples already associated with another
-Pack needs an explicit conflict policy; the one-origin-Pack rule must not be
-resolved by silently reassigning Samples.
+- Reimporting the same canonical folder already registered as a Pack reuses
+  that Pack, preserves edited presentation data and organization, and registers
+  new Samples. Missing sources retain their records and references.
+- Importing standalone Samples into a Pack can establish their origin
+  association. If a Sample already belongs to a different Pack, show the
+  conflict and let the user explicitly keep its prior Pack or reassign it.
+  Never silently change origin during import or rescan.
+- Manual origin corrections must survive rescans. The detailed import
+  conflict flow must reconcile those corrections with source-directory
+  associations rather than treating folder location as membership authority.
+- A new Pack must have at least one associated Sample after conflict
+  resolution; discovered files alone do not satisfy that requirement.
+- Explicitly excluded locations are not automatically registered again by a
+  rescan or repeated folder import. Reinclusion requires an explicit action.
 
 ### Collections and Favorites
 
@@ -198,8 +252,19 @@ resolved by silently reassigning Samples.
   Metadata removal must never cascade into filesystem deletion.
 - A missing source does not by itself remove a Sample's identity, organization,
   or memberships.
-- Removal policies for Samples, source directories, Categories, Authors, and
-  shared cover assets must be agreed before implementing those actions.
+- Removing a Sample from the catalog requires confirmation showing affected
+  references. Delete its catalog record, Favorite mark, annotations, Pack
+  association, Category assignments, and Collection memberships, but keep its
+  source audio. Preserve an exclusion for that canonical location so rescans
+  do not undo the decision. Explicit reinclusion does not restore deleted data.
+- Removing a Category or Author requires showing its uses and obtaining
+  confirmation. Remove its assignments or credits, not the associated
+  Samples, Packs, or files.
+- Unregistering a source directory stops scanning it but retains its Samples
+  and organization. Catalog retention alone does not authorize access to
+  audio; playback and dragging still require an authorized location.
+- Shared cover-asset cleanup remains a separate retention decision. Removing
+  a reference must not delete an image still used by another entity.
 
 Derived caches can be rebuilt; user organization must not be treated as
 disposable cache data.
@@ -290,6 +355,8 @@ operations on the same file. Durable task persistence is not implemented.
 
 The current implementation covers only the initial catalog and Favorite slice:
 
+### Implemented Identity Policy
+
 - Selected roots and discovered locations are canonicalized with `realpath`.
   A unique exact canonical path maps to one persistent Sample UUID.
 - Reopening the same location recovers its ID and Favorite mark. Overlapping
@@ -317,20 +384,26 @@ already exist.
 
 Before implementing each relevant feature, agree on:
 
-- Pack detection and boundaries during import, repeated package imports, and
-  handling of Samples already assigned to a different Pack.
-- Pack required fields, empty Packs, membership editing, ordering, and name
-  uniqueness. Collection name uniqueness and empty Collections also remain open.
-- Category vocabulary, applicable targets, hierarchy, naming, and removal.
-- Author required fields, credit roles, naming, removal, and whether direct
-  Sample credits are needed.
-- Sample/catalog removal and source-directory removal with existing references.
+- Pack sample-ordering behavior and presentation of package-import conflicts,
+  including a reimport after manual origin corrections.
+- Text length limits, comparison details for Category names, and validation of
+  notes, descriptions, and imported cover images.
+- The explicit reinclusion workflow for excluded locations, including how it
+  interacts with overlapping registered roots.
 - Identity beyond canonical location: copies, multiple physical locations,
   external changes, source-version detection, and confirmed relinking.
+- Cover-asset sharing and retention after reference removal.
 
-Once the domain baseline is established, plan local persistence, migrations,
-directory layout, covers, cache limits and invalidation, and waveform peaks.
-Keep durable user organization separate from rebuildable analysis.
+The approved persistence direction is SQLite with `better-sqlite3`, retaining
+the catalog worker. This is not implemented: the current driver remains
+`node:sqlite`. Plan and validate that driver replacement separately before
+extending the schema, preserving the existing catalog and its IDs/Favorites.
+See [Data Access](data-access.md#approved-persistence-direction-planned).
+
+Next, map these logical profiles and rules to SQLite tables, constraints,
+indexes, and versioned migrations. Plan directory layout, covers, cache limits
+and invalidation, and waveform peaks separately. Keep durable user organization
+separate from rebuildable analysis.
 
 Export, file-conflict policies, automatic suggestions, durable task states,
 retry behavior, and source-deletion verification require their own scoped

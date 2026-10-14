@@ -46,6 +46,44 @@ session-scoped audio URLs.
   quit Kiter and copy the database, preserving any SQLite companion files.
   Never delete the catalog to bypass an error without explicit user approval.
 
+## Approved Persistence Direction (Planned)
+
+Keep SQLite as the authoritative local catalog and replace the experimental
+`node:sqlite` driver with `better-sqlite3` before expanding the schema. This is
+an approved direction, not an implemented dependency or validated release
+claim.
+
+- Retain the catalog worker and asynchronous domain-specific service API.
+  The replacement driver's synchronous database work must remain off the
+  Electron main thread.
+- Treat driver replacement and domain-schema expansion as separate steps.
+  The driver transition must open the existing schema v1 catalog and preserve
+  Sample UUIDs, Favorites, roots, and associations. Do not recreate the
+  database, reset user data, or combine this step with speculative new tables.
+- Select a compatible driver version during implementation. Account for the
+  native addon, pnpm build permissions, Electron rebuilding, and unpacking
+  native files from the packaged application.
+- Validate both plain Node tests and the Electron runtime; a binary built for
+  one runtime is not evidence that the other can load it. Validate packaged
+  worker loading and persistence on macOS and Windows before claiming support.
+- Define backup and recovery before the transition. Preserve transactional
+  writes, explicit schema/storage failures, and orderly connection shutdown.
+  Driver selection alone does not establish stability or recovery guarantees.
+
+The [driver documentation](https://github.com/WiseLibs/better-sqlite3) describes
+its synchronous API and worker support; its
+[installation guidance](https://github.com/WiseLibs/better-sqlite3/blob/master/docs/troubleshooting.md)
+documents Electron rebuilding and native-library unpacking requirements.
+Follow [Testing Conventions](testing-conventions.md) and
+[Release Process](release-process.md) for validation and platform claims.
+
+After the driver transition, derive schema changes from the agreed
+[logical data profiles](domain-model.md#logical-data-profiles), domain
+relationships, removal/exclusion rules, and actual query requirements.
+Define migrations, foreign keys, uniqueness constraints, membership ordering,
+and indexes without assuming one entity must equal one table. Schema design,
+cover storage, and persistent analysis/cache layout remain pending.
+
 ## Basic Rules
 
 - Keep filesystem and future catalog access in main-process services. Renderer

@@ -137,6 +137,10 @@ Centralization is a separate, user-approved file operation.
   in a worker. Development integration is validated on macOS; worker loading,
   driver support, and packaging still need validation in distributed apps on
   both target platforms.
+- **Approved, not implemented:** retain SQLite and the catalog worker, replacing
+  `node:sqlite` with `better-sqlite3` before domain-schema expansion. See
+  [Data Access](data-access.md#approved-persistence-direction-planned) for
+  transition and native-addon validation requirements.
 - Keep storage behind small domain-specific query/update functions. Avoid a
   generic repository framework or exposing storage queries to the renderer.
 - Schema v1 is versioned; newer schemas fail without resetting user data.
