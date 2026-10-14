@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict'
-import { chmod, mkdtemp, mkdir, realpath, rm, symlink, writeFile } from 'node:fs/promises'
+import { chmod, mkdtemp, mkdir, realpath, rm, stat, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { test } from 'node:test'
-import type { AudioFile, CatalogSample } from '../src/shared/ipc.ts'
+import type { LibrarySample } from '../src/shared/ipc/library.ts'
+import type { DiscoveredAudioFile } from '../src/shared/domain/source.ts'
 import { importLibraryFolder, readAudioDir } from '../src/main/services/library/library.ts'
 
 test('lists only supported audio files, with full paths and natural ordering', async () => {
@@ -128,8 +129,14 @@ test('rejects unreadable paths instead of returning an empty list', async () => 
 test('prepares canonical locations before importing and returns catalog identities and favorites', async (t) => {
   const dir = await mkdtemp(path.join(tmpdir(), 'kiter-library-import-'))
   const importFolder = t.mock.fn(
-    async (_root: string, files: AudioFile[]): Promise<CatalogSample[]> =>
-      files.map((file) => ({ ...file, id: '00000000-0000-4000-8000-000000000001', favorite: true }))
+    async (_root: string, files: DiscoveredAudioFile[]): Promise<LibrarySample[]> =>
+      files.map(({ name, path, relativePath }) => ({
+        name,
+        path,
+        relativePath,
+        id: '00000000-0000-4000-8000-000000000001',
+        favorite: true
+      }))
   )
   try {
     await mkdir(path.join(dir, 'nested'))
@@ -144,7 +151,11 @@ test('prepares canonical locations before importing and returns catalog identiti
       { ...file, id: '00000000-0000-4000-8000-000000000001', favorite: true }
     ])
     assert.equal(importFolder.mock.callCount(), 1)
-    assert.deepEqual(importFolder.mock.calls[0].arguments, [root, [file]])
+    const observation = await stat(file.path)
+    assert.deepEqual(importFolder.mock.calls[0].arguments, [
+      root,
+      [{ ...file, observedSizeBytes: observation.size, observedMtimeMs: observation.mtimeMs }]
+    ])
   } finally {
     await rm(dir, { recursive: true, force: true })
   }

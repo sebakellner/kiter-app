@@ -1,8 +1,8 @@
 import { registerDialogIpc } from './dialog'
 import { registerLibraryIpc } from './library'
-import type { Catalog } from '../services/catalog'
+import type { DbClient } from '../db'
 
-export function registerIpc(catalog: Catalog): void {
+export function registerIpc(database: DbClient): void {
   registerDialogIpc()
-  registerLibraryIpc(catalog)
+  registerLibraryIpc(database)
 }

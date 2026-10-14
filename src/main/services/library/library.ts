@@ -1,31 +1,55 @@
-import { readdir, realpath } from 'node:fs/promises'
+import { access, readdir, realpath, stat } from 'node:fs/promises'
+import { constants } from 'node:fs'
 import path from 'node:path'
-import type { AudioFile, CatalogSample } from '../../../shared/ipc'
-import type { Catalog } from '../catalog'
+import type { AudioFile, LibrarySample } from '../../../shared/ipc'
+import type { DbClient } from '../../db'
+import type { DiscoveredAudioFile } from '../../../shared/domain/source'
+import { IpcError } from '../../../shared/ipc/result.ts'
 
 const AUDIO_EXT = new Set(['.mp3', '.wav', '.flac', '.ogg', '.m4a', '.aac'])
 
 export async function importLibraryFolder(
   directory: string,
-  catalog: Pick<Catalog, 'importFolder'>
-): Promise<CatalogSample[]> {
+  database: Pick<DbClient, 'importFolder'>
+): Promise<LibrarySample[]> {
   let root: string
-  const canonicalFiles: AudioFile[] = []
+  const canonicalFiles: DiscoveredAudioFile[] = []
   try {
     root = await realpath(directory)
     const files = await readAudioDir(root)
     for (const file of files) {
-      canonicalFiles.push({ ...file, path: await realpath(file.path) })
+      const canonicalPath = await realpath(file.path)
+      const relative = path.relative(root, canonicalPath)
+      if (
+        !relative ||
+        relative === '..' ||
+        relative.startsWith(`..${path.sep}`) ||
+        path.isAbsolute(relative)
+      ) {
+        throw new Error('Source is outside the selected directory')
+      }
+      const observation = await stat(canonicalPath)
+      if (!observation.isFile()) throw new Error('Source is not a regular file')
+      await access(canonicalPath, constants.R_OK)
+      canonicalFiles.push({
+        ...file,
+        path: canonicalPath,
+        observedSizeBytes: observation.size,
+        observedMtimeMs: observation.mtimeMs
+      })
     }
   } catch (error) {
     const code =
       error instanceof Error && 'code' in error && typeof error.code === 'string'
         ? error.code
-        : 'CATALOG_READ_FAILED'
+        : 'FOLDER_READ_FAILED'
     console.error('Library import failed:', code)
-    throw new Error(`Unable to load the folder (${code}). Check folder access and catalog storage.`)
+    throw new IpcError(
+      'FOLDER_FAILED',
+      `Unable to load the folder (${code}). Check folder access and database storage.`
+    )
   }
-  return catalog.importFolder(root, canonicalFiles)
+  return database.importFolder(root, canonicalFiles)
 }
 
 export async function readAudioDir(dirPath: string): Promise<AudioFile[]> {
