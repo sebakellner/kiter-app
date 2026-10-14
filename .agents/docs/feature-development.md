@@ -14,14 +14,14 @@ Read [Common Guidelines](common-guidelines.md) first, then the relevant guides:
 A feature is a vertical slice of user behavior, not necessarily a folder in
 every process. Add only the surfaces needed:
 
-| Surface | Add or change when |
-| --- | --- |
-| `src/shared/` | The feature changes serializable cross-process contracts. |
-| `src/main/services/` | Privileged operations, domain workflows, or filesystem behavior are needed. |
-| `src/main/ipc/` | The renderer needs a new or changed main-process operation. |
-| `src/preload/` | A narrow typed method or removable event subscription must be exposed. |
-| `src/renderer/src/features/<feature>/` | Feature UI, presentation state, hooks, or renderer helpers are needed. |
-| `tests/` | Behavior needs unit, filesystem, or Electron integration coverage. |
+| Surface                                | Add or change when                                                          |
+| -------------------------------------- | --------------------------------------------------------------------------- |
+| `src/shared/`                          | The feature changes serializable cross-process contracts.                   |
+| `src/main/services/`                   | Privileged operations, domain workflows, or filesystem behavior are needed. |
+| `src/main/ipc/`                        | The renderer needs a new or changed main-process operation.                 |
+| `src/preload/`                         | A narrow typed method or removable event subscription must be exposed.      |
+| `src/renderer/src/features/<feature>/` | Feature UI, presentation state, hooks, or renderer helpers are needed.      |
+| `tests/`                               | Behavior needs unit, filesystem, or Electron integration coverage.          |
 
 Extend existing owners before introducing new modules. Do not create schemas,
 routes, providers, barrels, or a persistence layer just to complete a template.
@@ -117,11 +117,11 @@ Creating a UI shell or a service method alone does not complete an end-to-end as
 Follow the existing implementation rather than maintaining a simplified parallel
 example in this guide:
 
-1. [Shared contracts](../../src/shared/ipc.ts) describe the current folder,
-   sample, and drag-facing API.
+1. [Shared contracts](../../src/shared/ipc/index.ts) describe domain-specific
+   requests, result envelopes, the current folder, samples, and drag-facing API.
 2. [Library service](../../src/main/services/library/index.ts) discovers audio recursively.
-3. [Library handlers](../../src/main/ipc/library.ts) connect discovery and
-   catalog imports, favorite writes, and native dragging, resolving authorized
+3. [Library handlers](../../src/main/ipc/library.ts) validate requests and return
+   typed results for imports/favorite writes. They also handle native dragging, resolving authorized
    samples to real files.
 4. [Audio service](../../src/main/services/audio/index.ts) authorizes session sample
    URLs and streams local audio.
@@ -141,6 +141,6 @@ example in this guide:
 
 This example demonstrates wiring and ownership, not a guarantee that every
 current implementation detail meets future catalog requirements. Its session
-URLs are not persistent IDs. The [catalog store](../../src/main/services/catalog/catalogStore.ts)
-persists UUIDs and favorites; [catalog tests](../../tests/catalog.test.ts) and
+URLs are not persistent IDs. The [DB worker](../../src/main/db/worker.ts)
+persists UUIDs and favorites through Drizzle and reviewed migrations; [database tests](../../tests/database.test.ts) and
 [restart verification](../../tests/favorites-restart.mjs) cover that slice.

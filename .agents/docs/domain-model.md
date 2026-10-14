@@ -13,14 +13,16 @@ catalog and from questions that still require agreement.
 
 - **Agreed domain:** one local UserProfile with Preferences, one Library,
   Sample, Pack, Collection, Category, Author, and sample favorite marks.
-- **Implemented slice:** persistent sample IDs by canonical location, imported
-  root associations, and sample favorites. The
-  [shared contract](../../src/shared/ipc.ts) defines `AudioFile`,
-  `CatalogSample`, `AudioSample`, `FavoriteState`, and drag errors.
-  This slice is a development prototype, not a compatibility requirement for
-  the new entity system.
-- **Not implemented:** UserProfile, Preferences, Packs, Collections, Categories, Authors, and the
-  broader lifecycle rules described here.
+- **Implemented slice:** pure entity contracts, fresh 17-table catalog, separate
+  Sample/source records, imported root associations, Favorites, and transactional
+  local profile/Preferences bootstrap. DB client profile reads and volume writes
+  exist internally; they are not wired to settings UI or player restoration. The
+  [shared contracts](../../src/shared/ipc/index.ts) define `AudioFile`,
+  `LibrarySample`, `AudioSample`, `FavoriteState`, and typed IPC results.
+  Drizzle rows remain private persistence types, separate from domain contracts.
+  Source size/mtime observations advance revisions on detected changes.
+- **Not implemented:** complete Pack/Collection, classification/credit,
+  profile-editing, managed-image, and other lifecycle workflows below.
 - **Deferred design:** analysis/cache storage layout, cache persistence, waveform
   peaks, and analysis versioning. Managed covers are part of the first new
   entity delivery; persistent technical analysis follows separately.
@@ -31,17 +33,17 @@ incrementally; do not replace working listing types with a speculative model.
 
 ## Product Vocabulary
 
-| Concept | Meaning | Modeling decision |
-| --- | --- | --- |
-| UserProfile | The local profile of the person using this installation. | Exactly one profile with a name, optional avatar, and optional linked Author; no login or account. |
-| Preferences | Application behavior chosen by the local user. | One typed preference record per profile; initially persistent preview volume only. |
-| Library | The complete local scope of imported samples, packs, collections, and their organization. | One Library with multiple source directories; not a separately identified entity in this stage. |
-| Sample | A cataloged audio resource with its own identity and organization. | Core entity; it may be standalone or have one origin Pack. |
-| Pack | An imported source package, such as a sample product from a producer or provider. | Core entity with presentation data, samples, categories, and declared authors. |
-| Collection | A selection of samples assembled inside Kiter. | Core entity referencing samples from different Packs and standalone samples. |
-| Category | A classification used to organize Samples and Packs. | Classification entity; assignments are independent for each target. |
-| Author | A declared author, producer, provider, or collaborator credited on Samples or Packs. | Reusable credit identity, not a user profile or authorization principal; may represent the same person as UserProfile. |
-| Favorite | A personal mark on a Sample. | Sample state, not a separate grouping or named-list entity in this stage. |
+| Concept     | Meaning                                                                                   | Modeling decision                                                                                                      |
+| ----------- | ----------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| UserProfile | The local profile of the person using this installation.                                  | Exactly one profile with a name, optional avatar, and optional linked Author; no login or account.                     |
+| Preferences | Application behavior chosen by the local user.                                            | One typed preference record per profile; initially persistent preview volume only.                                     |
+| Library     | The complete local scope of imported samples, packs, collections, and their organization. | One Library with multiple source directories; not a separately identified entity in this stage.                        |
+| Sample      | A cataloged audio resource with its own identity and organization.                        | Core entity; it may be standalone or have one origin Pack.                                                             |
+| Pack        | An imported source package, such as a sample product from a producer or provider.         | Core entity with presentation data, samples, categories, and declared authors.                                         |
+| Collection  | A selection of samples assembled inside Kiter.                                            | Core entity referencing samples from different Packs and standalone samples.                                           |
+| Category    | A classification used to organize Samples and Packs.                                      | Classification entity; assignments are independent for each target.                                                    |
+| Author      | A declared author, producer, provider, or collaborator credited on Samples or Packs.      | Reusable credit identity, not a user profile or authorization principal; may represent the same person as UserProfile. |
+| Favorite    | A personal mark on a Sample.                                                              | Sample state, not a separate grouping or named-list entity in this stage.                                              |
 
 Use **Pack**, not **Kit**, for imported source packages. Use **Author**, not
 **Owner**, for declared credits.
@@ -220,17 +222,17 @@ Sample -> technical metadata and derived waveform analysis
 Pack / Collection -> cover reference
 ```
 
-| Relationship | Agreed rule |
-| --- | --- |
-| Sample to Pack | Zero or one origin Pack per Sample; a Pack can group multiple Samples. |
-| Sample to Collection | Many-to-many; ordered and unique within each Collection. |
-| Sample to Category | Multiple direct assignments; independent of Pack Categories. |
-| Pack to Category | Multiple direct assignments; no automatic propagation to Samples. |
-| Pack to Author | Multiple credits per Pack; Authors are reusable across Packs. |
-| Sample to Author | Multiple direct credits per Sample; no inheritance from Pack credits. |
-| Sample to Favorite | One boolean mark; independent of Pack or Collection membership. |
-| UserProfile to Author | Optional link identifying one's artistic credit identity, without automatic attribution. |
-| UserProfile to Preferences | Exactly one settings record for the single local profile. |
+| Relationship               | Agreed rule                                                                              |
+| -------------------------- | ---------------------------------------------------------------------------------------- |
+| Sample to Pack             | Zero or one origin Pack per Sample; a Pack can group multiple Samples.                   |
+| Sample to Collection       | Many-to-many; ordered and unique within each Collection.                                 |
+| Sample to Category         | Multiple direct assignments; independent of Pack Categories.                             |
+| Pack to Category           | Multiple direct assignments; no automatic propagation to Samples.                        |
+| Pack to Author             | Multiple credits per Pack; Authors are reusable across Packs.                            |
+| Sample to Author           | Multiple direct credits per Sample; no inheritance from Pack credits.                    |
+| Sample to Favorite         | One boolean mark; independent of Pack or Collection membership.                          |
+| UserProfile to Author      | Optional link identifying one's artistic credit identity, without automatic attribution. |
+| UserProfile to Preferences | Exactly one settings record for the single local profile.                                |
 
 The user can explicitly correct a Sample's origin by assigning an existing
 Pack, changing Packs, or leaving it standalone. This never moves audio or
@@ -245,15 +247,15 @@ These profiles define information to preserve, not SQL tables, column types,
 or the final IPC payloads. Required names must contain non-whitespace text.
 Length limits and text validation must be agreed before implementing forms.
 
-| Concept | Required information | Optional information / associations |
-| --- | --- | --- |
-| UserProfile | Stable ID and presentation name. | Managed avatar reference and linked Author. |
-| Preferences | Profile reference and preview volume in the inclusive range 0 to 1. | No other persistent preferences in this stage. |
-| Sample | Stable ID, source location reference, actual filename, availability, and Favorite boolean. | Presentation-name override, notes, zero or one origin Pack, direct Category/Author assignments, and Collection memberships. |
-| Pack | Stable ID, name, and the source-directory association used to recognize reimports. | Description, cover reference, Category assignments, and Author credits. Origin Sample references follow the creation and empty-Pack rules above. |
-| Collection | Stable ID, name, and an ordered membership list, which can be empty. | Description and cover reference. |
-| Category | Stable ID and unique display name under the agreed matching policy. | Sample and Pack assignments. |
-| Author | Stable ID and name. | Sample/Pack credits and optional UserProfile link; no credit roles in this stage. |
+| Concept     | Required information                                                                       | Optional information / associations                                                                                                              |
+| ----------- | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| UserProfile | Stable ID and presentation name.                                                           | Managed avatar reference and linked Author.                                                                                                      |
+| Preferences | Profile reference and preview volume in the inclusive range 0 to 1.                        | No other persistent preferences in this stage.                                                                                                   |
+| Sample      | Stable ID, source location reference, actual filename, availability, and Favorite boolean. | Presentation-name override, notes, zero or one origin Pack, direct Category/Author assignments, and Collection memberships.                      |
+| Pack        | Stable ID, name, and the source-directory association used to recognize reimports.         | Description, cover reference, Category assignments, and Author credits. Origin Sample references follow the creation and empty-Pack rules above. |
+| Collection  | Stable ID, name, and an ordered membership list, which can be empty.                       | Description and cover reference.                                                                                                                 |
+| Category    | Stable ID and unique display name under the agreed matching policy.                        | Sample and Pack assignments.                                                                                                                     |
+| Author      | Stable ID and name.                                                                        | Sample/Pack credits and optional UserProfile link; no credit roles in this stage.                                                                |
 
 When no presentation-name override exists, display the actual Sample filename.
 A rescan can refresh observed file information but must not replace an override
@@ -359,16 +361,16 @@ metadata inclusion, manifests, and conflict policies remain open.
 These concepts support the domain but are not additional top-level library
 groupings. Their representation belongs to later technical planning.
 
-| Concept | Responsibility |
-| --- | --- |
-| Library root / source directory | A user-selected directory registered for discovery, with scan state and outcomes; not the Library itself or a Pack. |
-| File location | The expected source path, root associations, availability observations, and eventually an identified source version. |
-| Technical metadata | Measurements from a known source version, such as duration, sample rate, channels, and format. |
-| Waveform analysis | Rebuildable visualization data associated with a Sample, source version, and analysis version. |
-| Managed image asset | Validated image copy referenced as a Pack/Collection cover or UserProfile avatar, with recoverable cleanup when unreferenced. |
-| Organization suggestion | A proposed classification, grouping, or file action, distinct from accepted user data. |
-| Task | A tracked operation with scope, progress, cancellation, and per-item outcomes. |
-| File operation plan | Reviewable sources, destinations, conflicts, confirmation, and execution outcomes. |
+| Concept                         | Responsibility                                                                                                                |
+| ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| Library root / source directory | A user-selected directory registered for discovery, with scan state and outcomes; not the Library itself or a Pack.           |
+| File location                   | The expected source path, root associations, availability observations, and eventually an identified source version.          |
+| Technical metadata              | Measurements from a known source version, such as duration, sample rate, channels, and format.                                |
+| Waveform analysis               | Rebuildable visualization data associated with a Sample, source version, and analysis version.                                |
+| Managed image asset             | Validated image copy referenced as a Pack/Collection cover or UserProfile avatar, with recoverable cleanup when unreferenced. |
+| Organization suggestion         | A proposed classification, grouping, or file action, distinct from accepted user data.                                        |
+| Task                            | A tracked operation with scope, progress, cancellation, and per-item outcomes.                                                |
+| File operation plan             | Reviewable sources, destinations, conflicts, confirmation, and execution outcomes.                                            |
 
 ### Identity and Sources of Truth
 
@@ -417,10 +419,10 @@ operations on the same file. Durable task persistence is not implemented.
 
 ## Implemented Catalog: Current Behavior and Limitations
 
-The current implementation is a development prototype covering the catalog
-and Favorite slice. Its limitations below describe running code, not accepted
-constraints on the clean foundation. No migration or preservation of its data
-is required.
+The current implementation uses Drizzle over `better-sqlite3` with committed
+migrations and a DB worker. Earlier development databases are not read, migrated,
+or deleted. Full domain
+workflows remain incremental; tables and types are not proof of delivered UI.
 
 ### Implemented Identity Policy
 
@@ -431,11 +433,12 @@ is required.
 - Different locations remain different Samples even with equal names or
   content. Symlink discovery remains excluded by the scanner.
 - Missing files retain IDs and Favorites. Successful rescans mark absent
-  associations unavailable without deleting catalog records.
-- No automatic move/relink or source-version detection exists. An external
-  move creates a new ID; replacing a file at the same location inherits that
-  location record. This prototype limitation is not the identity or
-  source-change contract for the new implementation.
+  root associations not present without deleting catalog records. That discovery
+  observation does not claim a new source-availability check.
+- Imports observe size/mtime; detected changes increment the source revision
+  without replacing its UUID or user data. Size/mtime equality is not content
+  equality. Stronger analysis validation and confirmed relinking remain planned;
+  external moves currently create a new record when imported.
 - `favorite` is a persisted Sample boolean. Writes never modify audio. The
   current filter is limited to the selected folder.
 - Folder selection is not restored after restart.
@@ -462,17 +465,18 @@ Before implementing each relevant feature, agree on:
 - Recoverable cover publication and cleanup implementation, including
   coordination with concurrent edits and startup reconciliation.
 
-The approved persistence direction is a clean SQLite catalog using
-`better-sqlite3` from the beginning, owned by a catalog worker. This is not
-implemented: the current prototype still uses `node:sqlite`. Prototype schema
+The approved persistence direction is a clean SQLite catalog using Drizzle and
+`better-sqlite3`, owned by a DB worker. The foundation
+is implemented; most entity workflows and UI remain pending. Prototype schema
 and records impose no compatibility or migration requirement. Keep versioning
 and recovery for the new system, and never delete local data automatically.
-See [Data Access](data-access.md#approved-persistence-direction-planned).
+See [Data Access](data-access.md#persistence-foundation).
 
-The [proposed organization schema](data-access.md#proposed-organization-schema-not-implemented)
+The [organization schema](data-access.md#organization-schema)
 maps these profiles to target tables, constraints, indexes, transactional
-workflows, managed covers, and implementation order. It is a design, not
-implemented persistence. Deliver the agreed entities and covers on the new
+workflows, managed covers, and implementation order. The schema is implemented;
+target workflow descriptions do not imply their features exist. Deliver the
+remaining entity operations and covers on the new
 foundation, preserving preview and native dragging. Persistent technical
 metadata, cache invalidation, and waveform peaks follow as a separate module.
 Keep durable user organization separate from rebuildable analysis.

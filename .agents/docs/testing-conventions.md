@@ -58,6 +58,34 @@ expansion. Consult [package.json](../../package.json) for authoritative scripts.
 Documentation-only changes need no application tests unless a documentation
 validation tool is introduced.
 
+### Native Database Runtime
+
+The database uses Drizzle over `better-sqlite3`. `pnpm test` prepares it for plain Node;
+`pnpm test:app`, `pnpm dev`, and `pnpm start` prepare it for Electron.
+Before focused direct Node commands, run `pnpm rebuild:node`; before direct
+Electron commands after a Node run, use `pnpm rebuild:electron`. Do not run
+native rebuilds concurrently with tests using that dependency.
+
+Database tests import private connection/operation modules with explicit `.ts`
+extensions. Worker tests launch the actual worker source under Node's type
+stripping; Electron integration validates its separate bundled entry and
+asynchronous public `DbClient` API and copied migration assets.
+
+Run `pnpm db:check` for migration metadata and `pnpm db:generate` to confirm an
+unchanged schema produces no migration. Schema tests compare applied tables,
+columns, named checks/indexes with Drizzle declarations and enforce STRICT.
+Migration tests cover fresh bootstrap, pending upgrades, idempotence, history
+hashes, newer-version rejection, data preservation and atomic rollback.
+Use isolated copied migration folders for upgrade/failure fixtures; never
+rewrite the shipped SQL to inject a test failure.
+
+IPC tests assert exact success/error envelopes and runtime validation. Electron
+authorization tests require `UNAUTHORIZED` results, not exceptions whose custom
+properties may be lost. Cancellation is a successful `null`, not a failure.
+Worker startup tests reject missing migration assets. Favorite restart processes
+run from a temporary working directory, verify bundled asset resolution, and
+assert both earlier development databases and original audio remain untouched.
+
 ## Test Design
 
 - Write test titles in English and describe observable expected behavior.

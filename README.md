@@ -37,31 +37,44 @@ validation is on macOS, not packaged applications or Windows.
   state; failed writes display an error without claiming success.
 - Fully quit Kiter, reopen it, and open the same folder to recover sample IDs and
   favorites. The selected folder is not automatically restored on startup.
-- SQLite stores roots, samples, and their associations in `catalog.sqlite` under
-  Electron's application `userData` directory. Database work runs in a dedicated
-  worker, using built-in experimental `node:sqlite` with no additional dependency.
-- The initial identity policy maps an exact canonical file location to a UUID.
+- SQLite stores the library in `db/kiter.sqlite` under Electron's
+  application `userData` directory, using Drizzle over `better-sqlite3` in a dedicated worker.
+  Startup waits for worker readiness; quitting drains writes and closes it.
+- This is a fresh database. Both earlier development databases (`catalog.sqlite`
+  and `library/library.sqlite`) remain untouched and are not imported or migrated.
+  Their IDs and Favorites are not restored into this database.
+- A Sample has its own UUID and a separate source record. Canonical locations
+  are used to find registered sources.
   Rescans and overlapping roots reuse that ID and favorite. Missing files retain
   their records. Different copies at different paths are separate samples.
 - External moves/renames are not reconciled: a new location gets a new ID.
-  Replacing a file at the same location inherits that location's record; content
-  and source-version matching are not implemented.
+  Changes to observed size or modification time at the same location increment
+  the source revision while preserving its Sample and organization. This is
+  not content matching; changes that preserve those observations may go undetected.
 - Favorites are persisted across folders, but there is no global favorites view,
-  named favorite list, kit model, relinking, or metadata editor yet.
+  named favorite list, Pack/Collection editor, relinking, or metadata editor yet.
+- The 17-table entity schema and one local profile with typed Preferences are
+  initialized transactionally. Profile reads and preview-volume writes exist
+  inside the DB client API, but profile/settings UI and restoration of stored
+  volume in the player are not implemented. Packs, Collections, classification,
+  credits, and managed images have schema/contracts, not complete feature APIs.
 - Importing and favoriting never modify source audio. Session audio URLs are
   regenerated, not stored as catalog references.
 
 ### Storage Failures and Backup
 
-Schema v1 is created transactionally. Unsupported schemas, corrupt databases,
+Committed Drizzle SQL migrations run transactionally with initial local profile/
+Preferences bootstrap and integrity checks. Unsupported formats/versions, changed
+migration history, corrupt databases,
 or inaccessible storage produce errors rather than resetting favorites or
 silently falling back to in-memory storage. Correct permissions/free space or
 restore a known compatible backup, then restart Kiter. Do not delete the catalog
 as an automatic repair.
 
-For a manual backup, fully quit Kiter before copying `catalog.sqlite` and any
-SQLite companion files from its `userData` directory. There are no automatic
-backups, migration/recovery UI, or upgrade migrations yet. These and packaged
+For a manual backup, fully quit Kiter before copying `db/kiter.sqlite`
+and any SQLite companion files from its `userData` directory. There are no automatic
+backups or migration/recovery UI. Transactional upgrade infrastructure is present,
+but no released data-changing upgrade has been delivered. Recovery and packaged
 worker/SQLite validation on both target platforms remain release work.
 
 See [Data Access](.agents/docs/data-access.md) and
@@ -77,6 +90,13 @@ pnpm install --frozen-lockfile
 pnpm dev
 ```
 
+Native dependency build permissions are declared in `pnpm-workspace.yaml`.
+Development/start and Electron tests prepare the addon with `rebuild:electron`;
+Node tests use `rebuild:node`. Before running focused Node tests directly, run
+`pnpm rebuild:node`. Run `pnpm rebuild:electron` before direct Electron commands
+after switching runtimes. Packaging rebuilds and unpacks the native dependency,
+but packaged-app and Windows validation remain outstanding.
+
 Recommended editor extensions:
 [ESLint](https://marketplace.visualstudio.com/items?itemName=dbaeumer.vscode-eslint)
 and [Prettier](https://marketplace.visualstudio.com/items?itemName=esbenp.prettier-vscode).
@@ -88,6 +108,7 @@ pnpm test       # Node filesystem, audio, catalog durability and rollback tests
 pnpm test:app   # Build + real Electron library and process-restart tests; needs a desktop
 pnpm typecheck
 pnpm lint
+pnpm db:check
 ```
 
 Electron integration exercises renderer/preload/main communication, real WAV
@@ -103,6 +124,26 @@ selection during a write, filtering, ID/boolean validation, normal shutdown,
 and preservation of original audio bytes. Unit tests cover missing/reappearing
 locations, overlapping roots, failed transactions, and unsupported/corrupt
 catalogs without resets.
+
+## Database and IPC Conventions
+
+The [DB module](src/main/db) owns a typed Drizzle schema and a private worker.
+Application services call explicit `DbClient` operations, never generic SQL.
+Domain contracts remain separate from database rows. Public
+[IPC contracts](src/shared/ipc) use named requests and serializable success/error
+envelopes validated in preload; native drag stays an immediate event workflow.
+
+```bash
+pnpm db:generate --name=describe-the-change
+pnpm db:check
+```
+
+Review generated SQL before committing it with its snapshots/journal. Preserve
+`STRICT` on created/rebuilt tables: the stable Drizzle version does not encode
+that SQLite feature in its snapshots. Never edit shipped migrations or use
+schema push against application data. Build copies migration assets beside the
+worker; runtime does not depend on the working directory.
+See [Data Access](.agents/docs/data-access.md) for migration, validation and error rules.
 
 ## TypeScript
 
