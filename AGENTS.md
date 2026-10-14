@@ -28,12 +28,12 @@ or documentation scaffolding ahead of an agreed need.
 
 Kiter is a desktop application targeting macOS and Windows that organizes a music
 producer's local sample library. It helps users discover, preview, classify, and
-group samples into kits,
+organize imported packs and create collections,
 centralize files scattered across their computer, and drag them into a DAW that
 accepts external audio files.
 
 The primary workflow is: import folders, analyze samples, organize them, create
-kits, and use or export them without losing the original files.
+collections, and use or export them without losing the original files.
 Audio and its organization must be manageable locally; do not introduce remote
 service dependencies without an explicit need and approval.
 
@@ -52,23 +52,26 @@ service dependencies without an explicit need and approval.
 
 These features define Kiter's direction; they are not all implemented:
 
-- **Kits:** create a kit from a sample folder and edit its name, description,
-  cover image, and associated data.
-- **Classification:** organize samples and kits by categories, tags, and owners
-  (declared author, producer, or owner). Do not confuse this information with
+- **Packs:** register imported source packages and edit their name, description,
+  cover image, Categories, and Author credits.
+- **Collections:** assemble ordered selections of references to Samples from
+  different Packs and standalone Samples, without duplicating audio.
+- **Classification:** organize Samples and Packs with shared Categories and
+  credit Packs with reusable Authors. Do not confuse this information with
   user accounts or infer usage rights.
-- **Files and export:** export samples or kits, rename files, and keep their
+- **Files and export:** export Samples or groupings, rename files, and keep their
   data and references consistent.
 - **Centralization:** gather and relocate samples into a local folder chosen
   by the producer, with directories organized by sample type.
 - **Global search:** find samples across the application's library, including
-  their kits, categories, tags, and available data.
+  their Packs, Collections, Categories, and available data.
 - **DAW integration:** drag original files using native drag and drop while
   retaining preview playback within Kiter.
 - **Analysis:** extract technical audio metadata, such as duration, waveform,
   sample rate, and channels. Do not invent metadata or musical inferences.
-- **Favorites:** mark samples as favorites and create favorite lists without
-  unnecessarily duplicating audio files.
+- **Favorites:** mark Samples independently of grouping membership. Named
+  favorite lists, Tags, and possible future Kits are outside the agreed first
+  entity delivery.
 - **Automatic organization:** suggest classifications and groupings for
   unstructured sample folders, and allow users to review the result before
   modifying files.
@@ -85,7 +88,15 @@ with a shared player, and native dragging of one file per gesture. A local SQLit
 catalog stores canonical-location sample IDs and favorites; the current-folder
 favorites filter and marks survive reopening the folder after an app restart.
 
-Kits, cover images, classifications, global search, named favorite lists, centralization,
+The current catalog is a development prototype, not a compatibility baseline.
+The approved entity foundation starts from a clean SQLite database with
+`better-sqlite3`, all agreed organization entities, and managed covers. No
+prototype-data migration is required. This does not authorize automatic
+deletion/reset of local databases or source files. See
+[Domain Model](.agents/docs/domain-model.md) and
+[Data Access](.agents/docs/data-access.md) for the target design and delivery order.
+
+Packs, Collections, cover images, classifications, global search, named favorite lists, centralization,
 export, and automation remain planned until code and tests demonstrate their
 implementation.
 
@@ -97,7 +108,7 @@ setup. Update this distinction as features are delivered.
 | Area | Desired convention or release goal | Current state |
 | --- | --- | --- |
 | Language | English-only first release, documentation, and code comments. | Library UI and errors, README, and agent guides are in English. |
-| Persistence | A durable local catalog with stable sample identities. | SQLite schema v1 in a worker; sample UUIDs and favorites persist by canonical location. Audio URLs remain session-scoped; relocation/relinking and automatic folder restoration are not implemented. |
+| Persistence | A durable local catalog with stable sample identities. | Prototype SQLite catalog in a worker; UUIDs and favorites persist by canonical location. The clean `better-sqlite3` foundation is planned, not implemented; relocation/relinking and folder restoration remain absent. |
 | Platforms | Equivalent core workflows on macOS and Windows. | Automated development validation has been performed on macOS; Windows and packaged-app validation are not established by this documentation. |
 | Native dragging | Real-file import into compatible DAWs on both target platforms. | The Electron test substitutes `startDrag`; automated payload checks do not establish actual DAW reception. |
 
@@ -110,8 +121,8 @@ dependency, or passing mock is not sufficient.
 See [Domain Model](.agents/docs/domain-model.md) for entity responsibilities,
 relationships, invariants, and decisions to resolve before implementation.
 
-Samples are cataloged audio resources; kits and favorite lists organize references
-to them. Classification, technical metadata, and task outcomes have distinct
+Samples are cataloged audio resources; Packs record their origin and Collections
+organize references to them. Categories, Author credits, technical metadata, and task outcomes have distinct
 ownership. The domain guide owns detailed semantics and pending product decisions.
 
 ## Architecture and Organization

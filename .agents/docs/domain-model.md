@@ -17,11 +17,13 @@ catalog and from questions that still require agreement.
   root associations, and sample favorites. The
   [shared contract](../../src/shared/ipc.ts) defines `AudioFile`,
   `CatalogSample`, `AudioSample`, `FavoriteState`, and drag errors.
+  This slice is a development prototype, not a compatibility requirement for
+  the new entity system.
 - **Not implemented:** Packs, Collections, Categories, Authors, and the
   broader lifecycle rules described here.
-- **Deferred design:** local storage layout, cache persistence, waveform
-  peaks, managed assets, and directory organization. This guide establishes
-  their domain constraints, not their schemas or storage strategy.
+- **Deferred design:** analysis/cache storage layout, cache persistence, waveform
+  peaks, and analysis versioning. Managed covers are part of the first new
+  entity delivery; persistent technical analysis follows separately.
 
 Fields below describe information responsibilities, not database columns or
 mandatory form fields unless explicitly stated. Extend executable contracts
@@ -41,8 +43,7 @@ incrementally; do not replace working listing types with a speculative model.
 | Favorite | A personal mark on a Sample. | Sample state, not a separate grouping or named-list entity in this stage. |
 
 Use **Pack**, not **Kit**, for imported source packages. Use **Author**, not
-**Owner**, for declared credits. Older product documentation may still mention
-Kits or Owners; it does not override the vocabulary and decisions in this guide.
+**Owner**, for declared credits.
 
 Kits are outside the current model. A possible future conversion of Collections
 into Kits does not make a Collection a Kit or define conversion behavior now.
@@ -64,6 +65,12 @@ URL or merely a filename.
 - Can be marked or unmarked as a Favorite independently of its memberships.
 - Has technical metadata and derived analysis tied to its source version.
   These are not user classifications.
+- Has one current source file, represented separately from user organization.
+  Separate copies are distinct Samples; managed moves and confirmed relinks
+  preserve its UUID. Reimporting an already registered source reuses its Sample.
+- External source changes preserve identity and user organization but invalidate
+  derived analysis. Missing or externally moved files retain their Sample
+  until an explicit removal or confirmed relink; do not merge by hash.
 
 Memberships reference the same Sample ID; they do not create new Samples or
 duplicate source audio.
@@ -92,6 +99,9 @@ reassignments. Missing source files do not remove its memberships.
 
 Pack names may repeat. New groupings created inside Kiter are Collections,
 not Packs.
+
+Pack Samples have no persisted manual order in this stage; order them by
+name or path when listing. Collections retain their explicit membership order.
 
 ### Collection
 
@@ -122,6 +132,8 @@ extracted from audio.
 - Category assignments are user-managed data, not disposable analysis output.
 
 Category names must be unique ignoring case and leading/trailing whitespace.
+Normalize Unicode to NFC and use locale-independent lowercasing for matching;
+preserve accents and internal spaces.
 Inherited display or filtering behavior must not be introduced implicitly.
 
 ### Author
@@ -141,6 +153,20 @@ one. Do not merge Authors by name.
 
 Direct Sample-level credits remain outside this stage. Do not infer Sample
 authorship from Pack credits.
+
+### Managed Cover Asset
+
+Packs and Collections optionally reference validated image copies managed by
+Kiter. Copying a selected cover never modifies the user's original image.
+
+- Use an asset ID rather than a renderer-supplied external path.
+- Accept static PNG, JPEG, and WebP, at most 10 MiB and 4096 pixels per axis,
+  inclusive; validate actual content, not just filename extensions.
+- Replacing a cover creates a new immutable asset, not an edit to a shared image.
+- Automatically clean up only unreferenced managed copies, never original
+  images or copies still used by a Pack or Collection.
+- Failed publication or cleanup is explicit and recoverable; filesystem work
+  must not be presented as an atomic database change.
 
 ## Relationships and Cardinalities
 
@@ -216,7 +242,6 @@ design.
   Overlapping imported roots must not duplicate that catalog record.
 - Same-name files are not necessarily the same Sample. Equal content does not
   authorize merging records or deleting files.
-
 - Reimporting the same canonical folder already registered as a Pack reuses
   that Pack, preserves edited presentation data and organization, and registers
   new Samples. Missing sources retain their records and references.
@@ -263,8 +288,9 @@ design.
 - Unregistering a source directory stops scanning it but retains its Samples
   and organization. Catalog retention alone does not authorize access to
   audio; playback and dragging still require an authorized location.
-- Shared cover-asset cleanup remains a separate retention decision. Removing
-  a reference must not delete an image still used by another entity.
+- Removing a cover reference schedules automatic cleanup only when no entity
+  still uses that managed asset. Referenced images and original images remain
+  untouched; cleanup failures are reported and retryable.
 
 Derived caches can be rebuilt; user organization must not be treated as
 disposable cache data.
@@ -301,7 +327,7 @@ groupings. Their representation belongs to later technical planning.
 | File location | The expected source path, root associations, availability observations, and eventually an identified source version. |
 | Technical metadata | Measurements from a known source version, such as duration, sample rate, channels, and format. |
 | Waveform analysis | Rebuildable visualization data associated with a Sample, source version, and analysis version. |
-| Cover asset | Image data referenced by a Pack or Collection; storage, sharing, and retention remain to be designed. |
+| Cover asset | Validated managed image copy referenced by Packs or Collections, with recoverable cleanup when unreferenced. |
 | Organization suggestion | A proposed classification, grouping, or file action, distinct from accepted user data. |
 | Task | A tracked operation with scope, progress, cancellation, and per-item outcomes. |
 | File operation plan | Reviewable sources, destinations, conflicts, confirmation, and execution outcomes. |
@@ -353,7 +379,10 @@ operations on the same file. Durable task persistence is not implemented.
 
 ## Implemented Catalog: Current Behavior and Limitations
 
-The current implementation covers only the initial catalog and Favorite slice:
+The current implementation is a development prototype covering the catalog
+and Favorite slice. Its limitations below describe running code, not accepted
+constraints on the clean foundation. No migration or preservation of its data
+is required.
 
 ### Implemented Identity Policy
 
@@ -367,8 +396,8 @@ The current implementation covers only the initial catalog and Favorite slice:
   associations unavailable without deleting catalog records.
 - No automatic move/relink or source-version detection exists. An external
   move creates a new ID; replacing a file at the same location inherits that
-  location record. This is an accepted initial limitation, not a content
-  identity guarantee or the intended in-app relocation behavior.
+  location record. This prototype limitation is not the identity or
+  source-change contract for the new implementation.
 - `favorite` is a persisted Sample boolean. Writes never modify audio. The
   current filter is limited to the selected folder.
 - Folder selection is not restored after restart.
@@ -384,26 +413,31 @@ already exist.
 
 Before implementing each relevant feature, agree on:
 
-- Pack sample-ordering behavior and presentation of package-import conflicts,
-  including a reimport after manual origin corrections.
-- Text length limits, comparison details for Category names, and validation of
-  notes, descriptions, and imported cover images.
+- Presentation of package-import conflicts, including a reimport after manual
+  origin corrections.
+- Text length limits and validation of notes and descriptions.
 - The explicit reinclusion workflow for excluded locations, including how it
   interacts with overlapping registered roots.
-- Identity beyond canonical location: copies, multiple physical locations,
-  external changes, source-version detection, and confirmed relinking.
-- Cover-asset sharing and retention after reference removal.
+- The source-observation algorithm and stronger source-version validation for
+  analysis. One source per Sample, distinct copies, and confirmed relinking
+  are already agreed; multiple physical sources per Sample are outside scope.
+- Recoverable cover publication and cleanup implementation, including
+  coordination with concurrent edits and startup reconciliation.
 
-The approved persistence direction is SQLite with `better-sqlite3`, retaining
-the catalog worker. This is not implemented: the current driver remains
-`node:sqlite`. Plan and validate that driver replacement separately before
-extending the schema, preserving the existing catalog and its IDs/Favorites.
+The approved persistence direction is a clean SQLite catalog using
+`better-sqlite3` from the beginning, owned by a catalog worker. This is not
+implemented: the current prototype still uses `node:sqlite`. Prototype schema
+and records impose no compatibility or migration requirement. Keep versioning
+and recovery for the new system, and never delete local data automatically.
 See [Data Access](data-access.md#approved-persistence-direction-planned).
 
-Next, map these logical profiles and rules to SQLite tables, constraints,
-indexes, and versioned migrations. Plan directory layout, covers, cache limits
-and invalidation, and waveform peaks separately. Keep durable user organization
-separate from rebuildable analysis.
+The [proposed organization schema](data-access.md#proposed-organization-schema-not-implemented)
+maps these profiles to target tables, constraints, indexes, transactional
+workflows, managed covers, and implementation order. It is a design, not
+implemented persistence. Deliver the agreed entities and covers on the new
+foundation, preserving preview and native dragging. Persistent technical
+metadata, cache invalidation, and waveform peaks follow as a separate module.
+Keep durable user organization separate from rebuildable analysis.
 
 Export, file-conflict policies, automatic suggestions, durable task states,
 retry behavior, and source-deletion verification require their own scoped

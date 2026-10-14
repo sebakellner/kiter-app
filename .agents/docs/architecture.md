@@ -13,6 +13,11 @@ This document describes the current foundation and the intended evolution.
 Sections labeled **planned** are design guidance, not implemented capabilities
 or permission to introduce dependencies without an implementation requirement.
 
+The current catalog is a development prototype. The approved entity system
+starts from a clean database and does not need prototype-data migration or
+schema compatibility. Reuse useful process boundaries and working audio UX,
+not prototype constraints.
+
 - **Local-first:** core library workflows run on the producer's computer
   without a backend, account, or network connection.
 - **Simple modular application:** one Electron app, with explicit domain
@@ -33,7 +38,7 @@ or permission to introduce dependencies without an implementation requirement.
 | [Main entry point](../../src/main/index.ts) | Application lifecycle, protocol registration, IPC registration, and window creation. |
 | [Main IPC](../../src/main/ipc/library.ts) | Authorized folder import, favorite writes, and native drag requests. |
 | [Catalog](../../src/main/services/catalog/index.ts) | Asynchronous worker requests and shutdown ownership. |
-| [Catalog store](../../src/main/services/catalog/catalogStore.ts) | SQLite schema v1, transactional imports, durable identities, and favorites, executed in a worker. |
+| [Catalog store](../../src/main/services/catalog/catalogStore.ts) | Prototype SQLite schema, transactional imports, location-based identities, and favorites, executed in a worker. |
 | [Library service](../../src/main/services/library/index.ts) | Recursive audio discovery, canonical folder preparation, and catalog import coordination. |
 | [Audio service](../../src/main/services/audio/index.ts) | In-memory authorization of the loaded library and local audio streaming. |
 | [Preload](../../src/preload/index.ts) | Typed methods exposed through `contextBridge`. |
@@ -43,7 +48,7 @@ or permission to introduce dependencies without an implementation requirement.
 
 The folder view remains session-scoped, while sample UUIDs and favorites persist
 in SQLite under `userData`. Sample URLs are temporary capabilities, not durable
-sample identities. There is no task journal, kit model, global search index,
+sample identities. There is no task journal, Pack/Collection model, global search index,
 automatic restore of the selected folder, or relocation/relinking workflow.
 See [Data Access](data-access.md#implemented-catalog-and-favorites) for storage,
 driver, schema, failure behavior, and backup limitations.
@@ -105,9 +110,11 @@ Introduce them under existing folders as the corresponding features arrive.
 | Responsibility | Owns |
 | --- | --- |
 | Library/catalog | Imported roots, stable sample identities, file locations, availability, and rescanning. |
-| Kits | Kit metadata, cover references, and sample membership. |
-| Classification | Categories, tags, declared owners, and reviewable organization suggestions. |
-| Favorites | Favorite marks and named lists referencing sample identities. |
+| Packs | Imported package metadata, declared credits, cover references, and origin assignments. |
+| Collections | User-created selections and ordered unique Sample memberships. |
+| Classification | Shared Categories and reusable Authors, without inheritance or credit roles. |
+| Favorites | Sample marks independent of Pack and Collection membership. |
+| Managed assets | Validated cover copies, reference safety, and recoverable cleanup. |
 | Analysis | Technical metadata, waveform peaks, processing status, and derived-data invalidation. |
 | Search | Global catalog queries and filters across samples and related metadata. |
 | File operations | Rename, relocate, centralize, and export plans and their execution. |
@@ -117,17 +124,27 @@ Services may call each other through explicit operations; avoid circular
 dependencies. Components must not independently implement catalog mutations
 or filesystem conflict resolution.
 
-Kits and favorite lists reference sample IDs, not copies of files. Importing a
-folder and creating a kit are distinct operations: neither implies relocation.
+Packs and Collections reference Sample IDs, not copies of files. Importing a
+folder and registering a Pack are distinct concepts: neither implies relocation.
 Centralization is a separate, user-approved file operation.
+
+The first entity delivery includes all agreed organization entities and covers.
+Persistent technical analysis follows separately. Commands spanning multiple
+entities execute inside one worker-owned transaction; filesystem work is
+coordinated explicitly before/after it, never hidden in an atomicity claim.
+Use small typed command/query APIs, not one service per table or speculative
+generic repositories. Keep shared contracts independent of storage, filesystem,
+Electron, and React details.
 
 ## Catalog and Storage
 
-- Sample UUIDs are implemented with the initial
+- The prototype uses the
   [canonical-location policy](domain-model.md#implemented-identity-policy).
-  Kit IDs and identity-preserving file operations remain planned.
+  In the new system a Sample UUID identifies the resource; mutable source
+  observations are separate. Confirmed relinking or in-app moves preserve
+  identity, while separate copies remain distinct.
 - Track imported roots and file availability. Keep missing samples in the
-  catalog so users can locate or relink them without losing kit/favorite data.
+  catalog so users can locate or relink them without losing organization.
 - Separate observed file metadata, user-edited metadata, and derived analysis.
   Rescanning must not overwrite user classifications with automatic suggestions.
 - Keep the authoritative catalog in application-managed local storage under
@@ -137,17 +154,21 @@ Centralization is a separate, user-approved file operation.
   in a worker. Development integration is validated on macOS; worker loading,
   driver support, and packaging still need validation in distributed apps on
   both target platforms.
-- **Approved, not implemented:** retain SQLite and the catalog worker, replacing
-  `node:sqlite` with `better-sqlite3` before domain-schema expansion. See
+- **Approved, not implemented:** build a clean catalog with SQLite and
+  `better-sqlite3`, keeping worker-owned database operations. There is no
+  separate prototype-driver transition or prototype-data migration. See
   [Data Access](data-access.md#approved-persistence-direction-planned) for
   transition and native-addon validation requirements.
 - Keep storage behind small domain-specific query/update functions. Avoid a
   generic repository framework or exposing storage queries to the renderer.
-- Schema v1 is versioned; newer schemas fail without resetting user data.
-  Backup/recovery UX and future migrations remain release work. Keep recoverable
-  analysis caches separate from user data.
-- **Planned:** store cover assets in an app-managed location when imported; reference them
-  from kits. Cache thumbnails and validate file type/size before processing.
+- Version the new schema from its first delivery and reject unsupported formats
+  or versions without resetting data. Backups/recovery for future released
+  upgrades remain necessary; they do not require prototype compatibility.
+  Keep recoverable analysis caches separate from user data.
+- **Approved, not implemented:** copy validated covers into managed storage and
+  reference them from Packs/Collections. Automatically clean up unreferenced
+  managed copies with retry/reconciliation; never delete originals or referenced
+  images. See [Data Access](data-access.md#managed-cover-lifecycle).
 - **Planned:** detect file changes using observed size/time/version information. Invalidate
   derived data when a source changes. Use content hashing only when needed:
   file names and paths alone cannot establish that two samples are duplicates.
@@ -222,10 +243,12 @@ not a separate path that bypasses confirmation.
 
 Deliver vertical slices in this order when their requirements are agreed:
 
-1. Persistent catalog and stable identity.
-2. Kits, cover assets, classification, favorites, and global queries.
-3. Planned, recoverable export and file organization tasks.
-4. Reviewed automatic organization and measured performance improvements.
+1. Clean typed entity contracts and worker-owned `better-sqlite3` foundation.
+2. All agreed organization entities, source workflows, Favorites, managed
+   covers, narrow IPC, and connected UI; preserve preview and native dragging.
+3. Persistent technical analysis and waveform peaks with source invalidation.
+4. Planned, recoverable export and file organization tasks.
+5. Reviewed automatic organization and measured performance improvements.
 
 This is an architectural dependency outline, not a committed release schedule.
 Do not implement all layers or reorganize the application just to match it.
