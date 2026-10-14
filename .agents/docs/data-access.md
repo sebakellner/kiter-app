@@ -16,8 +16,9 @@ files remain unchanged until the replacement is explicitly implemented.
 Starting fresh does not authorize automatically deleting the prototype or
 silently resetting a failing new database.
 
-The first delivery includes Samples, Packs, Collections, Categories, Authors,
-sample Favorites, source registration, exclusions, and managed covers.
+The first delivery includes one UserProfile and its Preferences, Samples,
+Packs, Collections, Categories, Authors, independent Sample/Pack credits,
+sample Favorites, source registration, exclusions, and managed images.
 Persistent technical analysis and waveform peaks are a separate delivery.
 Do not remove working preview or waveform behavior merely because their
 persistence is deferred.
@@ -53,7 +54,7 @@ directories:
 ```text
 library/
   library.sqlite
-  covers/
+  images/
     <asset-uuid>.<validated-extension>
 ```
 
@@ -61,7 +62,8 @@ library/
   or modifies audio. Audio centralization is a separate future operation.
 - The new database has a distinct path from the prototype's `catalog.sqlite`.
   It is intentionally a new catalog, not a fallback after an old one fails.
-- Covers are copied into the managed directory without modifying originals.
+- Covers and profile avatars share managed image storage and validation, without
+  modifying originals. No separate avatar-copy/cache subsystem is required.
   Temporary copies used during validation belong to that same managed scope.
 - Session authorization URLs, decoded buffers, and audio bytes do not belong
   in the catalog. Persistent analysis storage is not designed here.
@@ -81,6 +83,8 @@ and confirmed relinking preserve the UUID; hashes never silently merge records.
 
 | Table | Responsibility |
 | --- | --- |
+| `user_profiles` | Exactly one local profile with required name, optional Author link, and optional managed avatar; not an account. |
+| `user_preferences` | One typed settings record per profile; initially preview volume only. |
 | `samples` | Sample identity, presentation-name override, notes, Favorite mark, origin Pack, and manual-origin protection. |
 | `sample_sources` | One current source per Sample: canonical path, availability, observations, and revision token. |
 | `source_roots` | Registered canonical discovery directories and latest completed scan outcome. |
@@ -90,12 +94,14 @@ and confirmed relinking preserve the UUID; hashes never silently merge records.
 | `collection_samples` | Unique Sample references and explicit ordering within a Collection. |
 | `categories` | Shared flat vocabulary with unique normalized names. |
 | `sample_categories` / `pack_categories` | Independent direct classification assignments. |
-| `authors` / `pack_authors` | Reusable declared credits; homonyms allowed and roles omitted. |
+| `authors` / `pack_authors` / `sample_authors` | Reusable declared credits; Sample/Pack assignments are independent, homonyms allowed, and roles omitted. |
 | `excluded_sources` | Library-wide exclusions of canonical locations, independent of deleted Samples and roots. |
-| `cover_assets` | Validated managed image copies and cleanup state; not arbitrary external image paths. |
+| `image_assets` | Shared validated image copies for covers and profile avatars, with cleanup state; not external image paths. |
 
-No User, Library, Favorite, or Pack-membership table is needed. No Kits, Tags,
-accounts, named favorite lists, or speculative analysis tables enter this schema.
+No account User, Library, Favorite, or Pack-membership table is needed.
+UserProfile does not introduce login, multiple profiles, or per-user catalog
+ownership. No Kits, Tags, named favorite lists, or speculative analysis tables
+enter this schema.
 
 ### SQL Target
 
@@ -130,7 +136,7 @@ CREATE TABLE source_roots (
   )
 ) STRICT;
 
-CREATE TABLE cover_assets (
+CREATE TABLE image_assets (
   id TEXT PRIMARY KEY,
   storage_key TEXT NOT NULL UNIQUE,
   mime_type TEXT NOT NULL CHECK (mime_type IN ('image/png', 'image/jpeg', 'image/webp')),
@@ -150,7 +156,7 @@ CREATE TABLE packs (
   source_root_id TEXT NOT NULL UNIQUE REFERENCES source_roots(id) ON DELETE RESTRICT,
   name TEXT NOT NULL CHECK (length(trim(name)) > 0),
   description TEXT,
-  cover_asset_id TEXT REFERENCES cover_assets(id) ON DELETE RESTRICT
+  cover_asset_id TEXT REFERENCES image_assets(id) ON DELETE RESTRICT
 ) STRICT;
 
 CREATE TABLE samples (
@@ -190,7 +196,7 @@ CREATE TABLE collections (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL CHECK (length(trim(name)) > 0),
   description TEXT,
-  cover_asset_id TEXT REFERENCES cover_assets(id) ON DELETE RESTRICT
+  cover_asset_id TEXT REFERENCES image_assets(id) ON DELETE RESTRICT
 ) STRICT;
 
 CREATE TABLE collection_samples (
@@ -225,10 +231,29 @@ CREATE TABLE authors (
   name_key TEXT NOT NULL CHECK (length(name_key) > 0)
 ) STRICT;
 
+CREATE TABLE user_profiles (
+  id TEXT PRIMARY KEY,
+  singleton INTEGER NOT NULL DEFAULT 1 UNIQUE CHECK (singleton = 1),
+  name TEXT NOT NULL CHECK (length(trim(name)) > 0),
+  avatar_asset_id TEXT REFERENCES image_assets(id) ON DELETE RESTRICT,
+  author_id TEXT REFERENCES authors(id) ON DELETE SET NULL
+) STRICT;
+
+CREATE TABLE user_preferences (
+  profile_id TEXT PRIMARY KEY REFERENCES user_profiles(id) ON DELETE CASCADE,
+  preview_volume REAL NOT NULL DEFAULT 1.0 CHECK (preview_volume BETWEEN 0 AND 1)
+) STRICT;
+
 CREATE TABLE pack_authors (
   pack_id TEXT NOT NULL REFERENCES packs(id) ON DELETE CASCADE,
   author_id TEXT NOT NULL REFERENCES authors(id) ON DELETE CASCADE,
   PRIMARY KEY (pack_id, author_id)
+) STRICT;
+
+CREATE TABLE sample_authors (
+  sample_id TEXT NOT NULL REFERENCES samples(id) ON DELETE CASCADE,
+  author_id TEXT NOT NULL REFERENCES authors(id) ON DELETE CASCADE,
+  PRIMARY KEY (sample_id, author_id)
 ) STRICT;
 
 CREATE TABLE excluded_sources (
@@ -242,6 +267,7 @@ CREATE INDEX collections_by_sample ON collection_samples(sample_id, collection_i
 CREATE INDEX samples_by_category ON sample_categories(category_id, sample_id);
 CREATE INDEX packs_by_category ON pack_categories(category_id, pack_id);
 CREATE INDEX packs_by_author ON pack_authors(author_id, pack_id);
+CREATE INDEX samples_by_author ON sample_authors(author_id, sample_id);
 CREATE INDEX authors_by_name_key ON authors(name_key, id);
 CREATE INDEX packs_by_cover ON packs(cover_asset_id);
 CREATE INDEX collections_by_cover ON collections(cover_asset_id);
@@ -254,6 +280,21 @@ COMMIT;
 
 ### Representation and Invariants
 
+- The singleton constraint allows at most one UserProfile; the service ensures
+  exactly one profile and one preference record exist before exposing the
+  Library. Fresh initialization inserts both with an application-generated
+  UUID, initial name `Local profile`, no avatar or Author link, and volume 1.
+  Include bootstrap records in the initialization transaction; the DDL above
+  defines structure, not those runtime-bound inserts.
+  On reopening a catalog, missing required profile/preference records are
+  explicit integrity errors, not permission to manufacture replacement defaults.
+- The beta supports profile edits, not profile creation/deletion or account
+  authorization. Library entities do not need `user_id` fields. A profile link
+  never creates credits or changes the linked Author's name.
+- Preview volume is a finite numeric value from 0 to 1, inclusive, not a
+  percentage string. Restore it before playback and preserve zero; persist
+  acknowledged writes and surface storage errors. No theme or mute preference
+  is added. Extend settings with typed columns when behavior is approved.
 - Generate UUIDs in the application. Resolve paths from authorized IDs; never
   trust renderer-supplied paths, normalized name keys, asset keys, or revision
   tokens. Canonical paths use exact matching, not Category normalization.
@@ -284,11 +325,14 @@ COMMIT;
 - Collection positions are zero-based and unique; gaps are permitted after
   removal. Packs have no manual order. Reads need deterministic sorting and
   bounded pagination; path indexes do not implement natural sorting.
+- Direct Sample credits do not inherit from Packs or profile identity. Author
+  removal cascades both credit relationships and clears the optional profile
+  link, without deleting the profile, Preferences, Samples, or Packs.
 - Asset filenames are derived from validated UUIDs and detected image types.
   Verify real static image content, dimensions, size, and managed-directory
   containment; database metadata alone is not image validation.
 - Pack creation with at least one Sample, Sample/source existence, exclusion
-  consistency, cover readiness, and user confirmation are service invariants,
+  consistency, image readiness, profile/preference existence, and user confirmation are service invariants,
   not guarantees supplied by foreign keys alone.
 
 ### Commands and Atomic Boundaries
@@ -302,16 +346,19 @@ transaction waits for a dialog, directory traversal, or audio/image decoding.
 | Import/rescan | Reuse registered canonical sources, filter exclusions, create new Sample/source pairs, reconcile discovery associations, and record success. Preserve user fields and reviewed origin decisions. |
 | Failed scan | Record a known root's failure separately; never commit incomplete discovery or mark all previous sources missing. Update source availability only from actual source checks. |
 | Create/reimport Pack | Recognize by unique source-root association, never by name. A new Pack needs at least one eligible Sample; reimport preserves ID, presentation data, and manual origins. |
-| Change origin | Update `pack_id` and manual protection together; leave source location, Collection memberships, Categories, and Favorites unchanged. |
+| Change origin | Update `pack_id` and manual protection together; leave source location, Collection memberships, Categories, direct Author credits, and Favorites unchanged. |
 | Source change/relink | Preserve Sample ID and organization, update verified source observations and revision, and invalidate old analysis. Reject an excluded or already-cataloged destination instead of merging. |
 | Remove Pack | Detach its Samples via `SET NULL`, remove its credits/classifications, and retain Samples, roots, Favorites, and Collections. Schedule any unused cover for cleanup. |
 | Remove Collection | Cascade only its memberships and schedule any unused cover for cleanup. |
 | Remove Sample | Insert its canonical location into exclusions and delete the Sample/source pair and organization after confirmation. Keep audio; both changes commit or roll back together. |
 | Reinclude source | Explicitly verify the location, remove its exclusion, and create a new Sample/source pair. Do not recover deleted IDs or annotations. |
 | Unregister root | Disable registration, preserving root identity, Pack association, observations, and Samples. Re-registering reuses the root. |
-| Remove Category/Author | Confirm affected uses, then delete the record and its associations without deleting resources. |
+| Remove Category/Author | Confirm affected uses, including Sample/Pack credits and any profile link, then delete the record and its associations without deleting resources or Preferences. |
 | Reorder Collection | Validate the complete unique Sample sequence, then replace memberships with positions `0..n-1` in one transaction. Rollback preserves the prior order. |
-| Attach/replace cover | Publish a validated managed copy, then atomically register its asset and update the entity reference. Preserve the previous cover on failure; queue unused assets for cleanup. |
+| Edit profile | Update its name, optional Author link, or avatar; do not rename Authors or create credits. Replacing/removing an avatar uses shared image cleanup. |
+| Save Preferences | Validate and update only the supported typed settings for the singleton profile; do not silently substitute defaults for invalid input or failed writes. |
+| Assign Sample/Pack credits | Add/remove explicit Author-ID associations for the selected target only; no automatic inheritance or profile attribution. |
+| Attach/replace image | Publish a validated managed copy, then atomically register its asset and update the cover/avatar reference. Preserve the previous image on failure; queue unused assets for cleanup. |
 
 Exclusions are Library-wide across overlapping roots. Imports never clear them
 automatically, and no committed source may share an excluded path. Sample
@@ -322,14 +369,14 @@ identity or trigger unwanted cascades. Use targeted updates and deliberate
 `ON CONFLICT` handling. Use the reverse-reference indexes to show removal
 effects and shared-cover uses before changes.
 
-### Managed Cover Lifecycle
+### Managed Image Lifecycle
 
 Accept static PNG, JPEG, and WebP, up to **10 MiB (10,485,760 bytes)** and
 **4096 pixels on each axis**, inclusive. Reject unsupported, animated,
 oversized, corrupt, or unreadable images explicitly. No crop/edit workflow
-is included.
+is included. The same rules apply to Pack/Collection covers and the profile avatar.
 
-1. Copy into a generated temporary path within the managed cover directory
+1. Copy into a generated temporary path within the managed image directory
    and validate content. Never edit the user's original image.
 2. Publish an immutable asset under its UUID-based filename without overwriting
    an existing file. A replacement creates a new asset; it never mutates an
@@ -337,8 +384,9 @@ is included.
 3. Commit the asset record and entity reference atomically. Failure retains
    the previous entity state and requires cleanup of the newly managed copy.
 4. Detaching the final reference marks the asset `cleanup_pending` in the same
-   catalog transaction. A cleanup job rechecks both Pack and Collection
-   references and confirms managed-path containment before deleting anything.
+   catalog transaction. A cleanup job rechecks Pack covers, Collection covers,
+   and the UserProfile avatar, then confirms managed-path containment before
+   deleting anything.
    Do not attach an asset already pending cleanup.
 5. Delete only that validated managed file, then remove its unreferenced record.
    Cleanup failure retains the pending record for retry and surfaces the error
@@ -359,14 +407,15 @@ reconciliation.
 2. Implement fresh-database initialization with `better-sqlite3`, worker
    lifecycle, prepared statements, transactions, and format/version checks.
 3. Implement bounded queries and organization commands for all agreed entities,
-   including Sample/source creation, Pack conflicts, Collections, exclusions,
-   and removal effects.
-4. Implement managed covers and recoverable cleanup, then expose narrow
+   including profile bootstrap/edits, Preferences, Sample/source creation,
+   direct credits, Pack conflicts, Collections, exclusions, and removal effects.
+4. Implement shared managed images and recoverable cleanup, then expose narrow
    preload operations and connect the UI. Preserve preview and native dragging
    with authorization against the new source records.
 5. Verify restart persistence, atomic rollback, foreign-key/uniqueness rules,
    manual-origin preservation, root overlap, source revision behavior, image
-   limits, shared assets, and interrupted publication/cleanup.
+   limits, shared assets including avatars, volume restoration (including zero),
+   independent credits, and interrupted publication/cleanup.
 6. Validate the native driver and packaged application on each target platform.
    Persistent technical metadata and waveform analysis follow separately.
 
@@ -382,18 +431,18 @@ writes. These safeguards protect the new system, not prototype compatibility.
 
 ### Design Validation Evidence
 
-The exact fresh-schema DDL above passed 19 isolated in-memory scenarios on
-macOS using SQLite 3.50.4 through Node.js 24.13.0. Checks covered format/version
-initialization, 14 strict tables, references and uniqueness, identity-preserving
-source updates, removal cascades/rollback, exclusions, manual origins,
-Collection order, Unicode keys, query plans, shared covers, and the exact
-inclusive cover size/dimension thresholds.
+The exact expanded 17-table DDL above passed 16 isolated in-memory scenarios
+on macOS with SQLite 3.50.4 through Node.js 24.13.0. Checks covered singleton
+profiles, preference references and volume boundaries/defaults, independent
+Sample/Pack credits, linked-Author deletion, shared avatar/cover references,
+image limits, atomic rollback, source identity, exclusions, Collection order,
+Unicode keys, and query plans.
 
-This is SQLite structure validation, not a `better-sqlite3` implementation.
-No prototype database, real audio, or real images were used. Actual image
-validation, source-change detection, filesystem recovery/concurrency, IPC,
-restart persistence, and macOS/Windows packaging remain to be tested with the
-new implementation.
+SQL checks are not a `better-sqlite3` implementation or application validation.
+No real audio, images, or local database files were used.
+Actual image validation, volume restoration, source-change detection, filesystem
+recovery/concurrency, IPC, restart persistence, and macOS/Windows packaging
+must be tested with the new implementation.
 
 ## Implemented Catalog and Favorites
 

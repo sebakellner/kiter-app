@@ -11,15 +11,15 @@ This guide defines the agreed product vocabulary and organization rules for
 Kiter's local library. It separates those decisions from the implemented
 catalog and from questions that still require agreement.
 
-- **Agreed domain:** one local Library, Sample, Pack, Collection, Category,
-  Author, and sample favorite marks.
+- **Agreed domain:** one local UserProfile with Preferences, one Library,
+  Sample, Pack, Collection, Category, Author, and sample favorite marks.
 - **Implemented slice:** persistent sample IDs by canonical location, imported
   root associations, and sample favorites. The
   [shared contract](../../src/shared/ipc.ts) defines `AudioFile`,
   `CatalogSample`, `AudioSample`, `FavoriteState`, and drag errors.
   This slice is a development prototype, not a compatibility requirement for
   the new entity system.
-- **Not implemented:** Packs, Collections, Categories, Authors, and the
+- **Not implemented:** UserProfile, Preferences, Packs, Collections, Categories, Authors, and the
   broader lifecycle rules described here.
 - **Deferred design:** analysis/cache storage layout, cache persistence, waveform
   peaks, and analysis versioning. Managed covers are part of the first new
@@ -33,13 +33,14 @@ incrementally; do not replace working listing types with a speculative model.
 
 | Concept | Meaning | Modeling decision |
 | --- | --- | --- |
-| Local user | The person using this installation of Kiter. | Implicit single user; no `User` entity, profile, login, or account in this stage. |
+| UserProfile | The local profile of the person using this installation. | Exactly one profile with a name, optional avatar, and optional linked Author; no login or account. |
+| Preferences | Application behavior chosen by the local user. | One typed preference record per profile; initially persistent preview volume only. |
 | Library | The complete local scope of imported samples, packs, collections, and their organization. | One Library with multiple source directories; not a separately identified entity in this stage. |
 | Sample | A cataloged audio resource with its own identity and organization. | Core entity; it may be standalone or have one origin Pack. |
 | Pack | An imported source package, such as a sample product from a producer or provider. | Core entity with presentation data, samples, categories, and declared authors. |
 | Collection | A selection of samples assembled inside Kiter. | Core entity referencing samples from different Packs and standalone samples. |
 | Category | A classification used to organize Samples and Packs. | Classification entity; assignments are independent for each target. |
-| Author | A declared author, producer, provider, or collaborator credited on Packs. | Reusable entity, not the local user or an authorization principal. |
+| Author | A declared author, producer, provider, or collaborator credited on Samples or Packs. | Reusable credit identity, not a user profile or authorization principal; may represent the same person as UserProfile. |
 | Favorite | A personal mark on a Sample. | Sample state, not a separate grouping or named-list entity in this stage. |
 
 Use **Pack**, not **Kit**, for imported source packages. Use **Author**, not
@@ -50,6 +51,29 @@ into Kits does not make a Collection a Kit or define conversion behavior now.
 Tags and named favorite lists also remain outside this agreed stage.
 
 ## Core Entities and Responsibilities
+
+### UserProfile and Preferences
+
+The beta has one explicit local profile and one Library, not multiple accounts,
+login, permissions, or isolated per-user catalogs.
+
+- UserProfile has a stable ID and required presentation name, an optional
+  managed avatar, and an optional link to an existing Author.
+- Profile presentation data and the Author's artistic name are independent.
+  Changing the link or profile name does not rename or delete an Author.
+- An Author can exist without a profile. Deleting a linked Author clears that
+  optional link after confirmation but preserves the profile and Preferences.
+- Linking an Author does not automatically credit them on imports, Samples, or
+  Packs. Credits require explicit assignment, including for one's own work.
+- The beta allows editing the profile, not creating additional profiles or
+  deleting the only one. Do not attach a user ID to every catalog entity merely
+  to model the implicit single-user scope.
+- Preferences are application settings, not artistic credits. Initially persist
+  preview volume in the inclusive range 0 to 1, with default 1 to preserve the
+  current player's initial volume. Restore it before playback; zero is valid.
+- Future settings require typed fields and defined behavior, not an arbitrary
+  JSON or key/value bag. Theme, playback position, mute state, and automatic
+  attribution are not approved persistent settings in this stage.
 
 ### Sample
 
@@ -62,6 +86,7 @@ URL or merely a filename.
 - Has zero or one origin Pack. A Sample without a Pack is a standalone Sample.
 - Can belong to any number of Collections.
 - Can have multiple Categories assigned directly to it.
+- Can have multiple direct Author credits, independent of its Pack's credits.
 - Can be marked or unmarked as a Favorite independently of its memberships.
 - Has technical metadata and derived analysis tied to its source version.
   These are not user classifications.
@@ -138,12 +163,13 @@ Inherited display or filtering behavior must not be introduced implicitly.
 
 ### Author
 
-An Author represents a declared credit, not the person using this installation
-or the owner of its catalog.
+An Author represents a declared credit, not a profile, account, or catalog owner.
+It may represent the person using this installation or an external contributor.
 
-- Has a stable ID and required name; no additional profile fields in this stage.
-- Can be associated with multiple Packs.
-- A Pack can be associated with multiple Authors or collaborators.
+- Has a stable ID and required artistic/credit name; no additional Author fields
+  in this stage. Local profile fields belong to UserProfile.
+- Can be credited on multiple Samples and Packs.
+- A Sample or Pack can credit multiple Authors or collaborators.
 - Credits do not establish copyright ownership, a license, or usage rights.
 
 Credits do not distinguish author and collaborator roles in this stage. Author
@@ -151,26 +177,30 @@ names may repeat because different people can have the same name; show existing
 name matches so the user can reuse an Author rather than accidentally duplicate
 one. Do not merge Authors by name.
 
-Direct Sample-level credits remain outside this stage. Do not infer Sample
-authorship from Pack credits.
+Sample and Pack credits are independent. Do not infer Sample authorship from
+Pack credits, a profile link, file import, or Collection membership.
 
-### Managed Cover Asset
+### Managed Image Asset
 
 Packs and Collections optionally reference validated image copies managed by
-Kiter. Copying a selected cover never modifies the user's original image.
+Kiter; the same asset workflow supports the UserProfile avatar. Copying a
+selected image never modifies the user's original.
 
 - Use an asset ID rather than a renderer-supplied external path.
 - Accept static PNG, JPEG, and WebP, at most 10 MiB and 4096 pixels per axis,
   inclusive; validate actual content, not just filename extensions.
 - Replacing a cover creates a new immutable asset, not an edit to a shared image.
 - Automatically clean up only unreferenced managed copies, never original
-  images or copies still used by a Pack or Collection.
+  images or copies still used by a Pack, Collection, or UserProfile.
 - Failed publication or cleanup is explicit and recoverable; filesystem work
   must not be presented as an atomic database change.
 
 ## Relationships and Cardinalities
 
 ```text
+One local UserProfile -> Preferences
+UserProfile -> optional linked Author
+UserProfile -> optional managed avatar
 One local Library
   -> Samples
   -> Packs
@@ -182,6 +212,7 @@ Collection <-> Samples through ordered, unique memberships
 Sample <-> Categories through direct assignments
 Pack <-> Categories through direct assignments
 Pack <-> Authors through declared credits
+Sample <-> Authors through independent declared credits
 Sample -> Favorite mark
 
 Source directories -> discovered locations -> catalog Samples
@@ -196,7 +227,10 @@ Pack / Collection -> cover reference
 | Sample to Category | Multiple direct assignments; independent of Pack Categories. |
 | Pack to Category | Multiple direct assignments; no automatic propagation to Samples. |
 | Pack to Author | Multiple credits per Pack; Authors are reusable across Packs. |
+| Sample to Author | Multiple direct credits per Sample; no inheritance from Pack credits. |
 | Sample to Favorite | One boolean mark; independent of Pack or Collection membership. |
+| UserProfile to Author | Optional link identifying one's artistic credit identity, without automatic attribution. |
+| UserProfile to Preferences | Exactly one settings record for the single local profile. |
 
 The user can explicitly correct a Sample's origin by assigning an existing
 Pack, changing Packs, or leaving it standalone. This never moves audio or
@@ -213,11 +247,13 @@ Length limits and text validation must be agreed before implementing forms.
 
 | Concept | Required information | Optional information / associations |
 | --- | --- | --- |
-| Sample | Stable ID, source location reference, actual filename, availability, and Favorite boolean. | Presentation-name override, notes, zero or one origin Pack, Category assignments, and Collection memberships. |
+| UserProfile | Stable ID and presentation name. | Managed avatar reference and linked Author. |
+| Preferences | Profile reference and preview volume in the inclusive range 0 to 1. | No other persistent preferences in this stage. |
+| Sample | Stable ID, source location reference, actual filename, availability, and Favorite boolean. | Presentation-name override, notes, zero or one origin Pack, direct Category/Author assignments, and Collection memberships. |
 | Pack | Stable ID, name, and the source-directory association used to recognize reimports. | Description, cover reference, Category assignments, and Author credits. Origin Sample references follow the creation and empty-Pack rules above. |
 | Collection | Stable ID, name, and an ordered membership list, which can be empty. | Description and cover reference. |
 | Category | Stable ID and unique display name under the agreed matching policy. | Sample and Pack assignments. |
-| Author | Stable ID and name. | Pack credits; no credit roles in this stage. |
+| Author | Stable ID and name. | Sample/Pack credits and optional UserProfile link; no credit roles in this stage. |
 
 When no presentation-name override exists, display the actual Sample filename.
 A rescan can refresh observed file information but must not replace an override
@@ -269,7 +305,7 @@ design.
 ### Removal and Deletion
 
 - Removing a Pack from Kiter keeps its Samples in the Library as standalone
-  Samples. Their IDs, direct Categories, Favorite marks, and Collection
+  Samples. Their IDs, direct Categories and Author credits, Favorite marks, and Collection
   memberships remain intact.
 - Removing a Collection removes its presentation data and memberships, not
   its Samples or their audio.
@@ -279,17 +315,19 @@ design.
   or memberships.
 - Removing a Sample from the catalog requires confirmation showing affected
   references. Delete its catalog record, Favorite mark, annotations, Pack
-  association, Category assignments, and Collection memberships, but keep its
+  association, Category/Author assignments, and Collection memberships, but keep its
   source audio. Preserve an exclusion for that canonical location so rescans
   do not undo the decision. Explicit reinclusion does not restore deleted data.
 - Removing a Category or Author requires showing its uses and obtaining
   confirmation. Remove its assignments or credits, not the associated
   Samples, Packs, or files.
+- Author removal also shows any UserProfile link and clears that link without
+  removing the profile or its Preferences.
 - Unregistering a source directory stops scanning it but retains its Samples
   and organization. Catalog retention alone does not authorize access to
   audio; playback and dragging still require an authorized location.
 - Removing a cover reference schedules automatic cleanup only when no entity
-  still uses that managed asset. Referenced images and original images remain
+  still uses that managed asset, including as a UserProfile avatar. Referenced images and original images remain
   untouched; cleanup failures are reported and retryable.
 
 Derived caches can be rebuilt; user organization must not be treated as
@@ -327,7 +365,7 @@ groupings. Their representation belongs to later technical planning.
 | File location | The expected source path, root associations, availability observations, and eventually an identified source version. |
 | Technical metadata | Measurements from a known source version, such as duration, sample rate, channels, and format. |
 | Waveform analysis | Rebuildable visualization data associated with a Sample, source version, and analysis version. |
-| Cover asset | Validated managed image copy referenced by Packs or Collections, with recoverable cleanup when unreferenced. |
+| Managed image asset | Validated image copy referenced as a Pack/Collection cover or UserProfile avatar, with recoverable cleanup when unreferenced. |
 | Organization suggestion | A proposed classification, grouping, or file action, distinct from accepted user data. |
 | Task | A tracked operation with scope, progress, cancellation, and per-item outcomes. |
 | File operation plan | Reviewable sources, destinations, conflicts, confirmation, and execution outcomes. |

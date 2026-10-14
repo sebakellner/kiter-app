@@ -112,9 +112,10 @@ Introduce them under existing folders as the corresponding features arrive.
 | Library/catalog | Imported roots, stable sample identities, file locations, availability, and rescanning. |
 | Packs | Imported package metadata, declared credits, cover references, and origin assignments. |
 | Collections | User-created selections and ordered unique Sample memberships. |
-| Classification | Shared Categories and reusable Authors, without inheritance or credit roles. |
+| Classification | Shared Categories and reusable Authors, with independent Sample/Pack credits, without inheritance or credit roles. |
+| Local profile/settings | Singleton UserProfile, optional Author link and avatar, and typed Preferences; no login or per-user catalog ownership. |
 | Favorites | Sample marks independent of Pack and Collection membership. |
-| Managed assets | Validated cover copies, reference safety, and recoverable cleanup. |
+| Managed assets | Shared validated image copies for covers/avatars, reference safety, and recoverable cleanup. |
 | Analysis | Technical metadata, waveform peaks, processing status, and derived-data invalidation. |
 | Search | Global catalog queries and filters across samples and related metadata. |
 | File operations | Rename, relocate, centralize, and export plans and their execution. |
@@ -128,7 +129,8 @@ Packs and Collections reference Sample IDs, not copies of files. Importing a
 folder and registering a Pack are distinct concepts: neither implies relocation.
 Centralization is a separate, user-approved file operation.
 
-The first entity delivery includes all agreed organization entities and covers.
+The first entity delivery includes all agreed organization entities, the local
+profile and Preferences, independent Sample/Pack credits, and covers/avatars.
 Persistent technical analysis follows separately. Commands spanning multiple
 entities execute inside one worker-owned transaction; filesystem work is
 coordinated explicitly before/after it, never hidden in an atomicity claim.
@@ -165,10 +167,10 @@ Electron, and React details.
   or versions without resetting data. Backups/recovery for future released
   upgrades remain necessary; they do not require prototype compatibility.
   Keep recoverable analysis caches separate from user data.
-- **Approved, not implemented:** copy validated covers into managed storage and
-  reference them from Packs/Collections. Automatically clean up unreferenced
+- **Approved, not implemented:** copy validated images into shared managed
+  storage for Pack/Collection covers and the UserProfile avatar. Automatically clean up unreferenced
   managed copies with retry/reconciliation; never delete originals or referenced
-  images. See [Data Access](data-access.md#managed-cover-lifecycle).
+  images. See [Data Access](data-access.md#managed-image-lifecycle).
 - **Planned:** detect file changes using observed size/time/version information. Invalidate
   derived data when a source changes. Use content hashing only when needed:
   file names and paths alone cannot establish that two samples are duplicates.
@@ -244,8 +246,9 @@ not a separate path that bypasses confirmation.
 Deliver vertical slices in this order when their requirements are agreed:
 
 1. Clean typed entity contracts and worker-owned `better-sqlite3` foundation.
-2. All agreed organization entities, source workflows, Favorites, managed
-   covers, narrow IPC, and connected UI; preserve preview and native dragging.
+2. All agreed organization entities, local profile/Preferences, independent
+   credits, source workflows, Favorites, managed covers/avatars, narrow IPC, and
+   connected UI; preserve preview and native dragging.
 3. Persistent technical analysis and waveform peaks with source invalidation.
 4. Planned, recoverable export and file organization tasks.
 5. Reviewed automatic organization and measured performance improvements.

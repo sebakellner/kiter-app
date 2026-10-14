@@ -57,8 +57,11 @@ These features define Kiter's direction; they are not all implemented:
 - **Collections:** assemble ordered selections of references to Samples from
   different Packs and standalone Samples, without duplicating audio.
 - **Classification:** organize Samples and Packs with shared Categories and
-  credit Packs with reusable Authors. Do not confuse this information with
+  credit Samples and Packs independently with reusable Authors. Do not confuse this information with
   user accounts or infer usage rights.
+- **Local profile:** one editable UserProfile with an optional Author link and
+  managed avatar, plus typed Preferences initially storing preview volume.
+  There is no login, multi-profile scope, or automatic attribution.
 - **Files and export:** export Samples or groupings, rename files, and keep their
   data and references consistent.
 - **Centralization:** gather and relocate samples into a local folder chosen
@@ -90,15 +93,16 @@ favorites filter and marks survive reopening the folder after an app restart.
 
 The current catalog is a development prototype, not a compatibility baseline.
 The approved entity foundation starts from a clean SQLite database with
-`better-sqlite3`, all agreed organization entities, and managed covers. No
+`better-sqlite3`, all agreed organization entities, a local profile/Preferences,
+and managed covers/avatars. No
 prototype-data migration is required. This does not authorize automatic
 deletion/reset of local databases or source files. See
 [Domain Model](.agents/docs/domain-model.md) and
 [Data Access](.agents/docs/data-access.md) for the target design and delivery order.
 
-Packs, Collections, cover images, classifications, global search, named favorite lists, centralization,
-export, and automation remain planned until code and tests demonstrate their
-implementation.
+Local profiles and Preferences, Packs, Collections, managed images,
+classifications, global search, named favorite lists, centralization, export,
+and automation remain planned until code and tests demonstrate implementation.
 
 Consult the [README](README.md) for current behavior, formats, limitations, and
 setup. Update this distinction as features are delivered.
