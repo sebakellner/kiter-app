@@ -20,6 +20,8 @@ import { isPackRequest } from './packProtocol.ts'
 import { executePack } from './operations/packCommands.ts'
 import { isSampleRequest } from './sampleProtocol.ts'
 import { executeSample } from './operations/sampleCommands.ts'
+import { isAssetRequest } from './assetProtocol.ts'
+import { executeAsset } from './operations/assetCommands.ts'
 
 const port = parentPort
 if (!port) {
@@ -104,13 +106,15 @@ try {
         default:
           reply = {
             requestId: value.requestId,
-            ...(isSampleRequest(value)
-              ? executeSample(database.db, value)
-              : isPackRequest(value)
-                ? executePack(database.db, value)
-                : isCollectionRequest(value)
-                  ? executeCollection(database.db, value)
-                  : executeClassification(database.db, value)),
+            ...(isAssetRequest(value)
+              ? executeAsset(database.db, value)
+              : isSampleRequest(value)
+                ? executeSample(database.db, value)
+                : isPackRequest(value)
+                  ? executePack(database.db, value)
+                  : isCollectionRequest(value)
+                    ? executeCollection(database.db, value)
+                    : executeClassification(database.db, value)),
           }
       }
     } catch (error) {

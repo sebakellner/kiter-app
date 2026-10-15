@@ -6,6 +6,13 @@ import { createWindow } from './window'
 import { electronApp, optimizer } from '@electron-toolkit/utils'
 import { join } from 'node:path'
 import { DbClient } from './db'
+import { ManagedImages } from './services/images'
+
+// One owner coordinates publication and startup reconciliation in userData.
+const primaryInstance = app.requestSingleInstanceLock()
+if (!primaryInstance) {
+  app.quit()
+}
 
 protocol.registerSchemesAsPrivileged([
   {
@@ -23,9 +30,27 @@ protocol.registerSchemesAsPrivileged([
 app
   .whenReady()
   .then(async () => {
+    if (!primaryInstance) {
+      return
+    }
     const database = await DbClient.open(
       join(app.getPath('userData'), 'db', 'kiter.sqlite'),
     )
+    let images: ManagedImages
+    try {
+      images = await ManagedImages.open(app.getPath('userData'), database)
+    } catch (error) {
+      await database.close()
+      console.error(
+        'Managed image storage startup failed',
+        error instanceof Error && 'code' in error
+          ? error.code
+          : 'STORAGE_FAILED',
+      )
+      throw new Error(
+        'Unable to initialize managed image storage. Existing files were preserved.',
+      )
+    }
     let shutdown = false
     app.on('before-quit', (event) => {
       if (shutdown) {
@@ -33,13 +58,25 @@ app
       }
       event.preventDefault()
       shutdown = true
-      void database
+      void images
         .close()
+        .then(() => database.close())
         .catch(() => {
           console.error('Database shutdown failed')
         })
         .finally(() => app.quit())
     })
+    const imageRecovery = await images.reconcile().catch(() => {
+      throw new Error(
+        'Unable to reconcile managed images. Existing references were preserved. Restart Kiter to retry.',
+      )
+    })
+    if (imageRecovery.failures.length > 0) {
+      dialog.showErrorBox(
+        'Managed images need attention',
+        'Some managed images could not be verified or cleaned up. Existing references were preserved. Restart Kiter to retry.',
+      )
+    }
     electronApp.setAppUserModelId('com.electron')
     registerAudioProtocol()
     registerIpc(database)

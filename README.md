@@ -58,19 +58,29 @@ support creation/editing, bounded lists, unique ordered Sample memberships,
 atomic full-sequence reorder, and impact-checked removal. These operations are
 internal to the DB worker/client; their IPC and UI remain pending. Collection
 removal preserves Samples and schedules unreferenced covers for cleanup, but
-managed-image publication and physical cleanup are not yet implemented.
-Internal profile editing supports normalized presentation names and explicit
-Author linking/unlinking, preserving the avatar and Preferences without changing
-Author names or assigning credits. Profile/settings UI and player volume
-restoration remain pending.
+Managed-image operations support validated publication and recoverable cleanup.
+Profile presentation and optional Author-link editing are implemented internally;
+updates normalize names and preserve the avatar and Preferences without changing
+Author names or assigning credits. Profile/image UI and player volume restoration
+remain pending.
 Pack operations support reviewed registration/reimport from scanned roots,
 bounded queries, presentation editing, manual Sample origin corrections, and
 impact-checked removal through the DB worker/client. Conflicts require explicit
 keep/assign decisions, including manually standalone Samples; stale reviews are
 rejected. Preparing an import catalogs Samples before Pack confirmation. Removing
 a Pack preserves its Samples with manual standalone protection. Pack IPC/UI and
-managed covers remain pending.
+cover IPC/UI remain pending.
 Schema and internal operations alone do not deliver user-facing features.
+
+The main-only managed-image service accepts static PNG/JPEG/WebP copies up to
+10 MiB and 4096 pixels per axis for Pack/Collection covers and the profile avatar.
+Replacement uses immutable assets and checks the previously displayed reference;
+stale changes preserve the old image. Startup reconciliation removes interrupted
+publications and unreferenced managed copies, with retryable cleanup failures.
+Original images and referenced copies are preserved. Missing referenced images
+and cleanup failures are reported at startup. Image selection/display IPC and UI
+remain pending. Publication/recovery has automated macOS coverage; Windows and
+packaged native-image loading still require validation.
 
 Sample operations support presentation-name/notes editing, bounded reference
 and exclusion queries, and exact-impact reviewed catalog removal. Removal keeps

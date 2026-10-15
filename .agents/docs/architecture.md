@@ -182,8 +182,8 @@ Electron, and React details.
   or versions without resetting data. Backups/recovery for future released
   upgrades remain necessary; they do not require prototype compatibility.
   Keep recoverable analysis caches separate from user data.
-- **Approved, not implemented:** copy validated images into shared managed
-  storage for Pack/Collection covers and the UserProfile avatar. Automatically clean up unreferenced
+- **Implemented internally:** copy validated images into shared managed
+  storage for Pack/Collection covers and the UserProfile avatar. Startup cleans unreferenced
   managed copies with retry/reconciliation; never delete originals or referenced
   images. See [Data Access](data-access.md#managed-image-lifecycle).
 - **Implemented slice:** imports persist observed size/mtime and increment the

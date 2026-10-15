@@ -43,6 +43,24 @@ export function requireProfileUpdate(value: unknown): ProfileUpdateRequest {
   }
 }
 
+export function isProfileUpdate(value: unknown): value is ProfileUpdateRequest {
+  if (
+    !isRecord(value) ||
+    (value.authorId !== null && !isEntityId(value.authorId))
+  ) {
+    return false
+  }
+  try {
+    requirePresentationName(value.name)
+    return true
+  } catch (error) {
+    if (error instanceof DomainValidationError) {
+      return false
+    }
+    throw error
+  }
+}
+
 export function isUserProfile(value: unknown): value is UserProfile {
   if (!isRecord(value) || !isEntityId(value.id)) {
     return false

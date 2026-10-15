@@ -10,6 +10,8 @@ import {
   isUserProfile,
   requireProfileUpdate,
 } from '../../shared/domain/profile.ts'
+import type { AssetRequest, AssetReply } from './assetProtocol.ts'
+import { isAssetRequest, isAssetReply } from './assetProtocol.ts'
 import type { DiscoveredAudioFile } from '../../shared/domain/source.ts'
 import { isDiscoveredAudioFile } from '../../shared/domain/source.ts'
 import { isEntityId, isRecord } from '../../shared/domain/validation.ts'
@@ -33,6 +35,7 @@ import {
 } from './classificationProtocol.ts'
 
 export type DbRequest =
+  | (AssetRequest & { requestId: number })
   | (SampleRequest & { requestId: number })
   | (PackRequest & { requestId: number })
   | (CollectionRequest & { requestId: number })
@@ -50,6 +53,7 @@ export type DbRequest =
   | { requestId: number; action: 'close' }
 
 export type DbReply =
+  | (AssetReply & { requestId: number })
   | (SampleReply & { requestId: number })
   | (PackReply & { requestId: number })
   | (CollectionReply & { requestId: number })
@@ -136,6 +140,7 @@ export function isDbRequest(value: unknown): value is DbRequest {
     default:
       return (
         isClassificationRequest(value) ||
+        isAssetRequest(value) ||
         isCollectionRequest(value) ||
         isPackRequest(value) ||
         isSampleRequest(value)
@@ -189,6 +194,7 @@ export function isDbReply(value: unknown): value is DbReply {
     default:
       return (
         isClassificationReply(value) ||
+        isAssetReply(value) ||
         isCollectionReply(value) ||
         isPackReply(value) ||
         isSampleReply(value)
