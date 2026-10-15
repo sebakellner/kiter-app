@@ -9,39 +9,43 @@ export default defineConfig({
       {
         name: 'database-migration-assets',
         writeBundle(options) {
-          if (!options.dir) throw new Error('Missing main build output directory')
-          cpSync(resolve('drizzle'), resolve(options.dir, 'migrations'), { recursive: true })
-        }
-      }
+          if (!options.dir) {
+            throw new Error('Missing main build output directory')
+          }
+          cpSync(resolve('drizzle'), resolve(options.dir, 'migrations'), {
+            recursive: true,
+          })
+        },
+      },
     ],
     build: {
       rollupOptions: {
         input: {
           index: resolve('src/main/index.ts'),
-          dbWorker: resolve('src/main/db/worker.ts')
-        }
-      }
+          dbWorker: resolve('src/main/db/worker.ts'),
+        },
+      },
     },
     resolve: {
       alias: {
-        '@shared': resolve('src/shared')
-      }
-    }
+        '@shared': resolve('src/shared'),
+      },
+    },
   },
   preload: {
     resolve: {
       alias: {
-        '@shared': resolve('src/shared')
-      }
-    }
+        '@shared': resolve('src/shared'),
+      },
+    },
   },
   renderer: {
     resolve: {
       alias: {
         '@shared': resolve('src/shared'),
-        '@renderer': resolve('src/renderer/src')
-      }
+        '@renderer': resolve('src/renderer/src'),
+      },
     },
-    plugins: [react()]
-  }
+    plugins: [react()],
+  },
 })

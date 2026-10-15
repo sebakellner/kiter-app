@@ -6,7 +6,10 @@ type Props = {
   loading?: boolean
 }
 
-export function OpenFolderButton({ onClick, loading = false }: Props): JSX.Element {
+export function OpenFolderButton({
+  onClick,
+  loading = false,
+}: Props): JSX.Element {
   return (
     <Button data-testid="open-folder" onClick={onClick} disabled={loading}>
       {loading ? 'Loading folder...' : 'Open folder'}

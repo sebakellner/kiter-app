@@ -17,15 +17,21 @@ export function useLibrary(): {
   const opening = useRef(false)
 
   const openFolder = useCallback(async () => {
-    if (opening.current) return
+    if (opening.current) {
+      return
+    }
     opening.current = true
     setLoading(true)
     setError(null)
     try {
       const selected = unwrapIpcResult(await window.api.dialog.openFolder())
-      if (!selected) return
+      if (!selected) {
+        return
+      }
 
-      const nextFiles = unwrapIpcResult(await window.api.library.importFolder(selected))
+      const nextFiles = unwrapIpcResult(
+        await window.api.library.importFolder(selected),
+      )
       setDir(selected)
       setFiles(nextFiles)
     } catch (e) {
@@ -38,7 +44,9 @@ export function useLibrary(): {
 
   const updateFavorite = useCallback((state: FavoriteState) => {
     setFiles((current) =>
-      current.map((file) => (file.id === state.id ? { ...file, favorite: state.favorite } : file))
+      current.map((file) =>
+        file.id === state.id ? { ...file, favorite: state.favorite } : file,
+      ),
     )
   }, [])
 

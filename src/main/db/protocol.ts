@@ -1,19 +1,37 @@
 import type { LibrarySample, FavoriteState } from '../../shared/ipc/library.ts'
-import type { LocalProfile, UserPreferences } from '../../shared/domain/profile.ts'
+import type {
+  LocalProfile,
+  UserPreferences,
+} from '../../shared/domain/profile.ts'
 import { isPreviewVolume } from '../../shared/domain/profile.ts'
 import type { DiscoveredAudioFile } from '../../shared/domain/source.ts'
 import { isDiscoveredAudioFile } from '../../shared/domain/source.ts'
 import { isEntityId, isRecord } from '../../shared/domain/validation.ts'
 import type { DbFailure } from './errors.ts'
+import type {
+  ClassificationRequest,
+  ClassificationReply,
+} from './classificationProtocol.ts'
+import {
+  isClassificationRequest,
+  isClassificationReply,
+} from './classificationProtocol.ts'
 
 export type DbRequest =
-  | { requestId: number; action: 'import'; root: string; files: DiscoveredAudioFile[] }
+  | (ClassificationRequest & { requestId: number })
+  | {
+      requestId: number
+      action: 'import'
+      root: string
+      files: DiscoveredAudioFile[]
+    }
   | { requestId: number; action: 'favorite'; id: string; favorite: boolean }
   | { requestId: number; action: 'profile' }
   | { requestId: number; action: 'volume'; volume: number }
   | { requestId: number; action: 'close' }
 
 export type DbReply =
+  | (ClassificationReply & { requestId: number })
   | { action: 'ready' }
   | { action: 'fatal'; failure: DbFailure }
   | { requestId: number; action: 'import'; result: LibrarySample[] }
@@ -37,21 +55,32 @@ function isFailure(value: unknown): value is DbFailure {
       'UNSUPPORTED_VERSION',
       'DB_INTEGRITY',
       'NOT_FOUND',
+      'NAME_CONFLICT',
+      'STALE_REVIEW',
       'STORAGE_FAILED',
       'WORKER_FAILED',
       'PROTOCOL_ERROR',
-      'CLOSING'
+      'CLOSING',
     ].some((code) => code === value.code)
   )
 }
 
 function isPreferences(value: unknown): value is UserPreferences {
-  return isRecord(value) && isEntityId(value.profileId) && isPreviewVolume(value.previewVolume)
+  return (
+    isRecord(value) &&
+    isEntityId(value.profileId) &&
+    isPreviewVolume(value.previewVolume)
+  )
 }
 
 function isProfile(value: unknown): value is LocalProfile {
-  if (!isRecord(value) || !isRecord(value.profile) || !isPreferences(value.preferences))
+  if (
+    !isRecord(value) ||
+    !isRecord(value.profile) ||
+    !isPreferences(value.preferences)
+  ) {
     return false
+  }
   const profile = value.profile
   return (
     isEntityId(profile.id) &&
@@ -64,7 +93,9 @@ function isProfile(value: unknown): value is LocalProfile {
 }
 
 export function isDbRequest(value: unknown): value is DbRequest {
-  if (!isRecord(value) || !isRequestId(value.requestId)) return false
+  if (!isRecord(value) || !isRequestId(value.requestId)) {
+    return false
+  }
   switch (value.action) {
     case 'import':
       return (
@@ -80,15 +111,23 @@ export function isDbRequest(value: unknown): value is DbRequest {
     case 'close':
       return true
     default:
-      return false
+      return isClassificationRequest(value)
   }
 }
 
 export function isDbReply(value: unknown): value is DbReply {
-  if (!isRecord(value)) return false
-  if (value.action === 'ready') return true
-  if (value.action === 'fatal') return isFailure(value.failure)
-  if (!isRequestId(value.requestId)) return false
+  if (!isRecord(value)) {
+    return false
+  }
+  if (value.action === 'ready') {
+    return true
+  }
+  if (value.action === 'fatal') {
+    return isFailure(value.failure)
+  }
+  if (!isRequestId(value.requestId)) {
+    return false
+  }
   switch (value.action) {
     case 'import':
       return (
@@ -100,7 +139,7 @@ export function isDbReply(value: unknown): value is DbReply {
             typeof file.path === 'string' &&
             typeof file.relativePath === 'string' &&
             isEntityId(file.id) &&
-            typeof file.favorite === 'boolean'
+            typeof file.favorite === 'boolean',
         )
       )
     case 'favorite':
@@ -118,6 +157,6 @@ export function isDbReply(value: unknown): value is DbReply {
     case 'error':
       return isFailure(value.failure)
     default:
-      return false
+      return isClassificationReply(value)
   }
 }

@@ -4,6 +4,8 @@ export const APP_ERROR_CODES = [
   'INVALID_INPUT',
   'UNAUTHORIZED',
   'NOT_FOUND',
+  'NAME_CONFLICT',
+  'STALE_REVIEW',
   'UNSUPPORTED_FORMAT',
   'UNSUPPORTED_VERSION',
   'INTEGRITY_FAILED',
@@ -12,7 +14,7 @@ export const APP_ERROR_CODES = [
   'PROTOCOL_ERROR',
   'CLOSING',
   'FOLDER_FAILED',
-  'DIALOG_FAILED'
+  'DIALOG_FAILED',
 ] as const
 
 export type AppErrorCode = (typeof APP_ERROR_CODES)[number]
@@ -20,7 +22,8 @@ export interface AppFailure {
   code: AppErrorCode
   message: string
 }
-export type IpcResult<T> = { ok: true; data: T } | { ok: false; error: AppFailure }
+export type IpcResult<T> =
+  { ok: true; data: T } | { ok: false; error: AppFailure }
 
 export class IpcError extends Error {
   readonly code: AppErrorCode
@@ -34,10 +37,12 @@ export class IpcError extends Error {
 
 export function requireIpcResult<T>(
   value: unknown,
-  isData: (data: unknown) => data is T
+  isData: (data: unknown) => data is T,
 ): IpcResult<T> {
   if (isRecord(value)) {
-    if (value.ok === true && isData(value.data)) return { ok: true, data: value.data }
+    if (value.ok === true && isData(value.data)) {
+      return { ok: true, data: value.data }
+    }
     const failure = value.error
     if (
       value.ok === false &&
@@ -46,13 +51,20 @@ export function requireIpcResult<T>(
       failure.message.length > 0
     ) {
       const code = APP_ERROR_CODES.find((code) => code === failure.code)
-      if (code) return { ok: false, error: { code, message: failure.message } }
+      if (code) {
+        return { ok: false, error: { code, message: failure.message } }
+      }
     }
   }
-  throw new IpcError('PROTOCOL_ERROR', 'Invalid application response. Restart Kiter to retry.')
+  throw new IpcError(
+    'PROTOCOL_ERROR',
+    'Invalid application response. Restart Kiter to retry.',
+  )
 }
 
 export function unwrapIpcResult<T>(result: IpcResult<T>): T {
-  if (!result.ok) throw new IpcError(result.error.code, result.error.message)
+  if (!result.ok) {
+    throw new IpcError(result.error.code, result.error.message)
+  }
   return result.data
 }

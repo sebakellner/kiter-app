@@ -21,12 +21,19 @@ export interface LocalProfile {
 }
 
 export function isPreviewVolume(value: unknown): value is number {
-  return typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 1
+  return (
+    typeof value === 'number' &&
+    Number.isFinite(value) &&
+    value >= 0 &&
+    value <= 1
+  )
 }
 
 export function requirePreviewVolume(value: unknown): number {
   if (!isPreviewVolume(value)) {
-    throw new DomainValidationError('Preview volume must be a number between 0 and 1')
+    throw new DomainValidationError(
+      'Preview volume must be a number between 0 and 1',
+    )
   }
   return value
 }

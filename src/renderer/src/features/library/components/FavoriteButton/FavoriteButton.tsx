@@ -21,20 +21,28 @@ export function FavoriteButton({ file, onChanged }: Props): React.JSX.Element {
   }, [])
 
   async function toggle(): Promise<void> {
-    if (state.current.busy) return
+    if (state.current.busy) {
+      return
+    }
     state.current.busy = true
     setPending(true)
     setError(null)
     try {
-      const saved = unwrapIpcResult(await window.api.library.setFavorite(file.id, !file.favorite))
+      const saved = unwrapIpcResult(
+        await window.api.library.setFavorite(file.id, !file.favorite),
+      )
       onChanged(saved)
     } catch (reason) {
       if (state.current.mounted) {
-        setError(reason instanceof Error ? reason.message : 'Unable to save favorite')
+        setError(
+          reason instanceof Error ? reason.message : 'Unable to save favorite',
+        )
       }
     } finally {
       state.current.busy = false
-      if (state.current.mounted) setPending(false)
+      if (state.current.mounted) {
+        setPending(false)
+      }
     }
   }
 

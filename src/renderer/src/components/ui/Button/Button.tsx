@@ -3,8 +3,16 @@ import './Button.css'
 
 export type ButtonProps = ComponentPropsWithRef<'button'>
 
-export function Button({ type = 'button', className, ...props }: ButtonProps): JSX.Element {
+export function Button({
+  type = 'button',
+  className,
+  ...props
+}: ButtonProps): JSX.Element {
   return (
-    <button {...props} type={type} className={className ? `ui-button ${className}` : 'ui-button'} />
+    <button
+      {...props}
+      type={type}
+      className={className ? `ui-button ${className}` : 'ui-button'}
+    />
   )
 }

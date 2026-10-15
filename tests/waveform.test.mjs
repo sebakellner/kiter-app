@@ -3,16 +3,25 @@ import { test } from 'node:test'
 import { setTimeout as delay } from 'node:timers/promises'
 import {
   calculatePeaks,
-  loadWaveform
+  loadWaveform,
 } from '../src/renderer/src/features/library/components/Waveform/waveformData.ts'
 
 test('peaks include both polarities, all channels and the final sample', () => {
-  assert.deepEqual(calculatePeaks([new Float32Array([0, -1, 0.5, -0.25])], 2), [1, 0.5])
   assert.deepEqual(
-    calculatePeaks([new Float32Array([0.5, 0, 0]), new Float32Array([-0.5, 0, -1])], 3),
-    [0.5, 0, 1]
+    calculatePeaks([new Float32Array([0, -1, 0.5, -0.25])], 2),
+    [1, 0.5],
   )
-  assert.deepEqual(calculatePeaks([new Float32Array([0.5])], 3), [0.5, 0.5, 0.5])
+  assert.deepEqual(
+    calculatePeaks(
+      [new Float32Array([0.5, 0, 0]), new Float32Array([-0.5, 0, -1])],
+      3,
+    ),
+    [0.5, 0, 1],
+  )
+  assert.deepEqual(
+    calculatePeaks([new Float32Array([0.5])], 3),
+    [0.5, 0.5, 0.5],
+  )
   assert.deepEqual(calculatePeaks([new Float32Array([2, -3])], 2), [1, 1])
 })
 
@@ -25,7 +34,10 @@ test('silence and empty audio yield a fixed-size zero waveform', () => {
 test('invalid bin counts and mismatched channels fail explicitly', () => {
   assert.throws(() => calculatePeaks([], 0), RangeError)
   assert.throws(() => calculatePeaks([], 1.5), RangeError)
-  assert.throws(() => calculatePeaks([new Float32Array(1), new Float32Array(2)]), RangeError)
+  assert.throws(
+    () => calculatePeaks([new Float32Array(1), new Float32Array(2)]),
+    RangeError,
+  )
 })
 
 test('waveforms are serialized, cached, cancellable and recover after failures', async (t) => {
@@ -47,7 +59,7 @@ test('waveforms are serialized, cached, cancellable and recover after failures',
       return {
         duration: 2,
         numberOfChannels: 2,
-        getChannelData: () => new Float32Array([0, -1, 0.5])
+        getChannelData: () => new Float32Array([0, -1, 0.5]),
       }
     }
     async close() {
@@ -57,10 +69,12 @@ test('waveforms are serialized, cached, cancellable and recover after failures',
   }
   Object.defineProperty(globalThis, 'AudioContext', {
     configurable: true,
-    value: TestAudioContext
+    value: TestAudioContext,
   })
   const fetchMock = t.mock.method(globalThis, 'fetch', async (url) => {
-    if (url === 'sample://failed') return new Response('Unavailable', { status: 404 })
+    if (url === 'sample://failed') {
+      return new Response('Unavailable', { status: 404 })
+    }
     return new Response(new Uint8Array([1, 2, 3]))
   })
 
@@ -73,44 +87,73 @@ test('waveforms are serialized, cached, cancellable and recover after failures',
     const [data] = await Promise.all([
       first,
       assert.rejects(skipped, { name: 'AbortError' }),
-      second
+      second,
     ])
     assert.equal(maximum, 1)
     assert.equal(closed, 2)
     assert.equal(fetchMock.mock.callCount(), 2)
     assert.equal(data.duration, 2)
     assert.equal(data.peaks.length, 160)
-    assert.equal(await loadWaveform('sample://first', new AbortController().signal), data)
+    assert.equal(
+      await loadWaveform('sample://first', new AbortController().signal),
+      data,
+    )
     assert.equal(fetchMock.mock.callCount(), 2)
 
-    await assert.rejects(loadWaveform('sample://failed', new AbortController().signal), /HTTP 404/)
+    await assert.rejects(
+      loadWaveform('sample://failed', new AbortController().signal),
+      /HTTP 404/,
+    )
     await loadWaveform('sample://after-failure', new AbortController().signal)
     assert.equal(active, 0)
 
     const interrupted = new AbortController()
     const running = loadWaveform('sample://interrupted', interrupted.signal)
-    while (!decoding) await delay(1)
+    while (!decoding) {
+      await delay(1)
+    }
     interrupted.abort()
     await assert.rejects(running, { name: 'AbortError' })
     assert.equal(active, 0)
     const calls = fetchMock.mock.callCount()
     await loadWaveform('sample://interrupted', new AbortController().signal)
-    assert.equal(fetchMock.mock.callCount(), calls + 1, 'Canceled decodes must not be cached')
+    assert.equal(
+      fetchMock.mock.callCount(),
+      calls + 1,
+      'Canceled decodes must not be cached',
+    )
 
     decodeDelay = 0
     for (let index = 0; index < 256; index++) {
-      await loadWaveform(`sample://cache-${index}`, new AbortController().signal)
+      await loadWaveform(
+        `sample://cache-${index}`,
+        new AbortController().signal,
+      )
     }
     const filled = fetchMock.mock.callCount()
     for (let index = 0; index < 256; index++) {
-      await loadWaveform(`sample://cache-${index}`, new AbortController().signal)
+      await loadWaveform(
+        `sample://cache-${index}`,
+        new AbortController().signal,
+      )
     }
-    assert.equal(fetchMock.mock.callCount(), filled, 'The last 256 waveforms must stay cached')
+    assert.equal(
+      fetchMock.mock.callCount(),
+      filled,
+      'The last 256 waveforms must stay cached',
+    )
     await loadWaveform('sample://first', new AbortController().signal)
-    assert.equal(fetchMock.mock.callCount(), filled + 1, 'Older entries must be evicted')
+    assert.equal(
+      fetchMock.mock.callCount(),
+      filled + 1,
+      'Older entries must be evicted',
+    )
     assert.equal(active, 0)
   } finally {
-    if (original) Object.defineProperty(globalThis, 'AudioContext', original)
-    else delete globalThis.AudioContext
+    if (original) {
+      Object.defineProperty(globalThis, 'AudioContext', original)
+    } else {
+      delete globalThis.AudioContext
+    }
   }
 })

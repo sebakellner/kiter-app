@@ -33,20 +33,20 @@ complete entity workflows are delivered separately.
 
 ## Current Foundation
 
-| Layer                                                                                              | Current responsibility                                                                                                     |
-| -------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| [Main entry point](../../src/main/index.ts)                                                        | Application lifecycle, protocol registration, IPC registration, and window creation.                                       |
-| [Main IPC](../../src/main/ipc/library.ts)                                                          | Authorized folder import, favorite writes, and native drag requests.                                                       |
-| [DB client](../../src/main/db/index.ts)                                                            | Asynchronous commands, worker readiness/correlation, failure handling, draining shutdown.                                  |
-| [Connection](../../src/main/db/connection.ts)                                                      | Worker-only native connection and Drizzle handle, format/history checks, atomic migrations/bootstrap and integrity checks. |
-| [Schema](../../src/main/db/schema/index.ts)                                                        | Typed 17-table schema, indexes, checks and foreign keys; committed SQL in [drizzle](../../drizzle).                        |
-| [Operations](../../src/main/db/operations)                                                         | Typed source import, Favorite, and profile/Preferences queries/writes.                                                     |
-| [Library service](../../src/main/services/library/index.ts)                                        | Recursive audio discovery, canonical folder preparation, and catalog import coordination.                                  |
-| [Audio service](../../src/main/services/audio/index.ts)                                            | In-memory authorization of the loaded library and local audio streaming.                                                   |
-| [Preload](../../src/preload/index.ts)                                                              | Typed methods exposed through `contextBridge`.                                                                             |
-| [Shared contracts](../../src/shared/ipc/index.ts)                                                  | Domain-specific channels, named request DTOs, API, validated result envelopes and transfer types.                          |
-| [Library UI](../../src/renderer/src/features/library/components/FileList/index.ts)                 | Sample rows, current-folder favorite filter, shared preview, and native dragging.                                          |
-| [Waveform processing](../../src/renderer/src/features/library/components/Waveform/waveformData.ts) | Serialized, cancellable decoding and bounded peak caching.                                                                 |
+| Layer                                                                                              | Current responsibility                                                                                                           |
+| -------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| [Main entry point](../../src/main/index.ts)                                                        | Application lifecycle, protocol registration, IPC registration, and window creation.                                             |
+| [Main IPC](../../src/main/ipc/library.ts)                                                          | Authorized folder import, favorite writes, and native drag requests.                                                             |
+| [DB client](../../src/main/db/index.ts)                                                            | Asynchronous commands, worker readiness/correlation, failure handling, draining shutdown.                                        |
+| [Connection](../../src/main/db/connection.ts)                                                      | Worker-only native connection and Drizzle handle, format/history checks, atomic migrations/bootstrap and integrity checks.       |
+| [Schema](../../src/main/db/schema/index.ts)                                                        | Typed 17-table schema, indexes, checks and foreign keys; committed SQL in [drizzle](../../drizzle).                              |
+| [Operations](../../src/main/db/operations)                                                         | Typed source import, Favorite, profile/Preferences and internal classification queries/writes, including impact-checked removal. |
+| [Library service](../../src/main/services/library/index.ts)                                        | Recursive audio discovery, canonical folder preparation, and catalog import coordination.                                        |
+| [Audio service](../../src/main/services/audio/index.ts)                                            | In-memory authorization of the loaded library and local audio streaming.                                                         |
+| [Preload](../../src/preload/index.ts)                                                              | Typed methods exposed through `contextBridge`.                                                                                   |
+| [Shared contracts](../../src/shared/ipc/index.ts)                                                  | Domain-specific channels, named request DTOs, API, validated result envelopes and transfer types.                                |
+| [Library UI](../../src/renderer/src/features/library/components/FileList/index.ts)                 | Sample rows, current-folder favorite filter, shared preview, and native dragging.                                                |
+| [Waveform processing](../../src/renderer/src/features/library/components/Waveform/waveformData.ts) | Serialized, cancellable decoding and bounded peak caching.                                                                       |
 
 The folder view remains session-scoped, while sample UUIDs and favorites persist
 in SQLite under `userData`. Sample URLs are temporary capabilities, not durable

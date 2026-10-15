@@ -21,6 +21,24 @@ architecture, file integrity rules, and validation commands.
 - Planned features are not existing contracts. Clarify consequential domain
   choices before adding persistence, classification rules, or bulk operations.
 
+## Formatting and Readability
+
+- Prettier owns formatting through the root `.prettierrc.yaml`: 80-column target,
+  two-space indentation, LF endings, single quotes, no semicolons, and trailing
+  commas wherever supported. The width is a wrapping target, not a hard limit
+  for strings, URLs, or template literals. Do not manually split literals solely
+  to meet it or add competing ESLint indentation/wrapping rules.
+- Use braces for every conditional and loop body, including early returns;
+  ESLint enforces this. Keep separate statements on separate lines.
+- Separate top-level declarations and distinct logical steps with a single blank
+  line. Keep related statements together; avoid padding every statement or
+  preserving dense one-line control flow.
+- Run `pnpm format` to apply formatting and `pnpm format:check` to verify it.
+  VS Code workspace settings use Prettier on save for supported source formats.
+  Run `pnpm exec eslint --fix <paths>` for brace fixes, followed by formatting.
+- Generated migration history and lockfiles are excluded from formatting; do not
+  rewrite committed migration assets for style changes.
+
 ## Imports and Contracts
 
 - Use configured aliases such as `@shared` and `@renderer` where available.
@@ -47,6 +65,13 @@ architecture, file integrity rules, and validation commands.
   prove interoperability with a DAW.
 
 ## Types and Input Validation
+
+Type checks use TypeScript 7 through `@typescript/native`, which supplies `tsc`.
+ESLint uses the TypeScript 6 compatibility API through the `typescript` alias
+for `@typescript/typescript6`. Keep the side-by-side setup until ESLint supports
+the newer API. The VS Code TypeScript (Native Preview) extension enables the
+native language service; installing dependencies alone does not change the
+editor's TypeScript service.
 
 - Preserve type safety. Avoid `any`, suppression directives, and casts that
   hide missing validation or mismatched contracts.

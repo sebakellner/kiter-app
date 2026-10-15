@@ -44,6 +44,7 @@ pnpm test
 # Application type checks and lint
 pnpm typecheck
 pnpm lint
+pnpm format:check
 
 # Build and Electron integration; requires a desktop session
 pnpm test:app

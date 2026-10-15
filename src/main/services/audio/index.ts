@@ -1,1 +1,5 @@
-export { getAudioSource, registerAudioProtocol, registerAudioSources } from './audio'
+export {
+  getAudioSource,
+  registerAudioProtocol,
+  registerAudioSources,
+} from './audio'

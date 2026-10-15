@@ -11,7 +11,9 @@ export interface DiscoveredAudioFile extends AudioFile {
   observedMtimeMs: number
 }
 
-export function isDiscoveredAudioFile(value: unknown): value is DiscoveredAudioFile {
+export function isDiscoveredAudioFile(
+  value: unknown,
+): value is DiscoveredAudioFile {
   return (
     isRecord(value) &&
     typeof value.name === 'string' &&

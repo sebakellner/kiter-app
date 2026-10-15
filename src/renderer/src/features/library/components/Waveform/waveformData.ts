@@ -3,7 +3,10 @@ export type WaveformData = { peaks: number[]; duration: number }
 const cache = new Map<string, WaveformData>()
 let queue: Promise<void> = Promise.resolve()
 
-export function calculatePeaks(channels: readonly Float32Array[], bins = 160): number[] {
+export function calculatePeaks(
+  channels: readonly Float32Array[],
+  bins = 160,
+): number[] {
   if (!Number.isInteger(bins) || bins < 1) {
     throw new RangeError('El numero de barras debe ser un entero positivo')
   }
@@ -13,7 +16,10 @@ export function calculatePeaks(channels: readonly Float32Array[], bins = 160): n
   }
   return Array.from({ length: bins }, (_, index) => {
     const start = Math.floor((index * length) / bins)
-    const end = Math.min(length, Math.max(start + 1, Math.floor(((index + 1) * length) / bins)))
+    const end = Math.min(
+      length,
+      Math.max(start + 1, Math.floor(((index + 1) * length) / bins)),
+    )
     let peak = 0
     for (const channel of channels) {
       for (let sample = start; sample < end; sample++) {
@@ -24,14 +30,21 @@ export function calculatePeaks(channels: readonly Float32Array[], bins = 160): n
   })
 }
 
-export function loadWaveform(url: string, signal: AbortSignal): Promise<WaveformData> {
+export function loadWaveform(
+  url: string,
+  signal: AbortSignal,
+): Promise<WaveformData> {
   const result = queue.then(async () => {
     signal.throwIfAborted()
     const existing = cache.get(url)
-    if (existing) return existing
+    if (existing) {
+      return existing
+    }
 
     const response = await fetch(url, { signal })
-    if (!response.ok) throw new Error(`Unable to read the sample (HTTP ${response.status})`)
+    if (!response.ok) {
+      throw new Error(`Unable to read the sample (HTTP ${response.status})`)
+    }
     const bytes = await response.arrayBuffer()
     signal.throwIfAborted()
     const context = new AudioContext()
@@ -42,14 +55,16 @@ export function loadWaveform(url: string, signal: AbortSignal): Promise<Waveform
         duration: buffer.duration,
         peaks: calculatePeaks(
           Array.from({ length: buffer.numberOfChannels }, (_, index) =>
-            buffer.getChannelData(index)
-          )
-        )
+            buffer.getChannelData(index),
+          ),
+        ),
       }
       cache.set(url, data)
       if (cache.size > 256) {
         const oldest = cache.keys().next().value
-        if (oldest !== undefined) cache.delete(oldest)
+        if (oldest !== undefined) {
+          cache.delete(oldest)
+        }
       }
       return data
     } finally {
@@ -59,7 +74,7 @@ export function loadWaveform(url: string, signal: AbortSignal): Promise<Waveform
   // Keep the queue running after failures; the caller still receives the rejected result.
   queue = result.then(
     () => undefined,
-    () => undefined
+    () => undefined,
   )
   return result
 }

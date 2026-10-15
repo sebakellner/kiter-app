@@ -101,8 +101,12 @@ deletion/reset of local databases or source files. See
 [Domain Model](.agents/docs/domain-model.md) and
 [Data Access](.agents/docs/data-access.md) for the target design and delivery order.
 
+Internal Author/Category operations now include paginated search, independent
+Sample/Pack assignments, use inspection, and impact-checked deletion through the
+worker and `DbClient`. Classification IPC and UI remain pending.
+
 Profile/settings UI and player volume restoration, Pack/Collection operations
-and editors, managed image workflows, classification/credit operations, global
+and editors, managed image workflows, classification/credit UI, global
 search, named favorite lists, centralization, export, and automation remain
 planned. Schema/types alone do not deliver those features.
 
@@ -208,7 +212,7 @@ pnpm db:check        # Validate migration metadata
 
 - TypeScript 7 provides `tsc` through `@typescript/native`. The `typescript`
   alias uses the TypeScript 6 compatibility API for ESLint; do not remove it
-  without verifying support. See the [README](README.md).
+  without verifying support. See [Types and Input Validation](.agents/docs/common-guidelines.md#types-and-input-validation).
 
 Follow [Testing Conventions](.agents/docs/testing-conventions.md) for focused
 commands, fixtures, isolation, and automated/manual validation limits.

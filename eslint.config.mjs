@@ -13,26 +13,32 @@ export default defineConfig(
   {
     settings: {
       react: {
-        version: 'detect'
-      }
-    }
+        version: 'detect',
+      },
+    },
   },
   {
     files: ['**/*.{ts,tsx}'],
     plugins: {
       'react-hooks': eslintPluginReactHooks,
-      'react-refresh': eslintPluginReactRefresh
+      'react-refresh': eslintPluginReactRefresh,
     },
     rules: {
       ...eslintPluginReactHooks.configs.recommended.rules,
-      ...eslintPluginReactRefresh.configs.vite.rules
-    }
+      ...eslintPluginReactRefresh.configs.vite.rules,
+    },
   },
   eslintConfigPrettier,
   {
+    files: ['**/*.{js,mjs,cjs,ts,tsx}'],
+    rules: {
+      curly: ['error', 'all'],
+    },
+  },
+  {
     files: ['tests/**/*.mjs'],
     rules: {
-      '@typescript-eslint/explicit-function-return-type': 'off'
-    }
-  }
+      '@typescript-eslint/explicit-function-return-type': 'off',
+    },
+  },
 )

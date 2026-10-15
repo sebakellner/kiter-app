@@ -13,10 +13,12 @@ export const packs = sqliteTable(
       .references(() => sourceRoots.id, { onDelete: 'restrict' }),
     name: text('name').notNull(),
     description: text('description'),
-    coverAssetId: text('cover_asset_id').references(() => imageAssets.id, { onDelete: 'restrict' })
+    coverAssetId: text('cover_asset_id').references(() => imageAssets.id, {
+      onDelete: 'restrict',
+    }),
   },
   (table) => [
     check('pack_name', sql`length(trim(${table.name})) > 0`),
-    index('packs_by_cover').on(table.coverAssetId)
-  ]
+    index('packs_by_cover').on(table.coverAssetId),
+  ],
 )

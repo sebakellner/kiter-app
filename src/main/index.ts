@@ -15,18 +15,22 @@ protocol.registerSchemesAsPrivileged([
       secure: true,
       supportFetchAPI: true,
       stream: true,
-      corsEnabled: true
-    }
-  }
+      corsEnabled: true,
+    },
+  },
 ])
 
 app
   .whenReady()
   .then(async () => {
-    const database = await DbClient.open(join(app.getPath('userData'), 'db', 'kiter.sqlite'))
+    const database = await DbClient.open(
+      join(app.getPath('userData'), 'db', 'kiter.sqlite'),
+    )
     let shutdown = false
     app.on('before-quit', (event) => {
-      if (shutdown) return
+      if (shutdown) {
+        return
+      }
       event.preventDefault()
       shutdown = true
       void database
@@ -50,14 +54,18 @@ app
     createWindow()
 
     app.on('activate', function () {
-      if (BrowserWindow.getAllWindows().length === 0) createWindow()
+      if (BrowserWindow.getAllWindows().length === 0) {
+        createWindow()
+      }
     })
   })
   .catch((error: unknown) => {
     console.error('Application database startup failed')
     dialog.showErrorBox(
       'Unable to open Kiter',
-      error instanceof Error ? error.message : 'Unable to initialize the local library.'
+      error instanceof Error
+        ? error.message
+        : 'Unable to initialize the local library.',
     )
     app.quit()
   })
