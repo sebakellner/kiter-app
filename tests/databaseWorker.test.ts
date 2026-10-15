@@ -4,8 +4,7 @@ import { once } from 'node:events'
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { fileURLToPath } from 'node:url'
-import { Worker } from 'node:worker_threads'
+import { startWorker, exchange } from './support/worker/worker.ts'
 import { test } from 'node:test'
 import { isDbReply } from '../src/main/db/protocol/messages.ts'
 import type { DbReply, DbRequest } from '../src/main/db/protocol/messages.ts'
@@ -126,29 +125,6 @@ test(
     }
   },
 )
-
-function startWorker(
-  filename: string,
-  migrationsFolder = fileURLToPath(new URL('../drizzle', import.meta.url)),
-): Worker {
-  return new Worker(
-    new URL('../src/main/db/worker/entry.ts', import.meta.url),
-    {
-      workerData: {
-        filename,
-        migrationsFolder,
-      },
-    },
-  )
-}
-
-async function exchange(worker: Worker, request: DbRequest): Promise<DbReply> {
-  const response = once(worker, 'message')
-  worker.postMessage(request)
-  const [reply] = await response
-  assert.ok(isDbReply(reply))
-  return reply
-}
 
 test(
   'profile worker edits persist across restart and recover from a missing Author',

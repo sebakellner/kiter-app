@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
-import { setTimeout as delay } from 'node:timers/promises'
+import { waitFor } from './support/electron/wait-for.mjs'
 import Database from 'better-sqlite3'
 import { app, BrowserWindow, dialog } from 'electron'
 
@@ -22,17 +22,6 @@ dialog.showOpenDialog = async () => {
     canceled,
     filePaths: canceled ? [] : [path.join(directory, 'samples')],
   }
-}
-
-async function waitFor(check, description) {
-  const deadline = Date.now() + 15000
-  while (Date.now() < deadline) {
-    if (await check()) {
-      return
-    }
-    await delay(25)
-  }
-  throw new Error(`Timed out: ${description}`)
 }
 
 async function run() {

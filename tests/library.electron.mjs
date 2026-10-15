@@ -11,10 +11,10 @@ import { randomUUID } from 'node:crypto'
 import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { setTimeout as delay } from 'node:timers/promises'
 import { performance } from 'node:perf_hooks'
 import { app, BrowserWindow, dialog } from 'electron'
 import { createWav } from './wav.mjs'
+import { waitFor } from './support/electron/wait-for.mjs'
 import {
   verifyListingAndStyles,
   verifyMainFrameAuthorization,
@@ -24,21 +24,8 @@ import {
   verifyLazyWaveforms,
 } from './library.scenarios.mjs'
 
-const WAIT_TIMEOUT_MS = 10000
-const POLL_INTERVAL_MS = 25
 const LARGE_FOLDER_SAMPLE_COUNT = 100
 const FIXTURE_WRITE_BATCH_SIZE = 10
-
-async function waitFor(check, label) {
-  const deadline = performance.now() + WAIT_TIMEOUT_MS
-  while (performance.now() < deadline) {
-    if (await check()) {
-      return
-    }
-    await delay(POLL_INTERVAL_MS)
-  }
-  throw new Error(`Timed out: ${label}`)
-}
 
 async function createFixtures(directory) {
   const samples = path.join(directory, 'samples')

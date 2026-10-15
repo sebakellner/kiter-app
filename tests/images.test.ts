@@ -12,11 +12,13 @@ import {
 } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { fileURLToPath } from 'node:url'
 import { test } from 'node:test'
 import sharp from 'sharp'
 import { eq } from 'drizzle-orm'
-import { openDatabase } from '../src/main/db/runtime/connection.ts'
+import {
+  openTestDatabase,
+  createMemoryDatabase,
+} from './support/database/connection.ts'
 import * as assets from '../src/main/db/operations/assets/operations.ts'
 import {
   readLocalProfile,
@@ -52,9 +54,6 @@ import {
 import { isProfileUpdate } from '../src/shared/domain/profile.ts'
 import { isDbRequest, isDbReply } from '../src/main/db/protocol/messages.ts'
 
-const migrations = fileURLToPath(new URL('../drizzle', import.meta.url))
-const openDb = (): ReturnType<typeof openDatabase> =>
-  openDatabase(':memory:', migrations)
 const metadata = (): ImageAsset => {
   const id = randomUUID()
   return {
@@ -73,8 +72,7 @@ const png = (): Promise<Buffer> =>
     .toBuffer()
 
 test('Profile edits normalize the name, preserve identity/preferences/avatar and never rename or credit an Author', (t) => {
-  const connection = openDb()
-  t.after(connection.close)
+  const connection = createMemoryDatabase(t)
   const { db } = connection
   const before = readLocalProfile(db)
   const author = createAuthor(db, { name: 'Artist' })
@@ -118,8 +116,7 @@ test('Profile edits normalize the name, preserve identity/preferences/avatar and
 })
 
 test('Images share references across all owners, reject stale replacements and cannot reattach cleanup claims', (t) => {
-  const { db, close } = openDb()
-  t.after(close)
+  const { db } = createMemoryDatabase(t)
   const collection = createCollection(db, { name: 'Collection' })
   const packId = randomUUID()
   const rootId = randomUUID()
@@ -237,7 +234,7 @@ test('Image contracts reject unsafe keys, invalid dimensions, states and malform
 })
 
 test('Failed reference updates roll back image registration and preserve the previous avatar', (t) => {
-  const connection = openDb()
+  const connection = openTestDatabase()
   t.after(connection.close)
   const { db } = connection
   const initial = metadata()
@@ -301,7 +298,7 @@ test('Image validation decodes real content, accepts boundaries and rejects corr
 
 interface ImageFixture {
   dir: string
-  db: ReturnType<typeof openDatabase>['db']
+  db: ReturnType<typeof openTestDatabase>['db']
   database: Pick<
     import('../src/main/db/client.ts').DbClient,
     | 'publishImage'
@@ -321,7 +318,17 @@ async function fixture(
   t: import('node:test').TestContext,
 ): Promise<ImageFixture> {
   const dir = await realpath(await mkdtemp(join(tmpdir(), 'kiter-images-')))
-  const connection = openDatabase(join(dir, 'catalog.sqlite'), migrations)
+  const resources: {
+    connection?: ReturnType<typeof openTestDatabase>
+    service?: ManagedImages
+  } = {}
+  t.after(async () => {
+    await resources.service?.close()
+    resources.connection?.close()
+    await rm(dir, { recursive: true, force: true })
+  })
+  const connection = openTestDatabase(join(dir, 'catalog.sqlite'))
+  resources.connection = connection
   const { db } = connection
   const database = {
     publishImage: async (input: Parameters<typeof assets.publishImage>[1]) =>
@@ -336,11 +343,7 @@ async function fixture(
     finishImageCleanup: async (id: string) => assets.finishImageCleanup(db, id),
   }
   const service = await ManagedImages.open(dir, database)
-  t.after(async () => {
-    await service.close()
-    connection.close()
-    await rm(dir, { recursive: true, force: true })
-  })
+  resources.service = service
   const selected = join(dir, 'selected.with-wrong-extension')
   const bytes = await png()
   await writeFile(selected, bytes)
