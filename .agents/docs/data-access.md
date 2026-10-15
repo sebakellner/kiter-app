@@ -14,13 +14,16 @@ paginated queries/use inspection, and impact-checked deletion are implemented th
 the worker and `DbClient`; classification IPC/UI remain pending.
 Internal Collection creation/editing, bounded reads, ordered memberships,
 atomic reorder and impact-checked removal also run through the worker/client.
-Removal marks only unreferenced covers for cleanup; physical cleanup is pending.
+Removal marks only unreferenced covers for recoverable managed-image cleanup.
 Internal Pack registration/reimport, presentation edits, bounded queries,
 manual origins and impact-checked removal also run through the worker/client.
 Sample presentation editing, paginated references/exclusions, impact-checked
 catalog removal and explicit reinclusion also run through the worker/client.
 Main's library service verifies reinclusion before submitting source observations.
-Sample/Pack IPC/UI, remaining organization commands, managed images, settings UI, and
+Profile name/Author editing and image publication/reference/cleanup operations
+are implemented through the worker/client. A main-only image service validates
+copies, publishes immutable files and reconciles interrupted work at startup.
+Sample/Pack IPC/UI, remaining organization commands, image IPC/UI, settings UI, and
 player volume restoration remain planned. Persistent analysis/peaks are separate.
 
 This foundation intentionally starts at `userData/db/kiter.sqlite`. Neither
@@ -145,12 +148,12 @@ Locations are relative to Electron's `userData`:
 db/
   kiter.sqlite
 library/
-  images/                 # Planned managed-image workflow
+  images/                 # Shared managed covers and avatars
     <asset-uuid>.<validated-extension>
 ```
 
 Source audio remains in user-selected directories. Import never copies, moves,
-or modifies audio. Covers and profile avatars will share managed-image storage
+or modifies audio. Covers and profile avatars share managed-image storage
 and validation. Session URLs, decoded buffers, and audio bytes do not belong in
 the authoritative database. Persistent analysis storage is not designed here.
 
@@ -222,7 +225,7 @@ replaces memberships with contiguous positions, avoiding transient unique-index
 collisions. Removal review hashes presentation and exact Sample IDs/positions in
 bounded batches; removal rechecks inside an immediate transaction. Final cover
 references become `cleanup_pending` only after checking all three reference
-owners. Collection IPC/UI and physical image cleanup remain pending.
+owners. Collection IPC/UI remain pending; main performs recoverable image cleanup.
 
 | Command                | Required behavior                                                                                                                   |
 | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
@@ -270,7 +273,7 @@ internal APIs do not authorize audio access. No schema migration is needed.
 
 ### Managed Image Lifecycle
 
-Planned: accept static PNG/JPEG/WebP, inclusive **10 MiB (10,485,760 bytes)** and
+Implemented internally: accept static PNG/JPEG/WebP, inclusive **10 MiB (10,485,760 bytes)** and
 **4096 pixels per axis**. Detect real content and reject animation, corruption,
 oversize and unreadable files. SQL metadata is not image validation.
 
@@ -289,6 +292,27 @@ published-unregistered and pending-cleanup files on restart. Prevent attachment,
 publication and cleanup races. Never follow symlinks, sweep arbitrary files,
 delete originals/referenced assets, or claim cleanup success prematurely.
 
+`ManagedImages` serializes filesystem workflows; the application holds a
+single-instance lock and drains image work before closing the DB worker.
+`sharp` validates real format, dimensions, static content and full decoding.
+Selected files are read with a bounded buffer; source and managed links are
+rejected. Publication fsyncs a UUID `.tmp` copy, then uses an exclusive same-folder
+hard link to publish without overwrite. Registering metadata and changing the
+reference share a DB transaction. References compare `expectedAssetId`, returning
+`STALE_REVIEW` on concurrent replacement. Failed DB publication leaves a generated
+orphan for reconciliation; the original reference is preserved.
+
+Cleanup claims recheck all three reference owners in an immediate transaction
+and mark unused assets pending. Pending assets cannot be attached, including
+during filesystem deletion. Missing files complete cleanup idempotently;
+failures retain metadata for retry. Startup processes DB assets in UUID-keyset
+pages of 100 and streams generated directory entries, removing only recognized
+unregistered UUID copies/temps. Unknown entries are left alone; recognized links
+and directories report failures and are not deleted. Missing referenced copies
+are reported without removing their references. Recovery returns per-asset errors
+and startup presents a retry message. Image IPC, selection and display UI remain
+pending; this internal API does not authorize renderer-supplied paths.
+
 ## Implementation Order and Validation
 
 The Drizzle/worker/IPC foundation precedes new domain features. Next, implement
@@ -302,7 +326,7 @@ zero volume, worker draining, migration upgrades/idempotence/hash checks/rollbac
 unsupported/corrupt files, and IPC envelopes/validation/redaction. Electron tests
 exercise imports, failed mutations, authorization, playback and restart Favorites.
 Passing development tests does not establish packaged-app or Windows support,
-real DAW reception, managed-image recovery, or persistent analysis.
+real DAW reception, packaged managed-image loading, or persistent analysis.
 
 Future data-changing migrations need realistic upgrade fixtures and approved
 backup/recovery. See [Testing Conventions](testing-conventions.md) and

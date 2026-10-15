@@ -68,6 +68,14 @@ import type {
 import type { SourceRoot } from '../../shared/domain/source'
 import type { SampleRequest } from './sampleProtocol'
 import { isSampleRequest } from './sampleProtocol'
+import type { AssetRequest } from './assetProtocol'
+import { isAssetRequest } from './assetProtocol'
+import type { ProfileUpdateRequest } from '../../shared/domain/profile'
+import type {
+  ImageAsset,
+  ImagePublicationRequest,
+  ImageReferenceRequest,
+} from '../../shared/domain/imageAsset'
 
 const DB_CLOSING_MESSAGE = 'Database is shutting down'
 const UNEXPECTED_REPLY_MESSAGE = 'Unexpected database response'
@@ -214,6 +222,80 @@ export class DbClient {
   async getPack(id: string): Promise<Pack> {
     const reply = await this.packRequest({ action: 'get-pack', id })
     if (reply.action !== 'get-pack') {
+      throw new Error(UNEXPECTED_REPLY_MESSAGE)
+    }
+    return reply.result
+  }
+
+  private async assetRequest(request: AssetRequest): Promise<DbReply> {
+    if (this.closing) {
+      throw new DbError('CLOSING', DB_CLOSING_MESSAGE)
+    }
+    if (!isAssetRequest(request)) {
+      throw new DomainValidationError('Invalid profile or image request.')
+    }
+    return this.sendRequest({ ...request, requestId: this.nextRequestId++ })
+  }
+
+  async updateLocalProfile(input: ProfileUpdateRequest): Promise<LocalProfile> {
+    const reply = await this.assetRequest({ action: 'update-profile', input })
+    if (reply.action !== 'update-profile') {
+      throw new Error(UNEXPECTED_REPLY_MESSAGE)
+    }
+    return reply.result
+  }
+
+  async publishImage(input: ImagePublicationRequest): Promise<ImageAsset> {
+    const reply = await this.assetRequest({ action: 'publish-image', input })
+    if (reply.action !== 'publish-image') {
+      throw new Error(UNEXPECTED_REPLY_MESSAGE)
+    }
+    return reply.result
+  }
+
+  async setImageReference(
+    input: ImageReferenceRequest,
+  ): Promise<{ assetId: string | null }> {
+    const reply = await this.assetRequest({
+      action: 'set-image-reference',
+      input,
+    })
+    if (reply.action !== 'set-image-reference') {
+      throw new Error(UNEXPECTED_REPLY_MESSAGE)
+    }
+    return reply.result
+  }
+
+  async getImage(id: string): Promise<ImageAsset | null> {
+    const reply = await this.assetRequest({ action: 'get-image', id })
+    if (reply.action !== 'get-image') {
+      throw new Error(UNEXPECTED_REPLY_MESSAGE)
+    }
+    return reply.result
+  }
+
+  async listImages(after: string | null = null): Promise<ImageAsset[]> {
+    const reply = await this.assetRequest({ action: 'list-images', after })
+    if (reply.action !== 'list-images') {
+      throw new Error(UNEXPECTED_REPLY_MESSAGE)
+    }
+    return reply.result
+  }
+
+  async claimImageCleanup(id: string): Promise<ImageAsset | null> {
+    const reply = await this.assetRequest({ action: 'claim-image-cleanup', id })
+    if (reply.action !== 'claim-image-cleanup') {
+      throw new Error(UNEXPECTED_REPLY_MESSAGE)
+    }
+    return reply.result
+  }
+
+  async finishImageCleanup(id: string): Promise<{ id: string }> {
+    const reply = await this.assetRequest({
+      action: 'finish-image-cleanup',
+      id,
+    })
+    if (reply.action !== 'finish-image-cleanup') {
       throw new Error(UNEXPECTED_REPLY_MESSAGE)
     }
     return reply.result

@@ -3,12 +3,19 @@ import type { AppDatabase } from '../connection.ts'
 import type {
   LocalProfile,
   UserPreferences,
+  ProfileUpdateRequest,
 } from '../../../shared/domain/profile.ts'
 import {
   isPreviewVolume,
   requirePreviewVolume,
 } from '../../../shared/domain/profile.ts'
-import { isEntityId } from '../../../shared/domain/validation.ts'
+import {
+  isEntityId,
+  requirePresentationName,
+  DomainValidationError,
+} from '../../../shared/domain/validation.ts'
+import { isProfileUpdate } from '../../../shared/domain/profile.ts'
+import { authors } from '../schema/classification.ts'
 import { DbError } from '../errors.ts'
 import { userProfiles, userPreferences } from '../schema/profile.ts'
 
@@ -65,4 +72,35 @@ export function setPreviewVolume(
     throw new DbError('DB_INTEGRITY', 'The local preferences are unavailable.')
   }
   return { profileId: profile.id, previewVolume }
+}
+
+export function updateLocalProfile(
+  db: AppDatabase,
+  input: ProfileUpdateRequest,
+): LocalProfile {
+  if (!isProfileUpdate(input)) {
+    throw new DomainValidationError('Invalid profile update.')
+  }
+  const name = requirePresentationName(input.name)
+  return db.transaction(
+    () => {
+      const { profile } = readLocalProfile(db)
+      if (
+        input.authorId !== null &&
+        !db
+          .select({ id: authors.id })
+          .from(authors)
+          .where(eq(authors.id, input.authorId))
+          .get()
+      ) {
+        throw new DbError('NOT_FOUND', 'The Author no longer exists.')
+      }
+      db.update(userProfiles)
+        .set({ name, authorId: input.authorId })
+        .where(eq(userProfiles.id, profile.id))
+        .run()
+      return readLocalProfile(db)
+    },
+    { behavior: 'immediate' },
+  )
 }

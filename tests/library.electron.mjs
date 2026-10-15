@@ -1,6 +1,13 @@
 import assert from 'node:assert/strict'
 import { mkdir, writeFile } from 'node:fs/promises'
-import { mkdirSync, mkdtempSync, rmSync } from 'node:fs'
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs'
+import { randomUUID } from 'node:crypto'
 import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
@@ -120,6 +127,14 @@ async function run() {
     directory = mkdtempSync(path.join(tmpdir(), 'kiter-app-test-'))
     const data = path.join(directory, 'data')
     mkdirSync(data)
+    const images = path.join(data, 'library', 'images')
+    mkdirSync(images, { recursive: true })
+    const interruptedImage = path.join(images, `${randomUUID()}.png`)
+    const interruptedTemp = path.join(images, `${randomUUID()}.tmp`)
+    const unrelatedImage = path.join(images, 'unrelated.png')
+    for (const file of [interruptedImage, interruptedTemp, unrelatedImage]) {
+      writeFileSync(file, 'interrupted publication fixture')
+    }
     dialog.showOpenDialog = async () => {
       dialogCalls++
       assert.ok(selections.length > 0, 'Unexpected folder dialog')
@@ -149,6 +164,21 @@ async function run() {
       'Only one window should open',
     )
     assert.equal(window, BrowserWindow.getAllWindows()[0])
+    assert.equal(
+      existsSync(interruptedImage),
+      false,
+      'Startup reclaims unpublished managed image',
+    )
+    assert.equal(
+      existsSync(interruptedTemp),
+      false,
+      'Startup reclaims interrupted temporary copy',
+    )
+    assert.equal(
+      existsSync(unrelatedImage),
+      true,
+      'Startup preserves unrelated files',
+    )
     window.setSize(1000, 700)
     const nativeDrags = []
     originalStartDrag = window.webContents.startDrag

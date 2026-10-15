@@ -8,6 +8,117 @@ import { Worker } from 'node:worker_threads'
 import { test } from 'node:test'
 import { isDbReply } from '../src/main/db/protocol.ts'
 import type { DbReply, DbRequest } from '../src/main/db/protocol.ts'
+import { randomUUID } from 'node:crypto'
+
+test(
+  'Profile and image worker commands persist references, protect cleanup claims and drain before shutdown',
+  { timeout: 15000 },
+  async () => {
+    const directory = await mkdtemp(path.join(tmpdir(), 'kiter-worker-images-'))
+    const filename = path.join(directory, 'catalog.sqlite')
+    let worker = startWorker(filename)
+    let requestId = 0
+    const send = (
+      request: import('../src/main/db/assetProtocol.ts').AssetRequest,
+    ): Promise<DbReply> =>
+      exchange(worker, { ...request, requestId: ++requestId })
+    const stop = async (): Promise<void> => {
+      const exit = once(worker, 'exit')
+      await exchange(worker, { action: 'close', requestId: ++requestId })
+      await exit
+    }
+    try {
+      assert.deepEqual((await once(worker, 'message'))[0], { action: 'ready' })
+      const profile = await send({
+        action: 'update-profile',
+        input: { name: ' Producer ', authorId: null },
+      })
+      assert.equal(profile.action, 'update-profile')
+      const id = randomUUID()
+      const asset = {
+        id,
+        storageKey: `${id}.png`,
+        mimeType: 'image/png' as const,
+        width: 2,
+        height: 3,
+        byteSize: 80,
+        state: 'ready' as const,
+      }
+      const published = await send({
+        action: 'publish-image',
+        input: { target: { kind: 'profile' }, expectedAssetId: null, asset },
+      })
+      assert.equal(published.action, 'publish-image')
+      await stop()
+      worker = startWorker(filename)
+      assert.deepEqual((await once(worker, 'message'))[0], { action: 'ready' })
+      const persisted = await exchange(worker, {
+        action: 'profile',
+        requestId: ++requestId,
+      })
+      if (persisted.action !== 'profile') {
+        assert.fail('Expected persisted profile')
+      }
+      assert.equal(persisted.result.profile.name, 'Producer')
+      assert.equal(persisted.result.profile.avatarAssetId, id)
+      assert.deepEqual(await send({ action: 'claim-image-cleanup', id }), {
+        action: 'claim-image-cleanup',
+        requestId,
+        result: null,
+      })
+      const stale = await send({
+        action: 'set-image-reference',
+        input: {
+          target: { kind: 'profile' },
+          expectedAssetId: null,
+          assetId: null,
+        },
+      })
+      assert.equal(
+        stale.action === 'error' && stale.failure.code,
+        'STALE_REVIEW',
+      )
+      await send({
+        action: 'set-image-reference',
+        input: {
+          target: { kind: 'profile' },
+          expectedAssetId: id,
+          assetId: null,
+        },
+      })
+      const claimed = await send({ action: 'claim-image-cleanup', id })
+      assert.equal(
+        claimed.action === 'claim-image-cleanup' && claimed.result?.state,
+        'cleanup_pending',
+      )
+      await stop()
+      worker = startWorker(filename)
+      assert.deepEqual((await once(worker, 'message'))[0], { action: 'ready' })
+      const rejected = await send({
+        action: 'set-image-reference',
+        input: {
+          target: { kind: 'profile' },
+          expectedAssetId: null,
+          assetId: id,
+        },
+      })
+      assert.equal(
+        rejected.action === 'error' && rejected.failure.code,
+        'NOT_FOUND',
+      )
+      await send({ action: 'finish-image-cleanup', id })
+      assert.deepEqual(await send({ action: 'list-images', after: null }), {
+        action: 'list-images',
+        requestId,
+        result: [],
+      })
+      await stop()
+    } finally {
+      await worker.terminate()
+      await rm(directory, { recursive: true, force: true })
+    }
+  },
+)
 
 function startWorker(
   filename: string,

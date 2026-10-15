@@ -37,8 +37,11 @@ catalog and from questions that still require agreement.
   reference/exclusion queries, exact-impact reviewed catalog removal, and explicit
   reinclusion through the worker/client and main library service. Original audio
   stays untouched; no Sample editing/removal/reinclusion IPC/UI exists yet.
+- **Implemented internal profile/image slice:** profile name/Author-link editing,
+  validated immutable cover/avatar publication, reviewed reference replacement,
+  cleanup claims, and startup reconciliation. No profile/image IPC/UI exists yet.
 - **Not implemented:** Pack UI, Collection UI, classification/credit UI,
-  profile-editing, managed-image, and other lifecycle workflows below.
+  profile/image UI, and other lifecycle workflows below.
 - **Deferred design:** analysis/cache storage layout, cache persistence, waveform
   peaks, and analysis versioning. Managed covers are part of the first new
   entity delivery; persistent technical analysis follows separately.
@@ -103,6 +106,9 @@ login, permissions, or isolated per-user catalogs.
 
 - UserProfile has a stable ID and required presentation name, an optional
   managed avatar, and an optional link to an existing Author.
+- Profile names use the same trimmed NFC, 1–120 Unicode-code-point policy as
+  Authors, rejecting controls and line/paragraph separators before trimming.
+  Name/Author edits supply both fields and preserve the independently edited avatar.
 - Profile presentation data and the Author's artistic name are independent.
   Changing the link or profile name does not rename or delete an Author.
 - An Author can exist without a profile. Deleting a linked Author clears that
@@ -409,7 +415,7 @@ design.
   cover ID and exact ordered memberships inside the transaction. Changed state
   returns `STALE_REVIEW`. Removing the final cover reference marks the managed
   asset `cleanup_pending`, checking Packs, other Collections and profile avatars.
-  Physical image cleanup remains a separate, pending workflow.
+  Main's managed-image service performs physical cleanup separately and recoverably.
 - Removing catalog organization is distinct from deleting source audio.
   Metadata removal must never cascade into filesystem deletion.
 - A missing source does not by itself remove a Sample's identity, organization,
@@ -572,15 +578,11 @@ already exist.
 Before implementing each relevant feature, agree on:
 
 - UI presentation of the agreed per-Sample keep/assign import-conflict review.
-- Text length limits and validation of profile names. Sample presentation/notes,
-  Pack/Collection names/descriptions and Author/Category names
-  have agreed, implemented policies above.
 - UI presentation of explicit reinclusion for Library-wide excluded locations.
 - The source-observation algorithm and stronger source-version validation for
   analysis. One source per Sample, distinct copies, and confirmed relinking
   are already agreed; multiple physical sources per Sample are outside scope.
-- Recoverable cover publication and cleanup implementation, including
-  coordination with concurrent edits and startup reconciliation.
+- Profile/image IPC and UI, including local image selection and display.
 
 The approved persistence direction is a clean SQLite catalog using Drizzle and
 `better-sqlite3`, owned by a DB worker. The foundation
