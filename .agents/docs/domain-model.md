@@ -24,8 +24,9 @@ catalog and from questions that still require agreement.
   Source size/mtime observations advance revisions on detected changes.
 - **Implemented internal classification slice:** Author/Category creation, reads,
   renaming, paginated search, independent Sample/Pack assignments, use inspection,
-  and impact-checked removal through the DB worker/client. No classification IPC
-  or UI is exposed yet.
+  and impact-checked removal through the DB worker/client. Category listing,
+  creation and renaming have IPC/preload contracts; other classification IPC and
+  all classification UI remain pending.
 - **Implemented internal Collection slice:** create/edit/read, bounded lists,
   idempotent append/removal of memberships, atomic full-sequence reorder, and
   impact-checked deletion through the worker/client. No Collection IPC/UI or

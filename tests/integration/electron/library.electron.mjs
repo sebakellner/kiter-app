@@ -8,6 +8,7 @@ import { performance } from 'node:perf_hooks'
 import { app, BrowserWindow, dialog } from 'electron'
 import { createWav } from '../../support/fixtures/wav.mjs'
 import { waitFor } from '../../support/electron/wait-for.mjs'
+import { verifyCategoriesIpc } from './categories.scenarios.mjs'
 import {
   verifyListingAndStyles,
   verifyMainFrameAuthorization,
@@ -269,6 +270,7 @@ async function run() {
         ),
     }
     const scenarios = [
+      ['Categories IPC contracts and persistence', verifyCategoriesIpc],
       ['recursive listing and UI styles', verifyListingAndStyles],
       ['main-frame IPC authorization', verifyMainFrameAuthorization],
       ['waveforms and native drag payloads', verifyWaveformsAndDragging],

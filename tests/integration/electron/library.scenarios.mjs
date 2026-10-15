@@ -126,10 +126,20 @@ export async function verifyMainFrameAuthorization(ctx) {
       frame.url.endsWith('ipc-child.html'),
     )
     const sample = ctx.sample(fixtures.validSample)
+    const categoriesBefore = await execute('window.api.categories.list()')
+    assert.equal(categoriesBefore.ok, true)
+    const category = categoriesBefore.data.items[0]
+    assert.ok(
+      category,
+      'Categories scenario must provide an authorization fixture',
+    )
     const requests = [
       ['dialog:open-folder'],
       ['library:import-folder', { directory: fixtures.samples }],
       ['library:set-favorite', { id: sample.id, favorite: true }],
+      ['categories:list', {}],
+      ['categories:create', { name: 'Unauthorized Category' }],
+      ['categories:rename', { id: category.id, name: 'Unauthorized rename' }],
     ]
     const previousDialogCalls = ctx.dialogCalls()
     const outcomes = await child.executeJavaScript(`
@@ -155,6 +165,11 @@ export async function verifyMainFrameAuthorization(ctx) {
       ctx.dialogCalls(),
       previousDialogCalls,
       'Rejected frames must not open dialogs',
+    )
+    assert.deepEqual(
+      await execute('window.api.categories.list()'),
+      categoriesBefore,
+      'Rejected frames must not create or rename Categories',
     )
     await child.executeJavaScript(
       `require("electron").ipcRenderer.send("library:start-drag", ${JSON.stringify(sample.audioUrl)})`,
