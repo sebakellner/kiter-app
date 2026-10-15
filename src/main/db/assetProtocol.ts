@@ -8,15 +8,9 @@ import {
   isImageTarget,
   isNullableAssetId,
 } from '../../shared/domain/imageAsset.ts'
-import type {
-  LocalProfile,
-  ProfileUpdateRequest,
-} from '../../shared/domain/profile.ts'
-import { isProfileUpdate } from '../../shared/domain/profile.ts'
 import { isEntityId, isRecord } from '../../shared/domain/validation.ts'
 
 export type AssetRequest =
-  | { action: 'update-profile'; input: ProfileUpdateRequest }
   | { action: 'publish-image'; input: ImagePublicationRequest }
   | { action: 'set-image-reference'; input: ImageReferenceRequest }
   | {
@@ -26,7 +20,6 @@ export type AssetRequest =
   | { action: 'list-images'; after: string | null }
 
 export type AssetReply =
-  | { action: 'update-profile'; result: LocalProfile }
   | { action: 'publish-image'; result: ImageAsset }
   | { action: 'set-image-reference'; result: { assetId: string | null } }
   | { action: 'get-image' | 'claim-image-cleanup'; result: ImageAsset | null }
@@ -39,8 +32,6 @@ export function isAssetRequest(value: unknown): value is AssetRequest {
   }
   const input = value.input
   switch (value.action) {
-    case 'update-profile':
-      return isProfileUpdate(input)
     case 'publish-image':
       return (
         isRecord(input) &&
@@ -67,16 +58,11 @@ export function isAssetRequest(value: unknown): value is AssetRequest {
   }
 }
 
-export function isAssetReply(
-  value: unknown,
-  isProfile: (value: unknown) => boolean,
-): value is AssetReply {
+export function isAssetReply(value: unknown): value is AssetReply {
   if (!isRecord(value)) {
     return false
   }
   switch (value.action) {
-    case 'update-profile':
-      return isProfile(value.result)
     case 'publish-image':
       return isImageAsset(value.result) && value.result.state === 'ready'
     case 'set-image-reference':

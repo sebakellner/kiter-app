@@ -88,27 +88,23 @@ test('Profile edits normalize the name, preserve identity/preferences/avatar and
     authorId: author.id,
   })
   assert.deepEqual(changed, {
-    profile: {
-      ...before.profile,
-      name: 'Élise',
-      authorId: author.id,
-      avatarAssetId: asset.id,
-    },
-    preferences: { ...before.preferences, previewVolume: 0 },
+    ...before.profile,
+    name: 'Élise',
+    authorId: author.id,
+    avatarAssetId: asset.id,
   })
   assert.throws(
     () => updateLocalProfile(db, { name: 'Other', authorId: randomUUID() }),
     { code: 'NOT_FOUND' },
   )
-  assert.deepEqual(readLocalProfile(db), changed)
+  assert.deepEqual(readLocalProfile(db).profile, changed)
   for (const name of ['', '\nName', 'A\u2028B', '😀'.repeat(121)]) {
     assert.throws(() => updateLocalProfile(db, { name, authorId: null }), {
       code: 'INVALID_INPUT',
     })
   }
   assert.equal(
-    updateLocalProfile(db, { name: '😀'.repeat(120), authorId: null }).profile
-      .authorId,
+    updateLocalProfile(db, { name: '😀'.repeat(120), authorId: null }).authorId,
     null,
   )
   updateLocalProfile(db, { name: 'Élise', authorId: author.id })

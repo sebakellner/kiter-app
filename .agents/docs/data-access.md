@@ -21,10 +21,12 @@ Sample presentation editing, paginated references/exclusions, impact-checked
 catalog removal and explicit reinclusion also run through the worker/client.
 Main's library service verifies reinclusion before submitting source observations.
 Profile name/Author editing and image publication/reference/cleanup operations
-are implemented through the worker/client. A main-only image service validates
-copies, publishes immutable files and reconciles interrupted work at startup.
-Sample/Pack IPC/UI, remaining organization commands, image IPC/UI, settings UI, and
-player volume restoration remain planned. Persistent analysis/peaks are separate.
+are implemented through the worker/client. Profile updates preserve the avatar
+and Preferences and reject missing Authors. A main-only image service validates
+copies, publishes immutable files, and reconciles interrupted work at startup.
+Sample/Pack IPC/UI, remaining organization commands, image/profile UI, settings
+UI, and player volume restoration remain planned. Persistent analysis/peaks are
+separate.
 
 This foundation intentionally starts at `userData/db/kiter.sqlite`. Neither
 the experimental `userData/catalog.sqlite` nor the earlier

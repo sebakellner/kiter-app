@@ -2,22 +2,19 @@ import { eq } from 'drizzle-orm'
 import type { AppDatabase } from '../connection.ts'
 import type {
   LocalProfile,
-  UserPreferences,
   ProfileUpdateRequest,
+  UserProfile,
+  UserPreferences,
 } from '../../../shared/domain/profile.ts'
 import {
   isPreviewVolume,
+  isUserProfile,
+  requireProfileUpdate,
   requirePreviewVolume,
 } from '../../../shared/domain/profile.ts'
-import {
-  isEntityId,
-  requirePresentationName,
-  DomainValidationError,
-} from '../../../shared/domain/validation.ts'
-import { isProfileUpdate } from '../../../shared/domain/profile.ts'
-import { authors } from '../schema/classification.ts'
 import { DbError } from '../errors.ts'
 import { userProfiles, userPreferences } from '../schema/profile.ts'
+import { authors } from '../schema/classification.ts'
 
 export function readLocalProfile(db: AppDatabase): LocalProfile {
   const rows = db
@@ -35,10 +32,7 @@ export function readLocalProfile(db: AppDatabase): LocalProfile {
   if (
     rows.length !== 1 ||
     !row ||
-    !isEntityId(row.id) ||
-    !row.name.trim() ||
-    (row.avatarAssetId !== null && !isEntityId(row.avatarAssetId)) ||
-    (row.authorId !== null && !isEntityId(row.authorId)) ||
+    !isUserProfile(row) ||
     !isPreviewVolume(row.previewVolume)
   ) {
     throw new DbError(
@@ -57,6 +51,38 @@ export function readLocalProfile(db: AppDatabase): LocalProfile {
   }
 }
 
+export function updateLocalProfile(
+  db: AppDatabase,
+  input: ProfileUpdateRequest,
+): UserProfile {
+  const update = requireProfileUpdate(input)
+  return db.transaction(
+    () => {
+      const { profile } = readLocalProfile(db)
+      if (
+        update.authorId !== null &&
+        !db
+          .select({ id: authors.id })
+          .from(authors)
+          .where(eq(authors.id, update.authorId))
+          .get()
+      ) {
+        throw new DbError('NOT_FOUND', 'The Author no longer exists.')
+      }
+      const result = db
+        .update(userProfiles)
+        .set(update)
+        .where(eq(userProfiles.id, profile.id))
+        .run()
+      if (result.changes !== 1) {
+        throw new DbError('DB_INTEGRITY', 'The local profile is unavailable.')
+      }
+      return readLocalProfile(db).profile
+    },
+    { behavior: 'immediate' },
+  )
+}
+
 export function setPreviewVolume(
   db: AppDatabase,
   volume: unknown,
@@ -72,35 +98,4 @@ export function setPreviewVolume(
     throw new DbError('DB_INTEGRITY', 'The local preferences are unavailable.')
   }
   return { profileId: profile.id, previewVolume }
-}
-
-export function updateLocalProfile(
-  db: AppDatabase,
-  input: ProfileUpdateRequest,
-): LocalProfile {
-  if (!isProfileUpdate(input)) {
-    throw new DomainValidationError('Invalid profile update.')
-  }
-  const name = requirePresentationName(input.name)
-  return db.transaction(
-    () => {
-      const { profile } = readLocalProfile(db)
-      if (
-        input.authorId !== null &&
-        !db
-          .select({ id: authors.id })
-          .from(authors)
-          .where(eq(authors.id, input.authorId))
-          .get()
-      ) {
-        throw new DbError('NOT_FOUND', 'The Author no longer exists.')
-      }
-      db.update(userProfiles)
-        .set({ name, authorId: input.authorId })
-        .where(eq(userProfiles.id, profile.id))
-        .run()
-      return readLocalProfile(db)
-    },
-    { behavior: 'immediate' },
-  )
 }

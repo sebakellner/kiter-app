@@ -30,6 +30,19 @@ export interface ProfileUpdateRequest {
   authorId: string | null
 }
 
+export function requireProfileUpdate(value: unknown): ProfileUpdateRequest {
+  if (
+    !isRecord(value) ||
+    (value.authorId !== null && !isEntityId(value.authorId))
+  ) {
+    throw new DomainValidationError('Invalid profile update.')
+  }
+  return {
+    name: requirePresentationName(value.name),
+    authorId: value.authorId,
+  }
+}
+
 export function isProfileUpdate(value: unknown): value is ProfileUpdateRequest {
   if (
     !isRecord(value) ||
@@ -40,6 +53,24 @@ export function isProfileUpdate(value: unknown): value is ProfileUpdateRequest {
   try {
     requirePresentationName(value.name)
     return true
+  } catch (error) {
+    if (error instanceof DomainValidationError) {
+      return false
+    }
+    throw error
+  }
+}
+
+export function isUserProfile(value: unknown): value is UserProfile {
+  if (!isRecord(value) || !isEntityId(value.id)) {
+    return false
+  }
+  try {
+    return (
+      requirePresentationName(value.name) === value.name &&
+      (value.authorId === null || isEntityId(value.authorId)) &&
+      (value.avatarAssetId === null || isEntityId(value.avatarAssetId))
+    )
   } catch {
     return false
   }

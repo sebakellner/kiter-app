@@ -1,9 +1,15 @@
 import type { LibrarySample, FavoriteState } from '../../shared/ipc/library.ts'
 import type {
   LocalProfile,
+  ProfileUpdateRequest,
+  UserProfile,
   UserPreferences,
 } from '../../shared/domain/profile.ts'
-import { isPreviewVolume } from '../../shared/domain/profile.ts'
+import {
+  isPreviewVolume,
+  isUserProfile,
+  requireProfileUpdate,
+} from '../../shared/domain/profile.ts'
 import type { AssetRequest, AssetReply } from './assetProtocol.ts'
 import { isAssetRequest, isAssetReply } from './assetProtocol.ts'
 import type { DiscoveredAudioFile } from '../../shared/domain/source.ts'
@@ -42,6 +48,7 @@ export type DbRequest =
     }
   | { requestId: number; action: 'favorite'; id: string; favorite: boolean }
   | { requestId: number; action: 'profile' }
+  | { requestId: number; action: 'update-profile'; input: ProfileUpdateRequest }
   | { requestId: number; action: 'volume'; volume: number }
   | { requestId: number; action: 'close' }
 
@@ -56,6 +63,7 @@ export type DbReply =
   | { requestId: number; action: 'import'; result: LibrarySample[] }
   | { requestId: number; action: 'favorite'; result: FavoriteState }
   | { requestId: number; action: 'profile'; result: LocalProfile }
+  | { requestId: number; action: 'update-profile'; result: UserProfile }
   | { requestId: number; action: 'volume'; result: UserPreferences }
   | { requestId: number; action: 'close' }
   | { requestId: number; action: 'error'; failure: DbFailure }
@@ -101,14 +109,7 @@ function isProfile(value: unknown): value is LocalProfile {
     return false
   }
   const profile = value.profile
-  return (
-    isEntityId(profile.id) &&
-    typeof profile.name === 'string' &&
-    profile.name.trim().length > 0 &&
-    (profile.avatarAssetId === null || isEntityId(profile.avatarAssetId)) &&
-    (profile.authorId === null || isEntityId(profile.authorId)) &&
-    value.preferences.profileId === profile.id
-  )
+  return isUserProfile(profile) && value.preferences.profileId === profile.id
 }
 
 export function isDbRequest(value: unknown): value is DbRequest {
@@ -126,6 +127,13 @@ export function isDbRequest(value: unknown): value is DbRequest {
       return isEntityId(value.id) && typeof value.favorite === 'boolean'
     case 'volume':
       return isPreviewVolume(value.volume)
+    case 'update-profile':
+      try {
+        requireProfileUpdate(value.input)
+        return true
+      } catch {
+        return false
+      }
     case 'profile':
     case 'close':
       return true
@@ -175,6 +183,8 @@ export function isDbReply(value: unknown): value is DbReply {
       )
     case 'profile':
       return isProfile(value.result)
+    case 'update-profile':
+      return isUserProfile(value.result)
     case 'volume':
       return isPreferences(value.result)
     case 'close':
@@ -184,7 +194,7 @@ export function isDbReply(value: unknown): value is DbReply {
     default:
       return (
         isClassificationReply(value) ||
-        isAssetReply(value, isProfile) ||
+        isAssetReply(value) ||
         isCollectionReply(value) ||
         isPackReply(value) ||
         isSampleReply(value)

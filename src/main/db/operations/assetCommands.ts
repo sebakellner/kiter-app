@@ -1,18 +1,12 @@
 import type { AssetRequest, AssetReply } from '../assetProtocol.ts'
 import type { AppDatabase } from '../connection.ts'
 import * as assets from './assets.ts'
-import { updateLocalProfile } from './profile.ts'
 
 export function executeAsset(
   db: AppDatabase,
   request: AssetRequest,
 ): AssetReply {
   switch (request.action) {
-    case 'update-profile':
-      return {
-        action: request.action,
-        result: updateLocalProfile(db, request.input),
-      }
     case 'publish-image':
       return {
         action: request.action,

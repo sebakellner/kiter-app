@@ -2,8 +2,16 @@ import { join } from 'node:path'
 import { Worker } from 'node:worker_threads'
 import type { LibrarySample, FavoriteState } from '../../shared/ipc'
 import type { DiscoveredAudioFile } from '../../shared/domain/source'
-import type { LocalProfile, UserPreferences } from '../../shared/domain/profile'
-import { requirePreviewVolume } from '../../shared/domain/profile'
+import type {
+  LocalProfile,
+  ProfileUpdateRequest,
+  UserProfile,
+  UserPreferences,
+} from '../../shared/domain/profile'
+import {
+  requirePreviewVolume,
+  requireProfileUpdate,
+} from '../../shared/domain/profile'
 import { requireEntityId } from '../../shared/domain/validation'
 import type { DbReply, DbRequest } from './protocol'
 import { isDbReply } from './protocol'
@@ -70,7 +78,6 @@ import type { SampleRequest } from './sampleProtocol'
 import { isSampleRequest } from './sampleProtocol'
 import type { AssetRequest } from './assetProtocol'
 import { isAssetRequest } from './assetProtocol'
-import type { ProfileUpdateRequest } from '../../shared/domain/profile'
 import type {
   ImageAsset,
   ImagePublicationRequest,
@@ -235,14 +242,6 @@ export class DbClient {
       throw new DomainValidationError('Invalid profile or image request.')
     }
     return this.sendRequest({ ...request, requestId: this.nextRequestId++ })
-  }
-
-  async updateLocalProfile(input: ProfileUpdateRequest): Promise<LocalProfile> {
-    const reply = await this.assetRequest({ action: 'update-profile', input })
-    if (reply.action !== 'update-profile') {
-      throw new Error(UNEXPECTED_REPLY_MESSAGE)
-    }
-    return reply.result
   }
 
   async publishImage(input: ImagePublicationRequest): Promise<ImageAsset> {
@@ -913,6 +912,21 @@ export class DbClient {
       action: 'profile',
     })
     if (reply.action !== 'profile') {
+      throw new Error(UNEXPECTED_REPLY_MESSAGE)
+    }
+    return reply.result
+  }
+
+  async updateLocalProfile(input: ProfileUpdateRequest): Promise<UserProfile> {
+    if (this.closing) {
+      throw new DbError('CLOSING', DB_CLOSING_MESSAGE)
+    }
+    const reply = await this.sendRequest({
+      requestId: this.nextRequestId++,
+      action: 'update-profile',
+      input: requireProfileUpdate(input),
+    })
+    if (reply.action !== 'update-profile') {
       throw new Error(UNEXPECTED_REPLY_MESSAGE)
     }
     return reply.result

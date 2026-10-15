@@ -58,9 +58,11 @@ support creation/editing, bounded lists, unique ordered Sample memberships,
 atomic full-sequence reorder, and impact-checked removal. These operations are
 internal to the DB worker/client; their IPC and UI remain pending. Collection
 removal preserves Samples and schedules unreferenced covers for cleanup, but
-managed-image operations now support validated publication and recoverable cleanup.
-Profile presentation and optional Author-link editing are implemented internally.
-Profile/settings UI and player volume restoration remain pending.
+Managed-image operations support validated publication and recoverable cleanup.
+Profile presentation and optional Author-link editing are implemented internally;
+updates normalize names and preserve the avatar and Preferences without changing
+Author names or assigning credits. Profile/image UI and player volume restoration
+remain pending.
 Pack operations support reviewed registration/reimport from scanned roots,
 bounded queries, presentation editing, manual Sample origin corrections, and
 impact-checked removal through the DB worker/client. Conflicts require explicit

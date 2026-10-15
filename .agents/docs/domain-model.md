@@ -16,7 +16,8 @@ catalog and from questions that still require agreement.
 - **Implemented slice:** pure entity contracts, fresh 17-table catalog, separate
   Sample/source records, imported root associations, Favorites, and transactional
   local profile/Preferences bootstrap. DB client profile reads and volume writes
-  exist internally; they are not wired to settings UI or player restoration. The
+  exist internally, alongside profile name/Author-link editing; they are not
+  wired to settings UI or player restoration. The
   [shared contracts](../../src/shared/ipc/index.ts) define `AudioFile`,
   `LibrarySample`, `AudioSample`, `FavoriteState`, and typed IPC results.
   Drizzle rows remain private persistence types, separate from domain contracts.
@@ -108,7 +109,9 @@ login, permissions, or isolated per-user catalogs.
   managed avatar, and an optional link to an existing Author.
 - Profile names use the same trimmed NFC, 1–120 Unicode-code-point policy as
   Authors, rejecting controls and line/paragraph separators before trimming.
-  Name/Author edits supply both fields and preserve the independently edited avatar.
+  Editing supplies both the name and `authorId`; explicit `null` unlinks the
+  Author. Updates preserve the independently edited avatar and Preferences and
+  reject nonexistent Authors without changing the profile.
 - Profile presentation data and the Author's artistic name are independent.
   Changing the link or profile name does not rename or delete an Author.
 - An Author can exist without a profile. Deleting a linked Author clears that
