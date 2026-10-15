@@ -1,6 +1,6 @@
 {
   "extends": "./tsconfig.node.json",
-  "include": ["tests/e2e/**/*.ts", "tests/wav.mjs", "playwright.config.ts"],
+  "include": ["tests/e2e/**/*.ts", "tests/support/fixtures/wav.mjs", "playwright.config.ts"],
   "exclude": ["node_modules"],
   "compilerOptions": {
     "composite": true,

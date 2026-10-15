@@ -24,9 +24,11 @@ and coverage of private pieces without changing the current test layout.
 
 Colocate tests with a clear module owner: domain helpers, DB operations,
 components and hooks. Keep cross-subsystem tests, migration/schema tests and
-Electron workflows in [tests](../../tests). Existing transversal suites may stay
-there until splitting them improves ownership. Do not move a mixed suite under
-an arbitrary module just to colocate it.
+Electron workflows in [tests/integration](../../tests/integration), grouped by
+boundary (`database`, `worker`, `images`, `electron`). Keep Electron scenario and
+restart scripts alongside their owning integration suite. Split mixed suites
+before colocation rather than assigning them to an arbitrary module. The root
+`tests/` contains only `integration/`, `e2e/` and reusable `support/`.
 
 Node discovery includes `*.test.ts` and `*.test.mjs` recursively under `src/` and
 `tests/`; renderer component tests use `*.test.tsx` and Vitest. E2E uses
@@ -213,7 +215,7 @@ assert both earlier development databases and original audio remain untouched.
   delete broad paths or use name-based process termination.
 - Use `path` utilities for locations and expected paths. Account for canonical
   paths when symlinked system temp directories differ from their displayed path.
-- Generate deterministic audio with the existing [WAV fixture](../../tests/wav.mjs).
+- Generate deterministic audio with the existing [WAV fixture](../../tests/support/fixtures/wav.mjs).
   Do not download samples or include private/licensed producer libraries.
 - Restore patched globals and subscriptions. Prefer `t.mock` for Node mocks;
   explicitly restore manually modified property descriptors.
@@ -231,7 +233,7 @@ assert both earlier development databases and original audio remain untouched.
   for Electron's normal quit path.
 - Test restart durability with separate Electron processes sharing only the
   isolated fixture. Renderer reload alone does not prove persistence.
-  [Favorites restart verification](../../tests/favorites-restart.mjs) runs
+  [Favorites restart verification](../../tests/integration/electron/favorites-restart.mjs) runs
   save, remove, and verify phases as part of `pnpm test:app`.
 
 ## Filesystem and Domain Coverage
@@ -273,7 +275,7 @@ setup and recursive discovery cases.
 
 ## Electron Integration
 
-Use [library.electron.mjs](../../tests/library.electron.mjs) as current prior art.
+Use [library.electron.mjs](../../tests/integration/electron/library.electron.mjs) as current prior art.
 
 - Build before testing unless deliberately rerunning an unchanged built app.
   Do not present a test of stale output as validation of new source changes.
