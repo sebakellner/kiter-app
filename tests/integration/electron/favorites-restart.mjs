@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import electron from 'electron'
-import { createWav } from './wav.mjs'
+import { createWav } from '../../support/fixtures/wav.mjs'
 
 const dir = await mkdtemp(path.join(tmpdir(), 'kiter-favorites-restart-'))
 try {

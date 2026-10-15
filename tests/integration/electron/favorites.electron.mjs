@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
-import { waitFor } from './support/electron/wait-for.mjs'
+import { waitFor } from '../../support/electron/wait-for.mjs'
 import Database from 'better-sqlite3'
 import { app, BrowserWindow, dialog } from 'electron'
 
@@ -27,7 +27,7 @@ dialog.showOpenDialog = async () => {
 async function run() {
   let failed = false
   try {
-    await import('../out/main/index.js')
+    await import('../../../out/main/index.js')
     await app.whenReady()
     await waitFor(
       () => BrowserWindow.getAllWindows().length === 1,

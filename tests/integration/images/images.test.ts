@@ -13,63 +13,44 @@ import {
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test } from 'node:test'
-import sharp from 'sharp'
 import { eq } from 'drizzle-orm'
 import {
   openTestDatabase,
   createMemoryDatabase,
-} from './support/database/connection.ts'
-import * as assets from '../src/main/db/operations/assets/operations.ts'
+} from '../../support/database/connection.ts'
+import { makeImageAsset } from '../../support/fixtures/image.ts'
+import { createPng } from '../../support/fixtures/png.ts'
+import * as assets from '../../../src/main/db/operations/assets/operations.ts'
 import {
   readLocalProfile,
   updateLocalProfile,
   setPreviewVolume,
-} from '../src/main/db/operations/profile/operations.ts'
+} from '../../../src/main/db/operations/profile/operations.ts'
 import {
   createAuthor,
   reviewAuthorRemoval,
   removeAuthor,
-} from '../src/main/db/operations/classification/operations.ts'
+} from '../../../src/main/db/operations/classification/operations.ts'
 import {
   createCollection,
   getCollection,
-} from '../src/main/db/operations/collections/operations.ts'
+} from '../../../src/main/db/operations/collections/operations.ts'
 import {
   removeCollection,
   reviewCollectionRemoval,
-} from '../src/main/db/operations/collections/removal.ts'
+} from '../../../src/main/db/operations/collections/removal.ts'
 import {
   packs,
   collections,
   imageAssets,
   sourceRoots,
-} from '../src/main/db/schema/index.ts'
-import { ManagedImages } from '../src/main/services/images/index.ts'
-import { validateImage } from '../src/main/services/images/validation.ts'
-import type { ImageAsset } from '../src/shared/domain/imageAsset.ts'
-import {
-  IMAGE_MAX_BYTES,
-  isImageAsset,
-} from '../src/shared/domain/imageAsset.ts'
-import { isProfileUpdate } from '../src/shared/domain/profile.ts'
-import { isDbRequest, isDbReply } from '../src/main/db/protocol/messages.ts'
+} from '../../../src/main/db/schema/index.ts'
+import { ManagedImages } from '../../../src/main/services/images/index.ts'
+import type { ImageAsset } from '../../../src/shared/domain/imageAsset.ts'
 
 const metadata = (): ImageAsset => {
-  const id = randomUUID()
-  return {
-    id,
-    storageKey: `${id}.png`,
-    mimeType: 'image/png',
-    width: 1,
-    height: 1,
-    byteSize: 100,
-    state: 'ready',
-  }
+  return makeImageAsset({ id: randomUUID() })
 }
-const png = (): Promise<Buffer> =>
-  sharp({ create: { width: 2, height: 3, channels: 4, background: '#ff0000' } })
-    .png()
-    .toBuffer()
 
 test('Profile edits normalize the name, preserve identity/preferences/avatar and never rename or credit an Author', (t) => {
   const connection = createMemoryDatabase(t)
@@ -181,126 +162,11 @@ test('Images share references across all owners, reject stale replacements and c
   assert.equal(assets.getImage(db, asset.id), null)
 })
 
-test('Image contracts reject unsafe keys, invalid dimensions, states and malformed worker payloads', () => {
-  const asset = metadata()
-  assert.ok(isImageAsset(asset))
-  for (const invalid of [
-    { storageKey: '../original.png' },
-    { byteSize: IMAGE_MAX_BYTES + 1 },
-    { width: 4097 },
-    { height: 0 },
-    { state: 'deleting' },
-    { mimeType: 'image/svg+xml' },
-  ]) {
-    assert.equal(isImageAsset({ ...asset, ...invalid }), false)
-  }
-  assert.ok(
-    isImageAsset({
-      ...asset,
-      width: 4096,
-      height: 4096,
-      byteSize: IMAGE_MAX_BYTES,
-    }),
-  )
-  assert.equal(isProfileUpdate({ name: 'Valid' }), false)
-  assert.equal(
-    isDbRequest({
-      action: 'publish-image',
-      requestId: 1,
-      input: { target: { kind: 'profile' }, expectedAssetId: null, asset },
-    }),
-    true,
-  )
-  assert.equal(
-    isDbRequest({
-      action: 'publish-image',
-      requestId: 1,
-      input: {
-        target: { kind: 'sample', id: randomUUID() },
-        expectedAssetId: null,
-        asset,
-      },
-    }),
-    false,
-  )
-  assert.equal(
-    isDbReply({
-      action: 'list-images',
-      requestId: 1,
-      result: [{ ...asset, storageKey: '/etc/image' }],
-    }),
-    false,
-  )
-})
-
-test('Failed reference updates roll back image registration and preserve the previous avatar', (t) => {
-  const connection = openTestDatabase()
-  t.after(connection.close)
-  const { db } = connection
-  const initial = metadata()
-  assets.publishImage(db, {
-    target: { kind: 'profile' },
-    expectedAssetId: null,
-    asset: initial,
-  })
-  const replacement = metadata()
-  connection.native.exec(
-    `CREATE TRIGGER reject_avatar BEFORE UPDATE OF avatar_asset_id ON user_profiles BEGIN SELECT RAISE(ABORT, 'fixture failure'); END`,
-  )
-  assert.throws(() =>
-    assets.publishImage(db, {
-      target: { kind: 'profile' },
-      expectedAssetId: initial.id,
-      asset: replacement,
-    }),
-  )
-  assert.equal(readLocalProfile(db).profile.avatarAssetId, initial.id)
-  assert.equal(assets.getImage(db, initial.id)?.state, 'ready')
-  assert.equal(assets.getImage(db, replacement.id), null)
-})
-
-test('Image validation decodes real content, accepts boundaries and rejects corruption, animation and unsupported content', async () => {
-  for (const format of ['png', 'jpeg', 'webp'] as const) {
-    const bytes = await sharp({
-      create: { width: 4096, height: 1, channels: 3, background: 'red' },
-    })
-      [format]()
-      .toBuffer()
-    assert.equal((await validateImage(bytes)).width, 4096)
-  }
-  const valid = await png()
-  const oversized = await sharp({
-    create: { width: 4097, height: 1, channels: 3, background: 'red' },
-  })
-    .png()
-    .toBuffer()
-  const gif = await sharp(valid).gif().toBuffer()
-  // Insert an APNG animation-control chunk before image data.
-  const animated = Buffer.concat([
-    valid.subarray(0, 33),
-    Buffer.from([0, 0, 0, 8]),
-    Buffer.from('acTL'),
-    Buffer.alloc(12),
-    valid.subarray(33),
-  ])
-  for (const bytes of [
-    Buffer.alloc(0),
-    Buffer.alloc(IMAGE_MAX_BYTES + 1),
-    Buffer.from('<svg/>'),
-    valid.subarray(0, 40),
-    oversized,
-    gif,
-    animated,
-  ]) {
-    await assert.rejects(validateImage(bytes), { code: 'INVALID_INPUT' })
-  }
-})
-
 interface ImageFixture {
   dir: string
   db: ReturnType<typeof openTestDatabase>['db']
   database: Pick<
-    import('../src/main/db/client.ts').DbClient,
+    import('../../../src/main/db/client.ts').DbClient,
     | 'publishImage'
     | 'setImageReference'
     | 'getImage'
@@ -345,7 +211,7 @@ async function fixture(
   const service = await ManagedImages.open(dir, database)
   resources.service = service
   const selected = join(dir, 'selected.with-wrong-extension')
-  const bytes = await png()
+  const bytes = await createPng()
   await writeFile(selected, bytes)
   return {
     dir,

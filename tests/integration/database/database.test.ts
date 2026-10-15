@@ -10,17 +10,17 @@ import {
   openTestDatabase as open,
   createDiskDatabase,
   migrationsFolder,
-} from './support/database/connection.ts'
-import { makeDiscoveredAudioFile } from './support/fixtures/source.ts'
-import { DB_APPLICATION_ID } from '../src/main/db/runtime/migrate.ts'
-import { importFolder } from '../src/main/db/operations/sources/import.ts'
-import { setFavorite } from '../src/main/db/operations/samples/favorites.ts'
+} from '../../support/database/connection.ts'
+import { makeDiscoveredAudioFile } from '../../support/fixtures/source.ts'
+import { DB_APPLICATION_ID } from '../../../src/main/db/runtime/migrate.ts'
+import { importFolder } from '../../../src/main/db/operations/sources/import.ts'
+import { setFavorite } from '../../../src/main/db/operations/samples/favorites.ts'
 import {
   readLocalProfile,
   setPreviewVolume,
-} from '../src/main/db/operations/profile/operations.ts'
-import * as schema from '../src/main/db/schema/index.ts'
-import type { DiscoveredAudioFile } from '../src/shared/domain/source.ts'
+} from '../../../src/main/db/operations/profile/operations.ts'
+import * as schema from '../../../src/main/db/schema/index.ts'
+import type { DiscoveredAudioFile } from '../../../src/shared/domain/source.ts'
 
 function fileAt(
   root: string,

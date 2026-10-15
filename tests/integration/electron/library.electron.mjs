@@ -13,8 +13,8 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { performance } from 'node:perf_hooks'
 import { app, BrowserWindow, dialog } from 'electron'
-import { createWav } from './wav.mjs'
-import { waitFor } from './support/electron/wait-for.mjs'
+import { createWav } from '../../support/fixtures/wav.mjs'
+import { waitFor } from '../../support/electron/wait-for.mjs'
 import {
   verifyListingAndStyles,
   verifyMainFrameAuthorization,
@@ -138,7 +138,7 @@ async function run() {
     app.setPath('userData', data)
     app.on('browser-window-created', onWindowCreated)
     // Load the CommonJS entry before yielding, so protocol registration precedes app readiness.
-    createRequire(import.meta.url)('../out/main/index.js')
+    createRequire(import.meta.url)('../../../out/main/index.js')
     const fixtures = await createFixtures(directory)
     await app.whenReady()
     await waitFor(

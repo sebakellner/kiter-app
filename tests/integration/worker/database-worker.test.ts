@@ -4,12 +4,15 @@ import { once } from 'node:events'
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { startWorker, exchange } from './support/worker/worker.ts'
+import { startWorker, exchange } from '../../support/worker/worker.ts'
 import { test } from 'node:test'
-import { isDbReply } from '../src/main/db/protocol/messages.ts'
-import type { DbReply, DbRequest } from '../src/main/db/protocol/messages.ts'
-import type { AssetRequest } from '../src/main/db/protocol/assets.ts'
-import type { ProfileUpdateRequest } from '../src/shared/domain/profile.ts'
+import { isDbReply } from '../../../src/main/db/protocol/messages.ts'
+import type {
+  DbReply,
+  DbRequest,
+} from '../../../src/main/db/protocol/messages.ts'
+import type { AssetRequest } from '../../../src/main/db/protocol/assets.ts'
+import type { ProfileUpdateRequest } from '../../../src/shared/domain/profile.ts'
 
 test(
   'Profile and image worker commands persist references, protect cleanup claims and drain before shutdown',
@@ -205,7 +208,7 @@ test(
     let worker = startWorker(filename)
     let requestId = 0
     const send = (
-      request: import('../src/main/db/protocol/samples.ts').SampleRequest,
+      request: import('../../../src/main/db/protocol/samples.ts').SampleRequest,
     ): Promise<DbReply> =>
       exchange(worker, { ...request, requestId: ++requestId })
     const restart = async (): Promise<void> => {
@@ -345,7 +348,7 @@ test(
     let worker = startWorker(filename)
     let requestId = 0
     const send = (
-      request: import('../src/main/db/protocol/packs.ts').PackRequest,
+      request: import('../../../src/main/db/protocol/packs.ts').PackRequest,
     ): Promise<DbReply> =>
       exchange(worker, { ...request, requestId: ++requestId })
     try {

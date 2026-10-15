@@ -1,24 +1,9 @@
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 import { test } from 'node:test'
-import { normalizeName } from '../src/shared/domain/classification.ts'
-import { isEntityId, requireName } from '../src/shared/domain/validation.ts'
-import { isDbReply, isDbRequest } from '../src/main/db/protocol/messages.ts'
-
-test('classification keys ignore external whitespace/case but preserve accents and internal spaces', () => {
-  assert.equal(normalizeName('  DRUMS  '), 'drums')
-  assert.equal(
-    normalizeName('Électronique'),
-    normalizeName(' E\u0301LECTRONIQUE '),
-  )
-  assert.notEqual(normalizeName('Électronique'), normalizeName('Electronique'))
-  assert.notEqual(normalizeName('Hi Hat'), normalizeName('Hi  Hat'))
-  for (const value of ['', '\t\n', null, 7]) {
-    assert.throws(() => requireName(value), { code: 'INVALID_INPUT' })
-  }
-  assert.equal(isEntityId(randomUUID()), true)
-  assert.equal(isEntityId('not-an-id'), false)
-})
+import { isDbReply, isDbRequest } from './messages.ts'
+import { makeImageAsset } from '../../../../tests/support/fixtures/image.ts'
+import { isProfileUpdate } from '../../../shared/domain/profile.ts'
 
 test('worker protocol rejects malformed messages and validates zero volume and identity correlation', () => {
   const id = randomUUID()
@@ -61,6 +46,39 @@ test('worker protocol rejects malformed messages and validates zero volume and i
       requestId: 1,
       action: 'error',
       failure: { code: 'unknown', message: 'Failure' },
+    }),
+    false,
+  )
+})
+
+test('Image worker contracts reject malformed targets and unsafe asset payloads', () => {
+  const asset = makeImageAsset()
+  assert.equal(isProfileUpdate({ name: 'Valid' }), false)
+  assert.equal(
+    isDbRequest({
+      action: 'publish-image',
+      requestId: 1,
+      input: { target: { kind: 'profile' }, expectedAssetId: null, asset },
+    }),
+    true,
+  )
+  assert.equal(
+    isDbRequest({
+      action: 'publish-image',
+      requestId: 1,
+      input: {
+        target: { kind: 'sample', id: randomUUID() },
+        expectedAssetId: null,
+        asset,
+      },
+    }),
+    false,
+  )
+  assert.equal(
+    isDbReply({
+      action: 'list-images',
+      requestId: 1,
+      result: [{ ...asset, storageKey: '/etc/image' }],
     }),
     false,
   )

@@ -4,7 +4,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { _electron, test as base, expect } from '@playwright/test'
 import type { ElectronApplication, Page } from '@playwright/test'
-import { createWav } from '../wav.mjs'
+import { createWav } from '../support/fixtures/wav.mjs'
 
 type ApplicationFixture = {
   page: Page
