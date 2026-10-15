@@ -205,6 +205,29 @@ assert both earlier development databases and original audio remain untouched.
 - Factory defaults are deterministic, but production-generated identities remain
   real. Capture and compare them instead of replacing UUID generation.
 
+### Typed Database Data
+
+- Domain/IPC factories in `tests/support/fixtures/` return shared contracts and
+  stay independent of Drizzle. Mocks replace dependencies; factories only build
+  data, and seeds persist scenarios.
+- Reused direct-insert data belongs in `tests/support/database/factories/`.
+  Infer inputs with the owning table's `$inferInsert`; use `$inferSelect` only
+  for complete read rows when actually needed. Do not duplicate schema types or
+  expose them to UI fixtures.
+- Row factories are pure and return fresh objects. Require identity and foreign
+  keys as arguments; keep other defaults deterministic and overrides explicit.
+  Derive dependent defaults (such as an image storage key) from supplied values.
+  Factories do not insert related rows or generate random identities internally.
+- Use `tests/support/database/seeds/` for repeated relationship setup through
+  real operations. Seeds take an explicit DB and existing identities, return
+  entities needed by the caller, and contain no assertions or hidden cleanup.
+  Compose small seeds instead of adding a generic graph builder or a large
+  scenario with boolean switches.
+- Keep the operation under test explicit. Do not use a seed to hide the command,
+  failure injection or mutation whose behavior the test claims to verify.
+- Add factories/seeds only for actual reuse. Schema constraint and exceptional
+  state tests may keep explicit SQL to make the intended violation visible.
+
 ## Fixtures and Isolation
 
 - Create unique temporary directories with `mkdtemp` under `os.tmpdir()`.
