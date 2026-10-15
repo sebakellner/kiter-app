@@ -1,4 +1,9 @@
-import { DomainValidationError } from './validation.ts'
+import {
+  DomainValidationError,
+  isEntityId,
+  isRecord,
+  requirePresentationName,
+} from './validation.ts'
 
 export const DEFAULT_PROFILE_NAME = 'Local profile'
 export const DEFAULT_PREVIEW_VOLUME = 1
@@ -18,6 +23,39 @@ export interface UserPreferences {
 export interface LocalProfile {
   profile: UserProfile
   preferences: UserPreferences
+}
+
+export interface ProfileUpdateRequest {
+  name: string
+  authorId: string | null
+}
+
+export function requireProfileUpdate(value: unknown): ProfileUpdateRequest {
+  if (
+    !isRecord(value) ||
+    (value.authorId !== null && !isEntityId(value.authorId))
+  ) {
+    throw new DomainValidationError('Invalid profile update.')
+  }
+  return {
+    name: requirePresentationName(value.name),
+    authorId: value.authorId,
+  }
+}
+
+export function isUserProfile(value: unknown): value is UserProfile {
+  if (!isRecord(value) || !isEntityId(value.id)) {
+    return false
+  }
+  try {
+    return (
+      requirePresentationName(value.name) === value.name &&
+      (value.authorId === null || isEntityId(value.authorId)) &&
+      (value.avatarAssetId === null || isEntityId(value.avatarAssetId))
+    )
+  } catch {
+    return false
+  }
 }
 
 export function isPreviewVolume(value: unknown): value is number {

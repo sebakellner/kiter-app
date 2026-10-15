@@ -16,7 +16,8 @@ catalog and from questions that still require agreement.
 - **Implemented slice:** pure entity contracts, fresh 17-table catalog, separate
   Sample/source records, imported root associations, Favorites, and transactional
   local profile/Preferences bootstrap. DB client profile reads and volume writes
-  exist internally; they are not wired to settings UI or player restoration. The
+  exist internally, alongside profile name/Author-link editing; they are not
+  wired to settings UI or player restoration. The
   [shared contracts](../../src/shared/ipc/index.ts) define `AudioFile`,
   `LibrarySample`, `AudioSample`, `FavoriteState`, and typed IPC results.
   Drizzle rows remain private persistence types, separate from domain contracts.
@@ -38,7 +39,7 @@ catalog and from questions that still require agreement.
   reinclusion through the worker/client and main library service. Original audio
   stays untouched; no Sample editing/removal/reinclusion IPC/UI exists yet.
 - **Not implemented:** Pack UI, Collection UI, classification/credit UI,
-  profile-editing, managed-image, and other lifecycle workflows below.
+  profile-editing UI, managed-image, and other lifecycle workflows below.
 - **Deferred design:** analysis/cache storage layout, cache persistence, waveform
   peaks, and analysis versioning. Managed covers are part of the first new
   entity delivery; persistent technical analysis follows separately.
@@ -103,6 +104,11 @@ login, permissions, or isolated per-user catalogs.
 
 - UserProfile has a stable ID and required presentation name, an optional
   managed avatar, and an optional link to an existing Author.
+- Profile names use the trimmed NFC, 1–120 Unicode code-point presentation-name
+  policy, rejecting controls and line/paragraph separators before trimming.
+  Internal editing supplies both name and `authorId`; explicit `null` unlinks
+  the Author. The transaction preserves the avatar and Preferences and rejects
+  nonexistent Authors without changing the profile.
 - Profile presentation data and the Author's artistic name are independent.
   Changing the link or profile name does not rename or delete an Author.
 - An Author can exist without a profile. Deleting a linked Author clears that
@@ -572,9 +578,6 @@ already exist.
 Before implementing each relevant feature, agree on:
 
 - UI presentation of the agreed per-Sample keep/assign import-conflict review.
-- Text length limits and validation of profile names. Sample presentation/notes,
-  Pack/Collection names/descriptions and Author/Category names
-  have agreed, implemented policies above.
 - UI presentation of explicit reinclusion for Library-wide excluded locations.
 - The source-observation algorithm and stronger source-version validation for
   analysis. One source per Sample, distinct copies, and confirmed relinking

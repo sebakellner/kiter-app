@@ -59,7 +59,10 @@ atomic full-sequence reorder, and impact-checked removal. These operations are
 internal to the DB worker/client; their IPC and UI remain pending. Collection
 removal preserves Samples and schedules unreferenced covers for cleanup, but
 managed-image publication and physical cleanup are not yet implemented.
-Profile/settings UI and player volume restoration also remain pending.
+Internal profile editing supports normalized presentation names and explicit
+Author linking/unlinking, preserving the avatar and Preferences without changing
+Author names or assigning credits. Profile/settings UI and player volume
+restoration remain pending.
 Pack operations support reviewed registration/reimport from scanned roots,
 bounded queries, presentation editing, manual Sample origin corrections, and
 impact-checked removal through the DB worker/client. Conflicts require explicit

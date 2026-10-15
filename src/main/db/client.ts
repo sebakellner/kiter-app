@@ -2,8 +2,16 @@ import { join } from 'node:path'
 import { Worker } from 'node:worker_threads'
 import type { LibrarySample, FavoriteState } from '../../shared/ipc'
 import type { DiscoveredAudioFile } from '../../shared/domain/source'
-import type { LocalProfile, UserPreferences } from '../../shared/domain/profile'
-import { requirePreviewVolume } from '../../shared/domain/profile'
+import type {
+  LocalProfile,
+  ProfileUpdateRequest,
+  UserProfile,
+  UserPreferences,
+} from '../../shared/domain/profile'
+import {
+  requirePreviewVolume,
+  requireProfileUpdate,
+} from '../../shared/domain/profile'
 import { requireEntityId } from '../../shared/domain/validation'
 import type { DbReply, DbRequest } from './protocol'
 import { isDbReply } from './protocol'
@@ -831,6 +839,21 @@ export class DbClient {
       action: 'profile',
     })
     if (reply.action !== 'profile') {
+      throw new Error(UNEXPECTED_REPLY_MESSAGE)
+    }
+    return reply.result
+  }
+
+  async updateLocalProfile(input: ProfileUpdateRequest): Promise<UserProfile> {
+    if (this.closing) {
+      throw new DbError('CLOSING', DB_CLOSING_MESSAGE)
+    }
+    const reply = await this.sendRequest({
+      requestId: this.nextRequestId++,
+      action: 'update-profile',
+      input: requireProfileUpdate(input),
+    })
+    if (reply.action !== 'update-profile') {
       throw new Error(UNEXPECTED_REPLY_MESSAGE)
     }
     return reply.result

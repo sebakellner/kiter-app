@@ -21,7 +21,9 @@ Sample presentation editing, paginated references/exclusions, impact-checked
 catalog removal and explicit reinclusion also run through the worker/client.
 Main's library service verifies reinclusion before submitting source observations.
 Sample/Pack IPC/UI, remaining organization commands, managed images, settings UI, and
-player volume restoration remain planned. Persistent analysis/peaks are separate.
+player volume restoration remain planned. Internal profile name/Author-link
+editing is implemented atomically through the worker/client, preserving avatar
+and Preferences and rejecting missing Authors. Persistent analysis/peaks are separate.
 
 This foundation intentionally starts at `userData/db/kiter.sqlite`. Neither
 the experimental `userData/catalog.sqlite` nor the earlier
