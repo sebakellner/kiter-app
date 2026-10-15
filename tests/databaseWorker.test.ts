@@ -30,6 +30,146 @@ async function exchange(worker: Worker, request: DbRequest): Promise<DbReply> {
 }
 
 test(
+  'Sample worker commands persist edits, exclusions and new reinclusion identity across restart',
+  { timeout: 15000 },
+  async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), 'kiter-worker-samples-'))
+    const filename = path.join(dir, 'kiter.sqlite')
+    let worker = startWorker(filename)
+    let requestId = 0
+    const send = (
+      request: import('../src/main/db/sampleProtocol.ts').SampleRequest,
+    ): Promise<DbReply> =>
+      exchange(worker, { ...request, requestId: ++requestId })
+    const restart = async (): Promise<void> => {
+      const exited = once(worker, 'exit')
+      await exchange(worker, { requestId: ++requestId, action: 'close' })
+      await exited
+      worker = startWorker(filename)
+      assert.deepEqual((await once(worker, 'message'))[0], { action: 'ready' })
+    }
+    try {
+      assert.deepEqual((await once(worker, 'message'))[0], { action: 'ready' })
+      const file = {
+        name: 'sample.wav',
+        path: path.join(dir, 'sample.wav'),
+        relativePath: 'sample.wav',
+        observedSizeBytes: 100,
+        observedMtimeMs: 1000,
+      }
+      const imported = await exchange(worker, {
+        requestId: ++requestId,
+        action: 'import',
+        root: dir,
+        files: [file],
+      })
+      if (imported.action !== 'import') {
+        assert.fail('Expected imported Samples')
+      }
+      const id = imported.result[0].id
+      const updated = await send({
+        action: 'update-sample',
+        input: { id, displayName: ' Kick ', notes: 'My notes' },
+      })
+      if (updated.action !== 'update-sample') {
+        assert.fail('Expected edited Sample')
+      }
+      const review = await send({ action: 'review-sample-removal', id })
+      if (review.action !== 'review-sample-removal') {
+        assert.fail('Expected removal review')
+      }
+      const references = await send({
+        action: 'list-sample-references',
+        input: { id, kind: 'root' },
+      })
+      if (references.action !== 'list-sample-references') {
+        assert.fail('Expected root references')
+      }
+      const sourceRootId = references.result.items[0].id
+      await restart()
+      assert.deepEqual(await send({ action: 'get-sample', id }), {
+        requestId,
+        action: 'get-sample',
+        result: updated.result,
+      })
+      await exchange(worker, {
+        requestId: ++requestId,
+        action: 'favorite',
+        id,
+        favorite: true,
+      })
+      const stale = await send({
+        action: 'remove-sample',
+        input: { id, token: review.result.token },
+      })
+      if (stale.action !== 'error') {
+        assert.fail('Expected stale review')
+      }
+      assert.equal(stale.failure.code, 'STALE_REVIEW')
+      const fresh = await send({ action: 'review-sample-removal', id })
+      if (fresh.action !== 'review-sample-removal') {
+        assert.fail('Expected fresh removal review')
+      }
+      assert.deepEqual(
+        await send({
+          action: 'remove-sample',
+          input: { id, token: fresh.result.token },
+        }),
+        { requestId, action: 'remove-sample', result: { id } },
+      )
+      await restart()
+      const exclusions = await send({
+        action: 'list-excluded-sources',
+        input: {},
+      })
+      if (exclusions.action !== 'list-excluded-sources') {
+        assert.fail('Expected exclusions')
+      }
+      assert.deepEqual(exclusions.result.items, [{ canonicalPath: file.path }])
+      const rescanned = await exchange(worker, {
+        requestId: ++requestId,
+        action: 'import',
+        root: dir,
+        files: [file],
+      })
+      assert.deepEqual(rescanned, { requestId, action: 'import', result: [] })
+      const input = { canonicalPath: file.path, sourceRootId }
+      const root = await send({ action: 'get-reinclusion-root', input })
+      assert.equal(root.action, 'get-reinclusion-root')
+      const reincluded = await send({ action: 'reinclude-source', input, file })
+      if (reincluded.action !== 'reinclude-source') {
+        assert.fail('Expected reincluded Sample')
+      }
+      assert.notEqual(reincluded.result.id, id)
+      assert.deepEqual(reincluded.result, {
+        id: reincluded.result.id,
+        displayName: null,
+        notes: null,
+        favorite: false,
+        packId: null,
+        originAssignment: 'manual',
+      })
+      await restart()
+      assert.deepEqual(
+        await send({ action: 'get-sample', id: reincluded.result.id }),
+        { requestId, action: 'get-sample', result: reincluded.result },
+      )
+      const empty = await send({ action: 'list-excluded-sources', input: {} })
+      if (empty.action !== 'list-excluded-sources') {
+        assert.fail('Expected empty exclusions')
+      }
+      assert.equal(empty.result.total, 0)
+      const exited = once(worker, 'exit')
+      await exchange(worker, { requestId: ++requestId, action: 'close' })
+      await exited
+    } finally {
+      await worker.terminate()
+      await rm(dir, { recursive: true, force: true })
+    }
+  },
+)
+
+test(
   'Pack worker commands persist origins and reject stale confirmation across restart',
   { timeout: 15000 },
   async () => {

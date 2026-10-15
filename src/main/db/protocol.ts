@@ -8,6 +8,8 @@ import type { DiscoveredAudioFile } from '../../shared/domain/source.ts'
 import { isDiscoveredAudioFile } from '../../shared/domain/source.ts'
 import { isEntityId, isRecord } from '../../shared/domain/validation.ts'
 import type { DbFailure } from './errors.ts'
+import type { SampleRequest, SampleReply } from './sampleProtocol.ts'
+import { isSampleRequest, isSampleReply } from './sampleProtocol.ts'
 import type { PackRequest, PackReply } from './packProtocol.ts'
 import { isPackRequest, isPackReply } from './packProtocol.ts'
 import type {
@@ -25,6 +27,7 @@ import {
 } from './classificationProtocol.ts'
 
 export type DbRequest =
+  | (SampleRequest & { requestId: number })
   | (PackRequest & { requestId: number })
   | (CollectionRequest & { requestId: number })
   | (ClassificationRequest & { requestId: number })
@@ -40,6 +43,7 @@ export type DbRequest =
   | { requestId: number; action: 'close' }
 
 export type DbReply =
+  | (SampleReply & { requestId: number })
   | (PackReply & { requestId: number })
   | (CollectionReply & { requestId: number })
   | (ClassificationReply & { requestId: number })
@@ -125,7 +129,8 @@ export function isDbRequest(value: unknown): value is DbRequest {
       return (
         isClassificationRequest(value) ||
         isCollectionRequest(value) ||
-        isPackRequest(value)
+        isPackRequest(value) ||
+        isSampleRequest(value)
       )
   }
 }
@@ -175,7 +180,8 @@ export function isDbReply(value: unknown): value is DbReply {
       return (
         isClassificationReply(value) ||
         isCollectionReply(value) ||
-        isPackReply(value)
+        isPackReply(value) ||
+        isSampleReply(value)
       )
   }
 }

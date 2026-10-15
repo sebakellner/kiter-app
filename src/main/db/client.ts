@@ -53,6 +53,21 @@ import type {
 } from '../../shared/domain/pack'
 import type { PackRequest } from './packProtocol'
 import { isPackRequest } from './packProtocol'
+import type {
+  Sample,
+  SampleUpdateRequest,
+  SamplePage,
+  SamplePageRequest,
+  SampleReference,
+  SampleReferencesRequest,
+  SampleRemovalReview,
+  SampleRemovalRequest,
+  ExcludedSource,
+  SourceReinclusionRequest,
+} from '../../shared/domain/sample'
+import type { SourceRoot } from '../../shared/domain/source'
+import type { SampleRequest } from './sampleProtocol'
+import { isSampleRequest } from './sampleProtocol'
 
 const DB_CLOSING_MESSAGE = 'Database is shutting down'
 const UNEXPECTED_REPLY_MESSAGE = 'Unexpected database response'
@@ -693,6 +708,106 @@ export class DbClient {
       input,
     })
     if (reply.action !== 'remove-collection') {
+      throw new Error(UNEXPECTED_REPLY_MESSAGE)
+    }
+    return reply.result
+  }
+
+  private async sampleRequest(request: SampleRequest): Promise<DbReply> {
+    if (this.closing) {
+      throw new DbError('CLOSING', DB_CLOSING_MESSAGE)
+    }
+    if (!isSampleRequest(request)) {
+      throw new DomainValidationError('Invalid Sample request.')
+    }
+    return this.sendRequest({ ...request, requestId: this.nextRequestId++ })
+  }
+
+  async getSample(id: string): Promise<Sample> {
+    const reply = await this.sampleRequest({ action: 'get-sample', id })
+    if (reply.action !== 'get-sample') {
+      throw new Error(UNEXPECTED_REPLY_MESSAGE)
+    }
+    return reply.result
+  }
+
+  async updateSample(input: SampleUpdateRequest): Promise<Sample> {
+    const reply = await this.sampleRequest({ action: 'update-sample', input })
+    if (reply.action !== 'update-sample') {
+      throw new Error(UNEXPECTED_REPLY_MESSAGE)
+    }
+    return reply.result
+  }
+
+  async listSampleReferences(
+    input: SampleReferencesRequest,
+  ): Promise<SamplePage<SampleReference>> {
+    const reply = await this.sampleRequest({
+      action: 'list-sample-references',
+      input,
+    })
+    if (reply.action !== 'list-sample-references') {
+      throw new Error(UNEXPECTED_REPLY_MESSAGE)
+    }
+    return reply.result
+  }
+
+  async reviewSampleRemoval(id: string): Promise<SampleRemovalReview> {
+    const reply = await this.sampleRequest({
+      action: 'review-sample-removal',
+      id,
+    })
+    if (reply.action !== 'review-sample-removal') {
+      throw new Error(UNEXPECTED_REPLY_MESSAGE)
+    }
+    return reply.result
+  }
+
+  async removeSample(input: SampleRemovalRequest): Promise<{ id: string }> {
+    const reply = await this.sampleRequest({ action: 'remove-sample', input })
+    if (reply.action !== 'remove-sample') {
+      throw new Error(UNEXPECTED_REPLY_MESSAGE)
+    }
+    return reply.result
+  }
+
+  async listExcludedSources(
+    input: SamplePageRequest = {},
+  ): Promise<SamplePage<ExcludedSource>> {
+    const reply = await this.sampleRequest({
+      action: 'list-excluded-sources',
+      input,
+    })
+    if (reply.action !== 'list-excluded-sources') {
+      throw new Error(UNEXPECTED_REPLY_MESSAGE)
+    }
+    return reply.result
+  }
+
+  async getReinclusionRoot(
+    input: SourceReinclusionRequest,
+  ): Promise<SourceRoot> {
+    const reply = await this.sampleRequest({
+      action: 'get-reinclusion-root',
+      input,
+    })
+    if (reply.action !== 'get-reinclusion-root') {
+      throw new Error(UNEXPECTED_REPLY_MESSAGE)
+    }
+    return reply.result
+  }
+
+  // Main's library service verifies the filesystem before submitting an observation.
+  async reincludeSource(
+    input: SourceReinclusionRequest,
+    file: DiscoveredAudioFile,
+  ): Promise<Sample> {
+    const reply = await this.sampleRequest({
+      action: 'reinclude-source',
+      input,
+      file,
+    })
+    if (reply.action !== 'reinclude-source') {
       throw new Error(UNEXPECTED_REPLY_MESSAGE)
     }
     return reply.result

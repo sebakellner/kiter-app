@@ -17,7 +17,10 @@ atomic reorder and impact-checked removal also run through the worker/client.
 Removal marks only unreferenced covers for cleanup; physical cleanup is pending.
 Internal Pack registration/reimport, presentation edits, bounded queries,
 manual origins and impact-checked removal also run through the worker/client.
-Pack IPC/UI, remaining organization commands, managed images, settings UI, and
+Sample presentation editing, paginated references/exclusions, impact-checked
+catalog removal and explicit reinclusion also run through the worker/client.
+Main's library service verifies reinclusion before submitting source observations.
+Sample/Pack IPC/UI, remaining organization commands, managed images, settings UI, and
 player volume restoration remain planned. Persistent analysis/peaks are separate.
 
 This foundation intentionally starts at `userData/db/kiter.sqlite`. Neither
@@ -244,6 +247,16 @@ Exclusions apply across overlapping roots. Imports never clear them. No committe
 source may share an excluded path. Do not use `INSERT OR REPLACE` on entities:
 its deletion semantics can destroy identities or trigger cascades. Use targeted
 updates and deliberate conflict handling; reverse indexes support impact review.
+
+Sample lifecycle commands are implemented internally without schema changes.
+Removal hashes presentation, source observations and exact reference identities
+(including Collection positions) in batches of 500 and rechecks inside an
+immediate transaction. Exclusion and cascaded metadata deletion commit together;
+the filesystem is untouched. Reference/exclusion lists default to 50, maximum 100. Main verifies explicit reinclusion against a registered root, checks readable
+canonical audio without symlinks, then the worker rechecks containment, exclusion
+and vacancy and creates a new manually standalone Sample/source pair. No deleted
+organization is recovered. These APIs neither publish audio URLs nor authorize
+playback/dragging; their IPC/UI remain pending.
 
 Pack registration is separate from discovery. `prepareLibraryPackImport` scans
 and imports Samples, then obtains the root and review through `DbClient`.
