@@ -185,14 +185,22 @@ editor's TypeScript service.
   repository-wide safeguards. [Architecture](architecture.md) owns process
   boundaries and architectural evolution. This guide owns common coding rules.
   [Domain Model](domain-model.md) owns product scope, entity semantics, and
-  lifecycle invariants. [README](../../README.md) owns current app behavior,
-  implementation status, and user-facing limitations.
+  lifecycle invariants. [README](../../README.md) owns the general product
+  overview, user-facing feature list, getting started, and high-level limitations.
   [Testing Conventions](testing-conventions.md) owns test execution and isolation.
   Avoid maintaining duplicate versions of the same guidance.
+- Do not modify the root [README](../../README.md) as an automatic part of feature
+  work, internal implementation changes, or technical documentation updates.
+  Edit it only when the user explicitly requests a README update. Keep it
+  accessible and product-focused: explain what Kiter does and what people can do
+  with it, with enough general context to understand the app. Keep IPC contracts,
+  DTOs, error codes, database internals, validation details, and implementation
+  progress in the owning technical guide or existing feature documentation.
 - Add topic guides incrementally when requested. Index only existing files,
   and do not create empty guides or speculative documentation scaffolding.
-- Agent guidance is not a feature changelog. Document user-facing behavior
-  and limitations in the [README](../../README.md) or existing feature docs.
+- Agent guidance is not a feature changelog. Document detailed feature behavior
+  and limitations in existing feature docs; update the README's high-level
+  overview only when explicitly requested.
 - Generic guides document shared conventions, not individual component APIs,
   defaults, CSS classes, or implementation details. Keep component-specific
   documentation with its owning module when needed; simple components may be

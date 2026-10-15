@@ -11,7 +11,8 @@ The 17-table schema, reviewed initial migration, singleton profile/Preferences
 bootstrap, source imports, Favorites, and internal profile/volume operations are
 implemented. Internal Author/Category commands, independent Sample/Pack assignments,
 paginated queries/use inspection, and impact-checked deletion are implemented through
-the worker and `DbClient`; classification IPC/UI remain pending.
+the worker and `DbClient`. Category list/create/rename IPC and preload are
+implemented; other classification IPC and all classification UI remain pending.
 Internal Collection creation/editing, bounded reads, ordered memberships,
 atomic reorder and impact-checked removal also run through the worker/client.
 Removal marks only unreferenced covers for recoverable managed-image cleanup.
@@ -243,7 +244,8 @@ Author/Category operations are implemented. The latter include idempotent direct
 assignments on Samples/Packs, literal normalized search, bounded pages, and
 transactional removal with exact-impact review tokens. `NAME_CONFLICT` identifies
 duplicate Category keys; `STALE_REVIEW` requires renewed impact review. These
-classification operations have no renderer IPC or UI yet. The table below describes
+classification operations expose only Category list/create/rename through IPC and
+preload; there is no classification UI yet. The table below describes
 target behavior, including workflows still pending.
 
 Collection commands are also implemented internally with pages of 50 (maximum
@@ -367,8 +369,9 @@ exists; extend the smallest owning operation/service.
 The product's catalog is persisted through `DbClient`; there is no `Catalog`
 domain entity or catch-all catalog service. Current UI remains folder-scoped.
 Internal profile/volume operations are not exposed to settings UI or applied to
-the player. Internal classification, Collection and Pack operations are available on
-`DbClient`, not preload. Other entity tables await their complete operations and UI.
+the player. Category list/create/rename are available through preload; remaining
+classification, Collection and Pack operations are internal to `DbClient`.
+Other entity tables await their complete operations and UI.
 
 ## Basic Rules
 

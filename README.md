@@ -3,6 +3,9 @@
 Kiter is a local-first desktop app for music producers to explore their sample
 libraries, preview sounds, save favorites, and drag audio into a DAW.
 
+Browse the folders you already use, listen to sounds in context, and bring the
+right sample into your session without reorganizing your files first.
+
 Your audio stays on your computer. Importing folders, previewing samples, and
 marking favorites never move or modify the original files.
 
@@ -34,65 +37,34 @@ folder again to see its samples and saved favorites.
 
 ## Project Status
 
-Kiter is in active development, targeting macOS and Windows. Automated development
-checks have been validated locally on macOS. CI is configured for macOS and
-Windows; Windows results, packaged releases, and real DAW drops still need
+Kiter is in active development. The current app focuses on folder browsing,
+previewing, favorites, and dragging samples into a DAW.
+
+The project targets macOS and Windows. Development checks have been validated
+locally on macOS; Windows, packaged releases, and actual DAW drops still need
 validation.
 
-Planned features include Pack and Collection editors, Categories and Author
-credits, global search, profile/settings, and reviewed file organization and
-export workflows. Centralization will gather samples into a producer-selected
-local folder organized by sample type. Automatic organization will propose
-classifications and groupings for review before modifying files; tasks will
-track analysis, organization, renaming, relocation, and export with visible
-status and errors. These are not yet available in the app.
+### What's Next
 
-Internally, a fresh 17-table Drizzle/`better-sqlite3` catalog runs in a worker,
-with committed migrations, stable Sample/source records, transactional local
-profile/Preferences bootstrap, and validated IPC result envelopes for existing
-import and Favorite workflows. Earlier development databases are not opened,
-migrated, or deleted.
+The following features are planned and are not yet available in the app:
 
-Author/Category operations support paginated search, independent Sample/Pack
-assignments, use inspection, and impact-checked deletion. Collection operations
-support creation/editing, bounded lists, unique ordered Sample memberships,
-atomic full-sequence reorder, and impact-checked removal. These operations are
-internal to the DB worker/client; their IPC and UI remain pending. Collection
-removal preserves Samples and schedules unreferenced covers for cleanup, but
-Managed-image operations support validated publication and recoverable cleanup.
-Profile presentation and optional Author-link editing are implemented internally;
-updates normalize names and preserve the avatar and Preferences without changing
-Author names or assigning credits. Profile/image UI and player volume restoration
-remain pending.
-Pack operations support reviewed registration/reimport from scanned roots,
-bounded queries, presentation editing, manual Sample origin corrections, and
-impact-checked removal through the DB worker/client. Conflicts require explicit
-keep/assign decisions, including manually standalone Samples; stale reviews are
-rejected. Preparing an import catalogs Samples before Pack confirmation. Removing
-a Pack preserves its Samples with manual standalone protection. Pack IPC/UI and
-cover IPC/UI remain pending.
-Schema and internal operations alone do not deliver user-facing features.
+- **Packs and Collections:** keep imported sample packs recognizable and build
+  your own ordered selections without duplicating audio.
+- **Categories and Author credits:** classify sounds and record who created them.
+- **Library-wide search:** find samples across your imported folders.
+- **Profile and settings:** personalize your local profile and preferences.
+- **Reviewed organization and export:** rename, relocate, or gather samples into
+  a chosen folder, with a chance to review changes before they happen.
+- **Organization suggestions:** review proposed classifications and groupings
+  while keeping control over your library.
 
-The main-only managed-image service accepts static PNG/JPEG/WebP copies up to
-10 MiB and 4096 pixels per axis for Pack/Collection covers and the profile avatar.
-Replacement uses immutable assets and checks the previously displayed reference;
-stale changes preserve the old image. Startup reconciliation removes interrupted
-publications and unreferenced managed copies, with retryable cleanup failures.
-Original images and referenced copies are preserved. Missing referenced images
-and cleanup failures are reported at startup. Image selection/display IPC and UI
-remain pending. Publication/recovery has automated macOS coverage; Windows and
-packaged native-image loading still require validation.
+### Current Limitations
 
-Sample operations support presentation-name/notes editing, bounded reference
-and exclusion queries, and exact-impact reviewed catalog removal. Removal keeps
-original audio and excludes its canonical location across overlapping roots.
-Explicit reinclusion verifies readable, non-symlink audio within a registered
-root and creates a new manually standalone Sample without restoring deleted
-organization. These operations are internal to the worker/client and library
-service; Sample editing/removal/reinclusion IPC and UI remain pending.
-
-External file moves and renames are not automatically reconciled. There is no
-global favorites view, automatic backup, or library recovery UI yet.
+- Browsing and favorite filtering are limited to the selected folder; there is
+  no library-wide favorites view yet.
+- The selected folder is not restored when you restart Kiter.
+- Files moved or renamed outside Kiter are not automatically reconnected.
+- Automatic backups and library recovery tools are not available yet.
 
 ## Run from Source
 
