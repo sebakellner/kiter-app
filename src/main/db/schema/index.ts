@@ -9,6 +9,6 @@ export {
   sampleCategories,
   packCategories,
   packAuthors,
-  sampleAuthors
+  sampleAuthors,
 } from './classification.ts'
 export { userProfiles, userPreferences } from './profile.ts'

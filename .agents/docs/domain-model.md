@@ -21,7 +21,11 @@ catalog and from questions that still require agreement.
   `LibrarySample`, `AudioSample`, `FavoriteState`, and typed IPC results.
   Drizzle rows remain private persistence types, separate from domain contracts.
   Source size/mtime observations advance revisions on detected changes.
-- **Not implemented:** complete Pack/Collection, classification/credit,
+- **Implemented internal classification slice:** Author/Category creation, reads,
+  renaming, paginated search, independent Sample/Pack assignments, use inspection,
+  and impact-checked removal through the DB worker/client. No classification IPC
+  or UI is exposed yet.
+- **Not implemented:** complete Pack/Collection, classification/credit UI,
   profile-editing, managed-image, and other lifecycle workflows below.
 - **Deferred design:** analysis/cache storage layout, cache persistence, waveform
   peaks, and analysis versioning. Managed covers are part of the first new
@@ -162,6 +166,17 @@ Category names must be unique ignoring case and leading/trailing whitespace.
 Normalize Unicode to NFC and use locale-independent lowercasing for matching;
 preserve accents and internal spaces.
 Inherited display or filtering behavior must not be introduced implicitly.
+
+Author and Category names are trimmed and normalized to NFC for storage, with
+1–120 Unicode code points after normalization. Reject Unicode control characters
+and line/paragraph separators before trimming. Preserve display case, accents,
+and internal spaces. Author names remain non-unique.
+
+Internal classification lists and target-assignment lists use pages of 50,
+with a maximum of 100, ordered by normalized name key then UUID. Partial search
+uses the same locale-independent normalization, retains accents, and treats
+search text literally. Use lists are separately paginated for Samples and Packs;
+removal reviews include counts and any linked profile.
 
 ### Author
 
@@ -325,6 +340,11 @@ design.
   Samples, Packs, or files.
 - Author removal also shows any UserProfile link and clears that link without
   removing the profile or its Preferences.
+- Author/Category removal requires the review token returned by impact inspection.
+  Recheck the entity name, exact Sample/Pack association IDs, and linked profile
+  inside the removal transaction. Changed impact rejects the removal with
+  `STALE_REVIEW`; inspect and confirm again. Matching counts alone are insufficient.
+  A token identifies reviewed state, not UI confirmation or an authorization grant.
 - Unregistering a source directory stops scanning it but retains its Samples
   and organization. Catalog retention alone does not authorize access to
   audio; playback and dragging still require an authorized location.
@@ -456,7 +476,8 @@ Before implementing each relevant feature, agree on:
 
 - Presentation of package-import conflicts, including a reimport after manual
   origin corrections.
-- Text length limits and validation of notes and descriptions.
+- Text length limits and validation of notes and descriptions, and names outside
+  Authors/Categories (whose 1–120 code-point policy is agreed and implemented).
 - The explicit reinclusion workflow for excluded locations, including how it
   interacts with overlapping registered roots.
 - The source-observation algorithm and stronger source-version validation for

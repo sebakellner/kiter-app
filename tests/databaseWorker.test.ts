@@ -11,13 +11,13 @@ import type { DbReply, DbRequest } from '../src/main/db/protocol.ts'
 
 function startWorker(
   filename: string,
-  migrationsFolder = fileURLToPath(new URL('../drizzle', import.meta.url))
+  migrationsFolder = fileURLToPath(new URL('../drizzle', import.meta.url)),
 ): Worker {
   return new Worker(new URL('../src/main/db/worker.ts', import.meta.url), {
     workerData: {
       filename,
-      migrationsFolder
-    }
+      migrationsFolder,
+    },
   })
 }
 
@@ -38,9 +38,14 @@ test(
     let worker = startWorker(filename)
     try {
       assert.deepEqual((await once(worker, 'message'))[0], { action: 'ready' })
-      const initial = await exchange(worker, { requestId: 1, action: 'profile' })
+      const initial = await exchange(worker, {
+        requestId: 1,
+        action: 'profile',
+      })
       assert.equal(initial.action, 'profile')
-      if (initial.action !== 'profile') assert.fail('Expected a profile')
+      if (initial.action !== 'profile') {
+        assert.fail('Expected a profile')
+      }
       const profileId = initial.result.profile.id
       const responses: DbReply[] = []
       worker.on('message', (value: unknown) => {
@@ -48,33 +53,285 @@ test(
         responses.push(value)
       })
       const exit = once(worker, 'exit')
-      worker.postMessage({ requestId: 2, action: 'volume', volume: 0.5 } satisfies DbRequest)
-      worker.postMessage({ requestId: 3, action: 'volume', volume: 0 } satisfies DbRequest)
+      worker.postMessage({
+        requestId: 2,
+        action: 'volume',
+        volume: 0.5,
+      } satisfies DbRequest)
+      worker.postMessage({
+        requestId: 3,
+        action: 'volume',
+        volume: 0,
+      } satisfies DbRequest)
       worker.postMessage({ requestId: 4, action: 'close' } satisfies DbRequest)
       assert.equal((await exit)[0], 0)
       assert.deepEqual(responses, [
-        { requestId: 2, action: 'volume', result: { profileId, previewVolume: 0.5 } },
-        { requestId: 3, action: 'volume', result: { profileId, previewVolume: 0 } },
-        { requestId: 4, action: 'close' }
+        {
+          requestId: 2,
+          action: 'volume',
+          result: { profileId, previewVolume: 0.5 },
+        },
+        {
+          requestId: 3,
+          action: 'volume',
+          result: { profileId, previewVolume: 0 },
+        },
+        { requestId: 4, action: 'close' },
       ])
       worker = startWorker(filename)
       assert.deepEqual((await once(worker, 'message'))[0], { action: 'ready' })
-      const reopened = await exchange(worker, { requestId: 1, action: 'profile' })
+      const reopened = await exchange(worker, {
+        requestId: 1,
+        action: 'profile',
+      })
       assert.equal(reopened.action, 'profile')
-      if (reopened.action !== 'profile') assert.fail('Expected a profile')
+      if (reopened.action !== 'profile') {
+        assert.fail('Expected a profile')
+      }
       assert.equal(reopened.result.profile.id, profileId)
       assert.equal(reopened.result.preferences.previewVolume, 0)
       const closed = once(worker, 'exit')
-      assert.deepEqual(await exchange(worker, { requestId: 2, action: 'close' }), {
-        requestId: 2,
-        action: 'close'
-      })
+      assert.deepEqual(
+        await exchange(worker, { requestId: 2, action: 'close' }),
+        {
+          requestId: 2,
+          action: 'close',
+        },
+      )
       await closed
     } finally {
       await worker.terminate()
       await rm(dir, { recursive: true, force: true })
     }
-  }
+  },
+)
+
+test(
+  'classification worker dispatch preserves identities, controlled conflicts and removal reviews across restart',
+  { timeout: 15000 },
+  async () => {
+    const dir = await mkdtemp(
+      path.join(tmpdir(), 'kiter-worker-classification-'),
+    )
+    const filename = path.join(dir, 'kiter.sqlite')
+    let worker = startWorker(filename)
+    let requestId = 0
+    try {
+      assert.deepEqual((await once(worker, 'message'))[0], { action: 'ready' })
+      const author = await exchange(worker, {
+        requestId: ++requestId,
+        action: 'create-author',
+        input: { name: ' Producer ' },
+      })
+      if (author.action !== 'create-author') {
+        assert.fail('Expected an Author')
+      }
+      const category = await exchange(worker, {
+        requestId: ++requestId,
+        action: 'create-category',
+        input: { name: 'Drums' },
+      })
+      if (category.action !== 'create-category') {
+        assert.fail('Expected a Category')
+      }
+      const conflict = await exchange(worker, {
+        requestId: ++requestId,
+        action: 'create-category',
+        input: { name: 'DRUMS' },
+      })
+      if (conflict.action !== 'error') {
+        assert.fail('Expected a name conflict')
+      }
+      assert.equal(conflict.failure.code, 'NAME_CONFLICT')
+      assert.ok(!conflict.failure.message.includes(dir))
+      for (const [action, id, name] of [
+        ['rename-author', author.result.id, 'Artist'],
+        ['rename-category', category.result.id, 'Percussion'],
+      ] as const) {
+        const renamed = await exchange(worker, {
+          requestId: ++requestId,
+          action,
+          input: { id, name },
+        })
+        assert.deepEqual(renamed, { requestId, action, result: { id, name } })
+      }
+      for (const [action, id, name] of [
+        ['get-author', author.result.id, 'Artist'],
+        ['get-category', category.result.id, 'Percussion'],
+      ] as const) {
+        assert.deepEqual(
+          await exchange(worker, { requestId: ++requestId, action, id }),
+          {
+            requestId,
+            action,
+            result: { id, name },
+          },
+        )
+      }
+      const imported = await exchange(worker, {
+        requestId: ++requestId,
+        action: 'import',
+        root: dir,
+        files: [
+          {
+            name: 'kick.wav',
+            path: path.join(dir, 'kick.wav'),
+            relativePath: 'kick.wav',
+            observedSizeBytes: 100,
+            observedMtimeMs: 1000,
+          },
+        ],
+      })
+      if (imported.action !== 'import') {
+        assert.fail('Expected imported Samples')
+      }
+      const target = { kind: 'sample' as const, id: imported.result[0].id }
+      for (const [action, id] of [
+        ['set-author-assignment', author.result.id],
+        ['set-category-assignment', category.result.id],
+      ] as const) {
+        assert.deepEqual(
+          await exchange(worker, {
+            requestId: ++requestId,
+            action,
+            input: { id, target, assigned: true },
+          }),
+          { requestId, action, result: { assigned: true } },
+        )
+      }
+      for (const [action, id] of [
+        ['list-author-uses', author.result.id],
+        ['list-category-uses', category.result.id],
+      ] as const) {
+        assert.deepEqual(
+          await exchange(worker, {
+            requestId: ++requestId,
+            action,
+            input: { id, kind: 'sample' },
+          }),
+          {
+            requestId,
+            action,
+            result: {
+              items: [{ id: target.id, name: 'kick.wav' }],
+              total: 1,
+              limit: 50,
+              offset: 0,
+            },
+          },
+        )
+      }
+      for (const [action, id, name] of [
+        ['list-target-authors', author.result.id, 'Artist'],
+        ['list-target-categories', category.result.id, 'Percussion'],
+      ] as const) {
+        assert.deepEqual(
+          await exchange(worker, {
+            requestId: ++requestId,
+            action,
+            target,
+            input: {},
+          }),
+          {
+            requestId,
+            action,
+            result: { items: [{ id, name }], total: 1, limit: 50, offset: 0 },
+          },
+        )
+      }
+      const authorReview = await exchange(worker, {
+        requestId: ++requestId,
+        action: 'review-author-removal',
+        id: author.result.id,
+      })
+      if (authorReview.action !== 'review-author-removal') {
+        assert.fail('Expected an Author removal review')
+      }
+      assert.equal(authorReview.result.sampleCount, 1)
+      const categoryReview = await exchange(worker, {
+        requestId: ++requestId,
+        action: 'review-category-removal',
+        id: category.result.id,
+      })
+      if (categoryReview.action !== 'review-category-removal') {
+        assert.fail('Expected a Category removal review')
+      }
+      await exchange(worker, {
+        requestId: ++requestId,
+        action: 'set-category-assignment',
+        input: { id: category.result.id, target, assigned: false },
+      })
+      const stale = await exchange(worker, {
+        requestId: ++requestId,
+        action: 'remove-category',
+        input: { id: category.result.id, token: categoryReview.result.token },
+      })
+      if (stale.action !== 'error') {
+        assert.fail('Expected stale removal review')
+      }
+      assert.equal(stale.failure.code, 'STALE_REVIEW')
+      const exit = once(worker, 'exit')
+      await exchange(worker, { requestId: ++requestId, action: 'close' })
+      await exit
+      worker = startWorker(filename)
+      assert.deepEqual((await once(worker, 'message'))[0], { action: 'ready' })
+      for (const [action, entity] of [
+        ['list-authors', { id: author.result.id, name: 'Artist' }],
+        ['list-categories', { id: category.result.id, name: 'Percussion' }],
+      ] as const) {
+        assert.deepEqual(
+          await exchange(worker, {
+            requestId: ++requestId,
+            action,
+            input: { search: entity.name.toUpperCase() },
+          }),
+          {
+            requestId,
+            action,
+            result: { items: [entity], total: 1, limit: 50, offset: 0 },
+          },
+        )
+      }
+      assert.deepEqual(
+        await exchange(worker, {
+          requestId: ++requestId,
+          action: 'remove-author',
+          input: { id: author.result.id, token: authorReview.result.token },
+        }),
+        {
+          requestId,
+          action: 'remove-author',
+          result: { id: author.result.id },
+        },
+      )
+      const current = await exchange(worker, {
+        requestId: ++requestId,
+        action: 'review-category-removal',
+        id: category.result.id,
+      })
+      if (current.action !== 'review-category-removal') {
+        assert.fail('Expected an updated removal review')
+      }
+      assert.deepEqual(
+        await exchange(worker, {
+          requestId: ++requestId,
+          action: 'remove-category',
+          input: { id: category.result.id, token: current.result.token },
+        }),
+        {
+          requestId,
+          action: 'remove-category',
+          result: { id: category.result.id },
+        },
+      )
+      const closed = once(worker, 'exit')
+      await exchange(worker, { requestId: ++requestId, action: 'close' })
+      assert.equal((await closed)[0], 0)
+    } finally {
+      await worker.terminate()
+      await rm(dir, { recursive: true, force: true })
+    }
+  },
 )
 
 test(
@@ -82,13 +339,18 @@ test(
   { timeout: 15000 },
   async () => {
     const dir = await mkdtemp(path.join(tmpdir(), 'kiter-worker-assets-'))
-    const worker = startWorker(path.join(dir, 'kiter.sqlite'), path.join(dir, 'missing-assets'))
+    const worker = startWorker(
+      path.join(dir, 'kiter.sqlite'),
+      path.join(dir, 'missing-assets'),
+    )
     try {
       const exit = once(worker, 'exit')
       const [reply] = await once(worker, 'message')
       assert.ok(isDbReply(reply))
       assert.equal(reply.action, 'fatal')
-      if (reply.action !== 'fatal') assert.fail('Expected a startup failure')
+      if (reply.action !== 'fatal') {
+        assert.fail('Expected a startup failure')
+      }
       assert.equal(reply.failure.code, 'STORAGE_FAILED')
       assert.ok(!reply.failure.message.includes(dir))
       await exit
@@ -96,7 +358,7 @@ test(
       await worker.terminate()
       await rm(dir, { recursive: true, force: true })
     }
-  }
+  },
 )
 
 test(
@@ -113,7 +375,9 @@ test(
       const [reply] = await once(worker, 'message')
       assert.ok(isDbReply(reply))
       assert.equal(reply.action, 'fatal')
-      if (reply.action !== 'fatal') assert.fail('Expected a startup failure')
+      if (reply.action !== 'fatal') {
+        assert.fail('Expected a startup failure')
+      }
       assert.equal(reply.failure.code, 'STORAGE_FAILED')
       assert.ok(!reply.failure.message.includes(dir))
       await exit
@@ -122,5 +386,5 @@ test(
       await worker.terminate()
       await rm(dir, { recursive: true, force: true })
     }
-  }
+  },
 )

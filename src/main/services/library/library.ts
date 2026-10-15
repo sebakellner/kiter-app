@@ -10,7 +10,7 @@ const AUDIO_EXT = new Set(['.mp3', '.wav', '.flac', '.ogg', '.m4a', '.aac'])
 
 export async function importLibraryFolder(
   directory: string,
-  database: Pick<DbClient, 'importFolder'>
+  database: Pick<DbClient, 'importFolder'>,
 ): Promise<LibrarySample[]> {
   let root: string
   const canonicalFiles: DiscoveredAudioFile[] = []
@@ -29,24 +29,28 @@ export async function importLibraryFolder(
         throw new Error('Source is outside the selected directory')
       }
       const observation = await stat(canonicalPath)
-      if (!observation.isFile()) throw new Error('Source is not a regular file')
+      if (!observation.isFile()) {
+        throw new Error('Source is not a regular file')
+      }
       await access(canonicalPath, constants.R_OK)
       canonicalFiles.push({
         ...file,
         path: canonicalPath,
         observedSizeBytes: observation.size,
-        observedMtimeMs: observation.mtimeMs
+        observedMtimeMs: observation.mtimeMs,
       })
     }
   } catch (error) {
     const code =
-      error instanceof Error && 'code' in error && typeof error.code === 'string'
+      error instanceof Error &&
+      'code' in error &&
+      typeof error.code === 'string'
         ? error.code
         : 'FOLDER_READ_FAILED'
     console.error('Library import failed:', code)
     throw new IpcError(
       'FOLDER_FAILED',
-      `Unable to load the folder (${code}). Check folder access and database storage.`
+      `Unable to load the folder (${code}). Check folder access and database storage.`,
     )
   }
   return database.importFolder(root, canonicalFiles)
@@ -61,11 +65,14 @@ export async function readAudioDir(dirPath: string): Promise<AudioFile[]> {
       const entryPath = path.join(directory, entry.name)
       if (entry.isDirectory()) {
         await collect(entryPath)
-      } else if (entry.isFile() && AUDIO_EXT.has(path.extname(entry.name).toLowerCase())) {
+      } else if (
+        entry.isFile() &&
+        AUDIO_EXT.has(path.extname(entry.name).toLowerCase())
+      ) {
         files.push({
           name: entry.name,
           path: entryPath,
-          relativePath: path.relative(dirPath, entryPath)
+          relativePath: path.relative(dirPath, entryPath),
         })
       }
     }
@@ -75,6 +82,8 @@ export async function readAudioDir(dirPath: string): Promise<AudioFile[]> {
   return files.sort(
     (a, b) =>
       a.name.localeCompare(b.name, undefined, { numeric: true }) ||
-      a.relativePath.localeCompare(b.relativePath, undefined, { numeric: true })
+      a.relativePath.localeCompare(b.relativePath, undefined, {
+        numeric: true,
+      }),
   )
 }

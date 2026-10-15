@@ -19,7 +19,7 @@ test('rejects invalid, unsupported and unsatisfiable ranges', () => {
     'bytes=20-10',
     'bytes=0-10,20-30',
     'items=0-10',
-    'bytes=999999999999999999999999-'
+    'bytes=999999999999999999999999-',
   ]) {
     assert.equal(parseByteRange(header, 100), null, header)
   }

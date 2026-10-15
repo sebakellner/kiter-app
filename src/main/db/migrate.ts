@@ -9,47 +9,70 @@ export function applyMigrations(
   native: Database.Database,
   migrationsFolder: string,
   initialize: () => void,
-  validate: () => void
+  validate: () => void,
 ): void {
   const migrations = readMigrationFiles({ migrationsFolder })
   if (
     !migrations.length ||
     migrations.some(
       (migration, index) =>
-        index > 0 && migration.folderMillis <= migrations[index - 1].folderMillis
+        index > 0 &&
+        migration.folderMillis <= migrations[index - 1].folderMillis,
     )
   ) {
-    throw new DbError('UNSUPPORTED_VERSION', 'Invalid application migration history.')
+    throw new DbError(
+      'UNSUPPORTED_VERSION',
+      'Invalid application migration history.',
+    )
   }
   // The native transaction includes migrations, profile bootstrap and integrity checks.
   // Drizzle's synchronous migrator starts its own BEGIN and cannot nest in this transaction.
   native
     .transaction(() => {
-      const applicationId: unknown = native.pragma('application_id', { simple: true })
+      const applicationId: unknown = native.pragma('application_id', {
+        simple: true,
+      })
       const version: unknown = native.pragma('user_version', { simple: true })
-      if (typeof version !== 'number' || !Number.isSafeInteger(version) || version < 0) {
-        throw new DbError('UNSUPPORTED_VERSION', 'Invalid library schema version.')
+      if (
+        typeof version !== 'number' ||
+        !Number.isSafeInteger(version) ||
+        version < 0
+      ) {
+        throw new DbError(
+          'UNSUPPORTED_VERSION',
+          'Invalid library schema version.',
+        )
       }
       const objects = native
-        .prepare("SELECT name FROM sqlite_schema WHERE name NOT LIKE 'sqlite_%'")
+        .prepare(
+          "SELECT name FROM sqlite_schema WHERE name NOT LIKE 'sqlite_%'",
+        )
         .all()
       const fresh = applicationId === 0 && version === 0 && objects.length === 0
       if (!fresh) {
         if (applicationId !== DB_APPLICATION_ID) {
-          throw new DbError('UNSUPPORTED_FORMAT', 'This file is not a supported Kiter database.')
+          throw new DbError(
+            'UNSUPPORTED_FORMAT',
+            'This file is not a supported Kiter database.',
+          )
         }
         if (version > migrations.length) {
           throw new DbError(
             'UNSUPPORTED_VERSION',
-            'This library requires a newer version of Kiter.'
+            'This library requires a newer version of Kiter.',
           )
         }
         if (
           !native
-            .prepare("SELECT name FROM sqlite_schema WHERE type = 'table' AND name = ?")
+            .prepare(
+              "SELECT name FROM sqlite_schema WHERE type = 'table' AND name = ?",
+            )
             .get(MIGRATIONS_TABLE)
         ) {
-          throw new DbError('DB_INTEGRITY', 'The library migration history is missing.')
+          throw new DbError(
+            'DB_INTEGRITY',
+            'The library migration history is missing.',
+          )
         }
       }
       native.exec(`CREATE TABLE IF NOT EXISTS ${MIGRATIONS_TABLE} (
@@ -57,7 +80,7 @@ export function applyMigrations(
     ) STRICT`)
       const applied = native
         .prepare<[], { hash: string; created_at: number }>(
-          `SELECT hash, created_at FROM ${MIGRATIONS_TABLE} ORDER BY id`
+          `SELECT hash, created_at FROM ${MIGRATIONS_TABLE} ORDER BY id`,
         )
         .all()
       if (
@@ -65,22 +88,26 @@ export function applyMigrations(
         applied.some(
           (entry, index) =>
             entry.hash !== migrations[index]?.hash ||
-            entry.created_at !== migrations[index]?.folderMillis
+            entry.created_at !== migrations[index]?.folderMillis,
         )
       ) {
         throw new DbError(
           'DB_INTEGRITY',
-          'The library migration history does not match this application.'
+          'The library migration history does not match this application.',
         )
       }
       const record = native.prepare(
-        `INSERT INTO ${MIGRATIONS_TABLE}(hash, created_at) VALUES (?, ?)`
+        `INSERT INTO ${MIGRATIONS_TABLE}(hash, created_at) VALUES (?, ?)`,
       )
       for (const migration of migrations.slice(applied.length)) {
-        for (const statement of migration.sql) native.exec(statement)
+        for (const statement of migration.sql) {
+          native.exec(statement)
+        }
         record.run(migration.hash, migration.folderMillis)
       }
-      if (fresh) initialize()
+      if (fresh) {
+        initialize()
+      }
       validate()
       native.pragma(`application_id = ${DB_APPLICATION_ID}`)
       native.pragma(`user_version = ${migrations.length}`)

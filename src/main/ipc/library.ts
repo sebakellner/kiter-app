@@ -5,9 +5,12 @@ import {
   LIBRARY_CHANNELS,
   type AudioDragError,
   type AudioSample,
-  type FavoriteState
+  type FavoriteState,
 } from '../../shared/ipc'
-import { isImportFolderRequest, isSetFavoriteRequest } from '../../shared/ipc/library'
+import {
+  isImportFolderRequest,
+  isSetFavoriteRequest,
+} from '../../shared/ipc/library'
 import { IpcError } from '../../shared/ipc/result'
 import { importLibraryFolder } from '../services/library'
 import { getAudioSource, registerAudioSources } from '../services/audio'
@@ -26,10 +29,12 @@ export function registerLibraryIpc(database: DbClient): void {
 
   async function handleImportFolder(
     event: IpcMainInvokeEvent,
-    request: unknown
+    request: unknown,
   ): Promise<AudioSample[]> {
     requireMainFrameWindow(event)
-    if (!isImportFolderRequest(request)) throw new IpcError('INVALID_INPUT', 'Invalid folder')
+    if (!isImportFolderRequest(request)) {
+      throw new IpcError('INVALID_INPUT', 'Invalid folder')
+    }
     const samples = await importLibraryFolder(request.directory, database)
     activeIds = new Set(samples.map((sample) => sample.id))
     return registerAudioSources(samples)
@@ -37,7 +42,7 @@ export function registerLibraryIpc(database: DbClient): void {
 
   async function handleSetFavorite(
     event: IpcMainInvokeEvent,
-    request: unknown
+    request: unknown,
   ): Promise<FavoriteState> {
     requireMainFrameWindow(event)
     if (!isSetFavoriteRequest(request) || !activeIds.has(request.id)) {
@@ -49,29 +54,43 @@ export function registerLibraryIpc(database: DbClient): void {
   function handleStartDrag(event: IpcMainEvent, audioUrl: unknown): void {
     try {
       requireMainFrameWindow(event)
-      if (typeof audioUrl !== 'string') throw new Error('Invalid sample identifier')
+      if (typeof audioUrl !== 'string') {
+        throw new Error('Invalid sample identifier')
+      }
       const file = getAudioSource(audioUrl)
-      if (!file) throw new Error('The sample is no longer in the loaded library')
+      if (!file) {
+        throw new Error('The sample is no longer in the loaded library')
+      }
       // Native dragging must begin within the original gesture, without awaiting filesystem work.
       if (realpathSync(file) !== file || !statSync(file).isFile()) {
         throw new Error('The sample file is no longer available')
       }
       accessSync(file, constants.R_OK)
-      if (dragIcon.isEmpty()) throw new Error('Unable to load the drag icon')
+      if (dragIcon.isEmpty()) {
+        throw new Error('Unable to load the drag icon')
+      }
       event.sender.startDrag({ file, icon: dragIcon })
     } catch (error) {
       const code =
-        error instanceof Error && 'code' in error && typeof error.code === 'string'
+        error instanceof Error &&
+        'code' in error &&
+        typeof error.code === 'string'
           ? error.code
           : 'DRAG_FAILED'
       console.error('Sample drag failed:', code)
       const detail =
-        code !== 'DRAG_FAILED' ? code : error instanceof Error ? error.message : 'Unknown error'
+        code !== 'DRAG_FAILED'
+          ? code
+          : error instanceof Error
+            ? error.message
+            : 'Unknown error'
       const failure: AudioDragError = {
         audioUrl: typeof audioUrl === 'string' ? audioUrl : '',
-        message: `Unable to drag the sample: ${detail}`
+        message: `Unable to drag the sample: ${detail}`,
       }
-      if (!event.sender.isDestroyed()) event.sender.send(LIBRARY_CHANNELS.dragError, failure)
+      if (!event.sender.isDestroyed()) {
+        event.sender.send(LIBRARY_CHANNELS.dragError, failure)
+      }
     }
   }
 
@@ -80,20 +99,21 @@ export function registerLibraryIpc(database: DbClient): void {
       'library.importFolder',
       {
         code: 'FOLDER_FAILED',
-        message: 'Unable to load the folder. Check folder access and database storage.'
+        message:
+          'Unable to load the folder. Check folder access and database storage.',
       },
-      () => handleImportFolder(event, request)
-    )
+      () => handleImportFolder(event, request),
+    ),
   )
   ipcMain.handle(LIBRARY_CHANNELS.setFavorite, (event, request: unknown) =>
     invokeResult(
       'library.setFavorite',
       {
         code: 'STORAGE_FAILED',
-        message: 'Unable to save favorite. Check database storage.'
+        message: 'Unable to save favorite. Check database storage.',
       },
-      () => handleSetFavorite(event, request)
-    )
+      () => handleSetFavorite(event, request),
+    ),
   )
   ipcMain.on(LIBRARY_CHANNELS.startDrag, handleStartDrag)
 }

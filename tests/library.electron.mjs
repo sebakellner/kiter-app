@@ -14,7 +14,7 @@ import {
   verifyWaveformsAndDragging,
   verifyPlaybackAndStreaming,
   verifyFolderOutcomesAndRevocation,
-  verifyLazyWaveforms
+  verifyLazyWaveforms,
 } from './library.scenarios.mjs'
 
 const WAIT_TIMEOUT_MS = 10000
@@ -25,7 +25,9 @@ const FIXTURE_WRITE_BATCH_SIZE = 10
 async function waitFor(check, label) {
   const deadline = performance.now() + WAIT_TIMEOUT_MS
   while (performance.now() < deadline) {
-    if (await check()) return
+    if (await check()) {
+      return
+    }
     await delay(POLL_INTERVAL_MS)
   }
   throw new Error(`Timed out: ${label}`)
@@ -45,18 +47,28 @@ async function createFixtures(directory) {
     'track2.WAV',
     'track10.wav',
     'folder #1.mp3/nested.wav',
-    'folder #1.mp3/deep/track2.WAV'
+    'folder #1.mp3/deep/track2.WAV',
   ]) {
     await writeFile(path.join(samples, relative), wav)
   }
   await writeFile(path.join(samples, 'broken.mp3'), 'invalid audio')
   await writeFile(path.join(samples, 'notes.txt'), '')
-  for (let offset = 0; offset < LARGE_FOLDER_SAMPLE_COUNT; offset += FIXTURE_WRITE_BATCH_SIZE) {
+  for (
+    let offset = 0;
+    offset < LARGE_FOLDER_SAMPLE_COUNT;
+    offset += FIXTURE_WRITE_BATCH_SIZE
+  ) {
     await Promise.all(
       Array.from(
-        { length: Math.min(FIXTURE_WRITE_BATCH_SIZE, LARGE_FOLDER_SAMPLE_COUNT - offset) },
-        (_, index) => writeFile(path.join(large, `audio${offset + index}.wav`), wav)
-      )
+        {
+          length: Math.min(
+            FIXTURE_WRITE_BATCH_SIZE,
+            LARGE_FOLDER_SAMPLE_COUNT - offset,
+          ),
+        },
+        (_, index) =>
+          writeFile(path.join(large, `audio${offset + index}.wav`), wav),
+      ),
     )
   }
   return {
@@ -76,8 +88,8 @@ async function createFixtures(directory) {
       path.join('folder #1.mp3', 'nested.wav'),
       path.join('folder #1.mp3', 'deep', 'track2.WAV'),
       'track2.WAV',
-      'track10.wav'
-    ]
+      'track10.wav',
+    ],
   }
 }
 
@@ -93,10 +105,14 @@ async function run() {
   const selections = []
   let dialogCalls = 0
   const onWindowCreated = (_, createdWindow) => {
-    if (window) return
+    if (window) {
+      return
+    }
     window = createdWindow
     onConsoleMessage = (event) => {
-      if (event.level === 'error') consoleErrors.push(event.message)
+      if (event.level === 'error') {
+        consoleErrors.push(event.message)
+      }
     }
     window.webContents.on('console-message', onConsoleMessage)
   }
@@ -108,10 +124,13 @@ async function run() {
       dialogCalls++
       assert.ok(selections.length > 0, 'Unexpected folder dialog')
       const selection = selections.shift()
-      if (selection.release) await selection.release
+      if (selection.release) {
+        await selection.release
+      }
       return {
         canceled: selection.directory === null,
-        filePaths: typeof selection.directory === 'string' ? [selection.directory] : []
+        filePaths:
+          typeof selection.directory === 'string' ? [selection.directory] : [],
       }
     }
     app.setPath('userData', data)
@@ -120,8 +139,15 @@ async function run() {
     createRequire(import.meta.url)('../out/main/index.js')
     const fixtures = await createFixtures(directory)
     await app.whenReady()
-    await waitFor(() => BrowserWindow.getAllWindows().length > 0, 'window creation')
-    assert.equal(BrowserWindow.getAllWindows().length, 1, 'Only one window should open')
+    await waitFor(
+      () => BrowserWindow.getAllWindows().length > 0,
+      'window creation',
+    )
+    assert.equal(
+      BrowserWindow.getAllWindows().length,
+      1,
+      'Only one window should open',
+    )
     assert.equal(window, BrowserWindow.getAllWindows()[0])
     window.setSize(1000, 700)
     const nativeDrags = []
@@ -131,11 +157,13 @@ async function run() {
     }
     execute = (code) =>
       window.webContents.executeJavaScript(code, true).catch((cause) => {
-        throw new Error(`Renderer script failed: ${code.slice(0, 200)}`, { cause })
+        throw new Error(`Renderer script failed: ${code.slice(0, 200)}`, {
+          cause,
+        })
       })
     await waitFor(
       () => execute('!!document.querySelector("[data-testid=open-folder]")'),
-      'renderer initialization'
+      'renderer initialization',
     )
     await execute(`
       globalThis.libraryTest = { waveformFetches: [], dragErrors: [], unexpectedErrors: [] };
@@ -181,9 +209,9 @@ async function run() {
       await waitFor(
         () =>
           execute(
-            'document.querySelector("main").getAttribute("aria-busy") === "false" && !document.querySelector("[data-testid=open-folder]").disabled'
+            'document.querySelector("main").getAttribute("aria-busy") === "false" && !document.querySelector("[data-testid=open-folder]").disabled',
           ),
-        'folder reading'
+        'folder reading',
       )
       await refreshSamples()
     }
@@ -197,16 +225,22 @@ async function run() {
       rowCode,
       refreshSamples,
       dialogCalls: () => dialogCalls,
-      queueSelection: (directory, release) => selections.push({ directory, release }),
+      queueSelection: (directory, release) =>
+        selections.push({ directory, release }),
       waitForFolder,
       open: async (directory) => {
         selections.push({ directory })
-        await execute('document.querySelector("[data-testid=open-folder]").click()')
+        await execute(
+          'document.querySelector("[data-testid=open-folder]").click()',
+        )
         await waitForFolder()
       },
-      names: async () => (await refreshSamples()).map((item) => item.relativePath),
+      names: async () =>
+        (await refreshSamples()).map((item) => item.relativePath),
       preview: (relativePath) =>
-        execute(`${rowCode(relativePath)}.querySelector("[data-testid=preview-toggle]").click()`),
+        execute(
+          `${rowCode(relativePath)}.querySelector("[data-testid=preview-toggle]").click()`,
+        ),
       drag: (relativePath) =>
         execute(`${rowCode(relativePath)}.dispatchEvent(new DragEvent("dragstart", {
         bubbles: true, cancelable: true, dataTransfer: new DataTransfer()
@@ -218,8 +252,8 @@ async function run() {
         !document.querySelector("audio").paused && document.querySelector("audio").currentTime > 0.05 &&
         ${rowCode(relativePath)}.querySelector("[data-testid=preview-toggle]").getAttribute("aria-pressed") === "true"
       `),
-          `playing ${relativePath}`
-        )
+          `playing ${relativePath}`,
+        ),
     }
     const scenarios = [
       ['recursive listing and UI styles', verifyListingAndStyles],
@@ -227,23 +261,33 @@ async function run() {
       ['waveforms and native drag payloads', verifyWaveformsAndDragging],
       ['shared playback and audio streaming', verifyPlaybackAndStreaming],
       ['folder outcomes and revoked access', verifyFolderOutcomesAndRevocation],
-      ['lazy waveforms and scrolling', verifyLazyWaveforms]
+      ['lazy waveforms and scrolling', verifyLazyWaveforms],
     ]
     for (const [name, scenario] of scenarios) {
       const started = performance.now()
       try {
         await scenario(context)
-        assert.deepEqual(consoleErrors, [], 'Unexpected renderer console errors')
+        assert.deepEqual(
+          consoleErrors,
+          [],
+          'Unexpected renderer console errors',
+        )
         assert.deepEqual(
           await execute('globalThis.libraryTest.unexpectedErrors'),
           [],
-          'Unhandled renderer errors'
+          'Unhandled renderer errors',
         )
-        assert.equal(selections.length, 0, 'Every queued folder selection must be consumed')
+        assert.equal(
+          selections.length,
+          0,
+          'Every queued folder selection must be consumed',
+        )
       } catch (cause) {
         throw new Error(`Scenario failed: ${name}`, { cause })
       }
-      console.log(`PASS: ${name} (${Math.round(performance.now() - started)} ms)`)
+      console.log(
+        `PASS: ${name} (${Math.round(performance.now() - started)} ms)`,
+      )
     }
   } catch (error) {
     console.error(error)
@@ -253,21 +297,29 @@ async function run() {
     app.removeListener('browser-window-created', onWindowCreated)
     try {
       if (execute && window && !window.isDestroyed()) {
-        await execute('globalThis.libraryTest?.dispose(); delete globalThis.libraryTest; void 0')
+        await execute(
+          'globalThis.libraryTest?.dispose(); delete globalThis.libraryTest; void 0',
+        )
       }
     } catch (error) {
       console.error('Electron test cleanup failed:', error)
       exitCode = 1
     } finally {
       if (window && !window.isDestroyed()) {
-        if (originalStartDrag) window.webContents.startDrag = originalStartDrag
-        if (onConsoleMessage) window.webContents.removeListener('console-message', onConsoleMessage)
+        if (originalStartDrag) {
+          window.webContents.startDrag = originalStartDrag
+        }
+        if (onConsoleMessage) {
+          window.webContents.removeListener('console-message', onConsoleMessage)
+        }
       }
     }
     app.once('will-quit', (event) => {
       event.preventDefault()
       try {
-        if (directory) rmSync(directory, { recursive: true, force: true })
+        if (directory) {
+          rmSync(directory, { recursive: true, force: true })
+        }
       } catch (error) {
         console.error('Electron fixture cleanup failed:', error)
         exitCode = 1

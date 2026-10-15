@@ -8,5 +8,10 @@ export interface Api {
 export { DIALOG_CHANNELS } from './dialog.ts'
 export { LIBRARY_CHANNELS } from './library.ts'
 export type { AudioFile } from '../domain/source.ts'
-export type { LibrarySample, AudioSample, FavoriteState, AudioDragError } from './library.ts'
+export type {
+  LibrarySample,
+  AudioSample,
+  FavoriteState,
+  AudioDragError,
+} from './library.ts'
 export type { IpcResult, AppFailure, AppErrorCode } from './result.ts'

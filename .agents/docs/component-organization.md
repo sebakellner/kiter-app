@@ -8,15 +8,15 @@ See [Common Guidelines](common-guidelines.md) for coding rules,
 
 ## Ownership
 
-| Location | Responsibility |
-| --- | --- |
-| `src/renderer/src/features/<feature>/` | Feature-specific UI, hooks, presentation types, and helpers. |
-| `src/renderer/src/features/<feature>/components/` | Optional grouping when a feature has enough components to benefit from it. |
-| `src/renderer/src/components/` | Reusable application compositions independent of feature services and business rules. |
-| `src/renderer/src/components/ui/` | Reusable UI primitives such as buttons, labels, text, inputs, and basic controls. |
-| `src/renderer/src/components/layouts/` | Layout and navigation compositions, when needed. |
-| `src/shared/` | Cross-process contracts, not React components. |
-| `src/main/` | Privileged services and native operations, not UI behavior. |
+| Location                                          | Responsibility                                                                        |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| `src/renderer/src/features/<feature>/`            | Feature-specific UI, hooks, presentation types, and helpers.                          |
+| `src/renderer/src/features/<feature>/components/` | Optional grouping when a feature has enough components to benefit from it.            |
+| `src/renderer/src/components/`                    | Reusable application compositions independent of feature services and business rules. |
+| `src/renderer/src/components/ui/`                 | Reusable UI primitives such as buttons, labels, text, inputs, and basic controls.     |
+| `src/renderer/src/components/layouts/`            | Layout and navigation compositions, when needed.                                      |
+| `src/shared/`                                     | Cross-process contracts, not React components.                                        |
+| `src/main/`                                       | Privileged services and native operations, not UI behavior.                           |
 
 These are ownership conventions, not directories to scaffold in advance.
 

@@ -13,17 +13,23 @@ let releaseCancel
 dialog.showOpenDialog = async () => {
   const canceled = cancelNext
   cancelNext = false
-  if (canceled)
+  if (canceled) {
     await new Promise((resolve) => {
       releaseCancel = resolve
     })
-  return { canceled, filePaths: canceled ? [] : [path.join(directory, 'samples')] }
+  }
+  return {
+    canceled,
+    filePaths: canceled ? [] : [path.join(directory, 'samples')],
+  }
 }
 
 async function waitFor(check, description) {
   const deadline = Date.now() + 15000
   while (Date.now() < deadline) {
-    if (await check()) return
+    if (await check()) {
+      return
+    }
     await delay(25)
   }
   throw new Error(`Timed out: ${description}`)
@@ -34,110 +40,139 @@ async function run() {
   try {
     await import('../out/main/index.js')
     await app.whenReady()
-    await waitFor(() => BrowserWindow.getAllWindows().length === 1, 'application window')
+    await waitFor(
+      () => BrowserWindow.getAllWindows().length === 1,
+      'application window',
+    )
     const window = BrowserWindow.getAllWindows()[0]
     const execute = (code) => window.webContents.executeJavaScript(code, true)
     await waitFor(
       () => execute('!!document.querySelector("[data-testid=open-folder]")'),
-      'renderer'
+      'renderer',
     )
     await execute('document.querySelector("[data-testid=open-folder]").click()')
     await waitFor(
-      () => execute('!!document.querySelector("[data-testid=favorite-toggle]")'),
-      'catalog import'
+      () =>
+        execute('!!document.querySelector("[data-testid=favorite-toggle]")'),
+      'catalog import',
     )
-    const id = await execute('document.querySelector("[data-sample-id]").dataset.sampleId')
+    const id = await execute(
+      'document.querySelector("[data-sample-id]").dataset.sampleId',
+    )
     const identityFile = path.join(directory, 'expected-id.txt')
     if (phase === 'save') {
       await writeFile(identityFile, id)
       assert.equal(
         await execute(
-          'document.querySelector("[data-testid=favorite-toggle]").getAttribute("aria-pressed")'
+          'document.querySelector("[data-testid=favorite-toggle]").getAttribute("aria-pressed")',
         ),
-        'false'
+        'false',
       )
       // Revoke the UI's sample to exercise a real failed IPC write without optimistic success.
       await execute(
-        `window.api.library.importFolder(${JSON.stringify(path.join(directory, 'empty'))}).then(result => { if (!result.ok) throw new Error(result.error.message); })`
+        `window.api.library.importFolder(${JSON.stringify(path.join(directory, 'empty'))}).then(result => { if (!result.ok) throw new Error(result.error.message); })`,
       )
-      await execute('document.querySelector("[data-testid=favorite-toggle]").click()')
+      await execute(
+        'document.querySelector("[data-testid=favorite-toggle]").click()',
+      )
       await waitFor(
-        () => execute('!!document.querySelector("[data-sample-id] [role=alert]")'),
-        'favorite write failure'
+        () =>
+          execute('!!document.querySelector("[data-sample-id] [role=alert]")'),
+        'favorite write failure',
       )
       assert.equal(
         await execute(
-          'document.querySelector("[data-testid=favorite-toggle]").getAttribute("aria-pressed")'
+          'document.querySelector("[data-testid=favorite-toggle]").getAttribute("aria-pressed")',
         ),
-        'false'
+        'false',
       )
       assert.ok(
         await execute(
-          'document.querySelector("[data-sample-id] [role=alert]").textContent.includes("Invalid or inactive sample")'
-        )
+          'document.querySelector("[data-sample-id] [role=alert]").textContent.includes("Invalid or inactive sample")',
+        ),
       )
       assert.equal(
-        await execute('document.querySelector("[data-testid=favorite-toggle]").disabled'),
-        false
+        await execute(
+          'document.querySelector("[data-testid=favorite-toggle]").disabled',
+        ),
+        false,
       )
-      await execute('document.querySelector("[data-testid=open-folder]").click()')
+      await execute(
+        'document.querySelector("[data-testid=open-folder]").click()',
+      )
       await waitFor(
         () =>
           execute(
-            '!!document.querySelector("[data-testid=favorite-toggle]") && !document.querySelector("[data-testid=open-folder]").disabled'
+            '!!document.querySelector("[data-testid=favorite-toggle]") && !document.querySelector("[data-testid=open-folder]").disabled',
           ),
-        'reload after error'
+        'reload after error',
       )
     } else {
       assert.equal(
         id,
         await readFile(identityFile, 'utf8'),
-        'Sample UUID must survive a fresh process'
+        'Sample UUID must survive a fresh process',
       )
       assert.equal(
         await execute(
-          'document.querySelector("[data-testid=favorite-toggle]").getAttribute("aria-pressed")'
+          'document.querySelector("[data-testid=favorite-toggle]").getAttribute("aria-pressed")',
         ),
-        phase === 'remove' ? 'true' : 'false'
+        phase === 'remove' ? 'true' : 'false',
       )
     }
-    await execute('document.querySelector("[data-testid=favorites-filter]").click()')
+    await execute(
+      'document.querySelector("[data-testid=favorites-filter]").click()',
+    )
     if (phase !== 'remove') {
-      assert.equal(await execute('document.querySelectorAll("[data-sample-id]").length'), 0)
-      assert.ok(
-        await execute('document.body.textContent.includes("No favorites in this folder yet.")')
+      assert.equal(
+        await execute('document.querySelectorAll("[data-sample-id]").length'),
+        0,
       )
-      await execute('document.querySelector("[data-testid=favorites-filter]").click()')
+      assert.ok(
+        await execute(
+          'document.body.textContent.includes("No favorites in this folder yet.")',
+        ),
+      )
+      await execute(
+        'document.querySelector("[data-testid=favorites-filter]").click()',
+      )
     }
     if (phase !== 'verify') {
       const lock =
-        phase === 'save' ? new Database(path.join(directory, 'data', 'db', 'kiter.sqlite')) : null
+        phase === 'save'
+          ? new Database(path.join(directory, 'data', 'db', 'kiter.sqlite'))
+          : null
       try {
         lock?.exec('BEGIN IMMEDIATE')
         await execute(
-          'document.querySelector("[data-testid=favorite-toggle]").click(); document.querySelector("[data-testid=favorite-toggle]").click()'
+          'document.querySelector("[data-testid=favorite-toggle]").click(); document.querySelector("[data-testid=favorite-toggle]").click()',
         )
         if (phase === 'save') {
           await waitFor(
-            () => execute('document.querySelector("[data-testid=favorite-toggle]").disabled'),
-            'pending write'
+            () =>
+              execute(
+                'document.querySelector("[data-testid=favorite-toggle]").disabled',
+              ),
+            'pending write',
           )
           cancelNext = true
-          await execute('document.querySelector("[data-testid=open-folder]").click()')
+          await execute(
+            'document.querySelector("[data-testid=open-folder]").click()',
+          )
           await waitFor(
             () =>
               execute(
-                'document.querySelector("main").getAttribute("aria-busy") === "true" && !document.querySelector("[data-testid=favorite-toggle]")'
+                'document.querySelector("main").getAttribute("aria-busy") === "true" && !document.querySelector("[data-testid=favorite-toggle]")',
               ),
-            'unmounted row during folder selection'
+            'unmounted row during folder selection',
           )
           releaseCancel()
           await waitFor(
             () =>
               execute(
-                '!!document.querySelector("[data-testid=favorite-toggle]") && !document.querySelector("[data-testid=open-folder]").disabled'
+                '!!document.querySelector("[data-testid=favorite-toggle]") && !document.querySelector("[data-testid=open-folder]").disabled',
               ),
-            'canceled folder selection'
+            'canceled folder selection',
           )
         }
       } finally {
@@ -149,34 +184,41 @@ async function run() {
           execute(
             phase === 'save'
               ? 'document.querySelector("[data-testid=favorite-toggle]")?.getAttribute("aria-pressed") === "true" && !document.querySelector("[data-testid=favorite-toggle]").disabled'
-              : 'document.querySelectorAll("[data-sample-id]").length === 0'
+              : 'document.querySelectorAll("[data-sample-id]").length === 0',
           ),
-        'favorite commit'
+        'favorite commit',
       )
       if (phase === 'save') {
-        await execute('document.querySelector("[data-testid=favorites-filter]").click()')
-        assert.equal(await execute('document.querySelectorAll("[data-sample-id]").length'), 1)
+        await execute(
+          'document.querySelector("[data-testid=favorites-filter]").click()',
+        )
+        assert.equal(
+          await execute('document.querySelectorAll("[data-sample-id]").length'),
+          1,
+        )
       }
     }
-    const rejection = await execute('window.api.library.setFavorite("not-authorized", true)')
+    const rejection = await execute(
+      'window.api.library.setFavorite("not-authorized", true)',
+    )
     assert.deepEqual(
       rejection,
       {
         ok: false,
-        error: { code: 'INVALID_INPUT', message: 'Invalid or inactive sample' }
+        error: { code: 'INVALID_INPUT', message: 'Invalid or inactive sample' },
       },
-      'Unknown IDs must be rejected'
+      'Unknown IDs must be rejected',
     )
     const invalidBoolean = await execute(
-      `window.api.library.setFavorite(${JSON.stringify(id)}, "true")`
+      `window.api.library.setFavorite(${JSON.stringify(id)}, "true")`,
     )
     assert.deepEqual(
       invalidBoolean,
       {
         ok: false,
-        error: { code: 'INVALID_INPUT', message: 'Invalid or inactive sample' }
+        error: { code: 'INVALID_INPUT', message: 'Invalid or inactive sample' },
       },
-      'Non-boolean favorite state must be rejected'
+      'Non-boolean favorite state must be rejected',
     )
     console.log(`PASS: favorites restart phase ${phase}`)
   } catch (error) {

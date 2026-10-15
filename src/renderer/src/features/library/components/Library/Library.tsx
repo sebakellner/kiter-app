@@ -4,7 +4,8 @@ import { OpenFolderButton } from '../OpenFolderButton'
 import { useLibrary } from '../../hooks/useLibrary'
 
 export function Library(): React.JSX.Element {
-  const { dir, files, loading, error, openFolder, updateFavorite } = useLibrary()
+  const { dir, files, loading, error, openFolder, updateFavorite } =
+    useLibrary()
 
   return (
     <main className="library" aria-busy={loading}>
