@@ -10,12 +10,13 @@ import {
   createMemoryDatabase,
 } from '../../../../../tests/support/database/connection.ts'
 import { makeDiscoveredAudioFile } from '../../../../../tests/support/fixtures/source.ts'
+import { makePackInsert } from '../../../../../tests/support/database/factories/pack.ts'
+import { seedSampleCollection } from '../../../../../tests/support/database/seeds/sample-collection.ts'
 import * as classification from './operations.ts'
 import { importFolder } from '../sources/import.ts'
 import { readLocalProfile, setPreviewVolume } from '../profile/operations.ts'
 import { setFavorite } from '../samples/favorites.ts'
 import {
-  collections,
   collectionSamples,
   packs,
   samples,
@@ -36,26 +37,20 @@ function fixture(db: ReturnType<typeof open>['db']): {
     makeDiscoveredAudioFile(root, name),
   )
   const imported = importFolder(db, root, files)
-  const packId = randomUUID(),
-    collectionId = randomUUID()
+  const packId = randomUUID()
   const rootId = db.query.sourceRoots.findFirst().sync()!.id
-  db.insert(packs)
-    .values({ id: packId, sourceRootId: rootId, name: 'Origin' })
-    .run()
+  db.insert(packs).values(makePackInsert(packId, rootId)).run()
   db.update(samples)
     .set({ packId, displayName: 'My Kick', notes: 'Keep me' })
     .where(eq(samples.id, imported[0].id))
     .run()
-  db.insert(collections).values({ id: collectionId, name: 'Selection' }).run()
-  db.insert(collectionSamples)
-    .values({ collectionId, sampleId: imported[0].id, position: 0 })
-    .run()
+  const collection = seedSampleCollection(db, imported[0].id)
   setFavorite(db, imported[0].id, true)
   return {
     sampleId: imported[0].id,
     otherSampleId: imported[1].id,
     packId,
-    collectionId,
+    collectionId: collection.id,
   }
 }
 

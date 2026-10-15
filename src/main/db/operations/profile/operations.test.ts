@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto'
 import { test } from 'node:test'
 import { eq } from 'drizzle-orm'
 import { createMemoryDatabase } from '../../../../../tests/support/database/connection.ts'
+import { makeImageAssetInsert } from '../../../../../tests/support/database/factories/image-asset.ts'
 import {
   readLocalProfile,
   setPreviewVolume,
@@ -93,15 +94,13 @@ test('profile editing preserves identity, avatar and Preferences without renamin
   const other = classification.createAuthor(db, { name: 'Another artist' })
   const avatarAssetId = randomUUID()
   db.insert(imageAssets)
-    .values({
-      id: avatarAssetId,
-      storageKey: `${avatarAssetId}.png`,
-      mimeType: 'image/png',
-      byteSize: 100,
-      width: 10,
-      height: 10,
-      state: 'ready',
-    })
+    .values(
+      makeImageAssetInsert(avatarAssetId, {
+        width: 10,
+        height: 10,
+        state: 'ready',
+      }),
+    )
     .run()
   db.update(userProfiles)
     .set({ avatarAssetId })

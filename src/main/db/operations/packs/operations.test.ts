@@ -11,6 +11,9 @@ import {
   createMemoryDatabase,
 } from '../../../../../tests/support/database/connection.ts'
 import { makeDiscoveredAudioFile } from '../../../../../tests/support/fixtures/source.ts'
+import { makeImageAssetInsert } from '../../../../../tests/support/database/factories/image-asset.ts'
+import { makeCollectionInsert } from '../../../../../tests/support/database/factories/collection.ts'
+import { seedSampleCollection } from '../../../../../tests/support/database/seeds/sample-collection.ts'
 import * as packOperations from './operations.ts'
 import * as removal from './removal.ts'
 import { importFolder } from '../sources/import.ts'
@@ -306,12 +309,7 @@ test('Pack removal reviews exact uses and preserves Samples, organization, roots
       assigned: true,
     })
   }
-  const selection = collection.createCollection(db, { name: 'Selection' })
-  collection.setCollectionMembership(db, {
-    collectionId: selection.id,
-    sampleId: id,
-    assigned: true,
-  })
+  const selection = seedSampleCollection(db, id)
   const before = db.select().from(samples).all()
   const sources = db.select().from(sampleSources).all()
   const roots = db.select().from(sourceRoots).all()
@@ -410,14 +408,7 @@ test('Pack removal checks all cover owners and rolls back cleanup failures', (t)
     const pack = register(db, f.sourceRootId)
     const assetId = randomUUID()
     db.insert(imageAssets)
-      .values({
-        id: assetId,
-        storageKey: `${assetId}.png`,
-        mimeType: 'image/png',
-        byteSize: 1,
-        width: 1,
-        height: 1,
-      })
+      .values(makeImageAssetInsert(assetId, { byteSize: 1 }))
       .run()
     db.update(packs)
       .set({ coverAssetId: assetId })
@@ -434,7 +425,12 @@ test('Pack removal checks all cover owners and rolls back cleanup failures', (t)
         .run()
     } else if (owner === 'collection') {
       db.insert(collections)
-        .values({ id: randomUUID(), name: 'Shared', coverAssetId: assetId })
+        .values(
+          makeCollectionInsert(randomUUID(), {
+            name: 'Shared',
+            coverAssetId: assetId,
+          }),
+        )
         .run()
     } else if (owner === 'profile') {
       db.update(userProfiles).set({ avatarAssetId: assetId }).run()

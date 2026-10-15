@@ -18,6 +18,9 @@ import {
   createMemoryDatabase,
 } from '../../../../../tests/support/database/connection.ts'
 import { makeDiscoveredAudioFile } from '../../../../../tests/support/fixtures/source.ts'
+import { makePackInsert } from '../../../../../tests/support/database/factories/pack.ts'
+import { seedSampleClassification } from '../../../../../tests/support/database/seeds/sample-classification.ts'
+import { seedSampleCollection } from '../../../../../tests/support/database/seeds/sample-collection.ts'
 import * as sampleOperations from './operations.ts'
 import * as reinclusion from '../sources/reinclusion.ts'
 import { importFolder } from '../sources/import.ts'
@@ -114,30 +117,12 @@ test('Sample removal checks exact impact, rolls back failures and excludes acros
   const { id, root, file } = fixture(db)
   const rootId = db.select().from(sourceRoots).get()!.id
   const packId = randomUUID()
-  db.insert(packs)
-    .values({ id: packId, name: 'Origin', sourceRootId: rootId })
-    .run()
+  db.insert(packs).values(makePackInsert(packId, rootId)).run()
   db.update(samples).set({ packId }).where(eq(samples.id, id)).run()
   setFavorite(db, id, true)
   operations.updateSample(db, { id, displayName: 'Kick', notes: 'Notes' })
-  const category = classification.createCategory(db, { name: 'Drums' })
-  const author = classification.createAuthor(db, { name: 'Artist' })
-  classification.setCategoryAssignment(db, {
-    id: category.id,
-    target: { kind: 'sample', id },
-    assigned: true,
-  })
-  classification.setAuthorAssignment(db, {
-    id: author.id,
-    target: { kind: 'sample', id },
-    assigned: true,
-  })
-  const collection = collections.createCollection(db, { name: 'Selection' })
-  collections.setCollectionMembership(db, {
-    collectionId: collection.id,
-    sampleId: id,
-    assigned: true,
-  })
+  const { category } = seedSampleClassification(db, id)
+  const collection = seedSampleCollection(db, id)
   const review = operations.reviewSampleRemoval(db, id)
   assert.deepEqual(
     [

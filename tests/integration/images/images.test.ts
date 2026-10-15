@@ -20,6 +20,8 @@ import {
 } from '../../support/database/connection.ts'
 import { makeImageAsset } from '../../support/fixtures/image.ts'
 import { createPng } from '../../support/fixtures/png.ts'
+import { makePackInsert } from '../../support/database/factories/pack.ts'
+import { makeImageAssetInsert } from '../../support/database/factories/image-asset.ts'
 import * as assets from '../../../src/main/db/operations/assets/operations.ts'
 import {
   readLocalProfile,
@@ -105,7 +107,7 @@ test('Images share references across all owners, reject stale replacements and c
     .values({ id: rootId, canonicalPath: '/image-test-root' })
     .run()
   db.insert(packs)
-    .values({ id: packId, name: 'Pack', sourceRootId: rootId })
+    .values(makePackInsert(packId, rootId, { name: 'Pack' }))
     .run()
   const asset = metadata()
   assets.publishImage(db, {
@@ -329,7 +331,7 @@ test('Cleanup claims prevent racing attachments, paginated reconciliation handle
     return claim
   }
   for (let index = 0; index < 105; index++) {
-    f.db.insert(imageAssets).values(metadata()).run()
+    f.db.insert(imageAssets).values(makeImageAssetInsert(randomUUID())).run()
   }
   assert.deepEqual(await f.service.reconcile(), { removed: 106, failures: [] })
   assert.deepEqual(assets.listImages(f.db, null), [])

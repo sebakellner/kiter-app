@@ -5,6 +5,10 @@ import { test } from 'node:test'
 import { eq } from 'drizzle-orm'
 import { createMemoryDatabase } from '../../../../../tests/support/database/connection.ts'
 import { importSampleFixtures } from '../../../../../tests/support/database/import-samples.ts'
+import { makeImageAssetInsert } from '../../../../../tests/support/database/factories/image-asset.ts'
+import { makePackInsert } from '../../../../../tests/support/database/factories/pack.ts'
+import { makeCollectionInsert } from '../../../../../tests/support/database/factories/collection.ts'
+import { seedSampleClassification } from '../../../../../tests/support/database/seeds/sample-classification.ts'
 import * as collectionOperations from './operations.ts'
 import * as removal from './removal.ts'
 import { setFavorite } from '../samples/favorites.ts'
@@ -147,29 +151,14 @@ test('Memberships append idempotently, retain gaps, reorder atomically and prese
   const other = operations.createCollection(db, { name: 'Other' })
   const packId = randomUUID()
   db.insert(packs)
-    .values({
-      id: packId,
-      name: 'Origin',
-      sourceRootId: db.query.sourceRoots.findFirst().sync()!.id,
-    })
+    .values(makePackInsert(packId, db.query.sourceRoots.findFirst().sync()!.id))
     .run()
   db.update(samples)
     .set({ packId, displayName: 'Kick', notes: 'Keep' })
     .where(eq(samples.id, ids[0]))
     .run()
   setFavorite(db, ids[0], true)
-  const author = classification.createAuthor(db, { name: 'Artist' })
-  const category = classification.createCategory(db, { name: 'Drums' })
-  classification.setAuthorAssignment(db, {
-    id: author.id,
-    target: { kind: 'sample', id: ids[0] },
-    assigned: true,
-  })
-  classification.setCategoryAssignment(db, {
-    id: category.id,
-    target: { kind: 'sample', id: ids[0] },
-    assigned: true,
-  })
+  seedSampleClassification(db, ids[0])
   const before = db.select().from(samples).all()
   const set = (
     sampleId: string,
@@ -334,14 +323,7 @@ test('Collection removal schedules only unreferenced managed assets and rolls ba
   for (const reference of ['none', 'collection', 'pack', 'profile']) {
     const assetId = randomUUID()
     db.insert(imageAssets)
-      .values({
-        id: assetId,
-        storageKey: `${assetId}.png`,
-        mimeType: 'image/png',
-        byteSize: 10,
-        width: 1,
-        height: 1,
-      })
+      .values(makeImageAssetInsert(assetId, { byteSize: 10 }))
       .run()
     const collection = operations.createCollection(db, { name: reference })
     db.update(collections)
@@ -350,16 +332,22 @@ test('Collection removal schedules only unreferenced managed assets and rolls ba
       .run()
     if (reference === 'collection') {
       db.insert(collections)
-        .values({ id: randomUUID(), name: 'Shared', coverAssetId: assetId })
+        .values(
+          makeCollectionInsert(randomUUID(), {
+            name: 'Shared',
+            coverAssetId: assetId,
+          }),
+        )
         .run()
     } else if (reference === 'pack') {
       db.insert(packs)
-        .values({
-          id: randomUUID(),
-          name: 'Shared',
-          coverAssetId: assetId,
-          sourceRootId: db.query.sourceRoots.findFirst().sync()!.id,
-        })
+        .values(
+          makePackInsert(
+            randomUUID(),
+            db.query.sourceRoots.findFirst().sync()!.id,
+            { name: 'Shared', coverAssetId: assetId },
+          ),
+        )
         .run()
     } else if (reference === 'profile') {
       db.update(userProfiles).set({ avatarAssetId: assetId }).run()
