@@ -40,7 +40,27 @@ still need validation.
 
 Planned features include Pack and Collection editors, Categories and Author
 credits, global search, profile/settings, and reviewed file organization and
-export workflows. These are not yet available in the app.
+export workflows. Centralization will gather samples into a producer-selected
+local folder organized by sample type. Automatic organization will propose
+classifications and groupings for review before modifying files; tasks will
+track analysis, organization, renaming, relocation, and export with visible
+status and errors. These are not yet available in the app.
+
+Internally, a fresh 17-table Drizzle/`better-sqlite3` catalog runs in a worker,
+with committed migrations, stable Sample/source records, transactional local
+profile/Preferences bootstrap, and validated IPC result envelopes for existing
+import and Favorite workflows. Earlier development databases are not opened,
+migrated, or deleted.
+
+Author/Category operations support paginated search, independent Sample/Pack
+assignments, use inspection, and impact-checked deletion. Collection operations
+support creation/editing, bounded lists, unique ordered Sample memberships,
+atomic full-sequence reorder, and impact-checked removal. These operations are
+internal to the DB worker/client; their IPC and UI remain pending. Collection
+removal preserves Samples and schedules unreferenced covers for cleanup, but
+managed-image publication and physical cleanup are not yet implemented.
+Profile/settings UI and player volume restoration also remain pending.
+Schema and internal operations alone do not deliver user-facing features.
 
 External file moves and renames are not automatically reconciled. There is no
 global favorites view, automatic backup, or library recovery UI yet.

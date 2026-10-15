@@ -184,7 +184,9 @@ editor's TypeScript service.
 - [AGENTS.md](../../AGENTS.md) owns product context, the guide index, and
   repository-wide safeguards. [Architecture](architecture.md) owns process
   boundaries and architectural evolution. This guide owns common coding rules.
-  [Domain Model](domain-model.md) owns entity semantics and lifecycle invariants.
+  [Domain Model](domain-model.md) owns product scope, entity semantics, and
+  lifecycle invariants. [README](../../README.md) owns current app behavior,
+  implementation status, and user-facing limitations.
   [Testing Conventions](testing-conventions.md) owns test execution and isolation.
   Avoid maintaining duplicate versions of the same guidance.
 - Add topic guides incrementally when requested. Index only existing files,

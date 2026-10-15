@@ -33,3 +33,18 @@ export function requireName(value: unknown): string {
   }
   return value.trim()
 }
+
+export function requirePresentationName(value: unknown): string {
+  if (typeof value !== 'string' || /[\p{Cc}\p{Zl}\p{Zp}]/u.test(value)) {
+    throw new DomainValidationError(
+      'Names must not contain line breaks or control characters.',
+    )
+  }
+  const name = requireName(value).normalize('NFC')
+  if (Array.from(name).length > 120) {
+    throw new DomainValidationError(
+      'Names must contain between 1 and 120 Unicode characters.',
+    )
+  }
+  return name
+}

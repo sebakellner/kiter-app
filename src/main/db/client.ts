@@ -23,6 +23,20 @@ import type {
 import type { ClassificationRequest } from './classificationProtocol'
 import { isClassificationRequest } from './classificationProtocol'
 import { DomainValidationError } from '../../shared/domain/validation'
+import type {
+  Collection,
+  CollectionCreateRequest,
+  CollectionUpdateRequest,
+  CollectionPage,
+  CollectionPageRequest,
+  CollectionMembership,
+  CollectionMembershipRequest,
+  CollectionReorderRequest,
+  CollectionRemovalReview,
+  CollectionRemovalRequest,
+} from '../../shared/domain/collection'
+import type { CollectionRequest } from './collectionProtocol'
+import { isCollectionRequest } from './collectionProtocol'
 
 const DB_CLOSING_MESSAGE = 'Database is shutting down'
 const UNEXPECTED_REPLY_MESSAGE = 'Unexpected database response'
@@ -420,6 +434,126 @@ export class DbClient {
       input,
     })
     if (reply.action !== 'remove-category') {
+      throw new Error(UNEXPECTED_REPLY_MESSAGE)
+    }
+    return reply.result
+  }
+
+  private async collectionRequest(
+    request: CollectionRequest,
+  ): Promise<DbReply> {
+    if (this.closing) {
+      throw new DbError('CLOSING', DB_CLOSING_MESSAGE)
+    }
+    if (!isCollectionRequest(request)) {
+      throw new DomainValidationError('Invalid Collection request.')
+    }
+    return this.sendRequest({ ...request, requestId: this.nextRequestId++ })
+  }
+
+  async createCollection(input: CollectionCreateRequest): Promise<Collection> {
+    const reply = await this.collectionRequest({
+      action: 'create-collection',
+      input,
+    })
+    if (reply.action !== 'create-collection') {
+      throw new Error(UNEXPECTED_REPLY_MESSAGE)
+    }
+    return reply.result
+  }
+
+  async updateCollection(input: CollectionUpdateRequest): Promise<Collection> {
+    const reply = await this.collectionRequest({
+      action: 'update-collection',
+      input,
+    })
+    if (reply.action !== 'update-collection') {
+      throw new Error(UNEXPECTED_REPLY_MESSAGE)
+    }
+    return reply.result
+  }
+
+  async getCollection(id: string): Promise<Collection> {
+    const reply = await this.collectionRequest({ action: 'get-collection', id })
+    if (reply.action !== 'get-collection') {
+      throw new Error(UNEXPECTED_REPLY_MESSAGE)
+    }
+    return reply.result
+  }
+
+  async listCollections(
+    input: CollectionPageRequest = {},
+  ): Promise<CollectionPage<Collection>> {
+    const reply = await this.collectionRequest({
+      action: 'list-collections',
+      input,
+    })
+    if (reply.action !== 'list-collections') {
+      throw new Error(UNEXPECTED_REPLY_MESSAGE)
+    }
+    return reply.result
+  }
+
+  async listCollectionSamples(
+    id: string,
+    input: CollectionPageRequest = {},
+  ): Promise<CollectionPage<CollectionMembership>> {
+    const reply = await this.collectionRequest({
+      action: 'list-collection-samples',
+      id,
+      input,
+    })
+    if (reply.action !== 'list-collection-samples') {
+      throw new Error(UNEXPECTED_REPLY_MESSAGE)
+    }
+    return reply.result
+  }
+
+  async setCollectionMembership(
+    input: CollectionMembershipRequest,
+  ): Promise<{ assigned: boolean }> {
+    const reply = await this.collectionRequest({
+      action: 'set-collection-membership',
+      input,
+    })
+    if (reply.action !== 'set-collection-membership') {
+      throw new Error(UNEXPECTED_REPLY_MESSAGE)
+    }
+    return reply.result
+  }
+
+  async reorderCollection(
+    input: CollectionReorderRequest,
+  ): Promise<{ id: string }> {
+    const reply = await this.collectionRequest({
+      action: 'reorder-collection',
+      input,
+    })
+    if (reply.action !== 'reorder-collection') {
+      throw new Error(UNEXPECTED_REPLY_MESSAGE)
+    }
+    return reply.result
+  }
+
+  async reviewCollectionRemoval(id: string): Promise<CollectionRemovalReview> {
+    const reply = await this.collectionRequest({
+      action: 'review-collection-removal',
+      id,
+    })
+    if (reply.action !== 'review-collection-removal') {
+      throw new Error(UNEXPECTED_REPLY_MESSAGE)
+    }
+    return reply.result
+  }
+
+  async removeCollection(
+    input: CollectionRemovalRequest,
+  ): Promise<{ id: string }> {
+    const reply = await this.collectionRequest({
+      action: 'remove-collection',
+      input,
+    })
+    if (reply.action !== 'remove-collection') {
       throw new Error(UNEXPECTED_REPLY_MESSAGE)
     }
     return reply.result

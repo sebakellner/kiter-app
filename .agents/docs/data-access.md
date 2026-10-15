@@ -12,7 +12,10 @@ bootstrap, source imports, Favorites, and internal profile/volume operations are
 implemented. Internal Author/Category commands, independent Sample/Pack assignments,
 paginated queries/use inspection, and impact-checked deletion are implemented through
 the worker and `DbClient`; classification IPC/UI remain pending.
-Complete organization commands, managed images, settings UI, and
+Internal Collection creation/editing, bounded reads, ordered memberships,
+atomic reorder and impact-checked removal also run through the worker/client.
+Removal marks only unreferenced covers for cleanup; physical cleanup is pending.
+Remaining organization commands, managed images, settings UI, and
 player volume restoration remain planned. Persistent analysis/peaks are separate.
 
 This foundation intentionally starts at `userData/db/kiter.sqlite`. Neither
@@ -206,6 +209,16 @@ duplicate Category keys; `STALE_REVIEW` requires renewed impact review. These
 classification operations have no renderer IPC or UI yet. The table below describes
 target behavior, including workflows still pending.
 
+Collection commands are also implemented internally with pages of 50 (maximum
+100), name/UUID ordering for Collections and position ordering for memberships.
+Membership addition/removal is idempotent; re-addition appends and removal leaves
+gaps. Reorder validates the entire unique current sequence, then transactionally
+replaces memberships with contiguous positions, avoiding transient unique-index
+collisions. Removal review hashes presentation and exact Sample IDs/positions in
+bounded batches; removal rechecks inside an immediate transaction. Final cover
+references become `cleanup_pending` only after checking all three reference
+owners. Collection IPC/UI and physical image cleanup remain pending.
+
 | Command                | Required behavior                                                                                                                   |
 | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
 | Import/rescan          | Reuse IDs, filter exclusions, create Sample/source pairs, reconcile root associations; preserve organization.                       |
@@ -276,8 +289,8 @@ exists; extend the smallest owning operation/service.
 The product's catalog is persisted through `DbClient`; there is no `Catalog`
 domain entity or catch-all catalog service. Current UI remains folder-scoped.
 Internal profile/volume operations are not exposed to settings UI or applied to
-the player. Internal classification operations are available on `DbClient`, not
-preload. Other entity tables await their complete operations and UI.
+the player. Internal classification and Collection operations are available on
+`DbClient`, not preload. Other entity tables await their complete operations and UI.
 
 ## Basic Rules
 

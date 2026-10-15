@@ -1,8 +1,8 @@
 # Domain Model
 
 Read this guide when changing entities, relationships, metadata, lifecycle
-behavior, or domain validation. See [AGENTS.md](../../AGENTS.md) for product
-scope, [Architecture](architecture.md) for technical ownership, and
+behavior, or domain validation. See [README](../../README.md) for current
+app behavior, [Architecture](architecture.md) for technical ownership, and
 [Common Guidelines](common-guidelines.md) for implementation conventions.
 
 ## Scope and Decision Status
@@ -25,7 +25,11 @@ catalog and from questions that still require agreement.
   renaming, paginated search, independent Sample/Pack assignments, use inspection,
   and impact-checked removal through the DB worker/client. No classification IPC
   or UI is exposed yet.
-- **Not implemented:** complete Pack/Collection, classification/credit UI,
+- **Implemented internal Collection slice:** create/edit/read, bounded lists,
+  idempotent append/removal of memberships, atomic full-sequence reorder, and
+  impact-checked deletion through the worker/client. No Collection IPC/UI or
+  cover publication/physical cleanup is exposed yet.
+- **Not implemented:** complete Pack workflows, Collection UI, classification/credit UI,
   profile-editing, managed-image, and other lifecycle workflows below.
 - **Deferred design:** analysis/cache storage layout, cache persistence, waveform
   peaks, and analysis versioning. Managed covers are part of the first new
@@ -34,6 +38,32 @@ catalog and from questions that still require agreement.
 Fields below describe information responsibilities, not database columns or
 mandatory form fields unless explicitly stated. Extend executable contracts
 incrementally; do not replace working listing types with a speculative model.
+
+## Product Direction
+
+These workflows define the product direction, not delivered capabilities or
+permission to implement unresolved behavior:
+
+- Import Packs and standalone Samples, preview audio, classify and credit them,
+  and build ordered Collections without duplicating source audio.
+- Edit Pack names, descriptions, covers, Categories, and Author credits;
+  manage one local UserProfile with an optional Author link and managed avatar.
+- Search across the Library, including Packs, Collections, Categories, and
+  available Sample data. Favorites remain independent Sample marks.
+- Rename, relocate, centralize, and export through reviewed file workflows
+  that preserve identities and references. Centralization uses a producer-chosen
+  local folder with directories organized by sample type.
+- Extract technical metadata such as duration, waveform, sample rate, and
+  channels; do not invent measurements or musical inferences.
+- Suggest classifications and groupings for unstructured folders, and require
+  review before changing files. Suggestions are not verified metadata.
+- Track analysis, organization, renaming, relocation, and export as tasks with
+  visible status and errors. Define concrete task behavior when implementing
+  it; tasks do not imply audio synthesis or generation.
+
+Native dragging uses original files while preview remains available in Kiter.
+Named favorite lists, Tags, and possible future Kits are outside the agreed
+first entity delivery.
 
 ## Product Vocabulary
 
@@ -149,6 +179,21 @@ A Collection is a user-created selection, independent of package origin.
 
 The same Sample may appear once in each of several Collections. Removing it
 from one Collection does not remove it from the others or from the Library.
+
+Collection names follow the 1–120 Unicode code-point, trimmed NFC policy used by
+Authors/Categories, including rejecting controls and line/paragraph separators
+before trimming. Optional descriptions use NFC, allow CR/LF line breaks, reject
+other control characters, and contain at most 5,000 code points including
+whitespace. Whitespace-only descriptions become `null`; nonempty descriptions
+retain their spacing. Editing supplies name and description together; an absent
+description clears it. Names may repeat.
+
+Internal Collection and membership lists default to 50 items, maximum 100.
+Collections sort by stored name then UUID; memberships sort by position. Adding
+an existing member is idempotent without moving it; new members append after the
+last position. Removal can leave gaps. Reorder requires every current Sample ID
+exactly once and writes contiguous positions atomically, rejecting stale or
+incomplete membership sequences without changing the previous order.
 
 ### Category
 
@@ -326,6 +371,11 @@ design.
   memberships remain intact.
 - Removing a Collection removes its presentation data and memberships, not
   its Samples or their audio.
+- Collection removal requires a token from impact review, rechecking presentation,
+  cover ID and exact ordered memberships inside the transaction. Changed state
+  returns `STALE_REVIEW`. Removing the final cover reference marks the managed
+  asset `cleanup_pending`, checking Packs, other Collections and profile avatars.
+  Physical image cleanup remains a separate, pending workflow.
 - Removing catalog organization is distinct from deleting source audio.
   Metadata removal must never cascade into filesystem deletion.
 - A missing source does not by itself remove a Sample's identity, organization,
@@ -476,8 +526,9 @@ Before implementing each relevant feature, agree on:
 
 - Presentation of package-import conflicts, including a reimport after manual
   origin corrections.
-- Text length limits and validation of notes and descriptions, and names outside
-  Authors/Categories (whose 1–120 code-point policy is agreed and implemented).
+- Text length limits and validation of Sample notes and presentation names,
+  Pack presentation fields and profile names. Collection names/descriptions and
+  Author/Category names have agreed, implemented policies above.
 - The explicit reinclusion workflow for excluded locations, including how it
   interacts with overlapping registered roots.
 - The source-observation algorithm and stronger source-version validation for
