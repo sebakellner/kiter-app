@@ -1,15 +1,8 @@
 import assert from 'node:assert/strict'
 import { mkdir, writeFile } from 'node:fs/promises'
-import {
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  rmSync,
-  writeFileSync,
-} from 'node:fs'
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { randomUUID } from 'node:crypto'
 import { createRequire } from 'node:module'
-import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { performance } from 'node:perf_hooks'
 import { app, BrowserWindow, dialog } from 'electron'
@@ -88,7 +81,7 @@ async function createFixtures(directory) {
 }
 
 async function run() {
-  let directory
+  const directory = process.argv[2]
   let exitCode = 0
   const originalDialog = dialog.showOpenDialog
   let window
@@ -111,7 +104,10 @@ async function run() {
     window.webContents.on('console-message', onConsoleMessage)
   }
   try {
-    directory = mkdtempSync(path.join(tmpdir(), 'kiter-app-test-'))
+    assert.ok(
+      directory && path.isAbsolute(directory),
+      'Run through library-runner.mjs with an isolated fixture directory',
+    )
     const data = path.join(directory, 'data')
     mkdirSync(data)
     const images = path.join(data, 'library', 'images')
@@ -333,14 +329,6 @@ async function run() {
     }
     app.once('will-quit', (event) => {
       event.preventDefault()
-      try {
-        if (directory) {
-          rmSync(directory, { recursive: true, force: true })
-        }
-      } catch (error) {
-        console.error('Electron fixture cleanup failed:', error)
-        exitCode = 1
-      }
       app.exit(exitCode)
     })
     app.quit()

@@ -255,6 +255,10 @@ assert both earlier development databases and original audio remain untouched.
 - Set Electron `userData` to a temporary test directory before importing the
   application entrypoint; never write a test catalog into real user data.
 - Close database handles and wait for the worker before deleting fixtures.
+  Electron's fixture directory is owned by the parent Node runner, which deletes
+  it only after the Electron process exits. Chromium can retain userData files
+  such as DIPS through `will-quit` on Windows. Bounded filesystem retries handle
+  transient locks after exit; cleanup failure still fails the run.
   Start shutdown with `app.quit()` to cover the application's cleanup.
   If the test needs an explicit exit status, call `app.exit(code)` only from
   `will-quit`, after worker shutdown. `process.exitCode` alone is not sufficient
@@ -304,6 +308,8 @@ setup and recursive discovery cases.
 ## Electron Integration
 
 Use [library.electron.mjs](../../tests/integration/electron/library.electron.mjs) as current prior art.
+Launch it through `library-runner.mjs`, which owns the temporary directory and
+waits for Electron exit before removing it.
 
 - Build before testing unless deliberately rerunning an unchanged built app.
   Do not present a test of stale output as validation of new source changes.

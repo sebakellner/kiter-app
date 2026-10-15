@@ -17,7 +17,7 @@
     "test:ui": "vitest run",
     "test:e2e": "pnpm run rebuild:electron && pnpm run build && pnpm run test:e2e:built",
     "test:e2e:built": "playwright test",
-    "test:app:built": "electron tests/integration/electron/library.electron.mjs && node tests/integration/electron/favorites-restart.mjs",
+    "test:app:built": "node tests/integration/electron/library-runner.mjs && node tests/integration/electron/favorites-restart.mjs",
     "test:desktop": "pnpm run rebuild:electron && pnpm run build && pnpm run test:app:built && pnpm run test:e2e:built",
     "typecheck:tests": "pnpm run typecheck:tests:node && pnpm run typecheck:tests:ui && pnpm run typecheck:tests:e2e",
     "typecheck:tests:e2e": "tsc --noEmit -p tsconfig.test.e2e.json",
