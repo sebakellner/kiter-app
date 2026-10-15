@@ -985,7 +985,12 @@ test(
     const worker = startWorker(
       path.join(dir, 'kiter.sqlite'),
       path.join(dir, 'missing-assets'),
+      { stderr: true },
     )
+    let diagnostics = ''
+    worker.stderr.setEncoding('utf8').on('data', (chunk: string) => {
+      diagnostics += chunk
+    })
     try {
       const exit = once(worker, 'exit')
       const [reply] = await once(worker, 'message')
@@ -997,6 +1002,10 @@ test(
       assert.equal(reply.failure.code, 'STORAGE_FAILED')
       assert.ok(!reply.failure.message.includes(dir))
       await exit
+      assert.equal(
+        diagnostics.trim(),
+        'Database startup failed: STORAGE_FAILED',
+      )
     } finally {
       await worker.terminate()
       await rm(dir, { recursive: true, force: true })
@@ -1012,7 +1021,11 @@ test(
     const filename = path.join(dir, 'library.sqlite')
     const contents = Buffer.from('invalid database')
     await writeFile(filename, contents)
-    const worker = startWorker(filename)
+    const worker = startWorker(filename, undefined, { stderr: true })
+    let diagnostics = ''
+    worker.stderr.setEncoding('utf8').on('data', (chunk: string) => {
+      diagnostics += chunk
+    })
     try {
       const exit = once(worker, 'exit')
       const [reply] = await once(worker, 'message')
@@ -1024,6 +1037,10 @@ test(
       assert.equal(reply.failure.code, 'STORAGE_FAILED')
       assert.ok(!reply.failure.message.includes(dir))
       await exit
+      assert.equal(
+        diagnostics.trim(),
+        'Database startup failed: STORAGE_FAILED',
+      )
       assert.deepEqual(await readFile(filename), contents)
     } finally {
       await worker.terminate()

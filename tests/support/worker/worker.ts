@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { once } from 'node:events'
 import { Worker } from 'node:worker_threads'
+import type { WorkerOptions } from 'node:worker_threads'
 import { fileURLToPath } from 'node:url'
 import { isDbReply } from '../../../src/main/db/protocol/messages.ts'
 import type {
@@ -13,11 +14,13 @@ export function startWorker(
   migrationsFolder = fileURLToPath(
     new URL('../../../drizzle', import.meta.url),
   ),
+  options: Pick<WorkerOptions, 'stderr'> = {},
 ): Worker {
   return new Worker(
     new URL('../../../src/main/db/worker/entry.ts', import.meta.url),
     {
       workerData: { filename, migrationsFolder },
+      ...options,
     },
   )
 }

@@ -37,6 +37,11 @@ be passed through `pnpm test:node --test-name-pattern=...` after rebuilding for 
 Reusable support stays under `tests/support/`, outside production entrypoints.
 Do not import test helpers from application code. Packaging excludes tests,
 support, runner configuration and diagnostic artifacts.
+The `src/package.json` and `tests/package.json` declare source/test files as ES
+modules, avoiding ambiguous-module reparsing in Node and its workers. The root
+package retains Electron's CommonJS build contract for the generated `out/` entry.
+Startup-failure worker scenarios capture and assert their expected stderr;
+unexpected diagnostics fail those assertions rather than being discarded.
 
 Run commands from the repository root:
 
