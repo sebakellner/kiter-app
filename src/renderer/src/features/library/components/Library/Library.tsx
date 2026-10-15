@@ -9,7 +9,7 @@ export function Library(): React.JSX.Element {
 
   return (
     <main className="library" aria-busy={loading}>
-      <h1>Audio library</h1>
+      <h1>Sampler library</h1>
       <OpenFolderButton onClick={openFolder} loading={loading} />
 
       {!dir && <p>Open a folder to list its audio samples.</p>}

@@ -8,9 +8,31 @@ import {
   isFavoriteState,
 } from '@shared/ipc/library'
 import { requireIpcResult } from '@shared/ipc/result'
+import {
+  CATEGORY_CHANNELS,
+  isCategory,
+  isCategoryPage,
+} from '@shared/ipc/categories'
 
 // Custom APIs for renderer
 const api: Api = {
+  categories: {
+    list: async (request = {}) =>
+      requireIpcResult(
+        await ipcRenderer.invoke(CATEGORY_CHANNELS.list, request),
+        isCategoryPage,
+      ),
+    create: async (request) =>
+      requireIpcResult(
+        await ipcRenderer.invoke(CATEGORY_CHANNELS.create, request),
+        isCategory,
+      ),
+    rename: async (request) =>
+      requireIpcResult(
+        await ipcRenderer.invoke(CATEGORY_CHANNELS.rename, request),
+        isCategory,
+      ),
+  },
   dialog: {
     openFolder: async () =>
       requireIpcResult(

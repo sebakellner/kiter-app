@@ -1,12 +1,23 @@
 import type { DialogApi } from './dialog.ts'
 import type { LibraryApi } from './library.ts'
+import type { CategoriesApi } from './categories.ts'
 
 export interface Api {
   dialog: DialogApi
   library: LibraryApi
+  categories: CategoriesApi
 }
 export { DIALOG_CHANNELS } from './dialog.ts'
 export { LIBRARY_CHANNELS } from './library.ts'
+export { CATEGORY_CHANNELS } from './categories.ts'
+export type {
+  CategoriesApi,
+  CategoryListRequest,
+  CategoryCreateRequest,
+  CategoryRenameRequest,
+  CategoryPage,
+} from './categories.ts'
+export type { Category } from '../domain/classification.ts'
 export type { AudioFile } from '../domain/source.ts'
 export type {
   LibrarySample,
