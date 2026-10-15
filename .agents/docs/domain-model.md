@@ -29,7 +29,11 @@ catalog and from questions that still require agreement.
   idempotent append/removal of memberships, atomic full-sequence reorder, and
   impact-checked deletion through the worker/client. No Collection IPC/UI or
   cover publication/physical cleanup is exposed yet.
-- **Not implemented:** complete Pack workflows, Collection UI, classification/credit UI,
+- **Implemented internal Pack slice:** reviewed registration/reimport from scanned
+  roots, bounded Pack/member/candidate queries, presentation edits, manual origin
+  corrections, and impact-checked removal through the worker/client. Import
+  preparation catalogs Samples before Pack confirmation; no Pack IPC/UI exists.
+- **Not implemented:** Pack UI, Collection UI, classification/credit UI,
   profile-editing, managed-image, and other lifecycle workflows below.
 - **Deferred design:** analysis/cache storage layout, cache persistence, waveform
   peaks, and analysis versioning. Managed covers are part of the first new
@@ -160,6 +164,22 @@ reassignments. Missing source files do not remove its memberships.
 
 Pack names may repeat. New groupings created inside Kiter are Collections,
 not Packs.
+
+Pack names use the same trimmed NFC, 1–120 Unicode code-point policy as
+Collections. Descriptions share their optional NFC, 5,000-code-point policy.
+Editing supplies name and description together; absent description clears it.
+Reimport preserves stored presentation fields rather than applying import defaults.
+
+Internal Pack/member/import-candidate lists default to 50 items, maximum 100.
+Packs sort by stored name then UUID; members by canonical path then UUID;
+import candidates by Sample UUID. Reviews hash the completed scan, Pack
+presentation, and exact candidate source revisions/origins in bounded batches.
+Every conflicting candidate requires one explicit `keep` or `assign` decision;
+extra, missing or repeated decisions are rejected. Manual standalone origins are
+conflicts too; a manual origin already matching the target Pack remains manual.
+Changed reviewed state returns `STALE_REVIEW` inside the confirmation transaction.
+Internal preparation imports Samples first; canceling Pack confirmation leaves
+those Samples cataloged with their previous origins.
 
 Pack Samples have no persisted manual order in this stage; order them by
 name or path when listing. Collections retain their explicit membership order.
@@ -369,6 +389,11 @@ design.
 - Removing a Pack from Kiter keeps its Samples in the Library as standalone
   Samples. Their IDs, direct Categories and Author credits, Favorite marks, and Collection
   memberships remain intact.
+- Internal Pack removal reviews presentation, cover, exact Sample origins, and
+  Category/Author assignment IDs; confirmation rechecks them transactionally and
+  returns `STALE_REVIEW` on change. Detached Samples receive manual standalone
+  protection, so later Pack registration requires reviewing them again. Only
+  unreferenced covers become `cleanup_pending`; physical cleanup is separate.
 - Removing a Collection removes its presentation data and memberships, not
   its Samples or their audio.
 - Collection removal requires a token from impact review, rechecking presentation,
@@ -524,11 +549,10 @@ already exist.
 
 Before implementing each relevant feature, agree on:
 
-- Presentation of package-import conflicts, including a reimport after manual
-  origin corrections.
+- UI presentation of the agreed per-Sample keep/assign import-conflict review.
 - Text length limits and validation of Sample notes and presentation names,
-  Pack presentation fields and profile names. Collection names/descriptions and
-  Author/Category names have agreed, implemented policies above.
+  profile names. Pack/Collection names/descriptions and Author/Category names
+  have agreed, implemented policies above.
 - The explicit reinclusion workflow for excluded locations, including how it
   interacts with overlapping registered roots.
 - The source-observation algorithm and stronger source-version validation for

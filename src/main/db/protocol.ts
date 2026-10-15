@@ -8,6 +8,8 @@ import type { DiscoveredAudioFile } from '../../shared/domain/source.ts'
 import { isDiscoveredAudioFile } from '../../shared/domain/source.ts'
 import { isEntityId, isRecord } from '../../shared/domain/validation.ts'
 import type { DbFailure } from './errors.ts'
+import type { PackRequest, PackReply } from './packProtocol.ts'
+import { isPackRequest, isPackReply } from './packProtocol.ts'
 import type {
   CollectionRequest,
   CollectionReply,
@@ -23,6 +25,7 @@ import {
 } from './classificationProtocol.ts'
 
 export type DbRequest =
+  | (PackRequest & { requestId: number })
   | (CollectionRequest & { requestId: number })
   | (ClassificationRequest & { requestId: number })
   | {
@@ -37,6 +40,7 @@ export type DbRequest =
   | { requestId: number; action: 'close' }
 
 export type DbReply =
+  | (PackReply & { requestId: number })
   | (CollectionReply & { requestId: number })
   | (ClassificationReply & { requestId: number })
   | { action: 'ready' }
@@ -118,7 +122,11 @@ export function isDbRequest(value: unknown): value is DbRequest {
     case 'close':
       return true
     default:
-      return isClassificationRequest(value) || isCollectionRequest(value)
+      return (
+        isClassificationRequest(value) ||
+        isCollectionRequest(value) ||
+        isPackRequest(value)
+      )
   }
 }
 
@@ -164,6 +172,10 @@ export function isDbReply(value: unknown): value is DbReply {
     case 'error':
       return isFailure(value.failure)
     default:
-      return isClassificationReply(value) || isCollectionReply(value)
+      return (
+        isClassificationReply(value) ||
+        isCollectionReply(value) ||
+        isPackReply(value)
+      )
   }
 }

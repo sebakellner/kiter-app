@@ -1,1 +1,5 @@
-export { importLibraryFolder, readAudioDir } from './library'
+export {
+  importLibraryFolder,
+  prepareLibraryPackImport,
+  readAudioDir,
+} from './library'

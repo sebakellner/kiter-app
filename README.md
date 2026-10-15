@@ -60,6 +60,13 @@ internal to the DB worker/client; their IPC and UI remain pending. Collection
 removal preserves Samples and schedules unreferenced covers for cleanup, but
 managed-image publication and physical cleanup are not yet implemented.
 Profile/settings UI and player volume restoration also remain pending.
+Pack operations support reviewed registration/reimport from scanned roots,
+bounded queries, presentation editing, manual Sample origin corrections, and
+impact-checked removal through the DB worker/client. Conflicts require explicit
+keep/assign decisions, including manually standalone Samples; stale reviews are
+rejected. Preparing an import catalogs Samples before Pack confirmation. Removing
+a Pack preserves its Samples with manual standalone protection. Pack IPC/UI and
+managed covers remain pending.
 Schema and internal operations alone do not deliver user-facing features.
 
 External file moves and renames are not automatically reconciled. There is no
