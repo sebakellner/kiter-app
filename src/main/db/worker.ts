@@ -8,7 +8,11 @@ import { openDatabase } from './connection.ts'
 import { dbFailure, DbError } from './errors.ts'
 import { importFolder } from './operations/sources.ts'
 import { setFavorite } from './operations/samples.ts'
-import { readLocalProfile, setPreviewVolume } from './operations/profile.ts'
+import {
+  readLocalProfile,
+  setPreviewVolume,
+  updateLocalProfile,
+} from './operations/profile.ts'
 import { executeClassification } from './operations/classificationCommands.ts'
 import { executeCollection } from './operations/collectionCommands.ts'
 import { isCollectionRequest } from './collectionProtocol.ts'
@@ -73,6 +77,13 @@ try {
             requestId: value.requestId,
             action: 'profile',
             result: readLocalProfile(database.db),
+          }
+          break
+        case 'update-profile':
+          reply = {
+            requestId: value.requestId,
+            action: 'update-profile',
+            result: updateLocalProfile(database.db, value.input),
           }
           break
         case 'volume':

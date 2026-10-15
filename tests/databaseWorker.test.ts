@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { randomUUID } from 'node:crypto'
 import { once } from 'node:events'
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -28,6 +29,76 @@ async function exchange(worker: Worker, request: DbRequest): Promise<DbReply> {
   assert.ok(isDbReply(reply))
   return reply
 }
+
+test(
+  'profile worker edits persist across restart and recover from a missing Author',
+  { timeout: 15000 },
+  async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), 'kiter-worker-profile-'))
+    const filename = path.join(dir, 'kiter.sqlite')
+    let worker = startWorker(filename)
+    try {
+      assert.deepEqual((await once(worker, 'message'))[0], { action: 'ready' })
+      const created = await exchange(worker, {
+        requestId: 1,
+        action: 'create-author',
+        input: { name: 'Artistic name' },
+      })
+      if (created.action !== 'create-author') {
+        assert.fail('Expected an Author')
+      }
+      const updated = await exchange(worker, {
+        requestId: 2,
+        action: 'update-profile',
+        input: { name: ' E\u0301va ', authorId: created.result.id },
+      })
+      if (updated.action !== 'update-profile') {
+        assert.fail('Expected an edited profile')
+      }
+      assert.equal(updated.result.name, 'Éva')
+      assert.equal(updated.result.authorId, created.result.id)
+      const failed = await exchange(worker, {
+        requestId: 3,
+        action: 'update-profile',
+        input: { name: 'Lost update', authorId: randomUUID() },
+      })
+      if (failed.action !== 'error') {
+        assert.fail('Expected a missing Author failure')
+      }
+      assert.equal(failed.failure.code, 'NOT_FOUND')
+      const exited = once(worker, 'exit')
+      await exchange(worker, { requestId: 4, action: 'close' })
+      await exited
+      worker = startWorker(filename)
+      assert.deepEqual((await once(worker, 'message'))[0], { action: 'ready' })
+      const reopened = await exchange(worker, {
+        requestId: 1,
+        action: 'profile',
+      })
+      if (reopened.action !== 'profile') {
+        assert.fail('Expected a restored profile')
+      }
+      assert.deepEqual(reopened.result.profile, updated.result)
+      assert.equal(reopened.result.preferences.previewVolume, 1)
+      const unlinked = await exchange(worker, {
+        requestId: 2,
+        action: 'update-profile',
+        input: { name: 'Éva', authorId: null },
+      })
+      assert.deepEqual(unlinked, {
+        requestId: 2,
+        action: 'update-profile',
+        result: { ...updated.result, authorId: null },
+      })
+      const closed = once(worker, 'exit')
+      await exchange(worker, { requestId: 3, action: 'close' })
+      await closed
+    } finally {
+      await worker.terminate()
+      await rm(dir, { recursive: true, force: true })
+    }
+  },
+)
 
 test(
   'Sample worker commands persist edits, exclusions and new reinclusion identity across restart',
