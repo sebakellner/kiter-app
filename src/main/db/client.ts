@@ -37,6 +37,22 @@ import type {
 } from '../../shared/domain/collection'
 import type { CollectionRequest } from './collectionProtocol'
 import { isCollectionRequest } from './collectionProtocol'
+import type {
+  Pack,
+  PackUpdateRequest,
+  PackPageRequest,
+  PackPage,
+  PackSample,
+  PackImportCandidate,
+  PackImportReview,
+  PackImportRequest,
+  SampleOrigin,
+  SampleOriginRequest,
+  PackRemovalReview,
+  PackRemovalRequest,
+} from '../../shared/domain/pack'
+import type { PackRequest } from './packProtocol'
+import { isPackRequest } from './packProtocol'
 
 const DB_CLOSING_MESSAGE = 'Database is shutting down'
 const UNEXPECTED_REPLY_MESSAGE = 'Unexpected database response'
@@ -168,6 +184,129 @@ export class DbClient {
         reject(error)
       }
     })
+  }
+
+  private async packRequest(request: PackRequest): Promise<DbReply> {
+    if (this.closing) {
+      throw new DbError('CLOSING', DB_CLOSING_MESSAGE)
+    }
+    if (!isPackRequest(request)) {
+      throw new DomainValidationError('Invalid Pack request.')
+    }
+    return this.sendRequest({ ...request, requestId: this.nextRequestId++ })
+  }
+
+  async getPack(id: string): Promise<Pack> {
+    const reply = await this.packRequest({ action: 'get-pack', id })
+    if (reply.action !== 'get-pack') {
+      throw new Error(UNEXPECTED_REPLY_MESSAGE)
+    }
+    return reply.result
+  }
+
+  async getPackSourceRoot(root: string): Promise<{ id: string }> {
+    const reply = await this.packRequest({
+      action: 'get-pack-source-root',
+      root,
+    })
+    if (reply.action !== 'get-pack-source-root') {
+      throw new Error(UNEXPECTED_REPLY_MESSAGE)
+    }
+    return reply.result
+  }
+
+  async updatePack(input: PackUpdateRequest): Promise<Pack> {
+    const reply = await this.packRequest({ action: 'update-pack', input })
+    if (reply.action !== 'update-pack') {
+      throw new Error(UNEXPECTED_REPLY_MESSAGE)
+    }
+    return reply.result
+  }
+
+  async listPacks(input: PackPageRequest = {}): Promise<PackPage<Pack>> {
+    const reply = await this.packRequest({ action: 'list-packs', input })
+    if (reply.action !== 'list-packs') {
+      throw new Error(UNEXPECTED_REPLY_MESSAGE)
+    }
+    return reply.result
+  }
+
+  async listPackSamples(
+    id: string,
+    input: PackPageRequest = {},
+  ): Promise<PackPage<PackSample>> {
+    const reply = await this.packRequest({
+      action: 'list-pack-samples',
+      id,
+      input,
+    })
+    if (reply.action !== 'list-pack-samples') {
+      throw new Error(UNEXPECTED_REPLY_MESSAGE)
+    }
+    return reply.result
+  }
+
+  async reviewPackImport(id: string): Promise<PackImportReview> {
+    const reply = await this.packRequest({ action: 'review-pack-import', id })
+    if (reply.action !== 'review-pack-import') {
+      throw new Error(UNEXPECTED_REPLY_MESSAGE)
+    }
+    return reply.result
+  }
+
+  async listPackImportCandidates(
+    id: string,
+    input: PackPageRequest = {},
+  ): Promise<PackPage<PackImportCandidate>> {
+    const reply = await this.packRequest({
+      action: 'list-pack-import-candidates',
+      id,
+      input,
+    })
+    if (reply.action !== 'list-pack-import-candidates') {
+      throw new Error(UNEXPECTED_REPLY_MESSAGE)
+    }
+    return reply.result
+  }
+
+  async importPack(input: PackImportRequest): Promise<Pack> {
+    const reply = await this.packRequest({ action: 'import-pack', input })
+    if (reply.action !== 'import-pack') {
+      throw new Error(UNEXPECTED_REPLY_MESSAGE)
+    }
+    return reply.result
+  }
+
+  async getSampleOrigin(id: string): Promise<SampleOrigin> {
+    const reply = await this.packRequest({ action: 'get-sample-origin', id })
+    if (reply.action !== 'get-sample-origin') {
+      throw new Error(UNEXPECTED_REPLY_MESSAGE)
+    }
+    return reply.result
+  }
+
+  async setSampleOrigin(input: SampleOriginRequest): Promise<SampleOrigin> {
+    const reply = await this.packRequest({ action: 'set-sample-origin', input })
+    if (reply.action !== 'set-sample-origin') {
+      throw new Error(UNEXPECTED_REPLY_MESSAGE)
+    }
+    return reply.result
+  }
+
+  async reviewPackRemoval(id: string): Promise<PackRemovalReview> {
+    const reply = await this.packRequest({ action: 'review-pack-removal', id })
+    if (reply.action !== 'review-pack-removal') {
+      throw new Error(UNEXPECTED_REPLY_MESSAGE)
+    }
+    return reply.result
+  }
+
+  async removePack(input: PackRemovalRequest): Promise<{ id: string }> {
+    const reply = await this.packRequest({ action: 'remove-pack', input })
+    if (reply.action !== 'remove-pack') {
+      throw new Error(UNEXPECTED_REPLY_MESSAGE)
+    }
+    return reply.result
   }
 
   async importFolder(

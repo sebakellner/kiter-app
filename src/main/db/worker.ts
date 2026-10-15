@@ -12,6 +12,8 @@ import { readLocalProfile, setPreviewVolume } from './operations/profile.ts'
 import { executeClassification } from './operations/classificationCommands.ts'
 import { executeCollection } from './operations/collectionCommands.ts'
 import { isCollectionRequest } from './collectionProtocol.ts'
+import { isPackRequest } from './packProtocol.ts'
+import { executePack } from './operations/packCommands.ts'
 
 const port = parentPort
 if (!port) {
@@ -89,9 +91,11 @@ try {
         default:
           reply = {
             requestId: value.requestId,
-            ...(isCollectionRequest(value)
-              ? executeCollection(database.db, value)
-              : executeClassification(database.db, value)),
+            ...(isPackRequest(value)
+              ? executePack(database.db, value)
+              : isCollectionRequest(value)
+                ? executeCollection(database.db, value)
+                : executeClassification(database.db, value)),
           }
       }
     } catch (error) {

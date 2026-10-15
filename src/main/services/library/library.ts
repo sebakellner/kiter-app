@@ -5,6 +5,7 @@ import type { AudioFile, LibrarySample } from '../../../shared/ipc'
 import type { DbClient } from '../../db'
 import type { DiscoveredAudioFile } from '../../../shared/domain/source'
 import { IpcError } from '../../../shared/ipc/result.ts'
+import type { PackImportReview } from '../../../shared/domain/pack'
 
 const AUDIO_EXT = new Set(['.mp3', '.wav', '.flac', '.ogg', '.m4a', '.aac'])
 
@@ -12,6 +13,26 @@ export async function importLibraryFolder(
   directory: string,
   database: Pick<DbClient, 'importFolder'>,
 ): Promise<LibrarySample[]> {
+  const { root, files } = await discoverFolder(directory)
+  return database.importFolder(root, files)
+}
+
+export async function prepareLibraryPackImport(
+  directory: string,
+  database: Pick<
+    DbClient,
+    'importFolder' | 'getPackSourceRoot' | 'reviewPackImport'
+  >,
+): Promise<PackImportReview> {
+  const { root, files } = await discoverFolder(directory)
+  await database.importFolder(root, files)
+  const { id } = await database.getPackSourceRoot(root)
+  return database.reviewPackImport(id)
+}
+
+async function discoverFolder(
+  directory: string,
+): Promise<{ root: string; files: DiscoveredAudioFile[] }> {
   let root: string
   const canonicalFiles: DiscoveredAudioFile[] = []
   try {
@@ -53,7 +74,7 @@ export async function importLibraryFolder(
       `Unable to load the folder (${code}). Check folder access and database storage.`,
     )
   }
-  return database.importFolder(root, canonicalFiles)
+  return { root, files: canonicalFiles }
 }
 
 export async function readAudioDir(dirPath: string): Promise<AudioFile[]> {

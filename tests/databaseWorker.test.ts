@@ -30,6 +30,144 @@ async function exchange(worker: Worker, request: DbRequest): Promise<DbReply> {
 }
 
 test(
+  'Pack worker commands persist origins and reject stale confirmation across restart',
+  { timeout: 15000 },
+  async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), 'kiter-worker-packs-'))
+    const filename = path.join(dir, 'kiter.sqlite')
+    let worker = startWorker(filename)
+    let requestId = 0
+    const send = (
+      request: import('../src/main/db/packProtocol.ts').PackRequest,
+    ): Promise<DbReply> =>
+      exchange(worker, { ...request, requestId: ++requestId })
+    try {
+      assert.deepEqual((await once(worker, 'message'))[0], { action: 'ready' })
+      const imported = await exchange(worker, {
+        requestId: ++requestId,
+        action: 'import',
+        root: dir,
+        files: [
+          {
+            name: 'sample.wav',
+            path: path.join(dir, 'sample.wav'),
+            relativePath: 'sample.wav',
+            observedSizeBytes: 100,
+            observedMtimeMs: 1000,
+          },
+        ],
+      })
+      if (imported.action !== 'import') {
+        assert.fail('Expected imported Samples')
+      }
+      const sampleId = imported.result[0].id
+      const root = await send({ action: 'get-pack-source-root', root: dir })
+      if (root.action !== 'get-pack-source-root') {
+        assert.fail('Expected a source root')
+      }
+      const review = await send({
+        action: 'review-pack-import',
+        id: root.result.id,
+      })
+      if (review.action !== 'review-pack-import') {
+        assert.fail('Expected an import review')
+      }
+      const candidates = await send({
+        action: 'list-pack-import-candidates',
+        id: root.result.id,
+        input: {},
+      })
+      if (candidates.action !== 'list-pack-import-candidates') {
+        assert.fail('Expected import candidates')
+      }
+      assert.equal(candidates.result.items[0].conflict, false)
+      const created = await send({
+        action: 'import-pack',
+        input: {
+          sourceRootId: root.result.id,
+          token: review.result.token,
+          name: 'Pack',
+          decisions: [],
+        },
+      })
+      if (created.action !== 'import-pack') {
+        assert.fail('Expected a Pack')
+      }
+      const id = created.result.id
+      const updated = await send({
+        action: 'update-pack',
+        input: { id, name: 'Edited', description: 'Notes' },
+      })
+      if (updated.action !== 'update-pack') {
+        assert.fail('Expected an edited Pack')
+      }
+      const reviewed = await send({ action: 'review-pack-removal', id })
+      if (reviewed.action !== 'review-pack-removal') {
+        assert.fail('Expected a removal review')
+      }
+      await send({
+        action: 'set-sample-origin',
+        input: { sampleId, packId: null },
+      })
+      const exit = once(worker, 'exit')
+      await exchange(worker, { requestId: ++requestId, action: 'close' })
+      await exit
+      worker = startWorker(filename)
+      assert.deepEqual((await once(worker, 'message'))[0], { action: 'ready' })
+      assert.deepEqual(await send({ action: 'get-pack', id }), {
+        requestId,
+        action: 'get-pack',
+        result: updated.result,
+      })
+      const origin = await send({ action: 'get-sample-origin', id: sampleId })
+      if (origin.action !== 'get-sample-origin') {
+        assert.fail('Expected a Sample origin')
+      }
+      assert.deepEqual(origin.result, {
+        sampleId,
+        packId: null,
+        originAssignment: 'manual',
+      })
+      const listed = await send({ action: 'list-packs', input: {} })
+      if (listed.action !== 'list-packs') {
+        assert.fail('Expected Packs')
+      }
+      assert.deepEqual(listed.result.items, [updated.result])
+      const members = await send({ action: 'list-pack-samples', id, input: {} })
+      if (members.action !== 'list-pack-samples') {
+        assert.fail('Expected Pack Samples')
+      }
+      assert.equal(members.result.total, 0)
+      const stale = await send({
+        action: 'remove-pack',
+        input: { id, token: reviewed.result.token },
+      })
+      if (stale.action !== 'error') {
+        assert.fail('Expected stale review rejection')
+      }
+      assert.equal(stale.failure.code, 'STALE_REVIEW')
+      const fresh = await send({ action: 'review-pack-removal', id })
+      if (fresh.action !== 'review-pack-removal') {
+        assert.fail('Expected a fresh review')
+      }
+      assert.deepEqual(
+        await send({
+          action: 'remove-pack',
+          input: { id, token: fresh.result.token },
+        }),
+        { requestId, action: 'remove-pack', result: { id } },
+      )
+      const closed = once(worker, 'exit')
+      await exchange(worker, { requestId: ++requestId, action: 'close' })
+      await closed
+    } finally {
+      await worker.terminate()
+      await rm(dir, { recursive: true, force: true })
+    }
+  },
+)
+
+test(
   'worker confirms readiness, serializes writes, drains on close and restores Preferences',
   { timeout: 15000 },
   async () => {

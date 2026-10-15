@@ -15,7 +15,9 @@ the worker and `DbClient`; classification IPC/UI remain pending.
 Internal Collection creation/editing, bounded reads, ordered memberships,
 atomic reorder and impact-checked removal also run through the worker/client.
 Removal marks only unreferenced covers for cleanup; physical cleanup is pending.
-Remaining organization commands, managed images, settings UI, and
+Internal Pack registration/reimport, presentation edits, bounded queries,
+manual origins and impact-checked removal also run through the worker/client.
+Pack IPC/UI, remaining organization commands, managed images, settings UI, and
 player volume restoration remain planned. Persistent analysis/peaks are separate.
 
 This foundation intentionally starts at `userData/db/kiter.sqlite`. Neither
@@ -243,6 +245,16 @@ source may share an excluded path. Do not use `INSERT OR REPLACE` on entities:
 its deletion semantics can destroy identities or trigger cascades. Use targeted
 updates and deliberate conflict handling; reverse indexes support impact review.
 
+Pack registration is separate from discovery. `prepareLibraryPackImport` scans
+and imports Samples, then obtains the root and review through `DbClient`.
+Confirmation requires the token and exactly one keep/assign decision per
+conflicting Sample, rechecking scan, Pack and candidate source/origin state in an
+immediate transaction. Manual standalone corrections are protected; reimport
+preserves presentation. Removal reviews exact origins and classification/credit
+IDs, detaches Samples with manual standalone protection and schedules unused
+cover cleanup. Queries are bounded; review hashing uses batches of 500. These
+internal APIs do not authorize audio access. No schema migration is needed.
+
 ### Managed Image Lifecycle
 
 Planned: accept static PNG/JPEG/WebP, inclusive **10 MiB (10,485,760 bytes)** and
@@ -289,7 +301,7 @@ exists; extend the smallest owning operation/service.
 The product's catalog is persisted through `DbClient`; there is no `Catalog`
 domain entity or catch-all catalog service. Current UI remains folder-scoped.
 Internal profile/volume operations are not exposed to settings UI or applied to
-the player. Internal classification and Collection operations are available on
+the player. Internal classification, Collection and Pack operations are available on
 `DbClient`, not preload. Other entity tables await their complete operations and UI.
 
 ## Basic Rules
