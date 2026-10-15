@@ -39,10 +39,10 @@ Future upgrades of the Drizzle database use its committed migration history.
 
 - [DB module](../../src/main/db/index.ts) exports only `DbClient`, the asynchronous
   main-process client. It is infrastructure, not a domain entity or Library.
-- [Worker](../../src/main/db/worker.ts) owns the connection and serializes
+- [Worker](../../src/main/db/worker/entry.ts) owns the connection and serializes
   commands. Its readiness reply follows migration, bootstrap, and validation.
   Closing rejects new commands, drains earlier writes, and awaits worker exit.
-- [Connection](../../src/main/db/connection.ts) configures foreign keys and a
+- [Connection](../../src/main/db/runtime/connection.ts) configures foreign keys and a
   5000 ms busy timeout. Native connection access stays private to DB infrastructure;
   [operations](../../src/main/db/operations) use the typed `AppDatabase`.
 - [Schema](../../src/main/db/schema/index.ts) owns typed tables, checks, indexes,
@@ -57,6 +57,33 @@ Future upgrades of the Drizzle database use its committed migration history.
 - Native Node/Electron rebuilds remain required. See
   [Testing Conventions](testing-conventions.md#native-database-runtime) and
   [Release Process](release-process.md).
+
+## DB Module Organization
+
+- `client.ts` owns the explicit asynchronous `DbClient` facade. The private
+  `client/worker-transport.ts` owns worker creation, correlation, response
+  validation, readiness, failure propagation, and draining shutdown.
+- `worker/entry.ts` owns startup and the message/error boundary. Domain
+  dispatchers under `worker/dispatch/` adapt validated protocol messages to
+  operations; they do not own queries or business rules.
+- `protocol/` owns private worker messages and their runtime validation.
+  `messages.ts` composes the domain protocols and lifecycle envelopes.
+- `runtime/` owns the native connection, initialization, and migration runner.
+  `schema/` remains the typed persistence model.
+- Group operations under `operations/<domain>/`. Keep small cohesive operations
+  together; extract substantial queries, mutations, and workflows into named
+  files such as `queries.ts`, `memberships.ts`, `import.ts`, and `removal.ts`.
+  Use kebab-case for multiword filenames and direct internal imports rather
+  than barrels or a generic repository/CRUD framework.
+- Operations depend on shared domain validation, schema, and DB infrastructure,
+  never on worker protocol validators. Cross-domain helpers stay with their
+  owner, such as asset reference checks. `internal/` holds genuinely reused
+  DB-only mechanics, not a catch-all domain utility layer.
+- The complete persistence workflow owns its transaction, including exact-impact
+  revalidation. Never split an atomic operation into multiple client requests.
+  Review hashing helpers must preserve serialization and association ordering.
+- Shared pure pagination contracts and validation live in
+  `src/shared/domain/pagination.ts`; protocol-specific validation stays private.
 
 ## Migrations
 
@@ -83,7 +110,7 @@ pnpm db:check
 Do not run `drizzle-kit push` against the application's database. Do not add a
 CLI that silently discovers or modifies a producer's database.
 
-[Migration application](../../src/main/db/migrate.ts) uses Drizzle's migration-file
+[Migration application](../../src/main/db/runtime/migrate.ts) uses Drizzle's migration-file
 reader and its SQL/hash/timestamp journal convention. A native immediate
 transaction includes pending SQL, migration records, profile bootstrap for a
 truly empty database, integrity checks, and version stamps. This small runner
@@ -136,7 +163,7 @@ type IpcResult<T> =
   dialog cancellation (`ok: true, data: null`), and failure are distinct.
 - Shared types are not runtime validation. Check IDs, booleans, metadata, and
   sample authorization again before privileged work.
-- Worker [protocol](../../src/main/db/protocol.ts) is private and separate from
+- Worker [protocol](../../src/main/db/protocol/messages.ts) is private and separate from
   renderer IPC. It includes correlation, readiness, fatal, and close messages.
 - Native drag stays a synchronous `send` within the original gesture. Error
   events have validated payloads and removable listeners; do not convert drag

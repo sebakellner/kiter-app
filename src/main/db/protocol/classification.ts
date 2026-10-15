@@ -9,13 +9,14 @@ import type {
   ClassificationTarget,
   ClassificationUse,
   ClassificationUsesRequest,
-} from '../../shared/domain/classification.ts'
+} from '../../../shared/domain/classification.ts'
 import {
   isClassificationTarget,
   requireClassificationName,
   requireClassificationPage,
-} from '../../shared/domain/classification.ts'
-import { isEntityId, isRecord } from '../../shared/domain/validation.ts'
+} from '../../../shared/domain/classification.ts'
+import { isEntityId, isRecord } from '../../../shared/domain/validation.ts'
+import { isToken, isPage } from './validation.ts'
 
 export type ClassificationRequest =
   | { action: 'create-author' | 'create-category'; input: { name: string } }
@@ -99,10 +100,6 @@ function isName(value: unknown): value is string {
   }
 }
 
-function isToken(value: unknown): value is string {
-  return typeof value === 'string' && /^[a-f0-9]{64}$/.test(value)
-}
-
 export function isClassificationRequest(
   value: unknown,
 ): value is ClassificationRequest {
@@ -167,26 +164,6 @@ function isUse(value: unknown): value is ClassificationUse {
     isEntityId(value.id) &&
     typeof value.name === 'string' &&
     value.name.trim().length > 0
-  )
-}
-
-function isPage(value: unknown, isItem: (item: unknown) => boolean): boolean {
-  return (
-    isRecord(value) &&
-    Array.isArray(value.items) &&
-    value.items.every(isItem) &&
-    typeof value.limit === 'number' &&
-    Number.isSafeInteger(value.limit) &&
-    value.limit >= 1 &&
-    value.limit <= 100 &&
-    typeof value.offset === 'number' &&
-    Number.isSafeInteger(value.offset) &&
-    value.offset >= 0 &&
-    typeof value.total === 'number' &&
-    Number.isSafeInteger(value.total) &&
-    value.total >= 0 &&
-    value.items.length <= value.limit &&
-    value.items.length <= Math.max(0, value.total - value.offset)
   )
 }
 

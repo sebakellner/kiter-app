@@ -7,12 +7,13 @@ import { mkdtemp, writeFile, readFile, rm, realpath } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { prepareLibraryPackImport } from '../src/main/services/library/library.ts'
 import { eq } from 'drizzle-orm'
-import { openDatabase } from '../src/main/db/connection.ts'
-import * as operations from '../src/main/db/operations/packs.ts'
-import { importFolder } from '../src/main/db/operations/sources.ts'
-import { setFavorite } from '../src/main/db/operations/samples.ts'
-import * as classification from '../src/main/db/operations/classification.ts'
-import * as collection from '../src/main/db/operations/collections.ts'
+import { openDatabase } from '../src/main/db/runtime/connection.ts'
+import * as packOperations from '../src/main/db/operations/packs/operations.ts'
+import * as removal from '../src/main/db/operations/packs/removal.ts'
+import { importFolder } from '../src/main/db/operations/sources/import.ts'
+import { setFavorite } from '../src/main/db/operations/samples/favorites.ts'
+import * as classification from '../src/main/db/operations/classification/operations.ts'
+import * as collection from '../src/main/db/operations/collections/operations.ts'
 import {
   samples,
   sampleSources,
@@ -24,7 +25,9 @@ import {
   userProfiles,
   collections,
 } from '../src/main/db/schema/index.ts'
-import { isDbRequest, isDbReply } from '../src/main/db/protocol.ts'
+import { isDbRequest, isDbReply } from '../src/main/db/protocol/messages.ts'
+
+const operations = { ...packOperations, ...removal }
 
 const migrationsFolder = fileURLToPath(new URL('../drizzle', import.meta.url))
 const open = (): ReturnType<typeof openDatabase> =>

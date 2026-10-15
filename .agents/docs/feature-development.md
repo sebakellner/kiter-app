@@ -141,6 +141,6 @@ example in this guide:
 
 This example demonstrates wiring and ownership, not a guarantee that every
 current implementation detail meets future catalog requirements. Its session
-URLs are not persistent IDs. The [DB worker](../../src/main/db/worker.ts)
+URLs are not persistent IDs. The [DB worker](../../src/main/db/worker/entry.ts)
 persists UUIDs and favorites through Drizzle and reviewed migrations; [database tests](../../tests/database.test.ts) and
 [restart verification](../../tests/favorites-restart.mjs) cover that slice.

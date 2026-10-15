@@ -5,11 +5,11 @@ import { getTableName } from 'drizzle-orm'
 import {
   DEFAULT_PREVIEW_VOLUME,
   DEFAULT_PROFILE_NAME,
-} from '../../shared/domain/profile.ts'
-import { DbError } from './errors.ts'
+} from '../../../shared/domain/profile.ts'
+import { DbError } from '../errors.ts'
 import { applyMigrations, MIGRATIONS_TABLE } from './migrate.ts'
-import { readLocalProfile } from './operations/profile.ts'
-import * as schema from './schema/index.ts'
+import { readLocalProfile } from '../operations/profile/operations.ts'
+import * as schema from '../schema/index.ts'
 
 export type AppDatabase = BetterSQLite3Database<typeof schema>
 

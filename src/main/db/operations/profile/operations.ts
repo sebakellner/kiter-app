@@ -1,20 +1,20 @@
 import { eq } from 'drizzle-orm'
-import type { AppDatabase } from '../connection.ts'
+import type { AppDatabase } from '../../runtime/connection.ts'
 import type {
   LocalProfile,
   ProfileUpdateRequest,
   UserProfile,
   UserPreferences,
-} from '../../../shared/domain/profile.ts'
+} from '../../../../shared/domain/profile.ts'
 import {
   isPreviewVolume,
   isUserProfile,
   requireProfileUpdate,
   requirePreviewVolume,
-} from '../../../shared/domain/profile.ts'
-import { DbError } from '../errors.ts'
-import { userProfiles, userPreferences } from '../schema/profile.ts'
-import { authors } from '../schema/classification.ts'
+} from '../../../../shared/domain/profile.ts'
+import { DbError } from '../../errors.ts'
+import { userProfiles, userPreferences } from '../../schema/profile.ts'
+import { authors } from '../../schema/classification.ts'
 
 export function readLocalProfile(db: AppDatabase): LocalProfile {
   const rows = db

@@ -7,14 +7,14 @@ import { fileURLToPath } from 'node:url'
 import Database from 'better-sqlite3'
 import { test } from 'node:test'
 import { getTableConfig } from 'drizzle-orm/sqlite-core'
-import { openDatabase } from '../src/main/db/connection.ts'
-import { DB_APPLICATION_ID } from '../src/main/db/migrate.ts'
-import { importFolder } from '../src/main/db/operations/sources.ts'
-import { setFavorite } from '../src/main/db/operations/samples.ts'
+import { openDatabase } from '../src/main/db/runtime/connection.ts'
+import { DB_APPLICATION_ID } from '../src/main/db/runtime/migrate.ts'
+import { importFolder } from '../src/main/db/operations/sources/import.ts'
+import { setFavorite } from '../src/main/db/operations/samples/favorites.ts'
 import {
   readLocalProfile,
   setPreviewVolume,
-} from '../src/main/db/operations/profile.ts'
+} from '../src/main/db/operations/profile/operations.ts'
 import * as schema from '../src/main/db/schema/index.ts'
 import type { DiscoveredAudioFile } from '../src/shared/domain/source.ts'
 

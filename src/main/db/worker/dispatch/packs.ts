@@ -1,6 +1,10 @@
-import type { PackRequest, PackReply } from '../packProtocol.ts'
-import type { AppDatabase } from '../connection.ts'
-import * as packs from './packs.ts'
+import type { PackRequest, PackReply } from '../../protocol/packs.ts'
+import type { AppDatabase } from '../../runtime/connection.ts'
+import * as packs from '../../operations/packs/operations.ts'
+import {
+  reviewPackRemoval,
+  removePack,
+} from '../../operations/packs/removal.ts'
 
 export function executePack(db: AppDatabase, request: PackRequest): PackReply {
   switch (request.action) {
@@ -54,12 +58,12 @@ export function executePack(db: AppDatabase, request: PackRequest): PackReply {
     case 'review-pack-removal':
       return {
         action: request.action,
-        result: packs.reviewPackRemoval(db, request.id),
+        result: reviewPackRemoval(db, request.id),
       }
     case 'remove-pack':
       return {
         action: request.action,
-        result: packs.removePack(db, request.input),
+        result: removePack(db, request.input),
       }
   }
 }

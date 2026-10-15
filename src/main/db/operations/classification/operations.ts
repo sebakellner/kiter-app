@@ -1,13 +1,17 @@
-import { createHash, randomUUID } from 'node:crypto'
+import { randomUUID } from 'node:crypto'
+import {
+  createReviewHash,
+  requireReviewToken,
+} from '../../internal/review-token.ts'
 import { basename } from 'node:path'
 import { and, asc, count, eq, gt, sql } from 'drizzle-orm'
-import type { AppDatabase } from '../connection.ts'
+import type { AppDatabase } from '../../runtime/connection.ts'
 import {
   requireClassificationName,
   requireClassificationPage,
   normalizeName,
   isClassificationTarget,
-} from '../../../shared/domain/classification.ts'
+} from '../../../../shared/domain/classification.ts'
 import type {
   Author,
   Category,
@@ -19,11 +23,11 @@ import type {
   ClassificationRemovalRequest,
   ClassificationUsesRequest,
   ClassificationUse,
-} from '../../../shared/domain/classification.ts'
+} from '../../../../shared/domain/classification.ts'
 import {
   requireEntityId,
   DomainValidationError,
-} from '../../../shared/domain/validation.ts'
+} from '../../../../shared/domain/validation.ts'
 import {
   authors,
   categories,
@@ -31,11 +35,11 @@ import {
   packAuthors,
   sampleCategories,
   packCategories,
-} from '../schema/classification.ts'
-import { samples, sampleSources } from '../schema/samples.ts'
-import { packs } from '../schema/packs.ts'
-import { userProfiles } from '../schema/profile.ts'
-import { DbError } from '../errors.ts'
+} from '../../schema/classification.ts'
+import { samples, sampleSources } from '../../schema/samples.ts'
+import { packs } from '../../schema/packs.ts'
+import { userProfiles } from '../../schema/profile.ts'
+import { DbError } from '../../errors.ts'
 
 function requireTarget(target: ClassificationTarget): void {
   if (!isClassificationTarget(target)) {
@@ -476,7 +480,7 @@ function reviewRemoval(
   kind: 'author' | 'category',
 ): ClassificationRemovalReview {
   const entity = kind === 'author' ? getAuthor(db, id) : getCategory(db, id)
-  const hash = createHash('sha256').update(JSON.stringify([kind, entity]))
+  const hash = createReviewHash(kind, entity)
   let sampleCount = 0,
     packCount = 0
   // Hash bounded, ordered batches without transferring every use to the caller.
@@ -582,12 +586,6 @@ export function reviewCategoryRemoval(
   id: string,
 ): ClassificationRemovalReview {
   return db.transaction(() => reviewRemoval(db, id, 'category'))
-}
-
-function requireReviewToken(token: unknown): void {
-  if (typeof token !== 'string' || !/^[a-f0-9]{64}$/.test(token)) {
-    throw new DomainValidationError('A removal review token is required.')
-  }
 }
 
 export function removeAuthor(

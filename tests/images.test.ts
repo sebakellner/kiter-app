@@ -16,24 +16,26 @@ import { fileURLToPath } from 'node:url'
 import { test } from 'node:test'
 import sharp from 'sharp'
 import { eq } from 'drizzle-orm'
-import { openDatabase } from '../src/main/db/connection.ts'
-import * as assets from '../src/main/db/operations/assets.ts'
+import { openDatabase } from '../src/main/db/runtime/connection.ts'
+import * as assets from '../src/main/db/operations/assets/operations.ts'
 import {
   readLocalProfile,
   updateLocalProfile,
   setPreviewVolume,
-} from '../src/main/db/operations/profile.ts'
+} from '../src/main/db/operations/profile/operations.ts'
 import {
   createAuthor,
   reviewAuthorRemoval,
   removeAuthor,
-} from '../src/main/db/operations/classification.ts'
+} from '../src/main/db/operations/classification/operations.ts'
 import {
   createCollection,
   getCollection,
+} from '../src/main/db/operations/collections/operations.ts'
+import {
   removeCollection,
   reviewCollectionRemoval,
-} from '../src/main/db/operations/collections.ts'
+} from '../src/main/db/operations/collections/removal.ts'
 import {
   packs,
   collections,
@@ -48,7 +50,7 @@ import {
   isImageAsset,
 } from '../src/shared/domain/imageAsset.ts'
 import { isProfileUpdate } from '../src/shared/domain/profile.ts'
-import { isDbRequest, isDbReply } from '../src/main/db/protocol.ts'
+import { isDbRequest, isDbReply } from '../src/main/db/protocol/messages.ts'
 
 const migrations = fileURLToPath(new URL('../drizzle', import.meta.url))
 const openDb = (): ReturnType<typeof openDatabase> =>

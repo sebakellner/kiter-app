@@ -11,14 +11,19 @@ import type {
   SampleOriginRequest,
   PackRemovalReview,
   PackRemovalRequest,
-} from '../../shared/domain/pack.ts'
-import { requirePackPage } from '../../shared/domain/pack.ts'
-import { requireDescription } from '../../shared/domain/presentation.ts'
+} from '../../../shared/domain/pack.ts'
+import { requirePackPage } from '../../../shared/domain/pack.ts'
+import { requireDescription } from '../../../shared/domain/presentation.ts'
 import {
   isEntityId,
   isRecord,
   requirePresentationName,
-} from '../../shared/domain/validation.ts'
+} from '../../../shared/domain/validation.ts'
+import {
+  isToken,
+  isNonnegativeInteger as isCount,
+  isPage,
+} from './validation.ts'
 
 export type PackRequest =
   | { action: 'get-pack-source-root'; root: string }
@@ -52,12 +57,8 @@ export type PackReply =
   | { action: 'review-pack-removal'; result: PackRemovalReview }
   | { action: 'remove-pack'; result: { id: string } }
 
-const isToken = (value: unknown): boolean =>
-  typeof value === 'string' && /^[a-f0-9]{64}$/.test(value)
 const isNullableId = (value: unknown): boolean =>
   value === null || isEntityId(value)
-const isCount = (value: unknown): value is number =>
-  typeof value === 'number' && Number.isSafeInteger(value) && value >= 0
 
 export function isPackRequest(value: unknown): value is PackRequest {
   if (!isRecord(value)) {
@@ -151,21 +152,6 @@ function isSample(value: unknown): boolean {
     isRecord(value) &&
     typeof value.name === 'string' &&
     typeof value.path === 'string'
-  )
-}
-
-function isPage(value: unknown, isItem: (item: unknown) => boolean): boolean {
-  return (
-    isRecord(value) &&
-    Array.isArray(value.items) &&
-    value.items.every(isItem) &&
-    isCount(value.total) &&
-    isCount(value.offset) &&
-    isCount(value.limit) &&
-    value.limit >= 1 &&
-    value.limit <= 100 &&
-    value.items.length <= value.limit &&
-    value.items.length <= Math.max(0, value.total - value.offset)
   )
 }
 

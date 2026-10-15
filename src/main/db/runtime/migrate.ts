@@ -1,6 +1,6 @@
 import type Database from 'better-sqlite3'
 import { readMigrationFiles } from 'drizzle-orm/migrator'
-import { DbError } from './errors.ts'
+import { DbError } from '../errors.ts'
 
 export const DB_APPLICATION_ID = 0x4b495444
 export const MIGRATIONS_TABLE = '__drizzle_migrations'

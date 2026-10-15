@@ -1,6 +1,6 @@
-import type { AssetRequest, AssetReply } from '../assetProtocol.ts'
-import type { AppDatabase } from '../connection.ts'
-import * as assets from './assets.ts'
+import type { AssetRequest, AssetReply } from '../../protocol/assets.ts'
+import type { AppDatabase } from '../../runtime/connection.ts'
+import * as assets from '../../operations/assets/operations.ts'
 
 export function executeAsset(
   db: AppDatabase,

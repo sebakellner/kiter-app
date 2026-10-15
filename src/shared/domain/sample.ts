@@ -1,9 +1,7 @@
-import {
-  DomainValidationError,
-  isRecord,
-  requirePresentationName,
-} from './validation.ts'
+import { requirePresentationName } from './validation.ts'
 import type { SampleSource } from './source.ts'
+import { requirePage } from './pagination.ts'
+import type { Page, PageRequest } from './pagination.ts'
 
 export type OriginAssignment = 'automatic' | 'manual'
 
@@ -22,17 +20,9 @@ export interface SampleUpdateRequest {
   notes?: string | null
 }
 
-export interface SamplePageRequest {
-  limit?: number
-  offset?: number
-}
+export type SamplePageRequest = PageRequest
 
-export interface SamplePage<T> {
-  items: T[]
-  total: number
-  limit: number
-  offset: number
-}
+export type SamplePage<T> = Page<T>
 
 export type SampleReferenceKind = 'collection' | 'category' | 'author' | 'root'
 
@@ -89,20 +79,5 @@ export function requireSampleDisplayName(value: unknown): string | null {
 export { requireDescription as requireSampleNotes } from './presentation.ts'
 
 export function requireSamplePage(value: unknown): Required<SamplePageRequest> {
-  if (!isRecord(value)) {
-    throw new DomainValidationError('Invalid Sample page request.')
-  }
-  const { limit = 50, offset = 0 } = value
-  if (
-    typeof limit !== 'number' ||
-    !Number.isSafeInteger(limit) ||
-    limit < 1 ||
-    limit > 100 ||
-    typeof offset !== 'number' ||
-    !Number.isSafeInteger(offset) ||
-    offset < 0
-  ) {
-    throw new DomainValidationError('Invalid Sample page request.')
-  }
-  return { limit, offset }
+  return requirePage(value, 'Invalid Sample page request.')
 }

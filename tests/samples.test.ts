@@ -14,12 +14,13 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { test } from 'node:test'
 import { eq } from 'drizzle-orm'
-import { openDatabase } from '../src/main/db/connection.ts'
-import * as operations from '../src/main/db/operations/sampleLifecycle.ts'
-import { importFolder } from '../src/main/db/operations/sources.ts'
-import { setFavorite } from '../src/main/db/operations/samples.ts'
-import * as classification from '../src/main/db/operations/classification.ts'
-import * as collections from '../src/main/db/operations/collections.ts'
+import { openDatabase } from '../src/main/db/runtime/connection.ts'
+import * as sampleOperations from '../src/main/db/operations/samples/operations.ts'
+import * as reinclusion from '../src/main/db/operations/sources/reinclusion.ts'
+import { importFolder } from '../src/main/db/operations/sources/import.ts'
+import { setFavorite } from '../src/main/db/operations/samples/favorites.ts'
+import * as classification from '../src/main/db/operations/classification/operations.ts'
+import * as collections from '../src/main/db/operations/collections/operations.ts'
 import {
   samples,
   sampleSources,
@@ -34,8 +35,10 @@ import {
   requireSampleDisplayName,
   requireSampleNotes,
 } from '../src/shared/domain/sample.ts'
-import { isDbRequest, isDbReply } from '../src/main/db/protocol.ts'
+import { isDbRequest, isDbReply } from '../src/main/db/protocol/messages.ts'
 import { reincludeLibrarySource } from '../src/main/services/library/library.ts'
+
+const operations = { ...sampleOperations, ...reinclusion }
 
 const migrations = fileURLToPath(new URL('../drizzle', import.meta.url))
 const open = (): ReturnType<typeof openDatabase> =>

@@ -3,15 +3,15 @@ import { randomUUID } from 'node:crypto'
 import { fileURLToPath } from 'node:url'
 import { test } from 'node:test'
 import { eq } from 'drizzle-orm'
-import { openDatabase } from '../src/main/db/connection.ts'
+import { openDatabase } from '../src/main/db/runtime/connection.ts'
 import {
   readLocalProfile,
   setPreviewVolume,
   updateLocalProfile,
-} from '../src/main/db/operations/profile.ts'
-import * as classification from '../src/main/db/operations/classification.ts'
+} from '../src/main/db/operations/profile/operations.ts'
+import * as classification from '../src/main/db/operations/classification/operations.ts'
 import { imageAssets, userProfiles } from '../src/main/db/schema/index.ts'
-import { isDbRequest, isDbReply } from '../src/main/db/protocol.ts'
+import { isDbRequest, isDbReply } from '../src/main/db/protocol/messages.ts'
 import { requireProfileUpdate } from '../src/shared/domain/profile.ts'
 
 const migrationsFolder = fileURLToPath(new URL('../drizzle', import.meta.url))

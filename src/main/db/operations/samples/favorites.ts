@@ -1,12 +1,12 @@
 import { eq } from 'drizzle-orm'
-import type { AppDatabase } from '../connection.ts'
-import type { FavoriteState } from '../../../shared/ipc/library.ts'
+import type { AppDatabase } from '../../runtime/connection.ts'
+import type { FavoriteState } from '../../../../shared/ipc/library.ts'
 import {
   DomainValidationError,
   requireEntityId,
-} from '../../../shared/domain/validation.ts'
-import { DbError } from '../errors.ts'
-import { samples } from '../schema/samples.ts'
+} from '../../../../shared/domain/validation.ts'
+import { DbError } from '../../errors.ts'
+import { samples } from '../../schema/samples.ts'
 
 export function setFavorite(
   db: AppDatabase,
