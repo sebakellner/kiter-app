@@ -3,11 +3,15 @@ import { randomUUID } from 'node:crypto'
 import { cp, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { fileURLToPath } from 'node:url'
 import Database from 'better-sqlite3'
 import { test } from 'node:test'
 import { getTableConfig } from 'drizzle-orm/sqlite-core'
-import { openDatabase } from '../src/main/db/runtime/connection.ts'
+import {
+  openTestDatabase as open,
+  createDiskDatabase,
+  migrationsFolder,
+} from './support/database/connection.ts'
+import { makeDiscoveredAudioFile } from './support/fixtures/source.ts'
 import { DB_APPLICATION_ID } from '../src/main/db/runtime/migrate.ts'
 import { importFolder } from '../src/main/db/operations/sources/import.ts'
 import { setFavorite } from '../src/main/db/operations/samples/favorites.ts'
@@ -18,23 +22,11 @@ import {
 import * as schema from '../src/main/db/schema/index.ts'
 import type { DiscoveredAudioFile } from '../src/shared/domain/source.ts'
 
-const migrationsFolder = fileURLToPath(new URL('../drizzle', import.meta.url))
-const open = (
-  filename = ':memory:',
-  folder = migrationsFolder,
-): ReturnType<typeof openDatabase> => openDatabase(filename, folder)
-
 function fileAt(
   root: string,
   relativePath = 'album/song.wav',
 ): DiscoveredAudioFile {
-  return {
-    name: path.basename(relativePath),
-    path: path.join(root, relativePath),
-    relativePath,
-    observedSizeBytes: 100,
-    observedMtimeMs: 1000,
-  }
+  return makeDiscoveredAudioFile(root, relativePath)
 }
 
 test('fresh initialization creates strict typed tables, migration history and one local profile', () => {
@@ -201,63 +193,55 @@ test('database constraints preserve classification, ordering, credits and image 
   }
 })
 
-test('Sample IDs, Favorites and zero preview volume survive reopening and overlapping roots', async () => {
-  const dir = await mkdtemp(path.join(tmpdir(), 'kiter-db-'))
-  const filename = path.join(dir, 'kiter.sqlite')
-  let connection = open(filename)
+test('Sample IDs, Favorites and zero preview volume survive reopening and overlapping roots', async (t) => {
+  const fixture = await createDiskDatabase(t)
+  const dir = fixture.directory
+  let connection = fixture.connection
   const file = fileAt(dir)
-  try {
-    const profile = readLocalProfile(connection.db)
-    const [first] = importFolder(connection.db, dir, [file])
-    setFavorite(connection.db, first.id, true)
-    setPreviewVolume(connection.db, 0)
-    connection.close()
-    connection = open(filename)
-    assert.deepEqual(readLocalProfile(connection.db), {
-      ...profile,
-      preferences: { profileId: profile.profile.id, previewVolume: 0 },
-    })
-    assert.deepEqual(importFolder(connection.db, dir, [file]), [
-      { ...first, favorite: true },
-    ])
-    assert.deepEqual(importFolder(connection.db, dir, []), [])
-    assert.equal(
-      connection.native
-        .prepare<[], { present: number }>(
-          'SELECT present FROM source_root_samples',
-        )
-        .get()?.present,
-      0,
-    )
-    const [overlap] = importFolder(connection.db, path.dirname(file.path), [
-      { ...file, relativePath: file.name },
-    ])
-    assert.equal(overlap.id, first.id)
-    assert.equal(overlap.favorite, true)
-    const [copy] = importFolder(connection.db, dir, [
-      fileAt(dir, 'copy/song.wav'),
-    ])
-    assert.notEqual(copy.id, first.id)
-    assert.throws(() => setFavorite(connection.db, randomUUID(), true), {
-      code: 'NOT_FOUND',
-    })
-    assert.throws(() => setFavorite(connection.db, first.id, 'true'), {
-      code: 'INVALID_INPUT',
-    })
-    assert.equal(
-      connection.native
-        .prepare<[], { count: number }>(
-          'SELECT count(*) AS count FROM __drizzle_migrations',
-        )
-        .get()?.count,
-      1,
-    )
-  } finally {
-    if (connection.native.open) {
-      connection.close()
-    }
-    await rm(dir, { recursive: true, force: true })
-  }
+  const profile = readLocalProfile(connection.db)
+  const [first] = importFolder(connection.db, dir, [file])
+  setFavorite(connection.db, first.id, true)
+  setPreviewVolume(connection.db, 0)
+  connection = fixture.reopen()
+  assert.deepEqual(readLocalProfile(connection.db), {
+    ...profile,
+    preferences: { profileId: profile.profile.id, previewVolume: 0 },
+  })
+  assert.deepEqual(importFolder(connection.db, dir, [file]), [
+    { ...first, favorite: true },
+  ])
+  assert.deepEqual(importFolder(connection.db, dir, []), [])
+  assert.equal(
+    connection.native
+      .prepare<[], { present: number }>(
+        'SELECT present FROM source_root_samples',
+      )
+      .get()?.present,
+    0,
+  )
+  const [overlap] = importFolder(connection.db, path.dirname(file.path), [
+    { ...file, relativePath: file.name },
+  ])
+  assert.equal(overlap.id, first.id)
+  assert.equal(overlap.favorite, true)
+  const [copy] = importFolder(connection.db, dir, [
+    fileAt(dir, 'copy/song.wav'),
+  ])
+  assert.notEqual(copy.id, first.id)
+  assert.throws(() => setFavorite(connection.db, randomUUID(), true), {
+    code: 'NOT_FOUND',
+  })
+  assert.throws(() => setFavorite(connection.db, first.id, 'true'), {
+    code: 'INVALID_INPUT',
+  })
+  assert.equal(
+    connection.native
+      .prepare<[], { count: number }>(
+        'SELECT count(*) AS count FROM __drizzle_migrations',
+      )
+      .get()?.count,
+    1,
+  )
 })
 
 test('changed source observations increment revision without changing user organization', () => {
