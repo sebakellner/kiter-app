@@ -35,8 +35,9 @@ folder again to see its samples and saved favorites.
 ## Project Status
 
 Kiter is in active development, targeting macOS and Windows. Automated development
-checks currently run on macOS; Windows, packaged releases, and real DAW drops
-still need validation.
+checks have been validated locally on macOS. CI is configured for macOS and
+Windows; Windows results, packaged releases, and real DAW drops still need
+validation.
 
 Planned features include Pack and Collection editors, Categories and Author
 credits, global search, profile/settings, and reviewed file organization and

@@ -14,14 +14,14 @@ Read [Common Guidelines](common-guidelines.md) first, then the relevant guides:
 A feature is a vertical slice of user behavior, not necessarily a folder in
 every process. Add only the surfaces needed:
 
-| Surface                                | Add or change when                                                          |
-| -------------------------------------- | --------------------------------------------------------------------------- |
-| `src/shared/`                          | The feature changes serializable cross-process contracts.                   |
-| `src/main/services/`                   | Privileged operations, domain workflows, or filesystem behavior are needed. |
-| `src/main/ipc/`                        | The renderer needs a new or changed main-process operation.                 |
-| `src/preload/`                         | A narrow typed method or removable event subscription must be exposed.      |
-| `src/renderer/src/features/<feature>/` | Feature UI, presentation state, hooks, or renderer helpers are needed.      |
-| `tests/`                               | Behavior needs unit, filesystem, or Electron integration coverage.          |
+| Surface                                | Add or change when                                                                     |
+| -------------------------------------- | -------------------------------------------------------------------------------------- |
+| `src/shared/`                          | The feature changes serializable cross-process contracts.                              |
+| `src/main/services/`                   | Privileged operations, domain workflows, or filesystem behavior are needed.            |
+| `src/main/ipc/`                        | The renderer needs a new or changed main-process operation.                            |
+| `src/preload/`                         | A narrow typed method or removable event subscription must be exposed.                 |
+| `src/renderer/src/features/<feature>/` | Feature UI, presentation state, hooks, or renderer helpers are needed.                 |
+| Colocated `*.test.*` and `tests/`      | Module behavior and cross-subsystem/Electron/E2E coverage; follow Testing Conventions. |
 
 Extend existing owners before introducing new modules. Do not create schemas,
 routes, providers, barrels, or a persistence layer just to complete a template.
@@ -134,8 +134,8 @@ example in this guide:
 8. [Waveform component](../../src/renderer/src/features/library/components/Waveform/index.ts)
    and [waveform processing](../../src/renderer/src/features/library/components/Waveform/waveformData.ts)
    provide visible-row analysis, drawing, and bounded cached results.
-9. [Library tests](../../tests/library.test.ts),
-   [waveform tests](../../tests/waveform.test.mjs), and
+9. [Library tests](../../src/main/services/library/library.test.ts),
+   [waveform tests](../../src/renderer/src/features/library/components/Waveform/waveformData.test.mjs), and
    [Electron integration](../../tests/library.electron.mjs) verify their respective
    layers, including native drag payloads rather than actual DAW reception.
 

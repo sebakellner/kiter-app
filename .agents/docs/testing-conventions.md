@@ -15,31 +15,47 @@ and coverage of private pieces without changing the current test layout.
   [README](../../README.md).
 - Electron integration uses an executable script against the built app,
   exercising the renderer, preload, main handlers, and local audio protocol.
-- There is no configured Vitest, Jest, React Testing Library, or Playwright
-  suite. Do not assume their APIs or add a runner for an unrelated change.
-- Plain Node tests do not type-check TypeScript. Run the applicable type checks
-  separately; current application tsconfigs do not include the test directory.
+- Renderer component/hook tests use Vitest, jsdom, React Testing Library and
+  `user-event`. Playwright drives the built Electron application for E2E journeys.
+- Plain Node tests do not type-check TypeScript. Run `pnpm typecheck:tests` for
+  separate Node, UI and E2E configurations. Application configurations exclude tests.
 
 ## Organization and Commands
 
-Keep tests in [tests](../../tests) using descriptive `*.test.ts` or `*.test.mjs`
-names. Keep reusable fixtures alongside them, outside production code.
-Electron scripts use distinct names so the Node test glob does not run them.
+Colocate tests with a clear module owner: domain helpers, DB operations,
+components and hooks. Keep cross-subsystem tests, migration/schema tests and
+Electron workflows in [tests](../../tests). Existing transversal suites may stay
+there until splitting them improves ownership. Do not move a mixed suite under
+an arbitrary module just to colocate it.
+
+Node discovery includes `*.test.ts` and `*.test.mjs` recursively under `src/` and
+`tests/`; renderer component tests use `*.test.tsx` and Vitest. E2E uses
+`tests/e2e/*.spec.ts`; Electron scripts retain distinct names. Node options can
+be passed through `pnpm test:node --test-name-pattern=...` after rebuilding for Node.
+Reusable support stays under `tests/support/`, outside production entrypoints.
+Do not import test helpers from application code. Packaging excludes tests,
+support, runner configuration and diagnostic artifacts.
 
 Run commands from the repository root:
 
 ```bash
 # One unit test file
-pnpm exec node --experimental-strip-types --test tests/library.test.ts
+pnpm exec node --experimental-strip-types --test src/main/services/library/library.test.ts
 
 # Related files in one invocation
-pnpm exec node --experimental-strip-types --test tests/audioRange.test.ts tests/waveform.test.mjs
+pnpm exec node --experimental-strip-types --test src/main/services/audio/audioRange.test.ts src/renderer/src/features/library/components/Waveform/waveformData.test.mjs
 
 # A named test; runner options must precede file paths
-pnpm exec node --experimental-strip-types --test --test-name-pattern="duplicate names" tests/library.test.ts
+pnpm exec node --experimental-strip-types --test --test-name-pattern="duplicate names" src/main/services/library/library.test.ts
 
 # All unit/filesystem tests
 pnpm test
+
+# Mounted renderer behavior; no native rebuild required
+pnpm test:ui
+
+# Type checks for all test environments
+pnpm typecheck:tests
 
 # Application type checks and lint
 pnpm typecheck
@@ -48,6 +64,12 @@ pnpm format:check
 
 # Build and Electron integration; requires a desktop session
 pnpm test:app
+
+# Built Electron E2E journeys
+pnpm test:e2e
+
+# Integration and E2E with one native rebuild and one production build
+pnpm test:desktop
 ```
 
 Use the smallest selection covering the change first. Escalate to the full
@@ -66,6 +88,9 @@ The database uses Drizzle over `better-sqlite3`. `pnpm test` prepares it for pla
 Before focused direct Node commands, run `pnpm rebuild:node`; before direct
 Electron commands after a Node run, use `pnpm rebuild:electron`. Do not run
 native rebuilds concurrently with tests using that dependency.
+CI uses independent macOS and Windows jobs. Within each job Node suites finish
+before rebuilding for Electron. `test:app:built` and `test:e2e:built` reuse an
+unchanged build; they do not prepare native dependencies or rebuild source.
 
 Database tests import private connection/operation modules with explicit `.ts`
 extensions. Worker tests launch the actual worker source under Node's type
@@ -128,14 +153,17 @@ assert both earlier development databases and original audio remain untouched.
   not merely the presence of an arbitrary alert.
 - Await interactions and observable asynchronous updates. Do not introduce
   fixed delays solely to wait for rendering.
-- If component-testing tooling is adopted later, reuse its configured setup,
-  actual required providers, and interaction helpers. These rules do not imply
-  Testing Library, `userEvent`, or a provider wrapper already exists.
+- Use `tests/support/ui/setup.ts` for DOM cleanup and restored globals, and
+  `createTestApi()` for a fresh typed bridge. Configure relevant responses in
+  the owning test; unconfigured methods must not fabricate successful defaults.
+- Use `userEvent.setup()` and await interactions. Add provider wrappers only
+  for actual required providers. jsdom does not establish layout, decoding,
+  playback or native Electron behavior; validate those in Electron.
 
 ## Shared Fixtures and Mock Factories
 
 - Reuse existing fixture helpers before creating alternatives. Keep reusable
-  domain data and factories under the current test directory; do not create a
+  domain data and factories under `tests/support/fixtures/`; do not create a
   separate mock hierarchy until actual reuse justifies it.
 - Use typed factories for domain data as production contracts become available.
   Each call must return fresh mutable objects, including nested arrays and
@@ -150,6 +178,30 @@ assert both earlier development databases and original audio remain untouched.
 - Keep mocks focused on the boundary being isolated. Do not mock away the
   behavior the test claims to validate or introduce Vitest-specific APIs into
   the existing Node runner.
+
+### Fixtures and Assertion Pattern
+
+- Use Arrange–Act–Assert, keeping the operation and its contractual assertions
+  visible. Prefer one principal behavior per test; multi-step persistence and
+  lifecycle scenarios should describe that sequence explicitly.
+- Use `createMemoryDatabase(t)` for isolated operation tests with real SQLite,
+  production initialization and committed migrations. Use `createDiskDatabase(t)`
+  when file persistence/reopening matters; call its explicit `reopen()` method.
+  `openTestDatabase()` is available for migration/failure tests that own lifecycle.
+- Never share a mutable connection across tests or wrap every test in an outer
+  rollback transaction: operations own their transactions and commits.
+- Use pure `make*` factories for data and explicitly named `import*`/setup helpers
+  for side effects. Prefer actual operations for business setup; reserve direct
+  SQL for constraints, deliberate exceptional states and failure injection.
+- Assert results and affected state, stable IDs, ordering and preserved unrelated
+  records as applicable. A rejection alone does not establish atomic rollback.
+  Read verification state independently of the operation's decision logic.
+- `createTemporaryDirectory(t, label)` registers deletion immediately and accepts
+  `beforeRemove` cleanup callbacks, run in reverse registration order. Close
+  dependent resources before removing their storage. Keep lifecycle registration
+  visible; do not add hidden global patches or production reset APIs.
+- Factory defaults are deterministic, but production-generated identities remain
+  real. Capture and compare them instead of replacing UUID generation.
 
 ## Fixtures and Isolation
 
@@ -184,7 +236,7 @@ assert both earlier development databases and original audio remain untouched.
 
 ## Filesystem and Domain Coverage
 
-Follow [library tests](../../tests/library.test.ts) for temporary directory
+Follow [library tests](../../src/main/services/library/library.test.ts) for temporary directory
 setup and recursive discovery cases.
 
 - Cover supported extensions, mixed casing, nested/empty folders, non-audio
@@ -207,7 +259,7 @@ setup and recursive discovery cases.
 - Test queue concurrency, cache reuse/eviction, cancellation before and during
   decoding, failure recovery, and decoder cleanup.
 - Use controlled decoders for unit-level lifecycle tests, following
-  [waveform tests](../../tests/waveform.test.mjs). Validate real decoding
+  [waveform tests](../../src/renderer/src/features/library/components/Waveform/waveformData.test.mjs). Validate real decoding
   separately in Electron with known WAV duration and waveform content.
 - For preview integration, verify time advances, stop resets playback, switching
   keeps one active player, rapid actions settle on the intended sample, and
@@ -246,6 +298,24 @@ Use [library.electron.mjs](../../tests/library.electron.mjs) as current prior ar
   release temporary files and app resources on both success and failure.
 - `webContents.startDrag` is currently replaced to inspect real-file payloads
   and icons. This does not perform a system drag or verify DAW reception.
+
+## End-to-End Journeys
+
+- Playwright launches Electron through `tests/support/electron/e2e-entry.mjs`,
+  which sets isolated `userData` before synchronously requiring the built entry.
+  This test-only entry is excluded from packaging; production exposes no reset API.
+- The fixture controls only native folder selection. Journeys use real UI,
+  preload, IPC, worker, SQLite and audio protocol. Restart launches a separate
+  process sharing only the test directory. Audio fixtures remain byte-identical.
+- Use semantic locators and awaited user interactions. Keep page objects small
+  and business assertions in the test. Use evaluation only for infrastructure
+  control or native/media observations unavailable through ordinary locators.
+- Each journey gets fresh storage and a process. Run serially because the app
+  owns a single-instance lock. Retries are disabled so flaky failures stay visible.
+- Attach a trace for each process phase and a screenshot on failure. Artifacts
+  contain only generated fixtures; CI retains them for seven days on failures.
+- These tests run the built app, not an installed/package artifact. Native drag
+  payload checks still do not establish actual DAW reception.
 
 ## Platform and Manual Validation
 

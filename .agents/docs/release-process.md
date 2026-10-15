@@ -18,7 +18,8 @@ Signing, update delivery, minimum OS versions, and CPU support remain to be agre
    limitations. Replace template product and publishing configuration before
    distribution; do not publish to placeholder endpoints.
 2. Install with `pnpm install --frozen-lockfile`, then run `pnpm typecheck`,
-   `pnpm lint`, `pnpm test`, and `pnpm test:app` in suitable environments.
+   `pnpm typecheck:tests`, `pnpm lint`, `pnpm test`, `pnpm test:ui`, and
+   `pnpm test:desktop` in suitable environments.
 3. Package with `pnpm build:mac` or `pnpm build:win` on the appropriate platform.
    Run type checks explicitly: the current macOS packaging script omits them.
 4. Validate the packaged app: launch, folder access, waveform/preview, native
