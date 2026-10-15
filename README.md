@@ -69,6 +69,14 @@ a Pack preserves its Samples with manual standalone protection. Pack IPC/UI and
 managed covers remain pending.
 Schema and internal operations alone do not deliver user-facing features.
 
+Sample operations support presentation-name/notes editing, bounded reference
+and exclusion queries, and exact-impact reviewed catalog removal. Removal keeps
+original audio and excludes its canonical location across overlapping roots.
+Explicit reinclusion verifies readable, non-symlink audio within a registered
+root and creates a new manually standalone Sample without restoring deleted
+organization. These operations are internal to the worker/client and library
+service; Sample editing/removal/reinclusion IPC and UI remain pending.
+
 External file moves and renames are not automatically reconciled. There is no
 global favorites view, automatic backup, or library recovery UI yet.
 

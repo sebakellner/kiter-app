@@ -33,6 +33,10 @@ catalog and from questions that still require agreement.
   roots, bounded Pack/member/candidate queries, presentation edits, manual origin
   corrections, and impact-checked removal through the worker/client. Import
   preparation catalogs Samples before Pack confirmation; no Pack IPC/UI exists.
+- **Implemented internal Sample lifecycle slice:** presentation edits, bounded
+  reference/exclusion queries, exact-impact reviewed catalog removal, and explicit
+  reinclusion through the worker/client and main library service. Original audio
+  stays untouched; no Sample editing/removal/reinclusion IPC/UI exists yet.
 - **Not implemented:** Pack UI, Collection UI, classification/credit UI,
   profile-editing, managed-image, and other lifecycle workflows below.
 - **Deferred design:** analysis/cache storage layout, cache persistence, waveform
@@ -123,6 +127,11 @@ URL or merely a filename.
 - Has a stable catalog ID, display data, a source location, and availability.
 - Has an editable presentation name independent of its actual filename, and
   optional notes. Editing presentation data never renames source audio.
+- Presentation-name overrides are optional, trimmed NFC, at most 120 Unicode
+  code points, rejecting controls and line/paragraph separators before trimming.
+  Empty/whitespace-only names clear the override. Notes use the optional NFC,
+  5,000-code-point description policy, preserving nonempty spacing and CR/LF.
+  Editing supplies both fields; absent fields clear their stored values.
 - Has zero or one origin Pack. A Sample without a Pack is a standalone Sample.
 - Can belong to any number of Collections.
 - Can have multiple Categories assigned directly to it.
@@ -410,6 +419,19 @@ design.
   association, Category/Author assignments, and Collection memberships, but keep its
   source audio. Preserve an exclusion for that canonical location so rescans
   do not undo the decision. Explicit reinclusion does not restore deleted data.
+- Internal removal review hashes Sample presentation, Favorite/origin, the source
+  observation/revision and exact Collection/Category/Author/root references in
+  batches of 500. Reference reads are paginated by referenced UUID, default 50,
+  maximum 100. Confirmation rechecks the token in an immediate transaction;
+  changed reviewed state returns `STALE_REVIEW`. Exclusion and catalog deletion
+  commit together; audio authorization is not granted by these internal APIs.
+- Exclusions are Library-wide and list by canonical path in pages of 50, maximum 100. Explicit reinclusion selects an excluded canonical location and a registered
+  containing root. Main verifies readable supported-extension audio and rejects
+  symlinks and changed canonical locations. The transaction rechecks exclusion,
+  registered containment and vacancy, clears the exclusion and creates a new
+  Sample/source pair associated with that root. Its origin is manually standalone
+  so a later Pack import requires review. Other overlapping root associations
+  are rediscovered on rescan; no Pack or deleted organization is restored.
 - Removing a Category or Author requires showing its uses and obtaining
   confirmation. Remove its assignments or credits, not the associated
   Samples, Packs, or files.
@@ -550,11 +572,10 @@ already exist.
 Before implementing each relevant feature, agree on:
 
 - UI presentation of the agreed per-Sample keep/assign import-conflict review.
-- Text length limits and validation of Sample notes and presentation names,
-  profile names. Pack/Collection names/descriptions and Author/Category names
+- Text length limits and validation of profile names. Sample presentation/notes,
+  Pack/Collection names/descriptions and Author/Category names
   have agreed, implemented policies above.
-- The explicit reinclusion workflow for excluded locations, including how it
-  interacts with overlapping registered roots.
+- UI presentation of explicit reinclusion for Library-wide excluded locations.
 - The source-observation algorithm and stronger source-version validation for
   analysis. One source per Sample, distinct copies, and confirmed relinking
   are already agreed; multiple physical sources per Sample are outside scope.

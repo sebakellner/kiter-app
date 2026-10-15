@@ -1,4 +1,4 @@
-import { access, readdir, realpath, stat } from 'node:fs/promises'
+import { access, lstat, readdir, realpath, stat } from 'node:fs/promises'
 import { constants } from 'node:fs'
 import path from 'node:path'
 import type { AudioFile, LibrarySample } from '../../../shared/ipc'
@@ -6,6 +6,73 @@ import type { DbClient } from '../../db'
 import type { DiscoveredAudioFile } from '../../../shared/domain/source'
 import { IpcError } from '../../../shared/ipc/result.ts'
 import type { PackImportReview } from '../../../shared/domain/pack'
+import type {
+  Sample,
+  SourceReinclusionRequest,
+} from '../../../shared/domain/sample'
+import { DomainValidationError } from '../../../shared/domain/validation.ts'
+
+export async function reincludeLibrarySource(
+  input: SourceReinclusionRequest,
+  database: Pick<DbClient, 'getReinclusionRoot' | 'reincludeSource'>,
+): Promise<Sample> {
+  const root = await database.getReinclusionRoot(input)
+  const location = path.relative(root.canonicalPath, input.canonicalPath)
+  if (
+    !location ||
+    location === '..' ||
+    location.startsWith(`..${path.sep}`) ||
+    path.isAbsolute(location)
+  ) {
+    throw new DomainValidationError(
+      'The source is outside the registered directory.',
+    )
+  }
+  let file: DiscoveredAudioFile
+  try {
+    // Inspect every component so neither a symlinked file nor directory is followed.
+    let current = root.canonicalPath
+    const components = [
+      current,
+      ...location.split(path.sep).map((part) => {
+        current = path.join(current, part)
+        return current
+      }),
+    ]
+    for (const component of components) {
+      if ((await lstat(component)).isSymbolicLink()) {
+        throw new Error('Symbolic links are not allowed')
+      }
+    }
+    if (
+      (await realpath(root.canonicalPath)) !== root.canonicalPath ||
+      (await realpath(input.canonicalPath)) !== input.canonicalPath
+    ) {
+      throw new Error('The source location changed')
+    }
+    const observation = await stat(input.canonicalPath)
+    if (
+      !observation.isFile() ||
+      !AUDIO_EXT.has(path.extname(input.canonicalPath).toLowerCase())
+    ) {
+      throw new Error('The source is not a supported audio file')
+    }
+    await access(input.canonicalPath, constants.R_OK)
+    file = {
+      name: path.basename(input.canonicalPath),
+      path: input.canonicalPath,
+      relativePath: location,
+      observedSizeBytes: observation.size,
+      observedMtimeMs: observation.mtimeMs,
+    }
+  } catch {
+    throw new IpcError(
+      'FOLDER_FAILED',
+      'Unable to reinclude the source. Check that the original audio file is readable within the registered directory and is not a symbolic link.',
+    )
+  }
+  return database.reincludeSource(input, file)
+}
 
 const AUDIO_EXT = new Set(['.mp3', '.wav', '.flac', '.ogg', '.m4a', '.aac'])
 

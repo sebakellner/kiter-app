@@ -14,6 +14,8 @@ import { executeCollection } from './operations/collectionCommands.ts'
 import { isCollectionRequest } from './collectionProtocol.ts'
 import { isPackRequest } from './packProtocol.ts'
 import { executePack } from './operations/packCommands.ts'
+import { isSampleRequest } from './sampleProtocol.ts'
+import { executeSample } from './operations/sampleCommands.ts'
 
 const port = parentPort
 if (!port) {
@@ -91,11 +93,13 @@ try {
         default:
           reply = {
             requestId: value.requestId,
-            ...(isPackRequest(value)
-              ? executePack(database.db, value)
-              : isCollectionRequest(value)
-                ? executeCollection(database.db, value)
-                : executeClassification(database.db, value)),
+            ...(isSampleRequest(value)
+              ? executeSample(database.db, value)
+              : isPackRequest(value)
+                ? executePack(database.db, value)
+                : isCollectionRequest(value)
+                  ? executeCollection(database.db, value)
+                  : executeClassification(database.db, value)),
           }
       }
     } catch (error) {
