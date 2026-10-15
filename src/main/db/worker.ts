@@ -10,6 +10,8 @@ import { importFolder } from './operations/sources.ts'
 import { setFavorite } from './operations/samples.ts'
 import { readLocalProfile, setPreviewVolume } from './operations/profile.ts'
 import { executeClassification } from './operations/classificationCommands.ts'
+import { executeCollection } from './operations/collectionCommands.ts'
+import { isCollectionRequest } from './collectionProtocol.ts'
 
 const port = parentPort
 if (!port) {
@@ -87,7 +89,9 @@ try {
         default:
           reply = {
             requestId: value.requestId,
-            ...executeClassification(database.db, value),
+            ...(isCollectionRequest(value)
+              ? executeCollection(database.db, value)
+              : executeClassification(database.db, value)),
           }
       }
     } catch (error) {

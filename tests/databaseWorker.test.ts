@@ -107,6 +107,201 @@ test(
 )
 
 test(
+  'Collection worker commands preserve ordered memberships and reviews across restart',
+  { timeout: 15000 },
+  async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), 'kiter-worker-collections-'))
+    const filename = path.join(dir, 'kiter.sqlite')
+    let worker = startWorker(filename)
+    let requestId = 0
+    try {
+      assert.deepEqual((await once(worker, 'message'))[0], { action: 'ready' })
+      const created = await exchange(worker, {
+        requestId: ++requestId,
+        action: 'create-collection',
+        input: { name: ' Selection ' },
+      })
+      if (created.action !== 'create-collection') {
+        assert.fail('Expected a Collection')
+      }
+      const id = created.result.id
+      const updated = await exchange(worker, {
+        requestId: ++requestId,
+        action: 'update-collection',
+        input: { id, name: 'Edited', description: 'Notes\nSecond line' },
+      })
+      if (updated.action !== 'update-collection') {
+        assert.fail('Expected an updated Collection')
+      }
+      const imported = await exchange(worker, {
+        requestId: ++requestId,
+        action: 'import',
+        root: dir,
+        files: ['kick.wav', 'snare.wav'].map((name) => ({
+          name,
+          path: path.join(dir, name),
+          relativePath: name,
+          observedSizeBytes: 100,
+          observedMtimeMs: 1000,
+        })),
+      })
+      if (imported.action !== 'import') {
+        assert.fail('Expected imported Samples')
+      }
+      const sampleIds = imported.result.map((sample) => sample.id)
+      for (const sampleId of sampleIds) {
+        assert.deepEqual(
+          await exchange(worker, {
+            requestId: ++requestId,
+            action: 'set-collection-membership',
+            input: { collectionId: id, sampleId, assigned: true },
+          }),
+          {
+            requestId,
+            action: 'set-collection-membership',
+            result: { assigned: true },
+          },
+        )
+      }
+      const reviewed = await exchange(worker, {
+        requestId: ++requestId,
+        action: 'review-collection-removal',
+        id,
+      })
+      if (reviewed.action !== 'review-collection-removal') {
+        assert.fail('Expected a Collection review')
+      }
+      const invalid = await exchange(worker, {
+        requestId: ++requestId,
+        action: 'reorder-collection',
+        input: { collectionId: id, sampleIds: sampleIds.slice(1) },
+      })
+      if (invalid.action !== 'error') {
+        assert.fail('Expected an invalid sequence failure')
+      }
+      assert.equal(invalid.failure.code, 'INVALID_INPUT')
+      assert.deepEqual(
+        await exchange(worker, {
+          requestId: ++requestId,
+          action: 'reorder-collection',
+          input: { collectionId: id, sampleIds: sampleIds.toReversed() },
+        }),
+        { requestId, action: 'reorder-collection', result: { id } },
+      )
+      const stale = await exchange(worker, {
+        requestId: ++requestId,
+        action: 'remove-collection',
+        input: { id, token: reviewed.result.token },
+      })
+      if (stale.action !== 'error') {
+        assert.fail('Expected a stale review failure')
+      }
+      assert.equal(stale.failure.code, 'STALE_REVIEW')
+      const fresh = await exchange(worker, {
+        requestId: ++requestId,
+        action: 'review-collection-removal',
+        id,
+      })
+      if (fresh.action !== 'review-collection-removal') {
+        assert.fail('Expected a fresh Collection review')
+      }
+      const exited = once(worker, 'exit')
+      await exchange(worker, { requestId: ++requestId, action: 'close' })
+      await exited
+      worker = startWorker(filename)
+      const ready = await new Promise<unknown>((resolve, reject) => {
+        worker.once('error', reject)
+        worker.once('message', (message: unknown) => {
+          worker.off('error', reject)
+          resolve(message)
+        })
+      })
+      assert.deepEqual(ready, { action: 'ready' })
+      assert.deepEqual(
+        await exchange(worker, {
+          requestId: ++requestId,
+          action: 'get-collection',
+          id,
+        }),
+        { requestId, action: 'get-collection', result: updated.result },
+      )
+      assert.deepEqual(
+        await exchange(worker, {
+          requestId: ++requestId,
+          action: 'list-collections',
+          input: {},
+        }),
+        {
+          requestId,
+          action: 'list-collections',
+          result: { items: [updated.result], total: 1, limit: 50, offset: 0 },
+        },
+      )
+      assert.deepEqual(
+        await exchange(worker, {
+          requestId: ++requestId,
+          action: 'list-collection-samples',
+          id,
+          input: { limit: 1, offset: 1 },
+        }),
+        {
+          requestId,
+          action: 'list-collection-samples',
+          result: {
+            items: [{ collectionId: id, sampleId: sampleIds[0], position: 1 }],
+            total: 2,
+            limit: 1,
+            offset: 1,
+          },
+        },
+      )
+      assert.deepEqual(
+        await exchange(worker, {
+          requestId: ++requestId,
+          action: 'review-collection-removal',
+          id,
+        }),
+        {
+          requestId,
+          action: 'review-collection-removal',
+          result: fresh.result,
+        },
+      )
+      assert.deepEqual(
+        await exchange(worker, {
+          requestId: ++requestId,
+          action: 'remove-collection',
+          input: { id, token: fresh.result.token },
+        }),
+        { requestId, action: 'remove-collection', result: { id } },
+      )
+      const reimported = await exchange(worker, {
+        requestId: ++requestId,
+        action: 'import',
+        root: dir,
+        files: imported.result.map((sample) => ({
+          name: sample.name,
+          path: sample.path,
+          relativePath: sample.relativePath,
+          observedSizeBytes: 100,
+          observedMtimeMs: 1000,
+        })),
+      })
+      if (reimported.action !== 'import') {
+        assert.fail('Expected retained Samples')
+      }
+      assert.deepEqual(reimported.result, imported.result)
+      const closed = once(worker, 'exit')
+      await exchange(worker, { requestId: ++requestId, action: 'close' })
+      await closed
+    } finally {
+      await worker.terminate()
+      await rm(dir, { recursive: true, force: true })
+    }
+  },
+)
+
+test(
   'classification worker dispatch preserves identities, controlled conflicts and removal reviews across restart',
   { timeout: 15000 },
   async () => {
