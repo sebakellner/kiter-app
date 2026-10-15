@@ -1,9 +1,11 @@
-import { createHash, randomUUID } from 'node:crypto'
-import { isAbsolute, relative, sep } from 'node:path'
+import {
+  createReviewHash,
+  requireReviewToken,
+} from '../../internal/review-token.ts'
 import { and, count, eq, gt, sql } from 'drizzle-orm'
 import type { SQL } from 'drizzle-orm'
 import type { SQLiteSelect } from 'drizzle-orm/sqlite-core'
-import type { AppDatabase } from '../connection.ts'
+import type { AppDatabase } from '../../runtime/connection.ts'
 import type {
   Sample,
   SampleUpdateRequest,
@@ -14,32 +16,30 @@ import type {
   SampleRemovalReview,
   SampleRemovalRequest,
   ExcludedSource,
-  SourceReinclusionRequest,
-} from '../../../shared/domain/sample.ts'
+} from '../../../../shared/domain/sample.ts'
 import {
   requireSampleDisplayName,
   requireSampleNotes,
   requireSamplePage,
-} from '../../../shared/domain/sample.ts'
-import type {
-  DiscoveredAudioFile,
-  SourceRoot,
-} from '../../../shared/domain/source.ts'
-import { isDiscoveredAudioFile } from '../../../shared/domain/source.ts'
+} from '../../../../shared/domain/sample.ts'
 import {
   DomainValidationError,
   requireEntityId,
-} from '../../../shared/domain/validation.ts'
-import { samples, sampleSources, sourceRootSamples } from '../schema/samples.ts'
-import { excludedSources, sourceRoots } from '../schema/sources.ts'
-import { collections, collectionSamples } from '../schema/collections.ts'
+} from '../../../../shared/domain/validation.ts'
+import {
+  samples,
+  sampleSources,
+  sourceRootSamples,
+} from '../../schema/samples.ts'
+import { excludedSources, sourceRoots } from '../../schema/sources.ts'
+import { collections, collectionSamples } from '../../schema/collections.ts'
 import {
   categories,
   authors,
   sampleCategories,
   sampleAuthors,
-} from '../schema/classification.ts'
-import { DbError } from '../errors.ts'
+} from '../../schema/classification.ts'
+import { DbError } from '../../errors.ts'
 
 export function getSample(db: AppDatabase, id: string): Sample {
   requireEntityId(id)
@@ -193,9 +193,7 @@ function removalReview(db: AppDatabase, id: string): SampleRemovalReview {
       'The Sample source is missing from the catalog.',
     )
   }
-  const hash = createHash('sha256').update(
-    JSON.stringify(['sample', entity, source]),
-  )
+  const hash = createReviewHash('sample', entity, source)
   const counts = { collection: 0, category: 0, author: 0, root: 0 }
   for (const kind of ['collection', 'category', 'author', 'root'] as const) {
     hash.update(kind)
@@ -235,9 +233,7 @@ export function removeSample(
   input: SampleRemovalRequest,
 ): { id: string } {
   requireEntityId(input.id)
-  if (typeof input.token !== 'string' || !/^[a-f0-9]{64}$/.test(input.token)) {
-    throw new DomainValidationError('A removal review token is required.')
-  }
+  requireReviewToken(input.token)
   return db.transaction(
     () => {
       const review = removalReview(db, input.id)
@@ -273,102 +269,4 @@ export function listExcludedSources(
     total: db.select({ count: count() }).from(excludedSources).get()!.count,
     ...page,
   }))
-}
-
-export function getReinclusionRoot(
-  db: AppDatabase,
-  input: SourceReinclusionRequest,
-): SourceRoot {
-  requireEntityId(input.sourceRootId)
-  if (
-    typeof input.canonicalPath !== 'string' ||
-    !isAbsolute(input.canonicalPath)
-  ) {
-    throw new DomainValidationError('Invalid excluded source location.')
-  }
-  if (
-    !db
-      .select()
-      .from(excludedSources)
-      .where(eq(excludedSources.canonicalPath, input.canonicalPath))
-      .get()
-  ) {
-    throw new DbError('NOT_FOUND', 'The source is no longer excluded.')
-  }
-  const root = db
-    .select()
-    .from(sourceRoots)
-    .where(
-      and(
-        eq(sourceRoots.id, input.sourceRootId),
-        eq(sourceRoots.registered, true),
-      ),
-    )
-    .get()
-  if (!root) {
-    throw new DbError('NOT_FOUND', 'The source directory is not registered.')
-  }
-  const location = relative(root.canonicalPath, input.canonicalPath)
-  if (
-    !location ||
-    location === '..' ||
-    location.startsWith(`..${sep}`) ||
-    isAbsolute(location)
-  ) {
-    throw new DomainValidationError(
-      'The excluded source is outside the registered directory.',
-    )
-  }
-  return root
-}
-
-export function reincludeSource(
-  db: AppDatabase,
-  input: SourceReinclusionRequest,
-  file: DiscoveredAudioFile,
-): Sample {
-  if (!isDiscoveredAudioFile(file) || file.path !== input.canonicalPath) {
-    throw new DomainValidationError('Invalid source observation.')
-  }
-  return db.transaction(
-    () => {
-      getReinclusionRoot(db, input)
-      if (
-        db
-          .select()
-          .from(sampleSources)
-          .where(eq(sampleSources.canonicalPath, input.canonicalPath))
-          .get()
-      ) {
-        throw new DbError(
-          'DB_INTEGRITY',
-          'The excluded source already has a Sample.',
-        )
-      }
-      const id = randomUUID()
-      db.delete(excludedSources)
-        .where(eq(excludedSources.canonicalPath, input.canonicalPath))
-        .run()
-      db.insert(samples).values({ id, originAssignment: 'manual' }).run()
-      db.insert(sampleSources)
-        .values({
-          sampleId: id,
-          canonicalPath: file.path,
-          availability: 'available',
-          observedSizeBytes: file.observedSizeBytes,
-          observedMtimeMs: file.observedMtimeMs,
-          lastCheckedAt: new Date().toISOString(),
-        })
-        .run()
-      db.insert(sourceRootSamples)
-        .values({
-          sourceRootId: input.sourceRootId,
-          sampleId: id,
-          present: true,
-        })
-        .run()
-      return getSample(db, id)
-    },
-    { behavior: 'immediate' },
-  )
 }

@@ -1,0 +1,73 @@
+import { mkdirSync } from 'node:fs'
+import { dirname } from 'node:path'
+import { parentPort, workerData } from 'node:worker_threads'
+import { isRecord } from '../../../shared/domain/validation.ts'
+import { isDbRequest } from '../protocol/messages.ts'
+import type { DbReply } from '../protocol/messages.ts'
+import { openDatabase } from '../runtime/connection.ts'
+import { dbFailure, DbError } from '../errors.ts'
+import { dispatchRequest } from './dispatch.ts'
+
+const port = parentPort
+if (!port) {
+  throw new Error('Database must run in a worker')
+}
+
+let connection: ReturnType<typeof openDatabase> | undefined
+try {
+  const options: unknown = workerData
+  if (
+    !isRecord(options) ||
+    typeof options.filename !== 'string' ||
+    !options.filename ||
+    typeof options.migrationsFolder !== 'string' ||
+    !options.migrationsFolder
+  ) {
+    throw new DbError('INVALID_INPUT', 'Invalid database configuration.')
+  }
+  mkdirSync(dirname(options.filename), { recursive: true })
+  connection = openDatabase(options.filename, options.migrationsFolder)
+  const database = connection
+  port.on('message', (value: unknown) => {
+    if (!isDbRequest(value)) {
+      console.error('Database protocol failed:', 'PROTOCOL_ERROR')
+      port.postMessage({
+        action: 'fatal',
+        failure: {
+          code: 'PROTOCOL_ERROR',
+          message: 'Invalid database request.',
+        },
+      } satisfies DbReply)
+      database.close()
+      port.close()
+      return
+    }
+    let reply: DbReply
+    try {
+      if (value.action === 'close') {
+        database.close()
+        port.postMessage({
+          requestId: value.requestId,
+          action: 'close',
+        } satisfies DbReply)
+        port.close()
+        return
+      }
+      reply = dispatchRequest(database.db, value)
+    } catch (error) {
+      const failure = dbFailure(error)
+      console.error('Database operation failed:', value.action, failure.code)
+      reply = { requestId: value.requestId, action: 'error', failure }
+    }
+    port.postMessage(reply)
+  })
+  port.postMessage({ action: 'ready' } satisfies DbReply)
+} catch (error) {
+  if (connection?.native.open) {
+    connection.close()
+  }
+  const failure = dbFailure(error)
+  console.error('Database startup failed:', failure.code)
+  port.postMessage({ action: 'fatal', failure } satisfies DbReply)
+  port.close()
+}

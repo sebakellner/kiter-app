@@ -1,3 +1,5 @@
+import { isEntityId, isRecord } from './validation.ts'
+
 export const IMAGE_MAX_BYTES = 10 * 1024 * 1024
 export const IMAGE_MAX_DIMENSION = 4096
 
@@ -71,4 +73,26 @@ export function isImageAsset(value: unknown): value is ImageAsset {
     (value.state === 'ready' || value.state === 'cleanup_pending')
   )
 }
-import { isEntityId, isRecord } from './validation.ts'
+
+export function isImageReferenceRequest(
+  value: unknown,
+): value is ImageReferenceRequest {
+  return (
+    isRecord(value) &&
+    isImageTarget(value.target) &&
+    isNullableAssetId(value.expectedAssetId) &&
+    isNullableAssetId(value.assetId)
+  )
+}
+
+export function isImagePublicationRequest(
+  value: unknown,
+): value is ImagePublicationRequest {
+  return (
+    isRecord(value) &&
+    isImageTarget(value.target) &&
+    isNullableAssetId(value.expectedAssetId) &&
+    isImageAsset(value.asset) &&
+    value.asset.state === 'ready'
+  )
+}

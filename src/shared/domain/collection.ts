@@ -1,4 +1,5 @@
-import { DomainValidationError, isRecord } from './validation.ts'
+import { requirePage } from './pagination.ts'
+import type { Page, PageRequest } from './pagination.ts'
 
 export interface Collection {
   id: string
@@ -22,17 +23,9 @@ export interface CollectionUpdateRequest extends CollectionCreateRequest {
   id: string
 }
 
-export interface CollectionPageRequest {
-  limit?: number
-  offset?: number
-}
+export type CollectionPageRequest = PageRequest
 
-export interface CollectionPage<T> {
-  items: T[]
-  total: number
-  limit: number
-  offset: number
-}
+export type CollectionPage<T> = Page<T>
 
 export interface CollectionMembershipRequest {
   collectionId: string
@@ -61,20 +54,5 @@ export { requireDescription as requireCollectionDescription } from './presentati
 export function requireCollectionPage(
   value: unknown,
 ): Required<CollectionPageRequest> {
-  if (!isRecord(value)) {
-    throw new DomainValidationError('Invalid Collection page request.')
-  }
-  const { limit = 50, offset = 0 } = value
-  if (
-    typeof limit !== 'number' ||
-    !Number.isSafeInteger(limit) ||
-    limit < 1 ||
-    limit > 100 ||
-    typeof offset !== 'number' ||
-    !Number.isSafeInteger(offset) ||
-    offset < 0
-  ) {
-    throw new DomainValidationError('Invalid Collection page request.')
-  }
-  return { limit, offset }
+  return requirePage(value, 'Invalid Collection page request.')
 }

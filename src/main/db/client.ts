@@ -1,5 +1,5 @@
 import { join } from 'node:path'
-import { Worker } from 'node:worker_threads'
+import { WorkerTransport } from './client/worker-transport'
 import type { LibrarySample, FavoriteState } from '../../shared/ipc'
 import type { DiscoveredAudioFile } from '../../shared/domain/source'
 import type {
@@ -13,9 +13,7 @@ import {
   requireProfileUpdate,
 } from '../../shared/domain/profile'
 import { requireEntityId } from '../../shared/domain/validation'
-import type { DbReply, DbRequest } from './protocol'
-import { isDbReply } from './protocol'
-import { DbError } from './errors'
+import type { DbReply } from './protocol/messages'
 import type {
   Author,
   Category,
@@ -28,8 +26,8 @@ import type {
   ClassificationUse,
   ClassificationUsesRequest,
 } from '../../shared/domain/classification'
-import type { ClassificationRequest } from './classificationProtocol'
-import { isClassificationRequest } from './classificationProtocol'
+import type { ClassificationRequest } from './protocol/classification'
+import { isClassificationRequest } from './protocol/classification'
 import { DomainValidationError } from '../../shared/domain/validation'
 import type {
   Collection,
@@ -43,8 +41,8 @@ import type {
   CollectionRemovalReview,
   CollectionRemovalRequest,
 } from '../../shared/domain/collection'
-import type { CollectionRequest } from './collectionProtocol'
-import { isCollectionRequest } from './collectionProtocol'
+import type { CollectionRequest } from './protocol/collections'
+import { isCollectionRequest } from './protocol/collections'
 import type {
   Pack,
   PackUpdateRequest,
@@ -59,8 +57,8 @@ import type {
   PackRemovalReview,
   PackRemovalRequest,
 } from '../../shared/domain/pack'
-import type { PackRequest } from './packProtocol'
-import { isPackRequest } from './packProtocol'
+import type { PackRequest } from './protocol/packs'
+import { isPackRequest } from './protocol/packs'
 import type {
   Sample,
   SampleUpdateRequest,
@@ -74,156 +72,40 @@ import type {
   SourceReinclusionRequest,
 } from '../../shared/domain/sample'
 import type { SourceRoot } from '../../shared/domain/source'
-import type { SampleRequest } from './sampleProtocol'
-import { isSampleRequest } from './sampleProtocol'
-import type { AssetRequest } from './assetProtocol'
-import { isAssetRequest } from './assetProtocol'
+import type { SampleRequest } from './protocol/samples'
+import { isSampleRequest } from './protocol/samples'
+import type { AssetRequest } from './protocol/assets'
+import { isAssetRequest } from './protocol/assets'
 import type {
   ImageAsset,
   ImagePublicationRequest,
   ImageReferenceRequest,
 } from '../../shared/domain/imageAsset'
 
-const DB_CLOSING_MESSAGE = 'Database is shutting down'
 const UNEXPECTED_REPLY_MESSAGE = 'Unexpected database response'
 
-type PendingRequest = {
-  action: DbRequest['action']
-  resolve: (reply: DbReply) => void
-  reject: (error: Error) => void
-}
-
 export class DbClient {
-  private readonly worker: Worker
-  private readonly workerExited: Promise<void>
-  private nextRequestId = 1
-  private failure: Error | null = null
-  private closing = false
-  private closePromise: Promise<void> | null = null
-  private readonly pendingRequests = new Map<number, PendingRequest>()
-  private readonly ready: Promise<void>
-  private resolveReady!: () => void
-  private rejectReady!: (error: Error) => void
+  private readonly transport: WorkerTransport
 
-  private constructor(filename: string) {
-    this.ready = new Promise((resolve, reject) => {
-      this.resolveReady = resolve
-      this.rejectReady = reject
-    })
-    this.worker = new Worker(join(__dirname, 'dbWorker.js'), {
-      workerData: { filename, migrationsFolder: join(__dirname, 'migrations') },
-    })
-    this.workerExited = new Promise((resolve) =>
-      this.worker.once('exit', () => resolve()),
-    )
-    this.worker.on('message', (reply: unknown) => this.handleReply(reply))
-    this.worker.on('error', () => this.handleWorkerError())
-    this.worker.on('exit', (exitCode) => this.handleWorkerExit(exitCode))
+  private constructor(transport: WorkerTransport) {
+    this.transport = transport
   }
 
   static async open(filename: string): Promise<DbClient> {
-    const database = new DbClient(filename)
-    try {
-      await database.ready
-      return database
-    } catch (error) {
-      await database.worker.terminate()
-      throw error
-    }
-  }
-
-  private handleReply(value: unknown): void {
-    if (!isDbReply(value)) {
-      this.fail('Invalid database response.', 'PROTOCOL_ERROR')
-      return
-    }
-    const reply = value
-    if (reply.action === 'ready') {
-      this.resolveReady()
-      return
-    }
-    if (reply.action === 'fatal') {
-      this.fail(reply.failure.message, reply.failure.code)
-      return
-    }
-    const pendingRequest = this.pendingRequests.get(reply.requestId)
-    if (!pendingRequest) {
-      this.fail(UNEXPECTED_REPLY_MESSAGE, 'PROTOCOL_ERROR')
-      return
-    }
-    this.pendingRequests.delete(reply.requestId)
-    if (reply.action === 'error') {
-      pendingRequest.reject(
-        new DbError(reply.failure.code, reply.failure.message),
-      )
-      return
-    }
-    if (reply.action !== pendingRequest.action) {
-      pendingRequest.reject(
-        new DbError('PROTOCOL_ERROR', UNEXPECTED_REPLY_MESSAGE),
-      )
-      this.fail(UNEXPECTED_REPLY_MESSAGE, 'PROTOCOL_ERROR')
-      return
-    }
-    pendingRequest.resolve(reply)
-  }
-
-  private handleWorkerError(): void {
-    this.fail(
-      'Unable to open the local catalog. Existing data has not been reset.',
+    return new DbClient(
+      await WorkerTransport.open(filename, {
+        workerPath: join(__dirname, 'dbWorker.js'),
+        migrationsFolder: join(__dirname, 'migrations'),
+      }),
     )
   }
 
-  private handleWorkerExit(exitCode: number): void {
-    const isExpectedExit =
-      this.closing && exitCode === 0 && this.pendingRequests.size === 0
-    if (!isExpectedExit) {
-      this.fail(
-        'The local catalog stopped unexpectedly. Restart Kiter to retry.',
-      )
-    }
-  }
-
-  private fail(message: string, code: DbError['code'] = 'WORKER_FAILED'): void {
-    if (this.failure) {
-      return
-    }
-    console.error('Database worker failed:', code)
-    this.failure = new DbError(code, message)
-    this.rejectReady(this.failure)
-    for (const pendingRequest of this.pendingRequests.values()) {
-      pendingRequest.reject(this.failure)
-    }
-    this.pendingRequests.clear()
-  }
-
-  private sendRequest(request: DbRequest): Promise<DbReply> {
-    if (this.failure) {
-      return Promise.reject(this.failure)
-    }
-    return new Promise((resolve, reject) => {
-      this.pendingRequests.set(request.requestId, {
-        action: request.action,
-        resolve,
-        reject,
-      })
-      try {
-        this.worker.postMessage(request)
-      } catch (error) {
-        this.pendingRequests.delete(request.requestId)
-        reject(error)
-      }
-    })
-  }
-
   private async packRequest(request: PackRequest): Promise<DbReply> {
-    if (this.closing) {
-      throw new DbError('CLOSING', DB_CLOSING_MESSAGE)
-    }
+    this.transport.assertOpen()
     if (!isPackRequest(request)) {
       throw new DomainValidationError('Invalid Pack request.')
     }
-    return this.sendRequest({ ...request, requestId: this.nextRequestId++ })
+    return this.transport.request(request)
   }
 
   async getPack(id: string): Promise<Pack> {
@@ -235,13 +117,11 @@ export class DbClient {
   }
 
   private async assetRequest(request: AssetRequest): Promise<DbReply> {
-    if (this.closing) {
-      throw new DbError('CLOSING', DB_CLOSING_MESSAGE)
-    }
+    this.transport.assertOpen()
     if (!isAssetRequest(request)) {
       throw new DomainValidationError('Invalid profile or image request.')
     }
-    return this.sendRequest({ ...request, requestId: this.nextRequestId++ })
+    return this.transport.request(request)
   }
 
   async publishImage(input: ImagePublicationRequest): Promise<ImageAsset> {
@@ -409,11 +289,7 @@ export class DbClient {
     root: string,
     files: DiscoveredAudioFile[],
   ): Promise<LibrarySample[]> {
-    if (this.closing) {
-      throw new DbError('CLOSING', DB_CLOSING_MESSAGE)
-    }
-    const reply = await this.sendRequest({
-      requestId: this.nextRequestId++,
+    const reply = await this.transport.request({
       action: 'import',
       root,
       files,
@@ -425,12 +301,9 @@ export class DbClient {
   }
 
   async setFavorite(id: string, favorite: boolean): Promise<FavoriteState> {
-    if (this.closing) {
-      throw new DbError('CLOSING', DB_CLOSING_MESSAGE)
-    }
+    this.transport.assertOpen()
     requireEntityId(id)
-    const reply = await this.sendRequest({
-      requestId: this.nextRequestId++,
+    const reply = await this.transport.request({
       action: 'favorite',
       id,
       favorite,
@@ -444,13 +317,11 @@ export class DbClient {
   private async classificationRequest(
     request: ClassificationRequest,
   ): Promise<DbReply> {
-    if (this.closing) {
-      throw new DbError('CLOSING', DB_CLOSING_MESSAGE)
-    }
+    this.transport.assertOpen()
     if (!isClassificationRequest(request)) {
       throw new DomainValidationError('Invalid classification request.')
     }
-    return this.sendRequest({ ...request, requestId: this.nextRequestId++ })
+    return this.transport.request(request)
   }
 
   async createAuthor(input: { name: string }): Promise<Author> {
@@ -677,13 +548,11 @@ export class DbClient {
   private async collectionRequest(
     request: CollectionRequest,
   ): Promise<DbReply> {
-    if (this.closing) {
-      throw new DbError('CLOSING', DB_CLOSING_MESSAGE)
-    }
+    this.transport.assertOpen()
     if (!isCollectionRequest(request)) {
       throw new DomainValidationError('Invalid Collection request.')
     }
-    return this.sendRequest({ ...request, requestId: this.nextRequestId++ })
+    return this.transport.request(request)
   }
 
   async createCollection(input: CollectionCreateRequest): Promise<Collection> {
@@ -795,13 +664,11 @@ export class DbClient {
   }
 
   private async sampleRequest(request: SampleRequest): Promise<DbReply> {
-    if (this.closing) {
-      throw new DbError('CLOSING', DB_CLOSING_MESSAGE)
-    }
+    this.transport.assertOpen()
     if (!isSampleRequest(request)) {
       throw new DomainValidationError('Invalid Sample request.')
     }
-    return this.sendRequest({ ...request, requestId: this.nextRequestId++ })
+    return this.transport.request(request)
   }
 
   async getSample(id: string): Promise<Sample> {
@@ -895,20 +762,11 @@ export class DbClient {
   }
 
   async close(): Promise<void> {
-    if (this.closePromise) {
-      return this.closePromise
-    }
-    this.closing = true
-    this.closePromise = this.closeWorker()
-    return this.closePromise
+    return this.transport.close()
   }
 
   async getLocalProfile(): Promise<LocalProfile> {
-    if (this.closing) {
-      throw new DbError('CLOSING', DB_CLOSING_MESSAGE)
-    }
-    const reply = await this.sendRequest({
-      requestId: this.nextRequestId++,
+    const reply = await this.transport.request({
       action: 'profile',
     })
     if (reply.action !== 'profile') {
@@ -918,11 +776,8 @@ export class DbClient {
   }
 
   async updateLocalProfile(input: ProfileUpdateRequest): Promise<UserProfile> {
-    if (this.closing) {
-      throw new DbError('CLOSING', DB_CLOSING_MESSAGE)
-    }
-    const reply = await this.sendRequest({
-      requestId: this.nextRequestId++,
+    this.transport.assertOpen()
+    const reply = await this.transport.request({
       action: 'update-profile',
       input: requireProfileUpdate(input),
     })
@@ -933,12 +788,9 @@ export class DbClient {
   }
 
   async setPreviewVolume(volume: number): Promise<UserPreferences> {
-    if (this.closing) {
-      throw new DbError('CLOSING', DB_CLOSING_MESSAGE)
-    }
+    this.transport.assertOpen()
     requirePreviewVolume(volume)
-    const reply = await this.sendRequest({
-      requestId: this.nextRequestId++,
+    const reply = await this.transport.request({
       action: 'volume',
       volume,
     })
@@ -946,21 +798,5 @@ export class DbClient {
       throw new Error(UNEXPECTED_REPLY_MESSAGE)
     }
     return reply.result
-  }
-
-  private async closeWorker(): Promise<void> {
-    try {
-      const reply = await this.sendRequest({
-        requestId: this.nextRequestId++,
-        action: 'close',
-      })
-      if (reply.action !== 'close') {
-        throw new Error('Unexpected catalog shutdown response')
-      }
-      await this.workerExited
-    } catch (error) {
-      await this.worker.terminate()
-      throw error
-    }
   }
 }

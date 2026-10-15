@@ -5,6 +5,8 @@ import {
   requireName,
   requirePresentationName,
 } from './validation.ts'
+import { requirePage } from './pagination.ts'
+import type { Page, PageRequest } from './pagination.ts'
 
 export interface Category {
   id: string
@@ -24,18 +26,11 @@ export function requireClassificationName(value: unknown): string {
   return requirePresentationName(value)
 }
 
-export interface ClassificationPageRequest {
+export interface ClassificationPageRequest extends PageRequest {
   search?: string
-  limit?: number
-  offset?: number
 }
 
-export interface ClassificationPage<T> {
-  items: T[]
-  total: number
-  limit: number
-  offset: number
-}
+export type ClassificationPage<T> = Page<T>
 
 export interface ClassificationTarget {
   kind: 'sample' | 'pack'
@@ -81,15 +76,9 @@ export function requireClassificationPage(value: unknown): {
   if (!isRecord(value)) {
     throw new DomainValidationError('Invalid page request.')
   }
-  const { limit = 50, offset = 0, search = '' } = value
+  const { limit, offset } = requirePage(value)
+  const { search = '' } = value
   if (
-    typeof limit !== 'number' ||
-    !Number.isSafeInteger(limit) ||
-    limit < 1 ||
-    limit > 100 ||
-    typeof offset !== 'number' ||
-    !Number.isSafeInteger(offset) ||
-    offset < 0 ||
     typeof search !== 'string' ||
     /[\p{Cc}\p{Zl}\p{Zp}]/u.test(search) ||
     Array.from(search.trim().normalize('NFC')).length > 120

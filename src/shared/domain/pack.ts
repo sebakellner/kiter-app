@@ -1,4 +1,5 @@
-import { DomainValidationError, isRecord } from './validation.ts'
+import { requirePage } from './pagination.ts'
+import type { Page, PageRequest } from './pagination.ts'
 
 export interface Pack {
   id: string
@@ -14,17 +15,9 @@ export interface PackUpdateRequest {
   description?: string | null
 }
 
-export interface PackPageRequest {
-  limit?: number
-  offset?: number
-}
+export type PackPageRequest = PageRequest
 
-export interface PackPage<T> {
-  items: T[]
-  total: number
-  limit: number
-  offset: number
-}
+export type PackPage<T> = Page<T>
 
 export interface SampleOrigin {
   sampleId: string
@@ -76,20 +69,5 @@ export interface PackRemovalRequest {
 }
 
 export function requirePackPage(value: unknown): Required<PackPageRequest> {
-  if (!isRecord(value)) {
-    throw new DomainValidationError('Invalid Pack page request.')
-  }
-  const { limit = 50, offset = 0 } = value
-  if (
-    typeof limit !== 'number' ||
-    !Number.isSafeInteger(limit) ||
-    limit < 1 ||
-    limit > 100 ||
-    typeof offset !== 'number' ||
-    !Number.isSafeInteger(offset) ||
-    offset < 0
-  ) {
-    throw new DomainValidationError('Invalid Pack page request.')
-  }
-  return { limit, offset }
+  return requirePage(value, 'Invalid Pack page request.')
 }

@@ -22,7 +22,7 @@ export default defineConfig({
       rollupOptions: {
         input: {
           index: resolve('src/main/index.ts'),
-          dbWorker: resolve('src/main/db/worker.ts'),
+          dbWorker: resolve('src/main/db/worker/entry.ts'),
         },
       },
     },

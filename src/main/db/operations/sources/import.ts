@@ -1,17 +1,21 @@
 import { randomUUID } from 'node:crypto'
 import { isAbsolute, relative, sep } from 'node:path'
 import { eq, sql } from 'drizzle-orm'
-import type { AppDatabase } from '../connection.ts'
-import type { DiscoveredAudioFile } from '../../../shared/domain/source.ts'
-import { isDiscoveredAudioFile } from '../../../shared/domain/source.ts'
+import type { AppDatabase } from '../../runtime/connection.ts'
+import type { DiscoveredAudioFile } from '../../../../shared/domain/source.ts'
+import { isDiscoveredAudioFile } from '../../../../shared/domain/source.ts'
 import {
   DomainValidationError,
   isEntityId,
-} from '../../../shared/domain/validation.ts'
-import type { LibrarySample } from '../../../shared/ipc/library.ts'
-import { DbError } from '../errors.ts'
-import { excludedSources, sourceRoots } from '../schema/sources.ts'
-import { samples, sampleSources, sourceRootSamples } from '../schema/samples.ts'
+} from '../../../../shared/domain/validation.ts'
+import type { LibrarySample } from '../../../../shared/ipc/library.ts'
+import { DbError } from '../../errors.ts'
+import { excludedSources, sourceRoots } from '../../schema/sources.ts'
+import {
+  samples,
+  sampleSources,
+  sourceRootSamples,
+} from '../../schema/samples.ts'
 
 export function importFolder(
   db: AppDatabase,

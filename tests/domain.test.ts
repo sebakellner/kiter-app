@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto'
 import { test } from 'node:test'
 import { normalizeName } from '../src/shared/domain/classification.ts'
 import { isEntityId, requireName } from '../src/shared/domain/validation.ts'
-import { isDbReply, isDbRequest } from '../src/main/db/protocol.ts'
+import { isDbReply, isDbRequest } from '../src/main/db/protocol/messages.ts'
 
 test('classification keys ignore external whitespace/case but preserve accents and internal spaces', () => {
   assert.equal(normalizeName('  DRUMS  '), 'drums')

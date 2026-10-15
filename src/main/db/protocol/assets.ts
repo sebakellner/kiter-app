@@ -2,13 +2,14 @@ import type {
   ImageAsset,
   ImagePublicationRequest,
   ImageReferenceRequest,
-} from '../../shared/domain/imageAsset.ts'
+} from '../../../shared/domain/imageAsset.ts'
 import {
   isImageAsset,
-  isImageTarget,
+  isImagePublicationRequest,
+  isImageReferenceRequest,
   isNullableAssetId,
-} from '../../shared/domain/imageAsset.ts'
-import { isEntityId, isRecord } from '../../shared/domain/validation.ts'
+} from '../../../shared/domain/imageAsset.ts'
+import { isEntityId, isRecord } from '../../../shared/domain/validation.ts'
 
 export type AssetRequest =
   | { action: 'publish-image'; input: ImagePublicationRequest }
@@ -33,20 +34,9 @@ export function isAssetRequest(value: unknown): value is AssetRequest {
   const input = value.input
   switch (value.action) {
     case 'publish-image':
-      return (
-        isRecord(input) &&
-        isImageTarget(input.target) &&
-        isNullableAssetId(input.expectedAssetId) &&
-        isImageAsset(input.asset) &&
-        input.asset.state === 'ready'
-      )
+      return isImagePublicationRequest(input)
     case 'set-image-reference':
-      return (
-        isRecord(input) &&
-        isImageTarget(input.target) &&
-        isNullableAssetId(input.expectedAssetId) &&
-        isNullableAssetId(input.assetId)
-      )
+      return isImageReferenceRequest(input)
     case 'get-image':
     case 'claim-image-cleanup':
     case 'finish-image-cleanup':

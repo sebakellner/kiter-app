@@ -1,9 +1,9 @@
 import type {
   ClassificationReply,
   ClassificationRequest,
-} from '../classificationProtocol.ts'
-import type { AppDatabase } from '../connection.ts'
-import * as classification from './classification.ts'
+} from '../../protocol/classification.ts'
+import type { AppDatabase } from '../../runtime/connection.ts'
+import * as classification from '../../operations/classification/operations.ts'
 
 export function executeClassification(
   db: AppDatabase,

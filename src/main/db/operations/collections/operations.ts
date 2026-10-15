@@ -1,6 +1,6 @@
-import { createHash, randomUUID } from 'node:crypto'
+import { randomUUID } from 'node:crypto'
 import { and, count, eq, gt, max, sql } from 'drizzle-orm'
-import type { AppDatabase } from '../connection.ts'
+import type { AppDatabase } from '../../runtime/connection.ts'
 import type {
   Collection,
   CollectionCreateRequest,
@@ -10,22 +10,19 @@ import type {
   CollectionMembership,
   CollectionMembershipRequest,
   CollectionReorderRequest,
-  CollectionRemovalReview,
-  CollectionRemovalRequest,
-} from '../../../shared/domain/collection.ts'
+} from '../../../../shared/domain/collection.ts'
 import {
   requireCollectionDescription,
   requireCollectionPage,
-} from '../../../shared/domain/collection.ts'
+} from '../../../../shared/domain/collection.ts'
 import {
   DomainValidationError,
   requireEntityId,
   requirePresentationName,
-} from '../../../shared/domain/validation.ts'
-import { collections, collectionSamples } from '../schema/collections.ts'
-import { samples } from '../schema/samples.ts'
-import { scheduleUnusedImageCleanup } from './assets.ts'
-import { DbError } from '../errors.ts'
+} from '../../../../shared/domain/validation.ts'
+import { collections, collectionSamples } from '../../schema/collections.ts'
+import { samples } from '../../schema/samples.ts'
+import { DbError } from '../../errors.ts'
 
 export function getCollection(db: AppDatabase, id: string): Collection {
   requireEntityId(id)
@@ -238,70 +235,6 @@ export function reorderCollection(
         insert.run({ sampleId, position }),
       )
       return { id: input.collectionId }
-    },
-    { behavior: 'immediate' },
-  )
-}
-
-function removalReview(db: AppDatabase, id: string): CollectionRemovalReview {
-  const entity = getCollection(db, id)
-  const hash = createHash('sha256').update(
-    JSON.stringify(['collection', entity]),
-  )
-  let after = '',
-    sampleCount = 0
-  for (;;) {
-    const batch = db
-      .select()
-      .from(collectionSamples)
-      .where(
-        and(
-          eq(collectionSamples.collectionId, id),
-          gt(collectionSamples.sampleId, after),
-        ),
-      )
-      .orderBy(collectionSamples.sampleId)
-      .limit(500)
-      .all()
-    for (const row of batch) {
-      hash.update(JSON.stringify([row.sampleId, row.position]))
-    }
-    sampleCount += batch.length
-    if (batch.length < 500) {
-      break
-    }
-    after = batch[batch.length - 1].sampleId
-  }
-  return { entity, sampleCount, token: hash.digest('hex') }
-}
-
-export function reviewCollectionRemoval(
-  db: AppDatabase,
-  id: string,
-): CollectionRemovalReview {
-  return db.transaction(() => removalReview(db, id))
-}
-
-export function removeCollection(
-  db: AppDatabase,
-  input: CollectionRemovalRequest,
-): { id: string } {
-  requireEntityId(input.id)
-  if (typeof input.token !== 'string' || !/^[a-f0-9]{64}$/.test(input.token)) {
-    throw new DomainValidationError('A removal review token is required.')
-  }
-  return db.transaction(
-    () => {
-      const review = removalReview(db, input.id)
-      if (review.token !== input.token) {
-        throw new DbError(
-          'STALE_REVIEW',
-          'The Collection changed. Review it again before removing.',
-        )
-      }
-      db.delete(collections).where(eq(collections.id, input.id)).run()
-      scheduleUnusedImageCleanup(db, review.entity.coverAssetId)
-      return { id: input.id }
     },
     { behavior: 'immediate' },
   )

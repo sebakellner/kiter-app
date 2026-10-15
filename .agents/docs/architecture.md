@@ -38,7 +38,7 @@ complete entity workflows are delivered separately.
 | [Main entry point](../../src/main/index.ts)                                                        | Application lifecycle, protocol registration, IPC registration, and window creation.                                                             |
 | [Main IPC](../../src/main/ipc/library.ts)                                                          | Authorized folder import, favorite writes, and native drag requests.                                                                             |
 | [DB client](../../src/main/db/index.ts)                                                            | Asynchronous commands, worker readiness/correlation, failure handling, draining shutdown.                                                        |
-| [Connection](../../src/main/db/connection.ts)                                                      | Worker-only native connection and Drizzle handle, format/history checks, atomic migrations/bootstrap and integrity checks.                       |
+| [Connection](../../src/main/db/runtime/connection.ts)                                              | Worker-only native connection and Drizzle handle, format/history checks, atomic migrations/bootstrap and integrity checks.                       |
 | [Schema](../../src/main/db/schema/index.ts)                                                        | Typed 17-table schema, indexes, checks and foreign keys; committed SQL in [drizzle](../../drizzle).                                              |
 | [Operations](../../src/main/db/operations)                                                         | Typed source import, Favorite, profile/Preferences, internal classification and ordered Collection operations, including impact-checked removal. |
 | [Library service](../../src/main/services/library/index.ts)                                        | Recursive audio discovery, canonical folder preparation, and catalog import coordination.                                                        |
@@ -66,6 +66,8 @@ driver, schema, failure behavior, and backup limitations.
   Its public API exports only `DbClient`. Connection, schema, migrations,
   operations, and private worker protocol remain internal. Importing that API
   must not load SQLite or Drizzle schema in main, or start a worker.
+- Follow [DB Module Organization](data-access.md#db-module-organization) for
+  persistence folders, dispatchers, operation ownership, and shared utilities.
 - The DB worker is a separate bundler entry. Its compiled runtime path and copied
   migration assets must work independently of the current working directory.
 - `DbClient.open` resolves after migrations, bootstrap, and integrity checks.

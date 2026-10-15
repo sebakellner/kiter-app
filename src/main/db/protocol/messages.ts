@@ -1,38 +1,38 @@
-import type { LibrarySample, FavoriteState } from '../../shared/ipc/library.ts'
+import type {
+  LibrarySample,
+  FavoriteState,
+} from '../../../shared/ipc/library.ts'
 import type {
   LocalProfile,
   ProfileUpdateRequest,
   UserProfile,
   UserPreferences,
-} from '../../shared/domain/profile.ts'
+} from '../../../shared/domain/profile.ts'
 import {
   isPreviewVolume,
   isUserProfile,
   requireProfileUpdate,
-} from '../../shared/domain/profile.ts'
-import type { AssetRequest, AssetReply } from './assetProtocol.ts'
-import { isAssetRequest, isAssetReply } from './assetProtocol.ts'
-import type { DiscoveredAudioFile } from '../../shared/domain/source.ts'
-import { isDiscoveredAudioFile } from '../../shared/domain/source.ts'
-import { isEntityId, isRecord } from '../../shared/domain/validation.ts'
-import type { DbFailure } from './errors.ts'
-import type { SampleRequest, SampleReply } from './sampleProtocol.ts'
-import { isSampleRequest, isSampleReply } from './sampleProtocol.ts'
-import type { PackRequest, PackReply } from './packProtocol.ts'
-import { isPackRequest, isPackReply } from './packProtocol.ts'
-import type {
-  CollectionRequest,
-  CollectionReply,
-} from './collectionProtocol.ts'
-import { isCollectionRequest, isCollectionReply } from './collectionProtocol.ts'
+} from '../../../shared/domain/profile.ts'
+import type { AssetRequest, AssetReply } from './assets.ts'
+import { isAssetRequest, isAssetReply } from './assets.ts'
+import type { DiscoveredAudioFile } from '../../../shared/domain/source.ts'
+import { isDiscoveredAudioFile } from '../../../shared/domain/source.ts'
+import { isEntityId, isRecord } from '../../../shared/domain/validation.ts'
+import type { DbFailure } from '../errors.ts'
+import type { SampleRequest, SampleReply } from './samples.ts'
+import { isSampleRequest, isSampleReply } from './samples.ts'
+import type { PackRequest, PackReply } from './packs.ts'
+import { isPackRequest, isPackReply } from './packs.ts'
+import type { CollectionRequest, CollectionReply } from './collections.ts'
+import { isCollectionRequest, isCollectionReply } from './collections.ts'
 import type {
   ClassificationRequest,
   ClassificationReply,
-} from './classificationProtocol.ts'
+} from './classification.ts'
 import {
   isClassificationRequest,
   isClassificationReply,
-} from './classificationProtocol.ts'
+} from './classification.ts'
 
 export type DbRequest =
   | (AssetRequest & { requestId: number })

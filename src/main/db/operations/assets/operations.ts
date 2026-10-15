@@ -1,62 +1,26 @@
-import { and, eq, gt, sql } from 'drizzle-orm'
+import { eq, gt } from 'drizzle-orm'
 import type {
   ImageAsset,
   ImageTarget,
   ImageReferenceRequest,
   ImagePublicationRequest,
-} from '../../../shared/domain/imageAsset.ts'
+} from '../../../../shared/domain/imageAsset.ts'
 import {
   requireEntityId,
   DomainValidationError,
-} from '../../../shared/domain/validation.ts'
-import { isAssetRequest } from '../assetProtocol.ts'
-import { DbError } from '../errors.ts'
-import { readLocalProfile } from './profile.ts'
-import type { AppDatabase } from '../connection.ts'
-import { imageAssets } from '../schema/assets.ts'
-import { collections } from '../schema/collections.ts'
-import { packs } from '../schema/packs.ts'
-import { userProfiles } from '../schema/profile.ts'
-
-export function scheduleUnusedImageCleanup(
-  db: AppDatabase,
-  assetId: string | null,
-): void {
-  if (assetId === null) {
-    return
-  }
-  db.update(imageAssets)
-    .set({ state: 'cleanup_pending' })
-    .where(
-      and(
-        eq(imageAssets.id, assetId),
-        sql`not exists (select 1 from ${collections} where ${collections.coverAssetId} = ${assetId})`,
-        sql`not exists (select 1 from ${packs} where ${packs.coverAssetId} = ${assetId})`,
-        sql`not exists (select 1 from ${userProfiles} where ${userProfiles.avatarAssetId} = ${assetId})`,
-      ),
-    )
-    .run()
-}
-
-function isReferenced(db: AppDatabase, id: string): boolean {
-  return Boolean(
-    db
-      .select({ id: packs.id })
-      .from(packs)
-      .where(eq(packs.coverAssetId, id))
-      .get() ||
-    db
-      .select({ id: collections.id })
-      .from(collections)
-      .where(eq(collections.coverAssetId, id))
-      .get() ||
-    db
-      .select({ id: userProfiles.id })
-      .from(userProfiles)
-      .where(eq(userProfiles.avatarAssetId, id))
-      .get(),
-  )
-}
+} from '../../../../shared/domain/validation.ts'
+import {
+  isImagePublicationRequest,
+  isImageReferenceRequest,
+} from '../../../../shared/domain/imageAsset.ts'
+import { DbError } from '../../errors.ts'
+import { readLocalProfile } from '../profile/operations.ts'
+import type { AppDatabase } from '../../runtime/connection.ts'
+import { imageAssets } from '../../schema/assets.ts'
+import { collections } from '../../schema/collections.ts'
+import { packs } from '../../schema/packs.ts'
+import { userProfiles } from '../../schema/profile.ts'
+import { isReferenced, scheduleUnusedImageCleanup } from './references.ts'
 
 export function getImage(db: AppDatabase, id: string): ImageAsset | null {
   requireEntityId(id)
@@ -109,7 +73,7 @@ export function setImageReference(
   db: AppDatabase,
   input: ImageReferenceRequest,
 ): { assetId: string | null } {
-  if (!isAssetRequest({ action: 'set-image-reference', input })) {
+  if (!isImageReferenceRequest(input)) {
     throw new DomainValidationError('Invalid image reference.')
   }
   return db.transaction(
@@ -139,7 +103,7 @@ export function publishImage(
   db: AppDatabase,
   input: ImagePublicationRequest,
 ): ImageAsset {
-  if (!isAssetRequest({ action: 'publish-image', input })) {
+  if (!isImagePublicationRequest(input)) {
     throw new DomainValidationError('Invalid image publication.')
   }
   return db.transaction(

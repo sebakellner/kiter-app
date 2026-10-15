@@ -9,18 +9,23 @@ import type {
   SampleRemovalRequest,
   ExcludedSource,
   SourceReinclusionRequest,
-} from '../../shared/domain/sample.ts'
+} from '../../../shared/domain/sample.ts'
 import {
   requireSampleDisplayName,
   requireSampleNotes,
   requireSamplePage,
-} from '../../shared/domain/sample.ts'
+} from '../../../shared/domain/sample.ts'
 import type {
   DiscoveredAudioFile,
   SourceRoot,
-} from '../../shared/domain/source.ts'
-import { isDiscoveredAudioFile } from '../../shared/domain/source.ts'
-import { isEntityId, isRecord } from '../../shared/domain/validation.ts'
+} from '../../../shared/domain/source.ts'
+import { isDiscoveredAudioFile } from '../../../shared/domain/source.ts'
+import { isEntityId, isRecord } from '../../../shared/domain/validation.ts'
+import {
+  isToken,
+  isNonnegativeInteger as isCount,
+  isPage,
+} from './validation.ts'
 
 export type SampleRequest =
   | { action: 'get-sample' | 'review-sample-removal'; id: string }
@@ -45,11 +50,6 @@ export type SampleReply =
   | { action: 'remove-sample'; result: { id: string } }
   | { action: 'list-excluded-sources'; result: SamplePage<ExcludedSource> }
   | { action: 'get-reinclusion-root'; result: SourceRoot }
-
-const isToken = (value: unknown): boolean =>
-  typeof value === 'string' && /^[a-f0-9]{64}$/.test(value)
-const isCount = (value: unknown): value is number =>
-  typeof value === 'number' && Number.isSafeInteger(value) && value >= 0
 
 export function isSampleRequest(value: unknown): value is SampleRequest {
   if (!isRecord(value)) {
@@ -117,21 +117,6 @@ function isSample(value: unknown): boolean {
   } catch {
     return false
   }
-}
-
-function isPage(value: unknown, check: (item: unknown) => boolean): boolean {
-  return (
-    isRecord(value) &&
-    Array.isArray(value.items) &&
-    value.items.every(check) &&
-    isCount(value.total) &&
-    isCount(value.offset) &&
-    isCount(value.limit) &&
-    value.limit >= 1 &&
-    value.limit <= 100 &&
-    value.items.length <= value.limit &&
-    value.items.length <= Math.max(0, value.total - value.offset)
-  )
 }
 
 export function isSampleReply(value: unknown): value is SampleReply {

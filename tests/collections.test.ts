@@ -4,11 +4,12 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { test } from 'node:test'
 import { eq } from 'drizzle-orm'
-import { openDatabase } from '../src/main/db/connection.ts'
-import * as operations from '../src/main/db/operations/collections.ts'
-import { importFolder } from '../src/main/db/operations/sources.ts'
-import { setFavorite } from '../src/main/db/operations/samples.ts'
-import * as classification from '../src/main/db/operations/classification.ts'
+import { openDatabase } from '../src/main/db/runtime/connection.ts'
+import * as collectionOperations from '../src/main/db/operations/collections/operations.ts'
+import * as removal from '../src/main/db/operations/collections/removal.ts'
+import { importFolder } from '../src/main/db/operations/sources/import.ts'
+import { setFavorite } from '../src/main/db/operations/samples/favorites.ts'
+import * as classification from '../src/main/db/operations/classification/operations.ts'
 import {
   collections,
   collectionSamples,
@@ -20,7 +21,9 @@ import {
 import { requireCollectionDescription } from '../src/shared/domain/collection.ts'
 import type { CollectionMembership } from '../src/shared/domain/collection.ts'
 import { requirePresentationName } from '../src/shared/domain/validation.ts'
-import { isDbReply, isDbRequest } from '../src/main/db/protocol.ts'
+import { isDbReply, isDbRequest } from '../src/main/db/protocol/messages.ts'
+
+const operations = { ...collectionOperations, ...removal }
 
 const migrationsFolder = fileURLToPath(new URL('../drizzle', import.meta.url))
 const open = (): ReturnType<typeof openDatabase> =>

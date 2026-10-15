@@ -7,9 +7,9 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { Worker } from 'node:worker_threads'
 import { test } from 'node:test'
-import { isDbReply } from '../src/main/db/protocol.ts'
-import type { DbReply, DbRequest } from '../src/main/db/protocol.ts'
-import type { AssetRequest } from '../src/main/db/assetProtocol.ts'
+import { isDbReply } from '../src/main/db/protocol/messages.ts'
+import type { DbReply, DbRequest } from '../src/main/db/protocol/messages.ts'
+import type { AssetRequest } from '../src/main/db/protocol/assets.ts'
 import type { ProfileUpdateRequest } from '../src/shared/domain/profile.ts'
 
 test(
@@ -131,12 +131,15 @@ function startWorker(
   filename: string,
   migrationsFolder = fileURLToPath(new URL('../drizzle', import.meta.url)),
 ): Worker {
-  return new Worker(new URL('../src/main/db/worker.ts', import.meta.url), {
-    workerData: {
-      filename,
-      migrationsFolder,
+  return new Worker(
+    new URL('../src/main/db/worker/entry.ts', import.meta.url),
+    {
+      workerData: {
+        filename,
+        migrationsFolder,
+      },
     },
-  })
+  )
 }
 
 async function exchange(worker: Worker, request: DbRequest): Promise<DbReply> {
@@ -226,7 +229,7 @@ test(
     let worker = startWorker(filename)
     let requestId = 0
     const send = (
-      request: import('../src/main/db/sampleProtocol.ts').SampleRequest,
+      request: import('../src/main/db/protocol/samples.ts').SampleRequest,
     ): Promise<DbReply> =>
       exchange(worker, { ...request, requestId: ++requestId })
     const restart = async (): Promise<void> => {
@@ -366,7 +369,7 @@ test(
     let worker = startWorker(filename)
     let requestId = 0
     const send = (
-      request: import('../src/main/db/packProtocol.ts').PackRequest,
+      request: import('../src/main/db/protocol/packs.ts').PackRequest,
     ): Promise<DbReply> =>
       exchange(worker, { ...request, requestId: ++requestId })
     try {

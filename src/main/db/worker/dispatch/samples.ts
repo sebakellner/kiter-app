@@ -1,6 +1,10 @@
-import type { SampleRequest, SampleReply } from '../sampleProtocol.ts'
-import type { AppDatabase } from '../connection.ts'
-import * as samples from './sampleLifecycle.ts'
+import type { SampleRequest, SampleReply } from '../../protocol/samples.ts'
+import type { AppDatabase } from '../../runtime/connection.ts'
+import * as samples from '../../operations/samples/operations.ts'
+import {
+  getReinclusionRoot,
+  reincludeSource,
+} from '../../operations/sources/reinclusion.ts'
 
 export function executeSample(
   db: AppDatabase,
@@ -40,12 +44,12 @@ export function executeSample(
     case 'get-reinclusion-root':
       return {
         action: request.action,
-        result: samples.getReinclusionRoot(db, request.input),
+        result: getReinclusionRoot(db, request.input),
       }
     case 'reinclude-source':
       return {
         action: request.action,
-        result: samples.reincludeSource(db, request.input, request.file),
+        result: reincludeSource(db, request.input, request.file),
       }
   }
 }

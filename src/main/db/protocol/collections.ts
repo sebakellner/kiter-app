@@ -9,16 +9,17 @@ import type {
   CollectionReorderRequest,
   CollectionRemovalReview,
   CollectionRemovalRequest,
-} from '../../shared/domain/collection.ts'
+} from '../../../shared/domain/collection.ts'
 import {
   requireCollectionDescription,
   requireCollectionPage,
-} from '../../shared/domain/collection.ts'
+} from '../../../shared/domain/collection.ts'
 import {
   isEntityId,
   isRecord,
   requirePresentationName,
-} from '../../shared/domain/validation.ts'
+} from '../../../shared/domain/validation.ts'
+import { isToken, isNonnegativeInteger, isPage } from './validation.ts'
 
 export type CollectionRequest =
   | { action: 'create-collection'; input: CollectionCreateRequest }
@@ -50,10 +51,6 @@ export type CollectionReply =
       result: { id: string }
     }
   | { action: 'review-collection-removal'; result: CollectionRemovalReview }
-
-function isToken(value: unknown): boolean {
-  return typeof value === 'string' && /^[a-f0-9]{64}$/.test(value)
-}
 
 export function isCollectionRequest(
   value: unknown,
@@ -121,25 +118,6 @@ function isCollection(value: unknown): boolean {
   } catch {
     return false
   }
-}
-
-function isNonnegativeInteger(value: unknown): value is number {
-  return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0
-}
-
-function isPage(value: unknown, isItem: (item: unknown) => boolean): boolean {
-  return (
-    isRecord(value) &&
-    Array.isArray(value.items) &&
-    value.items.every(isItem) &&
-    isNonnegativeInteger(value.total) &&
-    isNonnegativeInteger(value.offset) &&
-    isNonnegativeInteger(value.limit) &&
-    value.limit >= 1 &&
-    value.limit <= 100 &&
-    value.items.length <= value.limit &&
-    value.items.length <= Math.max(0, value.total - value.offset)
-  )
 }
 
 export function isCollectionReply(value: unknown): value is CollectionReply {

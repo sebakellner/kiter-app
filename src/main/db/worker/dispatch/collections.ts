@@ -1,9 +1,13 @@
 import type {
   CollectionRequest,
   CollectionReply,
-} from '../collectionProtocol.ts'
-import type { AppDatabase } from '../connection.ts'
-import * as collections from './collections.ts'
+} from '../../protocol/collections.ts'
+import type { AppDatabase } from '../../runtime/connection.ts'
+import * as collections from '../../operations/collections/operations.ts'
+import {
+  reviewCollectionRemoval,
+  removeCollection,
+} from '../../operations/collections/removal.ts'
 
 export function executeCollection(
   db: AppDatabase,
@@ -52,12 +56,12 @@ export function executeCollection(
     case 'review-collection-removal':
       return {
         action: request.action,
-        result: collections.reviewCollectionRemoval(db, request.id),
+        result: reviewCollectionRemoval(db, request.id),
       }
     case 'remove-collection':
       return {
         action: request.action,
-        result: collections.removeCollection(db, request.input),
+        result: removeCollection(db, request.input),
       }
   }
 }

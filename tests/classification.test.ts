@@ -6,14 +6,14 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { test } from 'node:test'
 import { eq } from 'drizzle-orm'
-import { openDatabase } from '../src/main/db/connection.ts'
-import * as classification from '../src/main/db/operations/classification.ts'
-import { importFolder } from '../src/main/db/operations/sources.ts'
+import { openDatabase } from '../src/main/db/runtime/connection.ts'
+import * as classification from '../src/main/db/operations/classification/operations.ts'
+import { importFolder } from '../src/main/db/operations/sources/import.ts'
 import {
   readLocalProfile,
   setPreviewVolume,
-} from '../src/main/db/operations/profile.ts'
-import { setFavorite } from '../src/main/db/operations/samples.ts'
+} from '../src/main/db/operations/profile/operations.ts'
+import { setFavorite } from '../src/main/db/operations/samples/favorites.ts'
 import {
   collections,
   collectionSamples,
@@ -23,7 +23,7 @@ import {
   sampleCategories,
 } from '../src/main/db/schema/index.ts'
 import { requireClassificationName } from '../src/shared/domain/classification.ts'
-import { isDbReply, isDbRequest } from '../src/main/db/protocol.ts'
+import { isDbReply, isDbRequest } from '../src/main/db/protocol/messages.ts'
 
 const migrationsFolder = fileURLToPath(new URL('../drizzle', import.meta.url))
 const open = (filename = ':memory:'): ReturnType<typeof openDatabase> =>
