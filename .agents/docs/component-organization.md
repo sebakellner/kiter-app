@@ -124,18 +124,16 @@ the list cannot accidentally create one audio player per sample.
 
 ## Tests
 
-- Follow the current [Testing Conventions](testing-conventions.md): executable
-  tests live in `tests/`, using Node tests and the Electron integration script.
-  Do not adopt `.spec.tsx` or module `__tests__/` folders without configuring a
-  component runner and its discovery/type-checking rules.
-- Pure helpers may have focused Node tests; mounted UI behavior belongs in
-  the existing Electron workflow until dedicated component tooling is adopted.
+- Follow [Testing Conventions](testing-conventions.md): colocate component and
+  hook tests as `*.test.tsx`, using the configured Vitest/Testing Library setup.
+  Pure helpers use colocated Node `*.test.ts` or `*.test.mjs` tests. Cross-process
+  Electron integration and Playwright E2E remain under `tests/`.
 - Cover private subcomponents through their parent when that proves the
   behavior. Add isolated coverage only when independent logic or states warrant it.
 - Verify observable interactions, loading/empty/error states, resource cleanup,
   and relevant accessibility behavior, not just component existence.
-- Reuse test fixtures and helpers. Do not introduce fictitious providers,
-  Storybook configuration, or Testing Library utilities into documentation.
+- Reuse `tests/support/` fixtures and helpers. Add provider wrappers only for
+  actual application dependencies; keep bridge replacement explicit in tests.
 
 ## Incremental Reorganization
 

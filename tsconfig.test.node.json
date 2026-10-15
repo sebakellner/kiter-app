@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.node.json",
+  "include": ["src/main/**/*.ts", "src/shared/**/*.ts", "tests/**/*.test.ts", "tests/support/database/**/*.ts", "tests/support/filesystem/**/*.ts", "tests/support/fixtures/**/*.ts", "tests/support/worker/**/*.ts"],
+  "exclude": ["node_modules"],
+  "compilerOptions": {
+    "composite": true,
+    "tsBuildInfoFile": "./node_modules/.cache/typescript/tests-node.tsbuildinfo",
+    "types": ["node", "electron-vite/node"],
+    "target": "ES2024",
+    "lib": ["ES2024", "DOM"]
+  }
+}

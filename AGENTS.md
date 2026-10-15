@@ -66,7 +66,10 @@ pnpm dev             # Electron development app
 pnpm typecheck       # Main/preload and renderer types
 pnpm lint            # ESLint
 pnpm test            # node:test, not watch mode
+pnpm test:ui         # React component/hook behavior
+pnpm typecheck:tests # Node, renderer-test, and E2E types
 pnpm test:app        # Build and Electron integration; requires a desktop
+pnpm test:desktop    # One build for Electron integration and Playwright E2E
 pnpm build           # Type checks and production build
 pnpm db:generate     # Generate migrations; review SQL
 pnpm db:check        # Validate migration metadata

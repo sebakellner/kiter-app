@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.node.json",
+  "include": ["tests/e2e/**/*.ts", "tests/support/fixtures/wav.mjs", "playwright.config.ts"],
+  "exclude": ["node_modules"],
+  "compilerOptions": {
+    "composite": true,
+    "tsBuildInfoFile": "./node_modules/.cache/typescript/tests-e2e.tsbuildinfo",
+    "allowJs": true,
+    "target": "ES2024",
+    "lib": ["ES2024", "DOM", "DOM.Iterable"]
+  }
+}
