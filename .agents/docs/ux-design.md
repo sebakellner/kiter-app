@@ -15,12 +15,14 @@ its documentation location is still to be defined.
 
 The first functional UX baseline is agreed. The sections marked Agreed describe
 the intended experience, not shipped capabilities or existing IPC contracts.
-The current renderer still renders the folder-based Library directly, without a
-router. Visual design, the design system, and prototype validation are deferred.
+The current renderer has a first shell prototype with Home and a folder-based
+Samples view under a persistent player. Other destinations and the inspector
+remain planned. Visual design, the design system, and cross-platform prototype
+validation are still pending.
 
 Use shared sections here and load only the feature guides relevant to a task.
-Routing remains a technical proposal; musical analysis follows its agreed
-feature guide. Agreed feature contracts do not establish shipped capabilities.
+Routing is adopted for the first two destinations; musical analysis follows its
+agreed feature guide. Agreed feature contracts do not establish shipped capabilities.
 
 - [Shell and destinations](#shell-and-destinations)
 - [Selection and playback](#selection-and-playback)
@@ -29,7 +31,7 @@ feature guide. Agreed feature contracts do not establish shipped capabilities.
 - [Feedback, results, and focus](#feedback-results-and-focus)
 - [Conflicts and operation guarantees](#conflicts-and-operation-guarantees)
 - [Persistence summary](#persistence-summary)
-- [Routing proposal](#routing--proposed-technical-direction)
+- [Routing foundation and extensions](#routing--adopted-foundation-and-proposed-extensions)
 - [Feature contracts](#feature-contracts)
 - [Validation and implementation checklist](#validation-and-implementation-checklist)
 
@@ -486,16 +488,13 @@ These are planned behaviors. Focus utilities and accessible dialog layering
 require implementation validation; visual design can refine the shared exit
 review without changing these draft-preservation rules.
 
-## Routing — Proposed Technical Direction
+## Routing — Adopted Foundation and Proposed Extensions
 
-A React Router SPA inside the Electron renderer, with nested routes under a
-persistent shell, was proposed. `createHashRouter` is the initial recommendation
-for compatibility with packaged file-based loading. The router dependency and
-configuration have not been introduced or explicitly finalized.
-
-Keep this recommendation alongside the navigation proposal during planning.
-Once adopted, document router configuration and technical state boundaries in
-[Architecture](architecture.md), leaving the experience and destination map here.
+A React Router SPA with nested routes under a persistent shell is adopted using
+`createHashRouter`. Home and Samples are implemented prototype destinations;
+[Architecture](architecture.md#renderer-navigation-and-shell) owns configuration
+and current state boundaries. The remaining route map and complete navigation
+context restoration below are proposals for later deliveries.
 
 The proposed route map corresponding to the agreed destinations is:
 

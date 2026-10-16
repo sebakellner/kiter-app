@@ -8,6 +8,11 @@ authorization invariants. Visual/proportional-seek prototypes remain deferred.
 
 ## Player and Transport
 
+The initial shell prototype keeps one audio element mounted across Home/Samples
+navigation, with an empty state, native media controls, and an explicit Stop
+action. Row preview retains its current play/stop behavior. The complete custom
+transport and sequence contracts below remain planned.
+
 - Keep one permanent global player mounted across navigation, including empty
   state. Show loaded Sample name, Play/Pause, Previous/Next, Stop, volume, mute,
   position, observed duration, Favorite, Locate, Loop, and automatic advance.
