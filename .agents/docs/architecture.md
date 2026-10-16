@@ -226,145 +226,24 @@ not a separate path that bypasses confirmation.
 
 ## Classification Suggestions — Agreed Direction (Planned)
 
-This direction is approved but not implemented. Business rules, initial Genre
-content, recognition terms, and aliases belong to
-[Domain Model](domain-model.md#suggestions-tasks-and-recovery) and its
-[Genre section](domain-model.md#genre--agreed-not-implemented).
+Feature-specific ownership:
 
-### Identity and Recognition
+- [Classification](features/classification.md): recognition engine, stable
+  vocabulary/alias identity, evidence, rejection memory, and delivery sequence.
+- [Import](features/import.md): reviewed discovery and Sample/Pack transactions.
+- [Operation Execution](features/operation-execution.md): main-owned shared queue,
+  worker-owned journals, atomic outcome records, exit, and restart verification.
 
-- Genres and aliases have stable identities independent of their names. Supplied
-  vocabulary and aliases also have stable catalog keys so updates can distinguish
-  renamed, removed, and newly offered content without restoring user deletions.
-- Re-creating a deleted entry creates a new identity; it does not recover former
-  assignments or historical identity. Exact catalog-to-library mapping and
-  tombstone representation remain implementation contracts to define.
-- Keep the recognition vocabulary separate from library classification records.
-  It may recognize a term whose Category/Genre has not yet been created, subject
-  to the agreed creation/review rules.
-- Use a pure, local, deterministic recognition engine combining supplied
-  vocabulary with library names and aliases. It returns proposals and supporting
-  evidence; it does not write assignments. Normalization rules are agreed below;
-  remaining tokenization edge cases need exact contracts; ambiguity behavior is
-  agreed below.
-- Evidence identifies the matched term and its filename/folder source or the
-  supplying Pack. Combine multiple evidence items into one classification
-  proposal. Rejection memory is evidence-based, not just engine-version-based;
-  evidence equivalence is agreed below; serialized keys and persistence contracts
-  remain open.
+These directions are agreed but not implemented. Feature guides own exact
+contracts; the process boundaries above apply throughout. Never treat a typed
+renderer request as proof of reviewed state, authorized paths, or committed work.
 
-### Recognition Ambiguity — Agreed
+## Analysis and Large Libraries
 
-- Never automatically merge or rename library entries whose distinct names
-  normalize to the same recognition phrase, such as Lo-Fi and Lo Fi.
-- Creating or changing names and aliases must detect recognition conflicts within
-  the same dimension and require explicit resolution. This adds recognition
-  validation without changing the agreed name-uniqueness comparison.
-- If existing data contains an unresolved conflict, omit that ambiguous match and
-  report the conflict while continuing with independent suggestions.
-- For partially overlapping phrases where neither fully contains the other,
-  omit only the ambiguous matched span and report its possible targets. Preserve
-  unambiguous matches elsewhere; fully contained matches retain the agreed
-  most-specific-phrase precedence.
-- Category and Genre recognition namespaces are independent; matching a term in
-  both dimensions is not a conflict.
+[Duration Analysis](features/duration-analysis.md) owns planned persisted duration,
+scheduling, retries, and pause/restart. [Search](features/search.md) owns planned
+matching/ranking, filters, bounded queries, and catalog-change pagination.
 
-Exact conflict payloads and migration-time detection remain implementation
-contracts. Existing data must remain intact; detection does not authorize cleanup
-or silent normalization of user vocabulary.
-
-### Evidence Equivalence and Rejections — Agreed
-
-- Case and equivalent-separator changes do not create new evidence: `TECH-HOUSE`,
-  `tech_house`, and `Tech House` represent the same normalized clue.
-- Renaming a classification preserves its identity and does not reset rejections.
-- A distinct occurrence at a different eligible path location may provide new
-  evidence. Rejecting a filename clue does not suppress a later independent clue
-  from a newly relevant folder.
-- Registering an additional root that exposes the same folder occurrence does
-  not duplicate evidence or bypass a rejection.
-- Identify Pack-derived evidence by Pack identity and Genre identity. Renaming
-  the Pack does not change that evidence; a different Pack can supply new evidence.
-- Updating rules or aliases alone does not turn the same clue into new evidence.
-
-Track evidence independently from the rule that recognized it, while retaining
-rule provenance for explanation and stale-review validation. Exact serialized
-evidence keys, location-change handling, and rejected-target identity before
-vocabulary creation still require implementation contracts. This is planned
-behavior, not an existing rejection store.
-
-### Process Ownership and Execution
-
-- Renderer owns preparation presentation and the user's staged decisions.
-- Main owns operation orchestration, revalidation, and the shared serial queue
-  for confirmed imports and standalone classification. This queue does not replace
-  worker serialization or schedule every catalog mutation.
-- The DB worker owns bounded queries, transactional writes, durable execution
-  history, and recovery records. Main coordinates recovery through those records.
-- Preload exposes narrow typed operations. Validate renderer decisions against
-  the prepared review and current authoritative state; never trust proposed
-  identities, evidence, or paths merely because they arrive in a typed request.
-- Preserve the per-target atomicity, Pack dependencies, cancellation, queue,
-  interruption, and import-specific failure policies agreed in Domain Model.
-  Concrete schema, review tokens, journal checkpoints, IPC payloads, and bounded
-  execution limits require definition before their respective implementation.
-
-### Incremental Delivery
-
-1. Genre operations, alias management, and the pure recognition engine.
-2. Standalone classification preparation, review, and confirmed execution.
-3. Integration with reviewed import, the shared queue, and interruption recovery.
-
-Each delivered workflow must honor its agreed persistence and recovery rules;
-this outline does not authorize shipping an execution path without them. Preserve
-existing preview, Favorites, and authorized native dragging throughout delivery.
-
-### Verifiable Execution Recovery — Agreed (Planned)
-
-- Persist each confirmed import/classification operation and its reviewed
-  decisions before execution starts.
-- Record each Sample/Pack's committed outcome in the same database transaction
-  as its changes. Coupled Pack/first-Sample creation must record both outcomes
-  with their shared transaction. Do not leave applied changes without their
-  corresponding committed result.
-- On restart, use those records to distinguish completed, failed, and unprocessed
-  targets. Mark outcomes that cannot be established as unverified and block
-  their retry until reconciliation finishes.
-- Never resume automatically or treat execution history as an undo mechanism.
-
-These guarantees cover database-backed import and classification, not future
-filesystem moves or exports, which need additional coordination. Exact journal
-schema, preparation payload bounds, interruption checkpoints, and reconciliation
-queries remain executable contracts to define. Neither a progress event nor a
-renderer acknowledgement is proof of a committed database outcome.
-
-## Analysis, Search, and Large Libraries
-
-- **Agreed, planned:** measure and persist observed duration in background after
-  import, without blocking import on library-wide decoding. Unknown duration
-  stays unknown until measured. Bind observations to source versions and
-  invalidate them on source change; reject stale analysis results. Extraction,
-  scheduling, retry, and storage contracts remain open, separately from musical
-  BPM/key analysis and the existing preview/waveform duration.
-- Duration failures retain the Sample and organization with unknown duration and
-  a separate analysis error, without changing a completed import's outcome.
-  Support explicit retry and retry on detected new source versions; avoid endless
-  retries for the same version. Duration, waveform, and preview outcomes remain
-  independent; exact retry scheduling and error contracts need definition.
-- Gradually include previously imported Samples lacking duration in the same
-  background scheduler, without reimport and under the same pause/priorities/limits.
-  Distinguish source unavailability from decoding errors. An authorized check or
-  rescan verifying restored access permits retry of an unavailability failure on
-  the same source version, respecting pause; do not continuously poll. Decoding
-  failures still need explicit retry or a new source version.
-- Background duration measurement supports pause/resume, prioritizes explicit
-  requests, and bounds queued/active work without blocking main or overwhelming
-  preview. Stop safely on exit; automatically resume pending work after restart
-  unless the user left measurement paused. Persist that pause choice. Resumption
-  alone does not retry same-version failures; verified access restoration follows
-  the exception above. It does not change manual continuation rules for
-  import/classification. Exact scheduler, resource budgets, and checkpoints remain
-  contracts to define.
 - Preserve lazy waveforms, bounded caching, and a single preview player.
   Current browser decoding remains appropriate for short samples.
 - **Planned:** move expensive analysis to a bounded worker or Electron utility
@@ -379,32 +258,6 @@ renderer acknowledgement is proof of a committed database outcome.
 - **Planned:** search the catalog across imported roots, not only the currently
   displayed folder. Use indexed fields, stable ordering, and pagination; add
   full-text indexing when its requirements justify it.
-- Approximate library search follows the agreed baseline in
-  [Global Search](ux-design.md#global-search--agreed-interaction): query words of
-  at least four characters, one edit or adjacent transposition, no approximate
-  numeric/short-term matches, all words required, and approximate results last.
-  Validate against real examples before implementation; this does not loosen
-  deterministic classification recognition or expand recognition aliases.
-- Within each search relevance tier, use the agreed deterministic tie-breakers:
-  fewer approximate words, lower total edit distance, normalized name, entity
-  type, then stable ID. Do not add Favorite or recency weighting. Define cursor
-  and snapshot behavior against this ordering before implementing pagination.
-- Main validates search requests; the DB worker executes catalog queries without
-  transferring the whole library to renderer. Wait 250 ms after typing stops
-  before querying and reject stale responses in the owning renderer context.
-- Return at most five suggestions per entity type, with access to full results.
-  Full-result pages default to 50 records, maximum 100 per request, following the
-  agreed relevance and tie-break ordering. Validate these initial limits against
-  representative libraries before implementation.
-- On refresh failure, retain the last valid results with an explicit failure
-  state. Query correlation, pagination cursors, catalog-change behavior, and
-  bounded approximate-match execution remain technical contracts to define.
-- Relevant catalog changes do not automatically reorder displayed search results;
-  expose available changes and offer refresh. If they invalidate pagination,
-  reject continuation rather than mixing catalog versions. Refresh starts at the
-  first page with the same query/filters and preserves valid selection. Mutations
-  revalidate current state; this is not a full retained query snapshot. Exact
-  invalidation scope and cursor/version tokens remain implementation contracts.
 - **Planned:** return scan results and progress in batches, and virtualize large
   lists so offscreen rows do not all create components or observers.
 - Bound queued and active work, not just concurrency. Deduplicate repeated

@@ -189,6 +189,11 @@ editor's TypeScript service.
   overview, user-facing feature list, getting started, and high-level limitations.
   [Testing Conventions](testing-conventions.md) owns test execution and isolation.
   Avoid maintaining duplicate versions of the same guidance.
+- Focused guides under `features/` own detailed workflow behavior, feature-specific
+  architectural contracts, delivery status, and unresolved implementation details.
+  Keep general guides as entry points for shared rules. Link to the owner instead
+  of copying its rules or maintaining another feature checklist elsewhere. Read
+  only relevant guides/dependencies using the index in AGENTS.md.
 - Do not modify the root [README](../../README.md) as an automatic part of feature
   work, internal implementation changes, or technical documentation updates.
   Edit it only when the user explicitly requests a README update. Keep it

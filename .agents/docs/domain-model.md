@@ -15,8 +15,8 @@ catalog and from questions that still require agreement.
   Sample, Pack, Collection, Category, Genre, Author, and sample favorite marks.
 - **Agreed Genre extension, not implemented:** optional multiple Genres on Samples
   and Packs, with independent assignments, an initial vocabulary plus user-created
-  entries, and no hierarchy. Genre storage, executable contracts, initial catalog,
-  and vocabulary lifecycle rules still require definition.
+  entries, and no hierarchy. Business rules and initial content are agreed;
+  executable storage/IPC contracts remain to be delivered.
 - **Implemented slice:** pure entity contracts, fresh 17-table catalog, separate
   Sample/source records, imported root associations, Favorites, and transactional
   local profile/Preferences bootstrap. DB client profile reads and volume writes
@@ -178,59 +178,12 @@ not a user-extensible collection of types.
 
 Type describes intended musical use, not duration. A long impact may be a
 One-Shot and a short phrase a Loop. BPM or tonality alone does not determine
-type.
+type. Confirmed user choices survive reimport until an explicit change.
 
-Suggest type only from explicit filename/folder terms and agreed aliases, such as
-Loops or One Shots, with user acceptance before assignment. Retain the supporting
-clue separately from the user's confirmed type. Do not infer type from instrument
-classification or analyze audio for this delivery.
-
-For contradictory type clues, an explicit filename type takes precedence over
-folder clues. If the filename supplies no type, use the nearest folder with an
-explicit type clue. For example, `Loops/kick_one_shot.wav` suggests One-Shot.
-This type-specific precedence does not change Category/Genre evidence combination.
-If the same filename or folder name contains contradictory Loop and One-Shot
-clues, emit no type proposal and report the contradiction. Preserve the existing
-type or leave it unknown; allow manual editing without blocking import. Do not
-fall back to a lower-priority folder to conceal an ambiguous filename clue.
-Use the same eligible roots and path boundaries as other classification, combining
-selected containing roots during import and registered roots during explicit
-classification. Count the same folder occurrence only once across roots. Apply
-filename-first, then nearest-folder precedence across the eligible evidence; if
-contradictory clues remain at equal priority, emit no proposal and explain the
-conflict. Do not derive type from the Pack or other Samples. Explicit type
-classification may use registered paths for unavailable audio, with the same
-cataloged-evidence qualification as other classification.
-
-Confirmed Sample types survive reimport, whether chosen manually or accepted
-from a suggestion. If eligible evidence suggests a different type, offer an
-explicit replacement proposal showing the existing and proposed values; change
-the type only on acceptance. Never automatically replace a confirmed type based
-on its original assignment method.
-
-Type suggestions follow the agreed classification review rules: remember explicit
-rejections while evidence is unchanged, allow including rejected proposals on
-explicit request, and do not treat unreviewed proposals as rejection or block
-import because of them. Clearing a type to unknown is not rejection and permits
-later suggestions. Stage decisions until confirmation and commit them atomically
-with the Sample's other reviewed classification changes. Group decisions are
-allowed for explicit selections, identifying any existing types to be replaced.
-
-Recognize Loop from Loop/Loops and One-Shot from One Shot/One Shots/Oneshot/
-Oneshots. Apply the agreed separator normalization to forms such as `one_shot`
-and `one-shot`; do not initially recognize OS or standalone Shot. Users may add
-aliases targeting either fixed type, under the same alias conflict and management
-rules, without creating new types or assigning automatically. Type aliases form
-a separate recognition dimension from Categories and Genres.
-
-Sample lists may filter by confirmed Loop, One-Shot, or unknown type. Multiple
-selected type values combine with OR; combine the type filter with other filter
-groups using AND. Pending suggestions never count as confirmed filter values.
-Free-text search does not implicitly turn words such as loop into a type filter.
-
-Persistence/IPC contracts remain open. This is a separate Sample-type suggestion
-extension; it does not
-turn Loop/One-Shot into Categories or expand musical BPM/key analysis scope.
+[Classification](features/classification.md#sample-type-suggestions) owns type
+recognition, aliases, evidence priority, replacement/rejection review, and atomic
+execution. [Search](features/search.md) owns confirmed-type filters. This planned
+extension does not turn types into Categories or musical analysis results.
 
 ### Pack
 
@@ -262,16 +215,8 @@ Collections. Descriptions share their optional NFC, 5,000-code-point policy.
 Editing supplies name and description together; absent description clears it.
 Reimport preserves stored presentation fields rather than applying import defaults.
 
-Internal Pack/member/import-candidate lists default to 50 items, maximum 100.
-Packs sort by stored name then UUID; members by canonical path then UUID;
-import candidates by Sample UUID. Reviews hash the completed scan, Pack
-presentation, and exact candidate source revisions/origins in bounded batches.
-Every conflicting candidate requires one explicit `keep` or `assign` decision;
-extra, missing or repeated decisions are rejected. Manual standalone origins are
-conflicts too; a manual origin already matching the target Pack remains manual.
-Changed reviewed state returns `STALE_REVIEW` inside the confirmation transaction.
-Internal preparation imports Samples first; canceling Pack confirmation leaves
-those Samples cataloged with their previous origins.
+[Import](features/import.md#implemented-internal-pack-contract) owns current
+internal Pack review/query contracts and the distinct planned import workflow.
 
 Pack Samples have no persisted manual order in this stage; order them by
 name or path when listing. Collections retain their explicit membership order.
@@ -300,12 +245,8 @@ whitespace. Whitespace-only descriptions become `null`; nonempty descriptions
 retain their spacing. Editing supplies name and description together; an absent
 description clears it. Names may repeat.
 
-Internal Collection and membership lists default to 50 items, maximum 100.
-Collections sort by stored name then UUID; memberships sort by position. Adding
-an existing member is idempotent without moving it; new members append after the
-last position. Removal can leave gaps. Reorder requires every current Sample ID
-exactly once and writes contiguous positions atomically, rejecting stale or
-incomplete membership sequences without changing the previous order.
+[Catalog Organization](features/catalog-organization.md#implemented-internal-contracts)
+owns current bounded queries and reorder/impact execution contracts.
 
 ### Category
 
@@ -329,11 +270,9 @@ Author and Category names are trimmed and normalized to NFC for storage, with
 and line/paragraph separators before trimming. Preserve display case, accents,
 and internal spaces. Author names remain non-unique.
 
-Internal classification lists and target-assignment lists use pages of 50,
-with a maximum of 100, ordered by normalized name key then UUID. Partial search
-uses the same locale-independent normalization, retains accents, and treats
-search text literally. Use lists are separately paginated for Samples and Packs;
-removal reviews include counts and any linked profile.
+[Catalog Organization](features/catalog-organization.md#implemented-internal-contracts)
+owns implemented assignment/query/impact contracts; library-wide search has its
+separate matching rules.
 
 ### Genre — Agreed, Not Implemented
 
@@ -374,24 +313,11 @@ Genre assignments are user organization and must survive rescans and source or
 origin changes. This agreed extension is not part of the current logical data
 profiles or implemented 17-table schema below.
 
-Library search matches Samples and Packs by their directly assigned Genre names,
-not pending suggestions or a Sample's Pack Genres. Genre filters combine selected
-values with OR and combine with other filter groups using AND. Recognition
-aliases do not expand search queries or implicitly activate Genre filters.
-Genres also appear as search results in their own right. Activating a Genre
-result opens Samples filtered by that Genre; support querying its directly
-associated Packs as well. This does not introduce a new primary navigation
-destination or imply that these queries are implemented.
-
-The approved initial catalog contains these 26 independent entries: House,
-Tech House, Deep House, Techno, Trance, Drum and Bass, Dubstep, UK Garage,
-Breakbeat, Disco, Hip Hop, Trap, R&B, Soul, Funk, Pop, Reggaeton, Dancehall,
-Afrobeats, Rock, Jazz, Blues, Folk, Classical, Ambient, and Cinematic. This is
-agreed seed content, not an implemented migration or recognition-alias catalog.
-
-Catalog-update identity/tracking and storage/IPC contracts remain open. Suggestion
-and reimport business rules are recorded under Suggestions, Tasks, and Recovery;
-existing Author/Category operations do not implement Genre behavior.
+[Classification](features/classification.md#genre-seed) owns the approved initial
+26-entry catalog and recognition/alias delivery. [Search](features/search.md) owns
+Genre query matching, filters, and result navigation. Catalog-update tracking and
+storage/IPC remain executable contracts; current Category operations do not
+implement Genres.
 
 ### Author
 
@@ -543,18 +469,10 @@ design.
 - Removing a Pack from Kiter keeps its Samples in the Library as standalone
   Samples. Their IDs, direct Categories and Author credits, Favorite marks, and Collection
   memberships remain intact.
-- Internal Pack removal reviews presentation, cover, exact Sample origins, and
-  Category/Author assignment IDs; confirmation rechecks them transactionally and
-  returns `STALE_REVIEW` on change. Detached Samples receive manual standalone
-  protection, so later Pack registration requires reviewing them again. Only
-  unreferenced covers become `cleanup_pending`; physical cleanup is separate.
+- Detached Pack Samples receive manual standalone protection on removal;
+  later Pack registration requires reviewing them again.
 - Removing a Collection removes its presentation data and memberships, not
   its Samples or their audio.
-- Collection removal requires a token from impact review, rechecking presentation,
-  cover ID and exact ordered memberships inside the transaction. Changed state
-  returns `STALE_REVIEW`. Removing the final cover reference marks the managed
-  asset `cleanup_pending`, checking Packs, other Collections and profile avatars.
-  Main's managed-image service performs physical cleanup separately and recoverably.
 - Removing catalog organization is distinct from deleting source audio.
   Metadata removal must never cascade into filesystem deletion.
 - A missing source does not by itself remove a Sample's identity, organization,
@@ -564,29 +482,16 @@ design.
   association, Category/Author assignments, and Collection memberships, but keep its
   source audio. Preserve an exclusion for that canonical location so rescans
   do not undo the decision. Explicit reinclusion does not restore deleted data.
-- Internal removal review hashes Sample presentation, Favorite/origin, the source
-  observation/revision and exact Collection/Category/Author/root references in
-  batches of 500. Reference reads are paginated by referenced UUID, default 50,
-  maximum 100. Confirmation rechecks the token in an immediate transaction;
-  changed reviewed state returns `STALE_REVIEW`. Exclusion and catalog deletion
-  commit together; audio authorization is not granted by these internal APIs.
-- Exclusions are Library-wide and list by canonical path in pages of 50, maximum 100. Explicit reinclusion selects an excluded canonical location and a registered
-  containing root. Main verifies readable supported-extension audio and rejects
-  symlinks and changed canonical locations. The transaction rechecks exclusion,
-  registered containment and vacancy, clears the exclusion and creates a new
-  Sample/source pair associated with that root. Its origin is manually standalone
-  so a later Pack import requires review. Other overlapping root associations
-  are rediscovered on rescan; no Pack or deleted organization is restored.
+- Exclusions are Library-wide. Explicit reinclusion requires a registered
+  containing root and verified supported readable audio, rejecting symlinks and
+  changed canonical locations. It creates a new Sample/source associated with
+  that root, manually standalone and without deleted organization; overlapping
+  associations are rediscovered on rescan.
 - Removing a Category or Author requires showing its uses and obtaining
   confirmation. Remove its assignments or credits, not the associated
   Samples, Packs, or files.
 - Author removal also shows any UserProfile link and clears that link without
   removing the profile or its Preferences.
-- Author/Category removal requires the review token returned by impact inspection.
-  Recheck the entity name, exact Sample/Pack association IDs, and linked profile
-  inside the removal transaction. Changed impact rejects the removal with
-  `STALE_REVIEW`; inspect and confirm again. Matching counts alone are insufficient.
-  A token identifies reviewed state, not UI confirmation or an authorization grant.
 - Unregistering a source directory stops scanning it but retains its Samples
   and organization. Catalog retention alone does not authorize access to
   audio; playback and dragging still require an authorized location.
@@ -596,6 +501,9 @@ design.
 
 Derived caches can be rebuilt; user organization must not be treated as
 disposable cache data.
+Exact transactional impact checks, pagination, tokens, and managed-cleanup
+integration belong to [Catalog Organization](features/catalog-organization.md#implemented-internal-contracts),
+with image lifecycle infrastructure in Data Access.
 
 ### Rename, Relocate, Centralize, and Export
 
@@ -647,45 +555,9 @@ groupings. Their representation belongs to later technical planning.
 
 ### Availability and Analysis
 
-Measure observed duration in background after import, without making import wait
-for audio decoding across its Samples. Until measured, duration remains unknown.
-Persist the observation against the source version and invalidate it when that
-version changes. This is an agreed duration-analysis extension, not existing
-catalog metadata or a musical BPM/key analyzer. Add previously imported Samples
-with pending duration measurements gradually to the same background analysis,
-respecting pause, priorities, and bounded work without requiring reimport.
-Unavailable audio retains unknown duration. Exact scheduling and persistence
-contracts remain to be defined.
-
-Duration-extraction failure preserves the Sample and its organization, leaves
-duration unknown, and records the analysis failure separately. It does not turn
-a completed import into a failed import. Allow explicit retries for affected
-Samples and retry when a new source version is detected; do not retry the same
-failure indefinitely on the same version. Duration, waveform, and preview
-capabilities and outcomes remain independent.
-
-Distinguish temporary source unavailability from decoding/extraction errors.
-After an authorized check or rescan verifies renewed access, retry measurement
-that failed because the source was unavailable, even if its version is unchanged.
-Do not continuously poll unavailable sources. Same-version decoding failures
-require explicit retry; a detected new source version also permits retry.
-
-Users may pause and resume background duration measurement. Prioritize explicit
-user analysis requests and keep queued/active work bounded without blocking main
-or competing without limits with preview. Stop safely on exit and automatically
-resume pending measurement after restart, preserving an explicitly paused state.
-Automatic resumption alone does not retry same-version failures; verified access
-restoration follows the exception above, still respecting pause and limits. This
-analysis-specific policy does not permit automatic resumption of confirmed
-imports or classification. Pause persistence, scheduling limits, and shutdown
-checkpoints remain implementation contracts.
-
-Library search includes matching Samples even when their audio is missing or
-inaccessible, identifying known availability accurately rather than hiding their
-catalog data. Users may inspect and organize those records. Preview and native
-dragging require main to verify authorized audio access; inclusion in results
-does not establish availability or authorize a stored path. This is agreed search
-behavior, not an implemented library-wide query.
+[Duration Analysis](features/duration-analysis.md) owns measurement, source-bound
+invalidation, background scheduling, pause/restart, and retry policies.
+[Search](features/search.md) owns unavailable-result inclusion and duration ranges.
 
 Availability and analysis are independent. Planned availability meanings are
 **available**, **missing**, and **inaccessible**. Planned analysis states are
@@ -698,10 +570,6 @@ errors; do not collapse them into one `supported` flag.
 
 Use seconds for duration, Hz for sample rate, positive integers for channel
 count, and bytes for file size. Unknown values remain unknown, not zero.
-Duration queries use optional inclusive bounds in seconds without rounding stored
-observations before comparison. Input accepts decimal seconds or minutes:seconds;
-empty bounds impose no limit. Reject negative/nonfinite bounds and inverted
-ranges. Unknown duration is included only through an explicit option, not as zero.
 Musical attributes such as BPM or key require a separately scoped analyzer and
 provenance; filenames alone are not verified measurements.
 
@@ -711,365 +579,19 @@ at an old path is not proof of unchanged content.
 
 ### Suggestions, Tasks, and Recovery
 
-The first import-classification feature may suggest Categories and Genres from
-filenames and folder names. Author credits and musical BPM/tonality hints are
-outside this first slice. Suggestions require user acceptance before assignment;
-eligible path evidence includes the filename, the selected import root's name,
-and descendant folder names along the file's relative path. Ancestors above the
-selected root are excluded. Detailed normalization and evidence contracts remain
-open; root-combination rules are agreed below. This feature is not implemented.
-See [Architecture](architecture.md#classification-suggestions--agreed-direction-planned)
-for the approved identity, recognition-engine, process, and delivery boundaries.
+Suggestions are proposals, not accepted user data; rescans must not replace
+confirmed organization. Rejected or stale proposals require renewed review.
 
-Recognition uses an app-supplied vocabulary for Categories and Genres. Reuse an
-existing matching library entry; when a recognized value is absent, propose its
-creation and assignment. Neither the entry nor its assignment is created until
-the user accepts. This does not prepopulate the user-created Category vocabulary
-or automatically restore deleted Genres. Detailed matching and executable
-transaction contracts remain open; agreed atomicity rules are recorded below.
+- [Classification](features/classification.md) owns recognition, aliases, evidence,
+  rejection memory, Sample-type suggestions, and standalone review/execution.
+- [Import](features/import.md) owns discovery, origin review, target transactions,
+  partial outcomes, and whole-batch retry.
+- [Operation Execution](features/operation-execution.md) owns the shared queue,
+  cancellation/exit, durable history, and verifiable restart recovery.
 
-The approved initial Category recognition vocabulary contains 25 independent
-terms: Drums, Kick, Snare, Clap, Hi-Hat, Cymbal, Tom, Percussion, Bass, 808,
-Synth, Lead, Pad, Keys, Piano, Organ, Guitar, Strings, Brass, Woodwinds,
-Vocals, FX, Riser, Impact, and Texture. Recognizing one term does not imply
-another (for example, Piano does not automatically suggest Keys). These are
-recognition terms, not automatically created Category records. Loop and One-Shot
-are excluded from this vocabulary and reserved for the separate optional
-Sample-type dimension defined above; remaining business and implementation
-contracts still require agreement.
-
-The approved initial recognition aliases are:
-
-- Category Kick: Kicks, Bass Drum, Bass Drums, BD.
-- Category Snare: Snares.
-- Category Clap: Claps.
-- Category Hi-Hat: Hi Hat, Hi Hats, Hihat, Hihats, Hats.
-- Category Cymbal: Cymbals.
-- Category Tom: Toms.
-- Category Percussion: Perc.
-- Category Vocals: Vocal, Vox.
-- Category FX: Effects, SFX.
-- Category Riser: Risers.
-- Category Impact: Impacts.
-- Category Texture: Textures.
-- Genre Drum and Bass: DnB, D&B.
-- Genre Hip Hop: Hip-Hop, HipHop.
-- Genre R&B: RnB, R and B.
-- Genre UK Garage: UKG.
-
-These variants define recognition behavior, not mandatory separate alias rows:
-case and common-separator normalization should avoid redundant aliases. Do not
-infer equivalences such as 808 to Bass or Keys to Piano. Normalization is agreed
-in Architecture; initial alias delivery remains an implementation contract.
-
-During import preparation, accepting a suggestion stages the proposed vocabulary
-creation and assignment; it does not persist either immediately. Persist those
-changes only after import confirmation, during execution. Closing preparation
-retains its staged decisions for the session under the existing preparation
-rules, without creating vocabulary or assignments. Target commit/failure rules
-are agreed below; executable transaction contracts remain to be defined.
-
-Rejecting a suggestion during import preparation also stages the decision rather
-than persisting rejection memory immediately, including for existing Samples and
-Packs. Persist rejections only during confirmed import execution. Discarding the
-preparation saves neither acceptances nor rejections; closing it without
-discarding retains staged decisions for the current session. Rejections commit
-only with their target's successful classification transaction, as specified below.
-
-Persist classification decisions atomically per Sample or Pack: its accepted
-assignments, any vocabulary creation needed for those assignments, and explicit
-rejections commit together or none of those changes commit. Failure must not
-leave only part of that target's reviewed classification applied. This does not
-roll back other targets already processed or establish folder/batch atomicity.
-Shared vocabulary created by a previously committed target remains valid.
-Import-stage and retry policies are agreed below; concrete commands remain open.
-
-Revalidate reviewed classification decisions before execution. If relevant target
-identity, evidence, or recognition rules changed, require fresh review of the
-affected Sample or Pack rather than reinterpreting its decisions or silently
-creating a replacement classification. Preserve staged decisions that remain
-valid. Exact stale-review tokens and the import queue's existing fresh-review
-orchestration require technical integration.
-
-Names of existing library Categories and Genres, including user-created entries,
-also act as complete-word/phrase recognition terms without requiring a duplicate
-alias. Aliases provide additional variants. For example, an existing Dungeon
-Synth Genre can be suggested from `dungeon_synth_pad.wav`. Creating an entry
-enables recognition, not automatic classification or background proposals.
-
-Offer a Sample's Pack Genres as suggestions both during import and when the user
-explicitly requests classification. Combine them with path-derived proposals,
-retaining the Pack as a distinct evidence source and deduplicating the proposed
-Genre. Assignment still requires acceptance. Changing Pack Genres alone does not
-start classification or generate background proposals for its Samples. During
-import, use the origin that will result from the reviewed decision: the retained
-Pack or destination Pack, including new Pack Genres accepted in preparation.
-A Sample remaining standalone receives no Pack-derived suggestions. Changing the
-origin decision requires refreshing and reviewing affected proposals before
-confirmation. Pack Categories do not gain this suggestion behavior implicitly.
-Execution dependencies between staged Pack Genres and Sample decisions still
-require technical contracts.
-
-For the Pack itself, derive import-classification suggestions only from the name
-of the folder supplying that Pack, not from descendant folders, filenames, or
-aggregated Sample classifications. Descendant path evidence remains eligible for
-Sample suggestions under the rules above. Pack proposals also require acceptance;
-Sample classifications do not propagate to the Pack. For an existing Pack with
-multiple root associations, combine only the supplying root names included in
-the operation: selected associated roots during reimport, or all registered
-associated roots during explicit classification without reimport. Deduplicate
-proposals while retaining evidence; do not inspect descendants or file contents.
-
-Classification matching is local and deterministic, using complete words/phrases
-and explicitly defined aliases, with common filename separators recognized.
-For example, `RISERS` may map to Riser and `DnB` to Drum and Bass through explicit
-aliases. Do not match arbitrary substrings or infer unknown abbreviations or
-spelling corrections. Each proposal must retain the matching evidence so its
-reason can be explained. Within the same classification dimension, prefer the
-most specific recognized phrase over matches contained in the same text span:
-`tech_house_kick.wav` suggests Tech House and Kick, not an additional House from
-that phrase. Independent House evidence in another eligible folder may still
-produce a House suggestion. This is phrase precedence, not Genre hierarchy.
-
-Different eligible path components do not override one another. When a filename
-and folder suggest different classifications, offer both with their respective
-evidence rather than deciding which is correct. For example,
-`Snares/kick_01.wav` may suggest Snare and Kick; users may accept either, both,
-or neither. Most-specific-phrase precedence still applies within each text span.
-
-Kiter supplies initial recognition aliases, and users may add their own aliases
-for Categories and Genres, including user-created vocabulary entries. For
-example, a custom `BD` alias may suggest Kick. Adding an alias enables suggestions
-only; it never assigns classifications automatically or changes existing ones.
-Each alias has one target within its classification dimension, across supplied
-and custom aliases. Assigning an occupied alias to a different target in that
-dimension requires explicit reassignment, never silent replacement or multiple
-targets. The same alias may independently target one Category and one Genre.
-An alias must not equal the name of a different entry within the same dimension.
-Enforce this on alias creation/reassignment and on vocabulary creation/renaming;
-require explicit conflict resolution rather than saving ambiguous rules. Category
-and Genre namespaces remain independent. Recognition equivalence and conflict
-handling follow the agreed Architecture rules.
-
-Supplied aliases can be edited, explicitly reassigned, and deleted just like
-custom aliases, subject to the same conflict rules. Application updates preserve
-those changes and do not restore deleted aliases. Offer new supplied aliases
-for optional incorporation rather than adding them automatically. Stable alias
-identity, catalog-update tracking, and update-conflict contracts remain open.
-
-Renaming a Category or Genre preserves its identity, assignments, and existing
-aliases. Its new name becomes a recognition term; the previous name is not
-automatically retained as an alias. Recognition through the old name requires
-an explicit alias. Stable recognition-target mapping for app-supplied vocabulary
-remains a technical contract to define.
-
-Deleting a Category or Genre also deletes its attached aliases, both supplied
-and custom. Include those aliases in the deletion impact review. They stop
-generating suggestions and their terms become available for other targets;
-reassignment is not required before deletion. This is agreed future alias
-behavior, not part of existing Category removal operations. Recognition-catalog
-rules may later propose creating the deleted classification again when eligible
-evidence matches; deletion does not suppress those proposals. Re-creation always
-requires explicit acceptance and does not restore deleted assignments or custom
-aliases. This does not permit automatic restoration by catalog updates.
-
-Recognition normalization is agreed in
-[Architecture](architecture.md#recognition-normalization--agreed); remaining
-tokenization edge cases require exact contracts. Recognition-conflict behavior is
-agreed in [Architecture](architecture.md#recognition-ambiguity--agreed).
-These rules concern classification suggestions, not the separately agreed
-approximate library search.
-
-Remember a rejected Category/Genre suggestion for a Sample or Pack while its
-supporting evidence is unchanged. Reimport must not repeat the same rejected proposal from
-the same evidence. New or changed supporting evidence may make it eligible for
-review again; this never assigns it automatically. Confirmed assignments survive
-reimport and are not replaced by suggestions. Evidence-equivalence rules are
-agreed in [Architecture](architecture.md#evidence-equivalence-and-rejections--agreed);
-exact evidence keys and rejection identity for missing vocabulary entries still
-require technical contracts.
-Alias or recognition-rule updates do not by themselves invalidate a rejection.
-Offer the same classification again only when new or changed supporting path
-evidence exists, including a distinct clue newly recognized by an updated rule.
-Recognizing the same rejected clue through a changed rule is not new evidence;
-unrelated rule updates must not reset rejection memory.
-
-Manually removing a Category or Genre assignment does not record a suggestion
-rejection. The same classification may be suggested again on reimport even when
-its supporting evidence is unchanged. It still requires acceptance before being
-assigned again; only an explicit suggestion rejection activates rejection memory.
-These rejection, assignment-preservation, manual-removal, and unreviewed-proposal
-rules apply equally to Samples and Packs, including existing Packs on reimport.
-
-When explicitly requesting classification for selected Samples or Packs, users
-may opt to include previously rejected suggestions even with unchanged evidence.
-Viewing those proposals does not clear rejection memory. Accepting one stages
-its assignment and replacement of its rejection, committed together only after
-confirmation under the same per-target atomicity rules. Discarding that review
-preserves the rejection; this is not a blanket reset of the selection's history.
-
-Users may accept or reject classification suggestions individually or for an
-explicit group of Samples and reviewed proposals. Group decisions affect only
-those proposals and never replace existing assignments. This does not change
-the individual keep/assign review required for Pack-origin conflicts. Batch
-limits and exact stale-review checks remain to be defined; commit/failure policies
-are agreed below.
-
-Unreviewed classification suggestions do not block import confirmation. Import
-without applying them or recording a rejection; they may be offered again on
-reimport. Leaving a proposal unreviewed is distinct from explicitly rejecting it.
-
-Users may also explicitly request classification suggestions for selected
-existing Samples or Packs without reimporting their folders. Apply the same
-evidence scope, review, rejection-memory, and assignment-preservation rules.
-Changing aliases or recognition rules does not automatically reclassify the
-library or generate background proposals. Root evidence and rule-update behavior
-are agreed below; bounded execution and exact evidence keys need contracts.
-
-Explicit classification without reimport also stages acceptances and rejections
-for a separate confirmation before writing. Closing the review may retain it for
-the current session; discarding it saves no decisions. Confirmed execution uses
-the same per-Sample/Pack atomicity and stale-review rules as import classification.
-Session retention does not imply recovery of unconfirmed reviews after restart.
-
-Standalone batch classification continues after individual Sample/Pack write
-failures and reports successful and failed targets separately. Retry failed
-targets only after revalidation, requiring fresh review when relevant state
-changed. Preserve successful targets; do not roll back the batch or call partial
-completion a full success. This policy does not change import failure behavior.
-
-When standalone classification includes Packs and Samples, allow accepted Pack
-Genres in preparation to support proposals for selected member Samples. Commit
-selected Packs before dependent Samples. If a Pack write fails, leave Samples
-whose reviewed decisions depend on that change unprocessed; continue unrelated
-targets. Selecting a Pack does not automatically select its Samples. Record
-dependencies and blocked outcomes explicitly; dependency validation and execution
-ordering require technical contracts.
-
-Standalone batch classification supports cancellation between targets. Finish the
-current Sample/Pack transaction, then start no further targets. Preserve committed
-changes and report completed, failed, and unprocessed targets separately; a
-cancellation request is not rollback or proof that the active target was skipped.
-This does not introduce cancellation for confirmed imports.
-
-Continuing a canceled or interrupted standalone classification creates a new
-operation for failed and unprocessed targets only, preserving the original
-result. Do not reapply completed targets. Require explicit user continuation,
-revalidation, and fresh review of stale decisions; after interruption, reconcile
-unverified outcomes before deciding which targets remain eligible. This does not
-change import Retry, which prepares the whole original batch again.
-
-Ordinary application exit during standalone classification requests a stop at
-the next target boundary: finish the current transaction, start no further
-targets, and retain completed changes. Persist a recoverable execution result
-so outcomes remain available after restart. After forced termination, reconcile
-confirmed outcomes and unverified states rather than assuming success or
-rollback; never resume automatically. This durable result requirement is separate
-from session-only unconfirmed reviews and requires storage/recovery contracts.
-
-Keep standalone classification execution history across restarts until the user
-explicitly deletes it; do not automatically expire or rotate those records.
-Preserve summaries and per-target outcomes with paginated details. History cleanup
-does not undo classifications or delete Samples, Packs, or audio. Allow individual
-or batch history deletion after explicit confirmation only for terminal operations
-whose recovery verification has finished. Active, queued, or recovering operations
-cannot have their history deleted. Terminal failures and interrupted results may
-be deleted after verification even when the operation did not succeed. Storage
-and exact cleanup/query contracts remain open.
-
-Confirmed imports and standalone classification operations share one serial
-execution queue, ordered by confirmation. Users may prepare and confirm further
-operations while one executes; revalidate each queued operation before starting.
-Do not execute import and standalone classification concurrently, even when their
-targets differ. This is operation orchestration, not a generic queue for every
-catalog mutation or a replacement for DB-worker serialization. Confirmed queued
-classifications persist on exit like queued imports. After restart, show them as
-pending without automatic execution; continuing requires user action and
-revalidation, with fresh review if relevant state changed. Queue storage,
-cross-operation recovery, and exact exit synchronization remain open contracts.
-
-Apply the same advancement rules across the shared queue: after a terminal
-failure/partial result or standalone cancellation, retain the outcome and continue
-with the next operation. An operation requiring fresh review pauses advancement
-until reviewed or removed. Pending operations may be removed, not edited or
-reordered; changes require preparing another operation. An application exit
-request during standalone classification stops after its current target and
-exits without starting queued work. Confirmed import execution still blocks
-ordinary exit until it finishes under its existing rule.
-
-For each new imported file, create the Sample, its source record, and its reviewed
-classification decisions in one atomic operation. If any part fails, that new
-Sample and source are not incorporated and its classification changes do not
-commit. Previously committed Samples remain intact. This is an agreed target
-contract, not current import behavior.
-
-Create a new Pack atomically with its first reviewed Sample-origin association,
-the Pack's presentation/classification decisions, and the required writes for
-that Sample, including its source/classification if newly imported. The first
-association may reuse an existing Sample under its reviewed origin decision.
-Do not commit a new empty Pack when that transaction fails. Process subsequent
-Samples independently; a later failure preserves the partially populated Pack
-and previously committed Samples and must be reported as partial import. This
-does not make the entire folder atomic.
-
-When reimporting an existing Pack, commit each Sample's source observation,
-reviewed classification decisions, and explicitly reviewed origin decision in
-one transaction. Failure leaves all those changes unapplied for that Sample,
-without reverting previously committed Samples. Origin conflict decisions remain
-individual and explicit. This target workflow replaces neither the currently
-implemented Pack confirmation transaction nor its review checks until delivered.
-
-Before processing an existing Pack's Samples, commit its reviewed classification
-decisions atomically. If that Pack-level write fails, process none of its Samples
-and follow the import batch failure policy. A later Sample failure preserves the
-Pack's committed classification changes and reports them in the partial result.
-New Packs retain their first-association transaction rule above. Exact
-revalidation and execution-dependency contracts remain open.
-
-During import, a classification-write failure stops the current import batch;
-do not begin subsequent folders. Preserve previously committed catalog content
-and classification outcomes, report incorporated content separately from failed
-classification and unprocessed work, and never label the batch fully successful.
-Per-target classification atomicity still applies; a folder is not an
-all-or-nothing transaction. Retries follow the existing whole-batch rediscovery
-and fresh-review import policy.
-
-Explicit classification of existing Samples may use cataloged source/root path
-names even when the audio is unavailable, including a disconnected drive. Mark
-the evidence as coming from the registered location; it does not establish that
-the file currently exists, is accessible, or has been analyzed. Keep the agreed
-root-bounded evidence scope and classification review rules. This permission
-does not bypass complete discovery requirements for a new import or authorize
-audio access through a stored path.
-
-When explicitly requesting suggestions for an existing Sample without reimport,
-combine eligible path evidence from all its registered root associations. Respect
-each root's boundary and deduplicate proposals for the same classification while
-retaining their supporting evidence. Do not require choosing a single root or
-prefer the most specific one. For example, registered Techno and nested Pack
-roots may jointly support Techno and Kick suggestions for the same Sample.
-During an import with overlapping selected roots, likewise combine eligible
-evidence from all selected roots containing the included file, independently of
-the root chosen for its Pack destination. Respect each selected root's boundary
-and produce one proposal per classification with its supporting evidence.
-Changing the Pack destination alone does not restrict evidence to that root.
-Pack root-name aggregation follows the separate Pack evidence rules above.
-
-Confirmed operation persistence, transactional outcome records, and restart
-verification follow [Verifiable Execution Recovery](architecture.md#verifiable-execution-recovery--agreed-planned).
-These guarantees are agreed, not implemented task persistence.
-
-Suggestions remain reviewable and must not replace accepted classifications
-during a rescan. Rejected or stale suggestions must not execute without renewed
-review.
-
-Proposed task states are **queued**, **running**, **completed**, **partial**,
-**failed**, and **canceled**. A cancellation request is distinct from its final
-outcome; already completed file changes remain completed.
-
-Track item outcomes and use identified progress units. Interrupted work requires
-reconciliation before retry; task unification must not merge conflicting
-operations on the same file. Durable task persistence is not implemented.
+Those contracts are agreed but not implemented durable task support. Keep
+filesystem plans separate from catalog transactions and never infer rollback
+or success from a cancellation request or interruption.
 
 ## Implemented Catalog: Current Behavior and Limitations
 
@@ -1108,8 +630,8 @@ already exist.
 
 Before implementing each relevant feature, agree on:
 
-- UI presentation of the agreed per-Sample keep/assign import-conflict review.
-- UI presentation of explicit reinclusion for Library-wide excluded locations.
+- Deferred visual presentation/validation of agreed origin-conflict review and
+  reinclusion workflows; behavior is owned by the Import/Catalog feature guides.
 - The source-observation algorithm and stronger source-version validation for
   analysis. One source per Sample, distinct copies, and confirmed relinking
   are already agreed; multiple physical sources per Sample are outside scope.
@@ -1131,9 +653,11 @@ foundation, preserving preview and native dragging. Persistent technical
 metadata, cache invalidation, and waveform peaks follow as a separate module.
 Keep durable user organization separate from rebuildable analysis.
 
-Export, file-conflict policies, automatic suggestions, durable task states,
-retry behavior, and source-deletion verification require their own scoped
-decisions. Kits, Tags, accounts, multiple Libraries, and named favorite lists
+Classification, Sample type, search, duration, import commits, and shared execution
+business rules are agreed in their feature guides. Their executable contracts
+remain to be delivered. Export, filesystem conflict policies, musical analysis,
+and source-deletion verification require separately scoped decisions.
+Kits, Tags, accounts, multiple Libraries, and named favorite lists
 must not enter storage planning as already-approved entities.
 
 Record approved decisions here as scope evolves. Add executable contracts and
