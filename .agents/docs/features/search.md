@@ -48,8 +48,9 @@ libraries before delivery. Visual design/prototypes remain deferred.
 
 - Mixed results filter by entity type. Samples-only results additionally offer
   Genre, Category, Author, Sample type, source roots, origin Pack/standalone,
-  format, and observed duration. Packs-only results offer direct Genre/Category/
-  Author filters. Never apply Sample filters to other entities or expand by members.
+  format, observed duration, and effective musical values below. Packs-only results
+  offer direct Genre/Category/Author filters. Never apply Sample filters to other
+  entities or expand by members.
 - Returning to mixed results disables specific filters but retains their session
   configuration. Local search uses the same matching fields/relations for the
   owning view/tab, constrained to its scope.
@@ -73,6 +74,23 @@ libraries before delivery. Visual design/prototypes remain deferred.
   an invalid query.
 - Compare stored values without rounding; display rounding cannot change matches.
   Unknown is not zero; a range excludes unknowns unless explicitly included.
+
+### Musical Values
+
+- [Musical Analysis](musical-analysis.md) owns effective BPM/tonality: a manual
+  decision takes precedence over a valid automatic estimate. Filter the same
+  effective values shown in the app, including usable automatic estimates; do
+  not query stale/uncertain candidates as effective metadata.
+- BPM bounds are optional, positive finite, and inclusive; compare without display
+  rounding and reject inverted/invalid ranges without applying them. Unknown and
+  Not applicable are excluded by numeric ranges unless explicitly included.
+- Tonality filters offer tonic pitch classes and modes. Values within each group
+  combine with OR; tonic/mode groups combine with AND and with other Sample
+  filters. Match enharmonic equivalents exactly by pitch class; do not infer
+  harmonic compatibility. Unknown/Not applicable need explicit inclusion.
+- Offer state and automatic/manual provenance filters per musical attribute.
+  Define combinations against effective values consistently, including manual
+  Unknown/Not applicable. Free text does not implicitly activate musical filters.
 
 ## Navigation and Results
 

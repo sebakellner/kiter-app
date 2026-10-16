@@ -87,7 +87,7 @@ first entity delivery.
 | Concept     | Meaning                                                                                   | Modeling decision                                                                                                      |
 | ----------- | ----------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
 | UserProfile | The local profile of the person using this installation.                                  | Exactly one profile with a name, optional avatar, and optional linked Author; no login or account.                     |
-| Preferences | Application behavior chosen by the local user.                                            | One typed preference record per profile; initially persistent preview volume only.                                     |
+| Preferences | Application behavior chosen by the local user.                                            | Typed settings for the local profile; volume is implemented internally, field visibility and analysis pause are agreed extensions. |
 | Library     | The complete local scope of imported samples, packs, collections, and their organization. | One Library with multiple source directories; not a separately identified entity in this stage.                        |
 | Sample      | A cataloged audio resource with its own identity and organization.                        | Core entity; it may be standalone or have one origin Pack.                                                             |
 | Pack        | An imported source package, such as a sample product from a producer or provider.         | Core entity with presentation data, samples, categories, and declared authors.                                         |
@@ -130,6 +130,14 @@ login, permissions, or isolated per-user catalogs.
 - Preferences are application settings, not artistic credits. Initially persist
   preview volume in the inclusive range 0 to 1, with default 1 to preserve the
   current player's initial volume. Restore it before playback; zero is valid.
+- Agreed planned typed settings also include shared Sample-field visibility under
+  [UX Design](ux-design.md#list-and-card-presentation--agreed) and explicit analysis
+  pause under [Duration Analysis](features/duration-analysis.md). They are not
+  implemented by the current volume-only preference contract.
+- Last-previewed Sample identity, Collection recency, confirmed operations, and
+  history are persistent application state, not additional user-configurable
+  Preferences. Their lifetimes follow their owning feature guides and the
+  [persistence summary](ux-design.md#persistence-summary).
 - Future settings require typed fields and defined behavior, not an arbitrary
   JSON or key/value bag. Theme, playback position, mute state, and automatic
   attribution are not approved persistent settings in this stage.
@@ -154,6 +162,10 @@ URL or merely a filename.
 - Can be marked or unmarked as a Favorite independently of its memberships.
 - Has technical metadata and derived analysis tied to its source version.
   These are not user classifications.
+- Has planned automatically estimated BPM/tonality with independent optional
+  manual decisions. Effective values use manual precedence, otherwise valid
+  estimates, under [Musical Analysis](features/musical-analysis.md). These are
+  agreed extensions, not implemented Sample metadata fields.
 - Has one current source file, represented separately from user organization.
   Separate copies are distinct Samples; managed moves and confirmed relinks
   preserve its UUID. Reimporting an already registered source reuses its Sample.
@@ -415,6 +427,11 @@ every concept.
 
 ## Logical Data Profiles
 
+These profiles describe the initial entity delivery, not the complete agreed
+future model. Optional direct Genres on Samples/Packs and optional Sample type
+are agreed extensions owned by their sections above; their absence from this
+initial profile does not remove them from approved scope.
+
 These profiles define information to preserve, not SQL tables, column types,
 or the final IPC payloads. Required names must contain non-whitespace text.
 Length limits and text validation must be agreed before implementing forms.
@@ -422,7 +439,7 @@ Length limits and text validation must be agreed before implementing forms.
 | Concept     | Required information                                                                       | Optional information / associations                                                                                                              |
 | ----------- | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
 | UserProfile | Stable ID and presentation name.                                                           | Managed avatar reference and linked Author.                                                                                                      |
-| Preferences | Profile reference and preview volume in the inclusive range 0 to 1.                        | No other persistent preferences in this stage.                                                                                                   |
+| Preferences | Profile reference and preview volume in the inclusive range 0 to 1.                        | Planned typed field-visibility and analysis-pause settings follow their owning guides; current storage supports volume only.                      |
 | Sample      | Stable ID, source location reference, actual filename, availability, and Favorite boolean. | Presentation-name override, notes, zero or one origin Pack, direct Category/Author assignments, and Collection memberships.                      |
 | Pack        | Stable ID, name, and the source-directory association used to recognize reimports.         | Description, cover reference, Category assignments, and Author credits. Origin Sample references follow the creation and empty-Pack rules above. |
 | Collection  | Stable ID, name, and an ordered membership list, which can be empty.                       | Description and cover reference.                                                                                                                 |
@@ -540,10 +557,19 @@ organization.
   as successful.
 
 Use the recoverable planning workflow in
-[Architecture](architecture.md#safe-file-operations-planned). Export layouts,
-metadata inclusion, manifests, and conflict policies remain open.
+[Architecture](architecture.md#safe-file-operations-planned).
+[File Organization](features/file-organization.md) owns agreed individual/batch
+physical naming, relocation, family/instrument centralization, conflict review,
+full-content verification before source deletion, and partial-outcome recovery.
+[Export](features/export.md) owns agreed source scopes, reviewed layouts, unchanged
+audio copies, optional versioned Kiter JSON manifests, and partial export recovery.
 
 ## Supporting Concepts and Technical Boundaries
+
+[Backup and Recovery](features/backup-recovery.md) owns agreed catalog/image backup
+scope, mandatory migration protection, reviewed replacement restoration, and
+corruption recovery. Backups preserve the single-Library model and do not include
+original audio or imply automatic execution of restored operations.
 
 These concepts support the domain but are not additional top-level library
 groupings. Their representation belongs to later technical planning.
@@ -587,12 +613,14 @@ errors; do not collapse them into one `supported` flag.
 
 Use seconds for duration, Hz for sample rate, positive integers for channel
 count, and bytes for file size. Unknown values remain unknown, not zero.
-Musical attributes such as BPM or key require a separately scoped analyzer and
-provenance; filenames alone are not verified measurements.
+[Musical Analysis](features/musical-analysis.md) owns agreed automatic BPM/tonality,
+manual precedence, uncertainty, and musical validation. Its analyzer and technical
+contracts remain to be delivered; filenames alone are not verified measurements.
 
 A source change must invalidate its derived metadata and waveform. Relinking
-requires user confirmation or an agreed reliable matching policy; reappearance
-at an old path is not proof of unchanged content.
+requires explicit review/confirmation under Catalog Organization; reappearance
+at an old path is not proof of unchanged content. Musical manual decisions follow
+their separate preservation/review policy rather than derived-cache invalidation.
 
 ### Suggestions, Tasks, and Recovery
 
@@ -677,8 +705,11 @@ Keep durable user organization separate from rebuildable analysis.
 
 Classification, Sample type, search, duration, import commits, and shared execution
 business rules are agreed in their feature guides. Their executable contracts
-remain to be delivered. Export, filesystem conflict policies, musical analysis,
-and source-deletion verification require separately scoped decisions.
+remain to be delivered. File-organization business rules are agreed in their
+feature guide; executable verification/recovery contracts remain to be delivered.
+Export and musical-analysis business rules are agreed in their feature guides;
+their executable contracts, analyzer selection/validation, and UI remain to be
+delivered.
 Kits, Tags, accounts, multiple Libraries, and named favorite lists
 must not enter storage planning as already-approved entities.
 
