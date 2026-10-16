@@ -140,7 +140,8 @@ recent Collections, and quick actions for importing audio/creating a Collection.
   section navigation. Playback includes the persistent preview-volume preference;
   Sample field visibility is an additional planned typed preference specified
   below. Its Settings placement, if any, remains to be designed.
-- Library provides access to Excluded files and persistent import history. The
+- Library provides access to Excluded files and persistent Operation history
+  covering import, classification, and source relinking, with type/state filters. The
   global operation indicator remains a shortcut to active progress and recent
   results; no separate Activity destination in the header is agreed.
 - Settings volume and player volume share one live preference. Apply volume
@@ -239,7 +240,7 @@ Select all follow the rules below.
   mode and clears the departing batch; returning does not restore checked items.
 - Context restoration is session-only. Restarting opens Home and initializes
   views with default contexts. This does not reset the separately agreed
-  persistent preferences, Collection recency, or import history.
+  persistent preferences, Collection recency, or operation history.
 
 On history restoration, focus the selected row/card when valid; otherwise use
 the nearest useful item or view heading if no results remain. The exact bounded
@@ -416,7 +417,9 @@ notices, local feedback, partial-result summaries, stale data, and error details
 
 [Operation Execution](features/operation-execution.md#history-and-result-access)
 owns persistent history, session-result rotation, manual cleanup, deleted records,
-and operation-indicator/result access. Shell keyboard boundaries remain here.
+and operation-indicator/result access. Settings → Library exposes a common
+Operation history for import, classification, and source relinking. Shell
+keyboard boundaries remain here.
 
 ### Keyboard, Focus, and Overlays — Agreed
 
@@ -599,7 +602,8 @@ future musical analysis/file operations as agreed or any feature as implemented.
 Visual design and prototype validation remain deferred.
 
 - Adopt/finalize the router and define exact routes/query contracts, including
-  Excluded files, import history, operation results, and history-entry contexts.
+  Excluded files, common operation history, operation results, and history-entry
+  contexts.
 - Define atomic metadata-save commands and conflict/stale-state checks while
   keeping independently confirmed images and origin corrections separate.
 - Define bounded snapshots for Select all and playback sequence order, stable

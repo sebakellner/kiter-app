@@ -39,11 +39,11 @@ only for dependencies involved in the task.
 | --------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
 | [Classification](.agents/docs/features/classification.md)             | Changing recognition, aliases, initial vocabulary, evidence/rejections, type suggestions, or standalone classification. |
 | [Import](.agents/docs/features/import.md)                             | Changing discovery/review, selected-file import, Pack registration/reimport, target commits, or result membership.      |
-| [Operation Execution](.agents/docs/features/operation-execution.md)   | Changing the shared confirmed queue, cancellation, exit/restart, history cleanup, or recovery journals.                 |
+| [Operation Execution](.agents/docs/features/operation-execution.md)   | Changing the shared confirmed import/classification/relinking queue, cancellation, exit/restart, history cleanup, or recovery journals. |
 | [Search](.agents/docs/features/search.md)                             | Changing global/local matching, filters, ranking, approximate queries, or result pagination.                            |
 | [Duration Analysis](.agents/docs/features/duration-analysis.md)       | Changing persisted duration, background measurement, pause/resume, source invalidation, or retries.                     |
 | [Playback](.agents/docs/features/playback.md)                         | Changing transport/modes, sequence snapshots, unavailable playback, last-Sample restoration, or removal interactions.   |
-| [Catalog Organization](.agents/docs/features/catalog-organization.md) | Changing removal/reinclusion, Collection memberships/order, detail assignments, or manual origin corrections.           |
+| [Catalog Organization](.agents/docs/features/catalog-organization.md) | Changing removal/reinclusion, Collection memberships/order, detail assignments, source relinking/registration lifecycle, or manual origin corrections. |
 
 Keep rules in their owning guide rather than duplicating them here.
 Add guides incrementally when requested; index only existing files.

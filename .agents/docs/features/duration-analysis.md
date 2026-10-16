@@ -44,7 +44,7 @@ modules. Measurements never change original audio or user organization.
 - Stop safely on exit and resume pending measurements automatically at restart
   unless explicitly paused. Verified restored access uses the retry rule above.
 - This analysis-specific scheduler does not change manual continuation of the
-  confirmed import/classification [queue](operation-execution.md#shared-confirmed-queue).
+  confirmed import/classification/relinking [queue](operation-execution.md#shared-confirmed-queue).
 - Isolate expensive decoding from main; choose a bounded worker/utility-process
   implementation based on profiling and actual extraction requirements under
   [Architecture](../architecture.md#analysis-and-large-libraries).

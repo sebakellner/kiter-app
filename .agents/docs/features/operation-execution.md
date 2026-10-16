@@ -1,10 +1,12 @@
 # Operation Execution
 
-Read when changing the shared import/classification queue, durable confirmed
+Read when changing the shared import/classification/relinking queue, durable confirmed
 operations, cancellation, exit, restart, outcome history, or recovery. This guide
-owns those cross-feature contracts. [Import](import.md) and
-[Classification](classification.md) own their target transactions and failure
-policies; [Architecture](../architecture.md) owns general process boundaries.
+owns those cross-feature contracts. [Import](import.md),
+[Classification](classification.md), and
+[Catalog Organization](catalog-organization.md#source-relinking--agreed-baseline-not-implemented)
+own their target transactions and failure policies;
+[Architecture](../architecture.md) owns general process boundaries.
 
 ## Status and Scope
 
@@ -17,8 +19,8 @@ distinct restart behavior. Filesystem operations need additional recovery rules.
 
 ## Shared Confirmed Queue
 
-- Confirmed imports and standalone classification share one serial queue, ordered
-  by confirmation, even if their targets do not overlap.
+- Confirmed imports, standalone classification, and source relinking share one
+  serial queue, ordered by confirmation, even if their targets do not overlap.
 - Allow preparing/confirming later operations while one executes. Persist confirmed
   decisions before execution; revalidate queued work before it starts.
 - Pending operations may be removed, not edited/reordered. To change one, remove
@@ -28,7 +30,7 @@ distinct restart behavior. Filesystem operations need additional recovery rules.
   choices. Import rediscovery requirements remain in Import.
 - A terminal failure/partial outcome or standalone cancellation retains its result
   and advances to the next queued operation. This does not override an exit request.
-- Queued imports/classifications survive restart as pending. Never auto-execute:
+- Queued imports/classifications/relinks survive restart as pending. Never auto-execute:
   user continuation and revalidation are required.
 
 ## Cancellation, Exit, and Continuation
@@ -49,6 +51,16 @@ distinct restart behavior. Filesystem operations need additional recovery rules.
   completed targets. Import Retry prepares the entire original batch instead.
 - Other non-import retries target failed items after revalidation, with renewed
   confirmation if scope or impact changes.
+- Source relinking can cancel between Samples, preserving committed source-folder
+  registration/location changes and completed relinks. Ordinary exit finishes the
+  current transaction, persists outcomes, and exits without starting another
+  Sample or queued operation. Registration changes are separate durable steps;
+  finish any in-flight step without starting a dependent Sample after exit/stop.
+- Continuing canceled/interrupted relinking creates a new operation for remaining
+  failed/unprocessed work after verification and revalidation. Preserve the
+  original result and reuse verified committed registration changes rather than
+  replaying them. Require renewed review of affected scope/impact; never reapply
+  completed Sample relinks.
 
 ## Verifiable Recovery
 
@@ -56,6 +68,9 @@ distinct restart behavior. Filesystem operations need additional recovery rules.
 - Store committed per-Sample/Pack outcomes in the same transaction as their
   changes. Coupled new-Pack/first-Sample writes record both outcomes together.
   Progress events or renderer acknowledgements do not prove database commits.
+- Relinking records source-registration/location outcomes transactionally with
+  those changes, separately from each Sample's source-change outcome. Recovery
+  verifies both kinds of commit before retry or continuation.
 - On restart distinguish completed, failed, and unprocessed targets from durable
   records. Interrupted execution is not assumed successful or rolled back.
 - Mark states that cannot be established unverified; block their retry until
@@ -71,27 +86,32 @@ distinct restart behavior. Filesystem operations need additional recovery rules.
 
 ## History and Result Access
 
-- Import and standalone classification history persist until explicit deletion,
-  without automatic cleanup/expiration. Classification retains summaries and
+- Import, standalone classification, and source-relinking history persist until
+  explicit deletion, without automatic cleanup/expiration. Classification retains summaries and
   paginated per-target outcomes; import retains folder/file and operation links.
+  Relinking retains reviewed old/new source scope, source-registration changes,
+  and paginated per-Sample outcomes, including unresolved/dependency-blocked work.
 - Delete individual/batched terminal records only after confirmation, never
   active, queued, or recovering records. Interrupted records become eligible only
   after verification finishes. Failed results may be deleted after verification;
   success is not a prerequisite. Removing pending queue work is a separate action.
-- History cleanup does not undo classifications or delete Samples, Packs, or
-  source audio. Explain dependencies of operation-specific links on that history.
+- History cleanup does not undo classifications, relinks, or source-registration
+  changes, or delete Samples, Packs, or source audio. Explain dependencies of
+  operation-specific links on that history.
 - If an open history/result-membership record is deleted, replace it with Record
   deleted, remove record-based actions, and offer Back to history. Do not keep
   serving cached membership as a valid query; catalog records stay intact.
-- Settings → Library opens import history ordered by date with state filters and
-  folder/file detail; route contracts remain open. No new classification-history
-  placement is implied before navigation contracts are defined.
+- Settings → Library exposes one Operation history ordered by date, with operation
+  type (import/classification/relinking) and state filters and type-specific detail.
+  The global operation indicator also provides access. Exact route/query contracts
+  remain open; separate history destinations per type are not required.
 - The header operation indicator exposes active work and Recent results.
   Completed-result detail opens modally with focus restoration; import progress
   supports minimizing/reopening. Ordinary Tab and F6 reach the indicator with an
   accessible name and state announcements; no dedicated results shortcut initially.
-- Other non-import results are session-only, retaining the latest 50 completed/
-  closed records. Protect active work and unreviewed failures, even above 50.
+- Results outside import/classification/relinking are session-only, retaining the
+  latest 50 completed/closed records. Protect active work and unreviewed failures,
+  even above 50.
   Opening failure detail marks it reviewed for rotation; dismissing its notice
   does not. Reviewed never means successful/resolved/retried. Keep large details
   compact/bounded; closing notices does not discard accessible result details.

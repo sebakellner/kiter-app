@@ -232,7 +232,8 @@ Feature-specific ownership:
   vocabulary/alias identity, evidence, rejection memory, and delivery sequence.
 - [Import](features/import.md): reviewed discovery and Sample/Pack transactions.
 - [Operation Execution](features/operation-execution.md): main-owned shared queue,
-  worker-owned journals, atomic outcome records, exit, and restart verification.
+  worker-owned journals, atomic outcome records, exit, and restart verification,
+  also covering confirmed source relinking under Catalog Organization.
 
 These directions are agreed but not implemented. Feature guides own exact
 contracts; the process boundaries above apply throughout. Never treat a typed

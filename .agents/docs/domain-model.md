@@ -161,6 +161,18 @@ URL or merely a filename.
   derived analysis. Missing or externally moved files retain their Sample
   until an explicit removal or confirmed relink; do not merge by hash.
 
+[Catalog Organization](features/catalog-organization.md#source-relinking--agreed-baseline-not-implemented)
+owns agreed individual/folder relinking, partial recovery, review, and source
+registration lifecycle behavior. Confirmed source replacement may accept a file with different observed
+characteristics while preserving the Sample's identity and organization; this
+requires explicit review and invalidation of prior derived analysis, not a claim
+that the old and new audio are identical. Explicit source replacement is also
+allowed when the current file is accessible, leaving that original untouched.
+Relocating a registered source folder preserves its registration identity and
+Pack association; unresolved files are not silently relinked by changing the root.
+An individual destination outside registered roots requires reviewed registration
+of its containing folder, without automatically importing the other files.
+
 Memberships reference the same Sample ID; they do not create new Samples or
 duplicate source audio.
 
@@ -495,6 +507,11 @@ design.
 - Unregistering a source directory stops scanning it but retains its Samples
   and organization. Catalog retention alone does not authorize access to
   audio; playback and dragging still require an authorized location.
+  Review lost access, retain access through verified overlapping registrations,
+  and stop preview if authorization is lost. Reactivation reuses the registration
+  after location review; scanning is separately optional and never automatic.
+  [Catalog Organization](features/catalog-organization.md#source-registration-lifecycle--agreed-not-implemented)
+  owns the detailed agreed workflow.
 - Removing a cover reference schedules automatic cleanup only when no entity
   still uses that managed asset, including as a UserProfile avatar. Referenced images and original images remain
   untouched; cleanup failures are reported and retryable.
@@ -634,7 +651,12 @@ Before implementing each relevant feature, agree on:
   reinclusion workflows; behavior is owned by the Import/Catalog feature guides.
 - The source-observation algorithm and stronger source-version validation for
   analysis. One source per Sample, distinct copies, and confirmed relinking
-  are already agreed; multiple physical sources per Sample are outside scope.
+  are already agreed, including the individual/folder recovery baseline in
+  [Catalog Organization](features/catalog-organization.md#source-relinking--agreed-baseline-not-implemented).
+  Source-directory review, relinking batch/recovery rules, and registration
+  lifecycle are agreed there. Exact root-association reconciliation, source
+  verification, storage/IPC, and visual design remain delivery contracts;
+  multiple physical sources per Sample are outside scope.
 - Profile/image IPC and UI, including local image selection and display.
 
 The approved persistence direction is a clean SQLite catalog using Drizzle and
