@@ -90,12 +90,17 @@ packaged file-based loading. `/home` is the default destination; `/samples`
 contains the current folder browser. Unknown routes redirect to Home. Remaining
 destinations in UX Design are planned, and are not registered routes yet.
 
-Nested views render inside a persistent shell. The library workspace owns the
-session folder, favorite filter, and shared preview controller above the route
-outlet. The single audio element stays mounted outside changing views; navigation
-does not interrupt it. A successful folder replacement clears a preview whose
-temporary URL is no longer authorized. Canceling or failing folder selection
-preserves the current view, folder, and preview.
+Nested views render inside a persistent `layouts/AppLayout` composition, with
+app-owned header and sidebar. `AppShell` receives presentation regions through
+props. The library feature's session provider owns the folder and shared preview
+controller, exposing React context independently of the router. Samples owns its
+favorite-filter context; App mounts its provider above routes to preserve that
+view state during navigation without adding it to the layout's contract.
+
+The single audio element stays mounted outside changing views; navigation does
+not interrupt it. The library session resets preview after successful folder
+replacement, when temporary URLs are no longer authorized. Canceling or failing
+folder selection preserves the current view, folder, and preview.
 
 The layout component receives regions through props and does not call the bridge.
 Feature-owned components and hooks coordinate library operations. Catalog data
