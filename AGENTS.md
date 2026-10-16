@@ -15,17 +15,18 @@ source code or tests. Read [Testing Conventions](.agents/docs/testing-convention
 before changing tests, fixtures, mocks, or validation workflows.
 Load other guides only when relevant to the task:
 
-| Guide                                                            | Read when                                                                            |
-| ---------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| [Common Guidelines](.agents/docs/common-guidelines.md)           | Changing code or tests: reuse, types, contracts, state, errors, and privacy.         |
-| [Component Organization](.agents/docs/component-organization.md) | Creating, splitting, sharing, or moving React components.                            |
-| [Architecture](.agents/docs/architecture.md)                     | Changing process boundaries, services, filesystem workflows, or native integrations. |
-| [Domain Model](.agents/docs/domain-model.md)                     | Changing entities, relationships, metadata, lifecycle, or domain validation.         |
-| [Testing Conventions](.agents/docs/testing-conventions.md)       | Changing tests, fixtures, mocks, or validation commands.                             |
-| [Feature Development](.agents/docs/feature-development.md)       | Adding or extending a feature end to end.                                            |
-| [UI Patterns](.agents/docs/ui-patterns.md)                       | Changing interactions, forms, dialogs, accessibility, or feedback.                   |
-| [Data Access](.agents/docs/data-access.md)                       | Changing IPC, queries, mutations, persistence, or managed images.                    |
-| [Release Process](.agents/docs/release-process.md)               | Packaging, validating, or distributing releases.                                     |
+| Guide                                                            | Read when                                                                                           |
+| ---------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| [Common Guidelines](.agents/docs/common-guidelines.md)           | Changing code or tests: reuse, types, contracts, state, errors, and privacy.                        |
+| [Component Organization](.agents/docs/component-organization.md) | Creating, splitting, sharing, or moving React components.                                           |
+| [Architecture](.agents/docs/architecture.md)                     | Changing process boundaries, services, filesystem workflows, or native integrations.                |
+| [Domain Model](.agents/docs/domain-model.md)                     | Changing entities, relationships, metadata, lifecycle, or domain validation.                        |
+| [Testing Conventions](.agents/docs/testing-conventions.md)       | Changing tests, fixtures, mocks, or validation commands.                                            |
+| [Feature Development](.agents/docs/feature-development.md)       | Adding or extending a feature end to end.                                                           |
+| [UX Design](.agents/docs/ux-design.md)                           | Designing or changing the shell, views, navigation, selection, playback interactions, or workflows. |
+| [UI Patterns](.agents/docs/ui-patterns.md)                       | Changing interactions, forms, dialogs, accessibility, or feedback.                                  |
+| [Data Access](.agents/docs/data-access.md)                       | Changing IPC, queries, mutations, persistence, or managed images.                                   |
+| [Release Process](.agents/docs/release-process.md)               | Packaging, validating, or distributing releases.                                                    |
 
 Keep rules in their owning guide rather than duplicating them here.
 Add guides incrementally when requested; index only existing files.
