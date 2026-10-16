@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { readFile, writeFile } from 'node:fs/promises'
+import { createRequire } from 'node:module'
 import path from 'node:path'
 import { waitFor } from '../../support/electron/wait-for.mjs'
 import Database from 'better-sqlite3'
@@ -10,7 +11,9 @@ assert.ok(['save', 'remove', 'verify'].includes(phase) && directory)
 app.setPath('userData', path.join(directory, 'data'))
 let cancelNext = false
 let releaseCancel
+let dialogCalls = 0
 dialog.showOpenDialog = async () => {
+  dialogCalls++
   const canceled = cancelNext
   cancelNext = false
   if (canceled) {
@@ -26,25 +29,50 @@ dialog.showOpenDialog = async () => {
 
 async function run() {
   let failed = false
+  let window
+  const rendererErrors = []
+  const onWindowCreated = (_, createdWindow) => {
+    createdWindow.webContents.on('console-message', (event) => {
+      if (event.level === 'error') {
+        rendererErrors.push(event.message)
+      }
+    })
+    createdWindow.webContents.on('preload-error', (_, _preloadPath, error) => {
+      rendererErrors.push(`Preload failed: ${error.message}`)
+    })
+    createdWindow.webContents.on('render-process-gone', (_, details) => {
+      rendererErrors.push(`Renderer exited: ${details.reason}`)
+    })
+  }
+  app.on('browser-window-created', onWindowCreated)
   try {
-    await import('../../../out/main/index.js')
+    // Register privileged schemes before yielding to Electron's ready event.
+    createRequire(import.meta.url)('../../../out/main/index.js')
     await app.whenReady()
     await waitFor(
       () => BrowserWindow.getAllWindows().length === 1,
       'application window',
     )
-    const window = BrowserWindow.getAllWindows()[0]
+    window = BrowserWindow.getAllWindows()[0]
     const execute = (code) => window.webContents.executeJavaScript(code, true)
     await waitFor(
-      () => execute('!!document.querySelector("[data-testid=open-folder]")'),
+      () =>
+        execute(
+          'document.readyState === "complete" && !!document.querySelector("[data-testid=open-folder]") && !!window.api?.library',
+        ),
       'renderer',
     )
     await execute('document.querySelector("[data-testid=open-folder]").click()')
-    await waitFor(
-      () =>
-        execute('!!document.querySelector("[data-testid=favorite-toggle]")'),
-      'catalog import',
-    )
+    await waitFor(async () => {
+      const state = await execute(`({
+          error: document.querySelector('[data-testid="library-error"]')?.textContent,
+          imported: !!document.querySelector('[data-testid="favorite-toggle"]'),
+          loading: document.querySelector('[data-testid="open-folder"]')?.disabled
+        })`)
+      assert.ok(!state.error, `Catalog import failed: ${state.error}`)
+      assert.deepEqual(rendererErrors, [], 'Unexpected renderer errors')
+      return state.imported && !state.loading
+    }, 'catalog import')
     const id = await execute(
       'document.querySelector("[data-sample-id]").dataset.sampleId',
     )
@@ -209,11 +237,32 @@ async function run() {
       },
       'Non-boolean favorite state must be rejected',
     )
+    assert.deepEqual(rendererErrors, [], 'Unexpected renderer errors')
     console.log(`PASS: favorites restart phase ${phase}`)
   } catch (error) {
     console.error(error)
+    console.error('Favorites phase diagnostics:', {
+      phase,
+      dialogCalls,
+      rendererErrors,
+    })
+    if (window && !window.isDestroyed()) {
+      try {
+        const state = await window.webContents.executeJavaScript(`({
+          readyState: document.readyState,
+          loading: document.querySelector('main')?.getAttribute('aria-busy'),
+          openFolderDisabled: document.querySelector('[data-testid="open-folder"]')?.disabled,
+          importError: document.querySelector('[data-testid="library-error"]')?.textContent,
+          sampleCount: document.querySelectorAll('[data-sample-id]').length
+        })`)
+        console.error('Favorites renderer state:', state)
+      } catch (diagnosticError) {
+        console.error('Unable to inspect favorites renderer:', diagnosticError)
+      }
+    }
     failed = true
   } finally {
+    app.removeListener('browser-window-created', onWindowCreated)
     app.once('will-quit', (event) => {
       event.preventDefault()
       app.exit(failed ? 1 : 0)
