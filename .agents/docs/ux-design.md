@@ -147,6 +147,10 @@ recent Collections, and quick actions for importing audio/creating a Collection.
 - Library also exposes backup creation, restoration, and automatic-copy management
   under [Backup and Recovery](features/backup-recovery.md). Visual placement remains
   to be designed.
+- Library provides access to independent pending-original cleanup management under
+  [File Organization](features/file-organization.md#verified-execution-and-partial-outcomes),
+  including after the originating history record is deleted. Exact placement and
+  routes remain to be designed.
 - Settings volume and player volume share one live preference. Apply volume
   immediately and persist on completing the adjustment, without Save/Cancel.
   If persistence fails, keep the audible level and report that it was not saved.

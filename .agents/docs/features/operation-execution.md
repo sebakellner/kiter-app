@@ -111,6 +111,10 @@ rules beyond catalog-only transactions.
 - History cleanup does not undo classifications, relinks, or source-registration
   changes or file organization, or delete Samples, Packs, source audio, or export
   outputs. Explain dependencies of operation-specific links on that history.
+- Pending-original cleanup/protection records and their verification evidence
+  survive history deletion independently under File Organization. Keep their
+  management available from Settings → Library; deleting history does not release
+  protected locations, discard cleanup evidence, or remove remaining files.
 - If an open history/result-membership record is deleted, replace it with Record
   deleted, remove record-based actions, and offer Back to history. Do not keep
   serving cached membership as a valid query; catalog records stay intact.

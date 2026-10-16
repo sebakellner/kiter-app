@@ -13,6 +13,12 @@ operation reconciliation.
   Exclude original audio, rebuildable analysis caches, temporary authorizations,
   and session-only state. Explain the scope before creation; a backup cannot
   restore audio that was not included.
+- Include persisted duration observations and automatic musical estimates with
+  their source/analyzer versions and provenance, as well as manual musical
+  decisions. These catalog observations are included even though they can be
+  measured again; waveform data and other rebuildable caches remain excluded.
+- Include independent pending-original cleanup/protection records and their
+  verification evidence, even when the originating operation history was deleted.
 - Support manual creation and mandatory automatic creation before a migration
   that changes an existing Library's data. Fresh bootstrap does not require a
   previous-library backup. No periodic schedule is included in this delivery.
@@ -51,6 +57,10 @@ operation reconciliation.
 - Preserve Sample identity/organization even when referenced audio is unavailable.
   Recheck sources and authorization before preview/drag; never restore temporary
   capabilities or automatically start audio or import files.
+- Restored automatic observations are not effective until their validity against
+  the current source has been verified. Invalidate/recalculate those that no longer
+  apply under the analysis pause/retry rules. Preserve manual decisions under
+  Musical Analysis's source-change review policy; never replace them with estimates.
 - Reconcile restored confirmed operations and require manual continuation after
   verification/revalidation. Never blindly replay restored work or automatically
   resume it. Historical commits do not prove that external filesystem state still

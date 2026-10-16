@@ -60,8 +60,14 @@ one physical destination per Sample; no inferred assignment or audio duplication
   saves the confirmed plan, not reusable persistent layout presets.
 - The mapping is an explicit plan-generation vocabulary, not authority to infer
   identity from names or silently retarget stored plans after Category changes.
-  Exact mapping identity/update behavior is a delivery contract under classification
-  identity rules. Loop/One-Shot and Genre do not determine this initial layout.
+  Link mapped Categories by identity to the convention term. Renaming a linked
+  Category preserves its suggested convention destination rather than renaming the
+  folder proposal; show the mapping and allow adjustment in review. A custom
+  Category without that link is not mapped merely because its name matches a term:
+  choose its destination manually or use Uncategorized. Re-created Categories do
+  not silently recover a deleted identity/link. Exact link storage/delivery follows
+  classification identity rules. Loop/One-Shot and Genre do not determine this
+  initial layout.
 
 ## Verified Execution and Partial Outcomes
 
@@ -88,6 +94,15 @@ one physical destination per Sample; no inferred assignment or audio duplication
   it. Show it in the operation result; either reviewed cleanup or explicit retention
   as an independent copy resolves that protection. Do not silently catalog it when
   removing protection; independent import still follows reviewed import rules.
+- Pending-original protection and verification evidence are independent persistent
+  records, not dependent on retention of operation history. Settings → Library
+  provides access to review/delete a verified remaining original or explicitly
+  retain it as an independent copy. Deleting history neither removes these records
+  nor releases their protection or deletes their files. Backup includes them.
+- Audio later discovered at a former source path after a completed move or relink
+  is a new import candidate, not a reason to reconnect or duplicate the relocated
+  Sample automatically. Explicit reviewed import may create a separate identity.
+  Existing exclusions and pending-original protection still take precedence.
 - Other failures preserve verified recoverable copies and report disk/catalog
   state accurately; cancellation does not undo successful actions. Revalidation
   and renewed review apply when retry scope or impact changes.
@@ -103,7 +118,8 @@ one physical destination per Sample; no inferred assignment or audio duplication
 Define template syntax/counter details, Category mapping identities, bounded plan
 queries, destination authorization/registration transactions, cross-platform name
 validation, full-content verification, temporary publication, filesystem journals,
-source-version/analysis invalidation, pending-original protection records, cleanup
+source-version/analysis invalidation, independent pending-original protection/evidence
+records and management queries, cleanup
 review, IPC, recovery and failure tests, and visual review/progress controls.
 These technical contracts must preserve the agreed business outcomes and must not
 be represented as an implemented capability.

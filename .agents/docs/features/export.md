@@ -52,6 +52,12 @@ the Kiter family/instrument layout; export copies audio and never moves original
   requested export partial even when all audio copies succeeded. Do not claim a
   manifest was delivered until its publication succeeds; handle its destination
   collisions under the same no-overwrite policy.
+- After retrying a partial export, publish a new manifest file with a unique,
+  reviewed versioned filename instead of replacing the previous manifest. Identify
+  which file describes the cumulative verified output and link the retry result to
+  its original export. Earlier manifests remain descriptions of their publication
+  state; never silently rewrite them. Output-version naming is distinct from the
+  manifest schema version.
 
 ## Execution and Recovery
 
@@ -73,5 +79,6 @@ the Kiter family/instrument layout; export copies audio and never moves original
 Define exact manifest schema/version/filename, identity encoding, output-root and
 relative-path resolution, bounded scope snapshots, source/destination validation,
 temporary publication, full-copy verification, journal/recovery checkpoints,
-manifest retry/finalization after partial results, IPC, and review/results UI.
+versioned manifest publication/cumulative-result verification after retries, IPC,
+and review/results UI.
 These are delivery contracts, not shipped export support.
