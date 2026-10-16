@@ -12,7 +12,11 @@ Kiter's local library. It separates those decisions from the implemented
 catalog and from questions that still require agreement.
 
 - **Agreed domain:** one local UserProfile with Preferences, one Library,
-  Sample, Pack, Collection, Category, Author, and sample favorite marks.
+  Sample, Pack, Collection, Category, Genre, Author, and sample favorite marks.
+- **Agreed Genre extension, not implemented:** optional multiple Genres on Samples
+  and Packs, with independent assignments, an initial vocabulary plus user-created
+  entries, and no hierarchy. Business rules and initial content are agreed;
+  executable storage/IPC contracts remain to be delivered.
 - **Implemented slice:** pure entity contracts, fresh 17-table catalog, separate
   Sample/source records, imported root associations, Favorites, and transactional
   local profile/Preferences bootstrap. DB client profile reads and volume writes
@@ -89,6 +93,7 @@ first entity delivery.
 | Pack        | An imported source package, such as a sample product from a producer or provider.         | Core entity with presentation data, samples, categories, and declared authors.                                         |
 | Collection  | A selection of samples assembled inside Kiter.                                            | Core entity referencing samples from different Packs and standalone samples.                                           |
 | Category    | A classification used to organize Samples and Packs.                                      | Classification entity; assignments are independent for each target.                                                    |
+| Genre       | A musical style used to classify Samples and Packs, separately from Category.             | Optional multiple direct assignments; flat vocabulary with initial and user-created entries, without a primary Genre.  |
 | Author      | A declared author, producer, provider, or collaborator credited on Samples or Packs.      | Reusable credit identity, not a user profile or authorization principal; may represent the same person as UserProfile. |
 | Favorite    | A personal mark on a Sample.                                                              | Sample state, not a separate grouping or named-list entity in this stage.                                              |
 
@@ -159,6 +164,27 @@ URL or merely a filename.
 Memberships reference the same Sample ID; they do not create new Samples or
 duplicate source audio.
 
+### Sample Type — Agreed, Not Implemented
+
+Each Sample has at most one optional type: Loop or One-Shot. An unset value means
+unknown; classification is not required. This is independent of Category, Genre,
+and Pack origin, and users may edit it. The vocabulary is fixed for this stage,
+not a user-extensible collection of types.
+
+- Loop: a phrase, pattern, or texture prepared to repeat as a musical unit.
+- One-Shot: a sound intended to be triggered as one event, such as a hit, note,
+  vocal, or effect.
+- Unknown: unclassified or insufficient information, represented by an unset type.
+
+Type describes intended musical use, not duration. A long impact may be a
+One-Shot and a short phrase a Loop. BPM or tonality alone does not determine
+type. Confirmed user choices survive reimport until an explicit change.
+
+[Classification](features/classification.md#sample-type-suggestions) owns type
+recognition, aliases, evidence priority, replacement/rejection review, and atomic
+execution. [Search](features/search.md) owns confirmed-type filters. This planned
+extension does not turn types into Categories or musical analysis results.
+
 ### Pack
 
 A Pack represents a source package imported into Kiter, not a grouping manually
@@ -189,16 +215,8 @@ Collections. Descriptions share their optional NFC, 5,000-code-point policy.
 Editing supplies name and description together; absent description clears it.
 Reimport preserves stored presentation fields rather than applying import defaults.
 
-Internal Pack/member/import-candidate lists default to 50 items, maximum 100.
-Packs sort by stored name then UUID; members by canonical path then UUID;
-import candidates by Sample UUID. Reviews hash the completed scan, Pack
-presentation, and exact candidate source revisions/origins in bounded batches.
-Every conflicting candidate requires one explicit `keep` or `assign` decision;
-extra, missing or repeated decisions are rejected. Manual standalone origins are
-conflicts too; a manual origin already matching the target Pack remains manual.
-Changed reviewed state returns `STALE_REVIEW` inside the confirmation transaction.
-Internal preparation imports Samples first; canceling Pack confirmation leaves
-those Samples cataloged with their previous origins.
+[Import](features/import.md#implemented-internal-pack-contract) owns current
+internal Pack review/query contracts and the distinct planned import workflow.
 
 Pack Samples have no persisted manual order in this stage; order them by
 name or path when listing. Collections retain their explicit membership order.
@@ -227,12 +245,8 @@ whitespace. Whitespace-only descriptions become `null`; nonempty descriptions
 retain their spacing. Editing supplies name and description together; an absent
 description clears it. Names may repeat.
 
-Internal Collection and membership lists default to 50 items, maximum 100.
-Collections sort by stored name then UUID; memberships sort by position. Adding
-an existing member is idempotent without moving it; new members append after the
-last position. Removal can leave gaps. Reorder requires every current Sample ID
-exactly once and writes contiguous positions atomically, rejecting stale or
-incomplete membership sequences without changing the previous order.
+[Catalog Organization](features/catalog-organization.md#implemented-internal-contracts)
+owns current bounded queries and reorder/impact execution contracts.
 
 ### Category
 
@@ -256,11 +270,54 @@ Author and Category names are trimmed and normalized to NFC for storage, with
 and line/paragraph separators before trimming. Preserve display case, accents,
 and internal spaces. Author names remain non-unique.
 
-Internal classification lists and target-assignment lists use pages of 50,
-with a maximum of 100, ordered by normalized name key then UUID. Partial search
-uses the same locale-independent normalization, retains accents, and treats
-search text literally. Use lists are separately paginated for Samples and Packs;
-removal reviews include counts and any linked profile.
+[Catalog Organization](features/catalog-organization.md#implemented-internal-contracts)
+owns implemented assignment/query/impact contracts; library-wide search has its
+separate matching rules.
+
+### Genre — Agreed, Not Implemented
+
+Genre is a musical-style dimension separate from Category. For example, House
+and Techno are Genres, while Kick, Snare, and Riser can be Categories.
+
+- Samples and Packs can each have zero, one, or multiple Genres. Classification
+  is optional, and there is no primary Genre or ranking among assigned Genres.
+- Sample and Pack assignments are independent. A Pack's Genres may be suggested
+  for its Samples, but assignment requires explicit acceptance; there is no
+  automatic inheritance or propagation.
+- Kiter provides an initial Genre vocabulary and allows user-created additions.
+  Both are reusable across Samples and Packs in the same Library.
+- Start with a curated, bounded selection of approximately 20–30 common Genres
+  spanning electronic, urban, acoustic, and cinematic music rather than an
+  exhaustive subgenre catalog. This scope does not limit user-created Genres.
+- Supplied and user-created Genres can both be renamed and deleted. The initial
+  vocabulary is a starting point, not a protected catalog. Application updates
+  must respect user renames and deletions rather than silently restoring defaults;
+  new catalog entries are offered for optional incorporation into an existing
+  Library, never added automatically. The user chooses which new entries to add.
+  Renamed entries are not modified, and deleted entries are not restored.
+- Deleting a Genre requires reviewing its Sample and Pack uses and explicit
+  confirmation. Remove the Genre and its assignments, preserving Samples, Packs,
+  original audio, and all other organization. Replacement is not required.
+- The vocabulary is flat. House and Tech House are independent entries; assigning
+  or filtering by one does not implicitly include the other.
+- Names are unique across supplied and user-created Genres under the Category
+  matching policy: trimmed NFC and locale-independent lowercasing, preserving
+  accents and internal spaces. Creating or renaming to an occupied name is
+  rejected; it does not create a duplicate or merge existing Genres.
+- Names follow the Category validation policy: required, trimmed NFC, and 1–120
+  Unicode code points after normalization. Reject Unicode control characters and
+  line/paragraph separators before trimming; preserve display case, accents, and
+  internal spaces.
+
+Genre assignments are user organization and must survive rescans and source or
+origin changes. This agreed extension is not part of the current logical data
+profiles or implemented 17-table schema below.
+
+[Classification](features/classification.md#genre-seed) owns the approved initial
+26-entry catalog and recognition/alias delivery. [Search](features/search.md) owns
+Genre query matching, filters, and result navigation. Catalog-update tracking and
+storage/IPC remain executable contracts; current Category operations do not
+implement Genres.
 
 ### Author
 
@@ -312,6 +369,8 @@ Pack -> origin Samples
 Collection <-> Samples through ordered, unique memberships
 Sample <-> Categories through direct assignments
 Pack <-> Categories through direct assignments
+Sample <-> Genres through direct assignments
+Pack <-> Genres through independent direct assignments
 Pack <-> Authors through declared credits
 Sample <-> Authors through independent declared credits
 Sample -> Favorite mark
@@ -327,6 +386,8 @@ Pack / Collection -> cover reference
 | Sample to Collection       | Many-to-many; ordered and unique within each Collection.                                 |
 | Sample to Category         | Multiple direct assignments; independent of Pack Categories.                             |
 | Pack to Category           | Multiple direct assignments; no automatic propagation to Samples.                        |
+| Sample to Genre            | Zero or multiple direct assignments, with no primary Genre; independent of Pack Genres.  |
+| Pack to Genre              | Zero or multiple direct assignments, with no primary Genre or automatic propagation.     |
 | Pack to Author             | Multiple credits per Pack; Authors are reusable across Packs.                            |
 | Sample to Author           | Multiple direct credits per Sample; no inheritance from Pack credits.                    |
 | Sample to Favorite         | One boolean mark; independent of Pack or Collection membership.                          |
@@ -408,18 +469,10 @@ design.
 - Removing a Pack from Kiter keeps its Samples in the Library as standalone
   Samples. Their IDs, direct Categories and Author credits, Favorite marks, and Collection
   memberships remain intact.
-- Internal Pack removal reviews presentation, cover, exact Sample origins, and
-  Category/Author assignment IDs; confirmation rechecks them transactionally and
-  returns `STALE_REVIEW` on change. Detached Samples receive manual standalone
-  protection, so later Pack registration requires reviewing them again. Only
-  unreferenced covers become `cleanup_pending`; physical cleanup is separate.
+- Detached Pack Samples receive manual standalone protection on removal;
+  later Pack registration requires reviewing them again.
 - Removing a Collection removes its presentation data and memberships, not
   its Samples or their audio.
-- Collection removal requires a token from impact review, rechecking presentation,
-  cover ID and exact ordered memberships inside the transaction. Changed state
-  returns `STALE_REVIEW`. Removing the final cover reference marks the managed
-  asset `cleanup_pending`, checking Packs, other Collections and profile avatars.
-  Main's managed-image service performs physical cleanup separately and recoverably.
 - Removing catalog organization is distinct from deleting source audio.
   Metadata removal must never cascade into filesystem deletion.
 - A missing source does not by itself remove a Sample's identity, organization,
@@ -429,29 +482,16 @@ design.
   association, Category/Author assignments, and Collection memberships, but keep its
   source audio. Preserve an exclusion for that canonical location so rescans
   do not undo the decision. Explicit reinclusion does not restore deleted data.
-- Internal removal review hashes Sample presentation, Favorite/origin, the source
-  observation/revision and exact Collection/Category/Author/root references in
-  batches of 500. Reference reads are paginated by referenced UUID, default 50,
-  maximum 100. Confirmation rechecks the token in an immediate transaction;
-  changed reviewed state returns `STALE_REVIEW`. Exclusion and catalog deletion
-  commit together; audio authorization is not granted by these internal APIs.
-- Exclusions are Library-wide and list by canonical path in pages of 50, maximum 100. Explicit reinclusion selects an excluded canonical location and a registered
-  containing root. Main verifies readable supported-extension audio and rejects
-  symlinks and changed canonical locations. The transaction rechecks exclusion,
-  registered containment and vacancy, clears the exclusion and creates a new
-  Sample/source pair associated with that root. Its origin is manually standalone
-  so a later Pack import requires review. Other overlapping root associations
-  are rediscovered on rescan; no Pack or deleted organization is restored.
+- Exclusions are Library-wide. Explicit reinclusion requires a registered
+  containing root and verified supported readable audio, rejecting symlinks and
+  changed canonical locations. It creates a new Sample/source associated with
+  that root, manually standalone and without deleted organization; overlapping
+  associations are rediscovered on rescan.
 - Removing a Category or Author requires showing its uses and obtaining
   confirmation. Remove its assignments or credits, not the associated
   Samples, Packs, or files.
 - Author removal also shows any UserProfile link and clears that link without
   removing the profile or its Preferences.
-- Author/Category removal requires the review token returned by impact inspection.
-  Recheck the entity name, exact Sample/Pack association IDs, and linked profile
-  inside the removal transaction. Changed impact rejects the removal with
-  `STALE_REVIEW`; inspect and confirm again. Matching counts alone are insufficient.
-  A token identifies reviewed state, not UI confirmation or an authorization grant.
 - Unregistering a source directory stops scanning it but retains its Samples
   and organization. Catalog retention alone does not authorize access to
   audio; playback and dragging still require an authorized location.
@@ -461,6 +501,9 @@ design.
 
 Derived caches can be rebuilt; user organization must not be treated as
 disposable cache data.
+Exact transactional impact checks, pagination, tokens, and managed-cleanup
+integration belong to [Catalog Organization](features/catalog-organization.md#implemented-internal-contracts),
+with image lifecycle infrastructure in Data Access.
 
 ### Rename, Relocate, Centralize, and Export
 
@@ -512,6 +555,10 @@ groupings. Their representation belongs to later technical planning.
 
 ### Availability and Analysis
 
+[Duration Analysis](features/duration-analysis.md) owns measurement, source-bound
+invalidation, background scheduling, pause/restart, and retry policies.
+[Search](features/search.md) owns unavailable-result inclusion and duration ranges.
+
 Availability and analysis are independent. Planned availability meanings are
 **available**, **missing**, and **inaccessible**. Planned analysis states are
 **not requested**, **queued**, **running**, **ready**, **failed**, and **stale**;
@@ -532,17 +579,19 @@ at an old path is not proof of unchanged content.
 
 ### Suggestions, Tasks, and Recovery
 
-Suggestions remain reviewable and must not replace accepted classifications
-during a rescan. Rejected or stale suggestions must not execute without renewed
-review.
+Suggestions are proposals, not accepted user data; rescans must not replace
+confirmed organization. Rejected or stale proposals require renewed review.
 
-Proposed task states are **queued**, **running**, **completed**, **partial**,
-**failed**, and **canceled**. A cancellation request is distinct from its final
-outcome; already completed file changes remain completed.
+- [Classification](features/classification.md) owns recognition, aliases, evidence,
+  rejection memory, Sample-type suggestions, and standalone review/execution.
+- [Import](features/import.md) owns discovery, origin review, target transactions,
+  partial outcomes, and whole-batch retry.
+- [Operation Execution](features/operation-execution.md) owns the shared queue,
+  cancellation/exit, durable history, and verifiable restart recovery.
 
-Track item outcomes and use identified progress units. Interrupted work requires
-reconciliation before retry; task unification must not merge conflicting
-operations on the same file. Durable task persistence is not implemented.
+Those contracts are agreed but not implemented durable task support. Keep
+filesystem plans separate from catalog transactions and never infer rollback
+or success from a cancellation request or interruption.
 
 ## Implemented Catalog: Current Behavior and Limitations
 
@@ -581,8 +630,8 @@ already exist.
 
 Before implementing each relevant feature, agree on:
 
-- UI presentation of the agreed per-Sample keep/assign import-conflict review.
-- UI presentation of explicit reinclusion for Library-wide excluded locations.
+- Deferred visual presentation/validation of agreed origin-conflict review and
+  reinclusion workflows; behavior is owned by the Import/Catalog feature guides.
 - The source-observation algorithm and stronger source-version validation for
   analysis. One source per Sample, distinct copies, and confirmed relinking
   are already agreed; multiple physical sources per Sample are outside scope.
@@ -604,9 +653,11 @@ foundation, preserving preview and native dragging. Persistent technical
 metadata, cache invalidation, and waveform peaks follow as a separate module.
 Keep durable user organization separate from rebuildable analysis.
 
-Export, file-conflict policies, automatic suggestions, durable task states,
-retry behavior, and source-deletion verification require their own scoped
-decisions. Kits, Tags, accounts, multiple Libraries, and named favorite lists
+Classification, Sample type, search, duration, import commits, and shared execution
+business rules are agreed in their feature guides. Their executable contracts
+remain to be delivered. Export, filesystem conflict policies, musical analysis,
+and source-deletion verification require separately scoped decisions.
+Kits, Tags, accounts, multiple Libraries, and named favorite lists
 must not enter storage planning as already-approved entities.
 
 Record approved decisions here as scope evolves. Add executable contracts and

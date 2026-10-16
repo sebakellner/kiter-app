@@ -2,7 +2,8 @@
 
 Read this guide when designing or changing the application shell, information
 architecture, views, navigation, selection, playback interactions, or workflows.
-It owns experience-level decisions and open design questions.
+It owns shared shell, navigation, selection, focus, and presentation decisions.
+Feature workflows live in the focused guides linked below.
 
 See [UI Patterns](ui-patterns.md) for reusable interaction conventions,
 [Domain Model](domain-model.md) for entity semantics, and
@@ -15,12 +16,11 @@ its documentation location is still to be defined.
 The first functional UX baseline is agreed. The sections marked Agreed describe
 the intended experience, not shipped capabilities or existing IPC contracts.
 The current renderer still renders the folder-based Library directly, without a
-router. The design system and visual specifications are in progress.
+router. Visual design, the design system, and prototype validation are deferred.
 
-Use the feature sections for behavior and the final validation/implementation
-checklist for remaining work. Routing remains a technical proposal. Musical
-analysis requires its own domain design, and filename/subfolder classification
-is explicitly deferred to the next PR.
+Use shared sections here and load only the feature guides relevant to a task.
+Routing remains a technical proposal; musical analysis still needs separate
+domain decisions. Agreed feature contracts do not establish shipped capabilities.
 
 - [Shell and destinations](#shell-and-destinations)
 - [Selection and playback](#selection-and-playback)
@@ -30,7 +30,7 @@ is explicitly deferred to the next PR.
 - [Conflicts and operation guarantees](#conflicts-and-operation-guarantees)
 - [Persistence summary](#persistence-summary)
 - [Routing proposal](#routing--proposed-technical-direction)
-- [Next PR](#follow-up-for-the-next-pr--import-classification-suggestions)
+- [Feature contracts](#feature-contracts)
 - [Validation and implementation checklist](#validation-and-implementation-checklist)
 
 ## Shell and Destinations
@@ -64,7 +64,7 @@ Permanent global player
 - The global player occupies a permanent bottom region, including an empty state
   when no Sample is loaded. Navigation must not unmount it or interrupt playback.
 - Keep an operation indicator in the header for active imports and Recent results,
-  as defined in Import History and Recent Results. It is a shell control, not a
+  under [Operation Execution](features/operation-execution.md). It is a shell control, not a
   separate Activity destination.
 - Give compact use beside a DAW and wide-window library browsing equal design
   priority.
@@ -190,22 +190,19 @@ Collections. They describe intended behavior, not current implementation.
 - With the Sample list focused and no text editing active, arrow keys change
   selection, Enter previews the active Sample, and Space pauses/resumes the
   current player Sample independently of selection.
-- When a preview ends, stop by default. Offer optional Loop and automatic advance
-  controls. Without automatic advance, Loop repeats the current Sample. With
-  automatic advance, Loop repeats the sequence; without Loop, the sequence stops
-  at its end.
-- Navigating away or changing filters, local search, or source-list sorting
-  disables automatic advance while allowing the current audio to continue.
-  Sequence and Loop behavior are specified in Global Player below.
+- Transport modes, end behavior, and sequence invalidation follow
+  [Playback](features/playback.md#sequence-semantics).
 - In multiple-selection mode, the inspector shows the independently active
   Sample, indicates the batch selection, and does not become a bulk metadata
   editor. The inspected Sample need not belong to the checked batch; batch
   actions target checked Samples, not the inspector's active Sample.
 - Agreed batch actions are Add to Collection, removal from the catalog, and,
   within a Collection, membership removal, plus removal of the current direct
-  assignment from Category/Author detail as specified below. Catalog removal
+  assignment from Category/Author detail under Catalog Organization. Catalog removal
   requires impact review and explicit confirmation. Original audio files remain
-  untouched. Other batch actions have not been agreed for this delivery.
+  untouched. Explicit group classification decisions are separately agreed in
+  [Classification](features/classification.md); they do not turn the inspector
+  into a bulk metadata editor or authorize other unagreed actions.
 
 Batch review must make hidden selected Samples explicit. Context restoration and
 Select all follow the rules below.
@@ -250,463 +247,56 @@ snapshot implementation for Select all still requires technical design.
 
 ### Global Player — Agreed
 
-- Show the loaded Sample's name, Play/Pause, Previous/Next, Stop, volume, mute,
-  position and observed duration, Favorite, and a Locate Sample action. Also
-  provide the previously agreed Loop and automatic advance controls. Exact
-  visual arrangement is a design-system decision.
-- Stop halts playback and returns to the beginning while keeping the Sample
-  loaded. Favorite acts on the loaded Sample, not the list selection. Locate
-  navigates to that Sample in Samples without interrupting playback, resolving
-  dirty drafts under the existing navigation rules.
-- Use a seekable progress bar in the global player rather than a waveform.
-  Provide keyboard-accessible seeking; distinguish unknown duration from a
-  measured value. Waveforms can remain in other Sample surfaces.
-- Persist preview volume under the existing Preferences contract. Mute is
-  session-only; it is not a new persistent preference.
-- Starting a preview from a list establishes a sequence over the entire filtered
-  result in its displayed order, not only loaded pages. Resolve sequence entries
-  with bounded queries rather than loading or decoding the whole result upfront.
-  Previous/Next can traverse this sequence without automatic advance enabled.
-- Previous/Next starts playback of the destination Sample even if the current
-  Sample was paused. A new preview explicitly initiated from a list establishes
-  a new sequence with Loop and automatic advance both off; transport movement
-  within a sequence does not reset its modes.
-- Navigation or changes to the originating list's filters, search, or sort disable
-  automatic advance while the current audio continues. If Loop was repeating the
-  sequence, disable Loop as well rather than silently turning it into single-Sample
-  repetition. Retain the original sequence for manual Previous/Next traversal and
-  identify its origin in the player. Starting another Sample from a list creates
-  a new sequence; transport navigation does not implicitly re-enable advance.
-- Previous always goes to the preceding Sample, regardless of elapsed playback
-  time. Without sequence Loop, disable Previous at the first entry and Next at
-  the last; with sequence Loop, allow wrapping to the opposite end.
-- Retain the order established when the sequence started: later membership
-  additions and reordering do not insert or rearrange entries. Skip entries no
-  longer valid for the original context, and report when that context becomes
-  unavailable. A bounded query strategy must preserve this snapshot behavior;
-  ordinary mutable offset pagination alone does not establish that guarantee.
-- Seeking while paused changes position without starting playback. Adjusting
-  volume while muted removes mute. Activating mute preserves the volume level
-  instead of saving zero over it.
-- When the seek bar has focus, Left/Right uses a duration-relative step with a
-  fine-adjustment alternative. Home/End seeks to the beginning/end when duration
-  is known. Define the proportional step, bounds, and fine-adjustment gesture
-  through interaction prototypes; never seek outside the valid duration.
-- When advancing encounters an unplayable Sample, report the failure visibly and
-  try the next entry. Bound skipping so an entirely unplayable sequence cannot
-  cause an endless loop, including with sequence Loop enabled.
-- Report skipped unplayable Samples through a local player indicator with
-  expandable reasons, rather than global notices while that context is visible.
-  If no entry is playable, stop traversal and keep a visible error state.
-- If the sequence cannot be queried or has no valid entries, discard it, disable
-  sequence transport/modes, and explain that another preview must start from a
-  list. Keep current audio if its source remains usable; do not offer retry of
-  the discarded sequence.
-- On restart, attempt to restore the last catalog Sample paused at the beginning,
-  without restoring position, sequence, mute, Loop, or automatic advance. Restore
-  volume as agreed. Persist a stable Sample identity, never its temporary audio
-  URL, and reauthorize its source through main before enabling preview. This is
-  an additional planned playback-restoration contract beyond existing volume
-  persistence. If the identity was deleted, use the empty player. If the Sample
-  exists but its source is inaccessible, retain it as unavailable, with known
-  reason, Locate and Check again actions, and no playback or native drag until
-  main can authorize access again. Never treat an access failure as deletion.
-- With no loaded catalog identity, show a discreet Choose a sample to preview
-  empty state and disabled transport controls. An existing identity with an
-  inaccessible source uses the unavailable state described above, not this state.
-
-These are intended controls and interactions, not delivered player capabilities.
-Sequence snapshot mechanics, proportional/fine seek gestures, and the last-Sample
-restoration contract still need implementation design. Only volume persistence is
-currently implemented internally; last-Sample restoration is a new requirement.
+[Playback](features/playback.md) owns transport/modes, sequence snapshots, errors,
+last-Sample restoration, source authorization, and removal interactions. The
+shell preserves the player across navigation; list selection remains independent.
 
 ## Editing and Library Workflows
 
 ### Inspector Editing and Forms — Agreed
 
-- Inspector fields edit a draft of catalog presentation data, not source files.
-  Show explicit Save and Cancel controls when there are changes. Saving is not
-  triggered by field blur.
-- Category assignments and Author credits belong to the same draft as textual
-  fields. Save confirms them together; Cancel discards their pending changes.
-  Sample and Pack assignments remain independent. Save must commit the whole
-  draft or none of it: invalid, failed, or stale fields/relationships preserve
-  the draft without partially saving other fields. This requires a combined
-  transactional command that does not yet exist.
-- Before changing the inspected element, navigating away, or closing an inspector
-  with unsaved changes, offer Save and continue, Discard and continue, or Stay.
-  Save and continue performs the requested transition only after saving succeeds.
-  On validation or storage failure, keep the draft and the editing context.
-- Cancel asks for discard confirmation when there are unsaved changes. Confirming
-  discards the draft and restores the last saved values.
-- Covers and avatars use an independent image workflow: selection, preview, and
-  explicit confirmation. They are not committed by the textual form's Save action.
-  Resolve a dirty text draft through Save, Discard, or Stay before opening the
-  image workflow. A confirmed image change is independent of later text edits.
-- Validate fields on blur and validate the complete form on Save. After a field
-  has an error, update its validation feedback while the user corrects it.
-  Surface save failures without losing recoverable input. Validation rules come
-  from domain contracts, not from visual design alone.
-- Create Collections, Categories, and Authors through a short dialog requesting
-  the minimum required data. On successful creation, open the entity's detail
-  view to complete its information. Do not navigate or close as successful before
-  creation completes. Pack import follows Import Workflow below.
-- Creation dialogs support Escape to request dismissal; if dirty, ask before
-  discarding. Clicking outside does not dismiss them. Restore focus on close.
-- Cmd/Ctrl+Enter submits the focused form. Enter alone does not submit from text
-  inputs and retains its control-specific behavior, including newlines in
-  multiline fields and confirming selector choices.
-- During a save, show Saving, prevent duplicate submission, and disable editing
-  and transitions away from that form until the result is known. Existing playback
-  continues; player interaction follows the active overlay's focus rules (a modal
-  form still blocks the underlying player). On failure, restore editing with the
-  draft intact.
-- Category and Author assignment selectors allow creating a missing entity in a
-  short dialog. On success, return to the selector and add the entity to the
-  parent's draft instead of navigating to its detail. The entity itself has been
-  created; discarding the parent's assignment draft does not undo that creation.
-  Make this distinction clear in the flow.
-
-These are intended editing conventions, not delivered forms or IPC operations.
-Application-close rules are specified in Keyboard, Focus, and Overlays below.
-Nested creation focus follows the rules in Keyboard, Focus, and Overlays.
-Combined-save command contracts still require implementation design.
+[UI Patterns](ui-patterns.md#forms-and-inspector-drafts--agreed-planned) owns
+atomic metadata drafts, Save/Discard/Stay, validation, nested creation, and conflict
+reconciliation. Shell-specific focus and ordinary exit behavior remain below.
 
 ### Import Workflow — Agreed
 
-- Import supports multiple selected source folders in one operation, including
-  their subfolders. Catalog import does not move or modify original audio.
-- Use a large step-based dialog for folder selection, discovery, review,
-  confirmation, and results.
-- Choose standalone Samples or Pack registration after discovery, with the
-  discovered content available for review. One choice applies to the entire
-  operation: standalone Samples for all roots, or one Pack per selected folder,
-  with separate presentation data for each Pack. Subfolders do not automatically
-  become separate Packs.
-- Allow selecting which discovered audio files to import before confirmation.
-  Start with all eligible files checked; allow unchecking files or subfolders and
-  distinguish already cataloged files from new ones.
-  Discovery and review must not catalog unchecked new files. The current internal
-  Pack preparation catalogs Samples before Pack confirmation; it must be adapted
-  or complemented before implementing this selection experience. Do not imply
-  that canceling the current preparation rolls back cataloged Samples.
-- For a new Pack, offer name, optional description, cover, Categories, and Authors
-  within the workflow. Only the name is required, initially suggested from the
-  folder name. Existing Pack reimport preserves stored presentation data.
-- Permit overlapping selected roots with explicit review. Show each file once
-  and require a root choice when inclusion affects its destination Pack. Reuse
-  existing Sample identities; overlapping roots must not duplicate Samples.
-- When actual registered associations identify several selected roots with the
-  same existing Pack, group them into one Pack review, deduplicate Samples, and
-  preserve its stored presentation. Do not infer Pack identity from matching
-  names. This refines the new-import one-Pack-per-folder rule for reimports;
-  compatibility with source-association contracts requires technical validation.
-- Resolve origin conflicts individually for each Sample: explicitly keep the
-  current origin or assign the destination Pack. Do not offer group decisions.
-  Protect manual origin corrections and existing Pack origins under the domain
-  review rules; do not reinterpret a standalone import as permission to clear
-  an existing origin.
-- Before import confirmation, closing the dialog retains its preparation for
-  the current application session, including folders, selection, and entered
-  data. Allow reopening it and revalidate before confirmation. This is not a
-  promise of preparation recovery after application restart.
-- After confirmation, allow minimizing progress and navigating elsewhere while
-  the operation continues. Provide a global operation indicator and a way to
-  reopen progress and results. Closing or minimizing the dialog must not imply
-  cancellation of an executing import.
-- While the import dialog is open, existing audio continues but the underlying
-  player is not interactive. Minimize progress to use the player or other views;
-  reopening progress restores focus confinement to the dialog.
-- After successful import, show a result summary with choices to open the
-  imported content or return to the previous view. Provide Open per root (Pack
-  detail or Samples filtered by source root) and a combined view of Samples
-  included in the operation, requiring an operation-specific query/filter.
-  Result links must reflect actual completed outcomes, including partial results.
-
-#### Execution, Failures, and Retries — Agreed
-
-- Initially, do not offer cancellation after execution is confirmed. The user may
-  minimize progress and continue working; this does not stop the import.
-- If a folder fails during execution, stop the batch and do not begin subsequent
-  folders. Preserve completed work and distinguish completed, failed, and not
-  processed scopes. An interrupted batch is not a successful full import.
-- An incomplete discovery blocks confirmation until the affected folder is
-  successfully rescanned or explicitly removed. Do not commit incomplete scans
-  or present partial discovery as a complete folder result.
-- If reviewed sources, origins, or other relevant state change, prepare the
-  affected folder again from discovery and review. Preserve its entered
-  presentation data, but require a new content selection and conflict review.
-- Retry prepares the entire original batch again rather than only failed or
-  pending parts. Rediscover sources, recognize existing Samples and Packs, and
-  present a fresh review before executing. Retry is not a blind replay and must
-  not duplicate completed catalog identities.
-- Allow preparing another import while one executes and placing it in a queue.
-  Execute imports serially and revalidate queued preparations before execution.
-  If revalidation requires new decisions, obtain a new review rather than
-  applying stale decisions. After a batch fails, continue with the next queued
-  operation, retaining the failed batch's result for inspection.
-- Pending imports execute in arrival order. Allow removing a pending import;
-  initially, do not offer reordering or editing of confirmed queued preparations.
-  To change one, remove it and prepare another import.
-- If no import is executing, allow application exit with confirmed pending
-  operations and persist that queue. After restart, show the retained operations
-  without automatically executing them; require revalidation before continuing.
-  Unconfirmed preparation remains session-only and is not restored.
-- If a queued operation needs fresh review, keep it in Needs review and pause
-  queue advancement at that point. The user must review or remove it before
-  later operations continue. This differs from execution failure, which stops
-  that batch but allows the next queued operation to run.
-- Prevent application exit while an import executes and explain that execution
-  must finish first. Do not automatically quit afterward; the user may close
-  Kiter again. Minimizing or hiding the window remains available. This exit guard
-  does not guarantee completion through forced termination or OS shutdown.
-- Keep a local persistent operation history so completed and failed import
-  results remain available after restart. This requires new persistence and
-  result queries; it is distinct from the session-only unconfirmed preparation.
-  Do not clean history automatically initially, as specified in Profile and
-  Settings.
-- On restart after unexpected termination during execution, report the operation
-  as Interrupted rather than assuming success or rollback. Distinguish confirmed
-  committed outcomes from unverified states and offer preparation of the entire
-  original batch again, with fresh review. Do not resume automatically.
-- The combined operation view includes all successfully included Samples, even
-  existing ones with no changes, and excludes failed or unchecked files. Separate
-  created, updated, unchanged, and failed outcomes in the summary. Define stage
-  completion precisely before implementing operation membership.
-- Historical results retain what occurred at execution time while also indicating
-  whether referenced identities still exist in the catalog. Links open current
-  surviving identities; later origin changes do not rewrite the historical event.
-- Show stages and a visible file-level progress/result list. Use percentages only
-  when the total is known, and distinguish discovery from catalog completion and
-  Pack registration. Report intermediate committed outcomes accurately if a
-  later stage fails; per-folder atomicity is not yet defined.
-
-The exact confirmation/commit boundary, manual history cleanup, interruption
-reconciliation mechanics, and multi-root Pack association contracts require
-implementation design. This workflow is planned; existing folder import and
-internal Pack operations do not deliver it yet. Persistent queued preparations
-are a new requirement alongside import history, not existing recovery support.
+[Import](features/import.md) owns discovery, selection, origin review, confirmation,
+progress interaction, result navigation, and target commit/failure rules.
+[Operation Execution](features/operation-execution.md) owns its queue, history,
+exit guard, and recovery. Apply the shared focus/draft conventions here without
+duplicating those feature contracts.
 
 ### Catalog Removal and Reinclusion — Agreed
 
-- Within a Collection, put Remove from Collection and Remove from Library in
-  the action menu as clearly distinct operations. The first removes memberships
-  only, preserving Samples, Favorites, other organization, and original audio.
-- Apply membership removal without a confirmation dialog or promised Undo.
-  Reflect success only after the operation completes. This includes individual
-  and batch membership removal. Process batch items independently, continue after
-  individual failures, report results per Sample, and allow revalidated retries
-  of failed membership removals.
-- Sample catalog removal requires impact review and explicit confirmation. Show
-  each Sample and its affected references visibly, with aggregate counts as
-  supporting information. Include checked Samples hidden by filters in batch
-  review. Preserve source audio; clearly explain the loss of catalog data and
-  organization and the exclusion preventing automatic reimport of that location.
-- Provide one Excluded files destination accessible both from a secondary action
-  in Samples and from Settings → Library. It is separate from the normal catalog.
-  Its exact route remains to be chosen.
-- Support individual and batch reinclusion with availability review and explicit
-  confirmation. Explain that reinclusion creates new standalone Sample identities
-  without restoring deleted Favorites, notes, Pack origins, or other organization.
-  Main must verify readable supported audio under a registered containing root,
-  following the existing domain checks. Show successful, failed, and unprocessed
-  outcomes distinctly; batch failure behavior is specified below.
-- Pack, Collection, Category, and Author deletion share a brief review dialog:
-  name, consequences, affected counts, consultable details, and an entity-specific
-  confirmation button. Do not require typing the entity name.
-- Follow the removal semantics in [Domain Model](domain-model.md#removal-and-deletion):
-  Pack removal leaves its Samples standalone, Collection removal removes its
-  memberships, and Category/Author removal removes assignments or credits.
-  Author review also exposes any local profile link that will be cleared. These
-  operations preserve Samples and original audio.
-- If deletion rejects a stale impact review, close that review, explain that the
-  state changed, and require restarting the removal action with a fresh review.
-- If Sample catalog removal includes the currently playing Sample, require
-  stopping its preview before confirmation. A failed removal leaves that Sample
-  loaded in the player; do not automatically resume it. Successful removal must
-  not leave playback or dragging authorized for the removed catalog identity.
-- Provide a specific Stop preview action inside that removal review so the user
-  can meet the stop requirement without dismissing the dialog. This is an
-  explicit exception to dialogs not exposing player controls.
-- Resolve a dirty inspector draft through Save, Discard, or Stay before preparing
-  removal review for that element.
-- Batch reinclusion continues after individual failures. Show results per file
-  and allow preparing a revalidated retry of failed items. When several
-  registered roots contain a file, propose the most specific root, display the
-  choice during review, and allow changing it to another valid containing root.
-- After deleting a Pack, Collection, Category, or Author from its own detail,
-  navigate to that entity's list and report the result. If history later reaches
-  a deleted detail route, show an unavailable state with recovery navigation.
-
-These are planned interactions. Batch reinclusion, its IPC/UI, and the shared
-Excluded files destination are not implied to exist. Removal batch failures and
-playback interactions are specified in Conflicts and Destructive-Action Edge
-Cases below. Reinclusion retries follow the non-import retry rules: revalidate
-failed items, and obtain new confirmation if the reviewed scope changes.
+[Catalog Organization](features/catalog-organization.md#catalog-removal-and-reinclusion)
+owns impact review, Excluded files, reinclusion, partial results, and navigation
+after deletion; Domain Model owns entity/file preservation invariants.
 
 ### Collection Membership and Ordering — Agreed
 
-- Support Add to Collection from an individual Sample's menu, the checked batch,
-  an Add samples catalog picker within a Collection, and internal dragging onto
-  a Collection shortcut in the sidebar. These actions add references, not audio
-  copies, and do not change Sample origins or Favorites.
-- The destination picker supports searching, creating a Collection, and choosing
-  multiple Collections in one operation. Process destinations independently,
-  continue after a destination fails, report outcomes per Collection, and allow
-  retrying failed destinations.
-- Creating from this picker is an exception to standard create-and-open-detail:
-  return to the picker with the new Collection selected. Add still requires
-  confirmation. Canceling the picker does not delete the newly created Collection.
-- Skip memberships that already exist, preserve their current positions, and
-  report how many Samples were already present. Append new memberships in the
-  current source-list order applied to the complete checked batch, including
-  hidden Samples. Use stable tie-breakers and explicit unknown-value ordering;
-  exact query contracts still require implementation design.
-- Reorder directly in the normal Collection list through a dedicated drag handle
-  and keyboard-accessible Move actions. Do not require a separate Reorder mode.
-- Save each completed movement. If saving fails, restore the last saved order and
-  show the error. This direct ordering interaction is separate from the metadata
-  form's Save/Cancel draft.
-- Offer the stored manual order and alternative display sorts based on available
-  data, such as name or observed duration. Alternative sorts do not replace the
-  stored sequence. Reordering is available only in manual order with no filters
-  or local search active.
-- Order Collection shortcuts alphabetically in the sidebar. Collections may
-  share names; use the disambiguation rules in List and Card Presentation without
-  requiring unique names.
-- Internal Collection drops, Collection reordering, and native dragging into a
-  DAW need distinct gesture targets and state. Current native export supplies one
-  original file per gesture; this agreement does not introduce multi-file native
-  export or assume that native and internal drag sessions can be combined.
-- Use a dedicated internal-drag handle per Sample; dragging its name or waveform
-  remains native single-file export to the DAW. Collection reordering uses its
-  own separate handle.
-- In multiple-selection mode, provide a batch-drag control in the selection bar
-  that carries all checked Samples, including hidden ones, with an explicit
-  count. A row's internal-drag handle always carries only that row's Sample.
-- Highlight a Collection shortcut as a drop destination. Dropping adds directly,
-  without a second confirmation, and reports completion, existing memberships,
-  or failure accurately.
-
-These are intended interactions. Stale reorders follow the conflict rules below.
-On membership retry, if a Sample or Collection was deleted, show the updated scope
-and require confirmation of remaining Samples and destinations. Never substitute
-identities by name. Exact sort contracts still need implementation design.
+[Catalog Organization](features/catalog-organization.md#collection-membership-and-ordering)
+owns pickers, append/reorder rules, internal versus native drag, and retry scope.
 
 ### Pack, Category, and Author Views — Agreed
 
-- Pack detail prioritizes its Sample list. Its header shows cover, name,
-  description, Categories, and Authors; the list below provides contextual filters
-  and actions. Presentation editing follows the inspector's Save/Cancel rules.
-- Category and Author details separate directly assigned Samples and Packs into
-  tabs, each with its own search and filters. Do not include Samples merely
-  because their origin Pack is assigned to the Category or Author.
-- Category and Author labels on Samples or Packs navigate to the corresponding
-  entity detail. Editing assignments uses separate controls, rather than
-  overloading those navigation links.
-- Extend the inspector to Categories and Authors: show name, usage summary, and
-  contextual actions; allow name editing through Save/Cancel. Do not introduce
-  additional entity fields without domain agreement.
-- Correct a Sample's origin individually through a dedicated Change origin action
-  in the inspector. Choose another existing Pack or standalone status, then
-  review and confirm separately from the metadata form. Preserve manual origin
-  corrections during future imports; never move or copy source audio.
-- From Category and Author detail, provide Add samples and Add packs selectors
-  with search and multiple selection. These actions create direct assignments;
-  they do not propagate assignments between Packs and Samples. Report outcomes.
-- An Edit action in the detail header opens the inspector for the page's entity,
-  even if it was showing a selected member. Resolve dirty drafts through
-  Save/Discard/Stay before switching its target.
-- Assignment selectors prepare a selection and apply it with Add; Cancel makes
-  no relationship changes. Show already assigned entities as visible, disabled
-  entries labeled Already added.
-- Adding assignments processes targets independently, continues after failures,
-  reports results per target, and allows retrying failed targets. This is distinct
-  from the inspector's combined Save draft.
-- In Category/Author detail, offer contextual removal of that direct assignment
-  individually and in batches for listed Samples or Packs. Apply without an
-  additional confirmation and report the outcome. This removes only the current
-  relationship, not the Category, Author, Sample, or Pack. Process elements
-  independently, continue after failures, show results per element, and allow
-  retrying failed removals.
-- Pack lists use the same explicit multiple-selection conventions as Sample
-  lists: Select enables checkboxes, checked membership is independent of the
-  inspected row, and the same Select all and context-clearing rules apply.
-  Preserve Pack opening behavior: single click selects, double-click or Enter
-  opens, with a visible Open action. This does not imply batch Pack deletion or
-  other unagreed actions outside contextual assignment removal.
-- Resolve dirty metadata drafts through Save/Discard/Stay before opening Change
-  origin, consistent with the independent image workflow.
-
-These are planned views and interactions. Origin review and dirty-inspector
-conflicts follow the rules below. Detailed reconciliation controls still need
-design. Batch origin correction is outside the initial agreed scope.
+[Catalog Organization](features/catalog-organization.md#pack-category-and-author-views)
+owns detail/assignment interactions and the independent Change origin workflow.
 
 ## Search and Presentation
 
 ### Global Search — Agreed Interaction
 
-- Show suggestions while the user types in the global header search.
-- Search Samples, Packs, Collections, Categories, and Authors.
-- Search entity names and Sample filenames/relative source paths, notes and
-  descriptions, and related metadata. Samples match the names of their directly
-  assigned Categories and Authors and their origin Pack's name, but not that
-  Pack's Categories or Authors. Packs also match directly assigned Category and
-  Author names. Collections, Categories, and Authors match their own text fields,
-  not an expansion through their members or uses. Do not infer musical properties
-  from audio.
-- Match text case- and accent-insensitively, support substrings, and require all
-  query words to match, potentially across different searchable fields. Also
-  tolerate approximate spelling errors. Prioritize exact names, then name
-  prefixes/substrings, other text or relation matches, and finally approximate
-  matches. Explain non-obvious matching reasons. Approximation thresholds and
-  deterministic ranking details need validation with real library examples;
-  do not introduce recency weighting.
-- Group a bounded set of suggestions by entity type, with access to all results.
-- Allow opening a matching entity directly or opening a full results view.
-- Present full results as a mixed list ordered by relevance, with entity-type
-  filters and clear type identification.
-- Activating a Sample suggestion navigates to Samples, locates and selects that
-  Sample, and allows inspection without automatically starting playback. Clear
-  the destination's local search and filters so the Sample is not hidden; Back
-  preserves the prior navigation context.
-- Locating a Sample from a suggestion or the player creates a history entry,
-  including when already in Samples. Back restores the previous full context
-  rather than losing the earlier Samples filters and selection.
-- Sample rows in full results retain the agreed selection and preview behavior:
-  clicking the name previews; selection alone does not start playback.
+[Search](features/search.md) owns query matching, aliases versus plain text,
+approximation/ranking, result navigation, and catalog-change behavior. Global
+search remains in the header; shared shortcuts/focus/history rules remain here.
 
 ### Sample Filters — Agreed Scope
 
-- In Samples and Favorites, offer filters for source roots, origin Pack or
-  standalone Samples, direct Category assignments, direct Author credits, audio
-  format, and observed duration.
-- Do not implicitly inherit Sample classifications or credits from its Pack.
-- Combine selected values within one filter group with OR (any selected value),
-  and combine different groups with AND. Multiple selected Categories or Authors
-  therefore require at least one direct match within each respective group.
-- Apply each filter change immediately, display active filters as removable
-  chips, and provide Clear all. No Apply step is needed.
-- Local search uses the same searchable fields and relationship rules as global
-  search for the listed entity type, constrained to the current view or tab.
-  Update after a brief typing pause, keep field focus, reject stale responses,
-  and never initiate preview from a query update.
-- Duration filtering requires catalog-queryable observed data; the current
-  browse-time waveform/player duration does not establish that capability.
-  Unknown durations must remain distinguishable from measured values.
-- A duration range initially excludes unknown durations. Provide an explicit
-  option to include unknown durations alongside matching measured values.
-- Duration uses optional minimum and maximum fields with clear units and inclusive
-  endpoints. Either bound may be absent. Explain invalid values or inverted
-  bounds without applying an invalid query; numeric limits and input formatting
-  belong to the eventual metadata/query contract.
-- Availability was not selected as an initial filter. Missing-source states must
-  still be presented accurately when applicable.
-
-Search and filters are planned. Approximation thresholds, ranking tie-breakers,
-query timing, and numeric duration contracts need implementation design and
-validation. These decisions do not imply that library-wide search or its required
-queries are implemented.
+[Search](features/search.md#filters-and-local-search) owns available filter groups,
+OR/AND combination, direct assignments, local query scope, and duration input.
+[Duration Analysis](features/duration-analysis.md) owns measurement and scheduling.
+Apply shared selection/draft transitions here when results change.
 
 ### List and Card Presentation — Agreed
 
@@ -819,92 +409,14 @@ are planned behaviors, not implemented window constraints.
 
 ### Feedback and Short Operations — Agreed
 
-- Prefer local success feedback for everyday actions: update Favorite in its
-  control and show Saved in the editing context. Use a toast when the outcome is
-  otherwise easy to miss, such as removing a membership. Do not announce success
-  before the operation completes.
-- Present recoverable errors near their action when possible. If that context
-  disappears, use a persistent global notice with access to relevant details.
-  Field errors remain attached to their fields and recoverable drafts survive.
-- Informational and success notices without required actions dismiss after a
-  5-second initial interval, paused while hovered or focused. Validate that timing
-  for accessibility. Errors and notices requiring action do not dismiss
-  automatically.
-- Partial batch outcomes produce a persistent summary with counts and View
-  results. Open per-item results and supported retries on request, rather than
-  automatically interrupting the current context with a results dialog.
-- Keep non-import batch results for the current session. Closing a notice does
-  not discard its detail: provide Recent results within the global operation
-  indicator. Only import history has agreed cross-session persistence.
-- Short batch operations show pending state in their initiating control/context,
-  prevent duplicate submissions, and block only conflicting controls. If the
-  user leaves that context, preserve access to the result. This does not override
-  the metadata form's wait-before-leaving rule or the import workflow.
-- Group notices by operation, updating its existing notice and counts where
-  appropriate. Do not merge independent failures into an ambiguous success or
-  erase one operation's failure with another operation's success.
-- No-results views keep their search and active filter chips visible, explain
-  the lack of matches, and offer targeted Clear filters or Clear search actions.
-  Distinguish this state from an empty catalog, loading, and failed queries.
-- On failed refresh, preserve the last valid list with an explicit update-failed
-  notice and Retry. Do not imply that stale results are a successful response for
-  newly requested criteria. Without a prior valid result, show a load-error state
-  with Retry while retaining the requested filters/search.
-- For non-import partial retries, revalidate and retry failed items only if the
-  scope is unchanged. Changed scope or required impact review prompts a new
-  confirmation. This does not change import Retry, which prepares the whole batch.
-- Expanded errors show a clear explanation, affected elements, suggested next
-  action, and a copyable error code or operation reference. Do not expose stack
-  traces or internal payloads; follow the existing logging/privacy rules when
-  constructing copied diagnostic text.
-- Announce notices without stealing focus: success is nonintrusive, errors are
-  announced as errors, and actions such as View results remain keyboard-accessible.
-  Modal decisions follow dialog focus rules rather than toast behavior.
-- Stale displayed query data may still support selection and individual actions
-  if those actions validate current state; destructive operations always prepare
-  a current impact review. Disable result-wide actions such as Select all until
-  the relevant result query is valid again.
-
-These conventions are planned. Session-result access and retention follow the
-rules below; notice timing still requires accessibility validation.
+[UI Patterns](ui-patterns.md#feedback-and-short-operations--agreed-planned) owns
+notices, local feedback, partial-result summaries, stale data, and error details.
 
 ### Import History and Recent Results — Agreed
 
-- Settings → Library opens a dedicated import-history view with operations
-  ordered by date, state filters, and details by folder/file. Back returns to the
-  prior context. The exact route is a technical navigation contract to define.
-- Allow selecting terminal historical operations and deleting their history
-  records individually or in batches after confirmation. Exclude active and
-  queued operations. Explain that history deletion does not remove Samples,
-  Packs, or source audio; operation-specific result links depend on that history.
-  No automatic import-history cleanup is introduced.
-- An Interrupted operation becomes eligible for history deletion only after its
-  state verification completes, distinguishing confirmed outcomes from anything
-  still unverified. Completion of that check does not imply all outcomes can be
-  proven or that the import succeeded. Do not delete a record while execution or
-  recovery verification is active; normal history-deletion confirmation applies.
-- If a history record is deleted while its detail or combined Sample result view
-  is open, replace that surface with a Record deleted state, remove record-based
-  actions, and offer Back to history. Do not keep presenting its cached membership
-  as a valid operation query. Catalog Samples and Packs remain unchanged.
-- The global operation indicator opens a dropdown with active operations and
-  Recent results. Choosing a completed result opens a modal detail; closing it
-  restores focus under the shared overlay rules. Import progress retains its
-  previously agreed minimize/reopen behavior.
-- Retain the latest 50 completed/closed non-import operation results for the
-  session. Protect active operations and unreviewed failures from rotation; this
-  protection may exceed the nominal 50-result limit. Clearly communicate that
-  these results do not survive restart. Define compact storage and treatment of
-  oversized per-item details during implementation.
-- Opening a failed operation's detail marks the failure as reviewed for rotation.
-  Merely closing its notice does not. Reviewed does not mean resolved, successful,
-  or automatically retried; its result remains available until ordinary rotation.
-- Reach the operation indicator through ordinary Tab navigation in the header,
-  with F6 available to enter that region. Provide an accessible name and announce
-  state changes without stealing focus. No dedicated results shortcut initially.
-
-These are planned surfaces and retention rules. State-verification persistence,
-history deletion, and reviewed-result tracking require implementation contracts.
+[Operation Execution](features/operation-execution.md#history-and-result-access)
+owns persistent history, session-result rotation, manual cleanup, deleted records,
+and operation-indicator/result access. Shell keyboard boundaries remain here.
 
 ### Keyboard, Focus, and Overlays — Agreed
 
@@ -1008,59 +520,23 @@ the router; route state does not replace catalog persistence.
 
 ### Conflicts and Destructive-Action Edge Cases — Agreed
 
-- Batch Sample removal processes each reviewed Sample independently and continues
-  after individual failures. Report removed and failed Samples separately; a
-  stale item's removal still requires restarting its impact review. Never label
-  the entire batch successful if some removals failed. This is planned
-  orchestration, not a claim of existing batch IPC.
-- A loaded but paused Sample does not require another Stop before removal. On
-  successful removal, unload it from the player; on failure, keep it loaded and
-  paused. A playing Sample still requires Stop preview before confirmation.
-- Deleting the Pack or Collection that supplied the playback context keeps the
-  current audio playing but releases the sequence, disables Previous/Next,
-  automatic advance, and sequence Loop, and explains that the context no longer
-  exists. It does not delete the surviving Samples.
-- If independent changes affect assignments in an open inspector draft, keep
-  recoverable edits and show the conflict. Do not allow Save to overwrite the
-  changed fields silently: require reviewing/reconciling affected fields or
-  discarding the draft. Unchanged clean inspectors can refresh normally.
-- Reconcile conflicts by affected field: show the current saved value and the
-  draft proposal, let the user choose which to keep, and preserve unrelated draft
-  edits. Revalidate the reconciled draft before the all-or-nothing Save; resolving
-  a displayed conflict does not bypass command-level stale-state checks.
-- If a Collection reorder is based on a stale sequence, reject that movement,
-  reload the current stored order, and let the user repeat it. Do not silently
-  replay the move against a different sequence.
-- Individual Change origin review shows the Sample, current origin, and chosen
-  Pack or standalone destination. State that Favorites, Collection memberships,
-  and direct assignments remain, source audio does not move, and the manual
-  correction is protected on future imports. Disambiguate destination names
-  using the existing Pack identity rules.
-
-Visual reconciliation controls and command-level stale-state checks still need
-design and implementation. These agreements do not turn the combined metadata
-form into an existing atomic save command.
+Use [UI Patterns](ui-patterns.md#forms-and-inspector-drafts--agreed-planned) for
+field-conflict reconciliation, [Catalog Organization](features/catalog-organization.md)
+for stale impact/reorder/origin review, and [Playback](features/playback.md#removal-interactions)
+for loaded/playing Sample and missing-sequence-context behavior. These remain
+planned contracts, not evidence of existing atomic form saves or batch IPC.
 
 ### Operation Outcome Summary
 
-These distinctions are intentional; a generic batch policy must not replace them.
+Outcome policies intentionally differ. Follow their owning contracts rather
+than imposing a generic batch transaction/retry policy:
 
-| Operation                                                   | Agreed outcome policy                                                                                                                                   |
-| ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Save one metadata draft                                     | Atomic across text and assignments; failure preserves the whole draft.                                                                                  |
-| Save all drafts on exit                                     | Independent form saves; a failure prevents exit but does not undo forms already saved.                                                                  |
-| Import folders in one batch                                 | A folder failure stops remaining folders; report completed and intermediate outcomes accurately. Per-folder commit boundaries require technical design. |
-| Import queue after execution failure                        | Continue with the next operation.                                                                                                                       |
-| Import queue requiring fresh review                         | Wait for review or removal before later operations can start.                                                                                           |
-| Sample catalog removal                                      | Independent per Sample; continue and report failures.                                                                                                   |
-| Add to several Collections                                  | Independent per destination; continue and report failures.                                                                                              |
-| Add/remove Category or Author assignments from their detail | Independent per target; continue and report failures.                                                                                                   |
-| Reinclude excluded files                                    | Independent per file; continue and report failures.                                                                                                     |
-| Remove memberships from a Collection                        | No confirmation; independent per Sample, continue and report failures.                                                                                  |
-| Reorder a Collection                                        | Save each move; on stale sequence, reject and reload current order.                                                                                     |
-
-Import Retry prepares the entire batch again. Non-import retries target failed
-items after revalidation, with renewed confirmation when scope or impact changes.
+- [Forms](ui-patterns.md#forms-and-inspector-drafts--agreed-planned) and
+  [exit review](#keyboard-focus-and-overlays--agreed).
+- [Import commits/failures](features/import.md#commit-boundaries).
+- [Standalone classification](features/classification.md#confirmed-execution).
+- [Catalog assignments/memberships/removal](features/catalog-organization.md).
+- [Shared queue/recovery](features/operation-execution.md).
 
 ## Persistence Summary
 
@@ -1075,29 +551,24 @@ contracts beyond the implemented catalog and internal volume preference.
 | Visible Sample fields                                            | Persistent typed presentation preference shared across lists.                                 |
 | Last previewed Sample                                            | Persistent stable identity; restore paused from zero after access checks, without a sequence. |
 | Collection recency                                               | Persistent latest opening/successful edit, not a full visit log.                              |
-| Import history and confirmed pending queue                       | Persistent; no automatic execution on restart or automatic history cleanup.                   |
-| Unconfirmed import preparation                                   | Session-only; reopening retains selection/data and revalidates.                               |
 | Search/filter/sort/scroll, individual selection, inspector state | Session-only context per destination/history entry and tab.                                   |
 | Checked batch                                                    | Within the current view/tab only; cleared on exit, not restored by history.                   |
 | Preferred panel widths                                           | Session-only; Reset layout restores design defaults.                                          |
 | Playback position, sequence, mute, Loop, automatic advance       | Session-only; not restored at restart.                                                        |
-| Non-import operation results                                     | Session-only, with the agreed 50-result rotation and protected active/unreviewed failures.    |
 
 Session-only does not imply silent disposal of dirty form drafts: transitions
 and ordinary application exit must follow the Save/Discard/Stay rules.
+Feature-specific lifetimes (confirmed queue/history, unconfirmed preparations,
+rejections, and analysis pause) are owned by the corresponding feature guides.
 
-## Follow-up for the Next PR — Import Classification Suggestions
+## Feature Contracts
 
-Review filename/subfolder-based classification in a separate follow-up PR, not
-as part of the current UX conventions work. Candidate scope includes local,
-deterministic token/phrase matching and explicit aliases (for example,
-`__FX-Riser.wav` under `RISERS` suggesting FX and Riser), evidence display,
-deduplication, reuse of existing Categories, and user review before assignment.
-
-Decide whether genres share the flat Category vocabulary or require a separate
-dimension. Also define reimport behavior, source provenance, and the distinction
-between filename hints and audio-derived BPM/key estimates. These are discussion
-items for that PR, not finalized classification rules or implemented behavior.
+[Classification](features/classification.md) owns the agreed Genre seed,
+Category recognition terms, aliases, Sample-type suggestions, evidence, review,
+and rejection memory. [Import](features/import.md) owns integration with import;
+[Operation Execution](features/operation-execution.md) owns queue/history/recovery.
+Feature-specific technical contracts and delivery order live with those guides,
+not as a second workflow specification here. Visual design remains deferred.
 
 ## Validation and Implementation Checklist
 
@@ -1121,29 +592,31 @@ validation reveals a concrete problem, recording the change explicitly.
 
 ### Technical Contracts and Delivery Dependencies
 
+The classification, import execution/queue/recovery, Sample-type, search, and
+duration business-decision round is complete for the scope recorded above.
+Remaining executable contracts are defined per delivery; this does not mark
+future musical analysis/file operations as agreed or any feature as implemented.
+Visual design and prototype validation remain deferred.
+
 - Adopt/finalize the router and define exact routes/query contracts, including
   Excluded files, import history, operation results, and history-entry contexts.
 - Define atomic metadata-save commands and conflict/stale-state checks while
   keeping independently confirmed images and origin corrections separate.
 - Define bounded snapshots for Select all and playback sequence order, stable
-  append-order queries, and unavailable-entry handling.
-- Separate import discovery/review from selected-file catalog writes. Define
-  commit boundaries, staged partial outcomes, durable queue/history, interruption
-  reconciliation, and multi-root existing-Pack association support.
+  append-order queries, and unavailable-entry handling using the Playback and
+  Catalog Organization contracts.
 - Define typed presentation/last-Sample persistence and authorization on restore;
   preserve the existing distinction between observed data and user edits.
-- Validate approximate-search thresholds, deterministic tie-breakers, query
-  timing, and observed-duration numeric/query contracts against real examples.
-- Define history cleanup/storage contracts and compact or paginated result
-  details, reviewed-result tracking, and interruption-verification completion;
-  protected failures must not require retaining unbounded file payloads.
+- Feature-specific delivery contracts and validation are tracked in each feature
+  guide, including import/queue, classification, search, and duration. Do not
+  maintain duplicate executable-contract lists here.
 - Implement explicit inspector-target restoration per history context, keeping
   page-entity editing distinct from member selection and preserving focus rules.
 
 ### Separately Scoped Follow-ups
 
-- Next PR: filename/subfolder classification suggestions and genre vocabulary,
-  as recorded above.
+- Deliver the agreed feature contracts through their owning guides' incremental
+  plans, preserving current preview, Favorites, and authorized native dragging.
 - Musical metadata: analyzer, tonic/mode vocabulary, validation, provenance,
   confidence, unknown/not-applicable states, and user confirmation/edit semantics.
   Row placement is agreed; analysis contracts and delivery are not.

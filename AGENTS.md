@@ -15,18 +15,35 @@ source code or tests. Read [Testing Conventions](.agents/docs/testing-convention
 before changing tests, fixtures, mocks, or validation workflows.
 Load other guides only when relevant to the task:
 
-| Guide                                                            | Read when                                                                                           |
-| ---------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| [Common Guidelines](.agents/docs/common-guidelines.md)           | Changing code or tests: reuse, types, contracts, state, errors, and privacy.                        |
-| [Component Organization](.agents/docs/component-organization.md) | Creating, splitting, sharing, or moving React components.                                           |
-| [Architecture](.agents/docs/architecture.md)                     | Changing process boundaries, services, filesystem workflows, or native integrations.                |
-| [Domain Model](.agents/docs/domain-model.md)                     | Changing entities, relationships, metadata, lifecycle, or domain validation.                        |
-| [Testing Conventions](.agents/docs/testing-conventions.md)       | Changing tests, fixtures, mocks, or validation commands.                                            |
-| [Feature Development](.agents/docs/feature-development.md)       | Adding or extending a feature end to end.                                                           |
-| [UX Design](.agents/docs/ux-design.md)                           | Designing or changing the shell, views, navigation, selection, playback interactions, or workflows. |
-| [UI Patterns](.agents/docs/ui-patterns.md)                       | Changing interactions, forms, dialogs, accessibility, or feedback.                                  |
-| [Data Access](.agents/docs/data-access.md)                       | Changing IPC, queries, mutations, persistence, or managed images.                                   |
-| [Release Process](.agents/docs/release-process.md)               | Packaging, validating, or distributing releases.                                                    |
+| Guide                                                            | Read when                                                                            |
+| ---------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| [Common Guidelines](.agents/docs/common-guidelines.md)           | Changing code or tests: reuse, types, contracts, state, errors, and privacy.         |
+| [Component Organization](.agents/docs/component-organization.md) | Creating, splitting, sharing, or moving React components.                            |
+| [Architecture](.agents/docs/architecture.md)                     | Changing process boundaries, services, filesystem workflows, or native integrations. |
+| [Domain Model](.agents/docs/domain-model.md)                     | Changing entities, relationships, metadata, lifecycle, or domain validation.         |
+| [Testing Conventions](.agents/docs/testing-conventions.md)       | Changing tests, fixtures, mocks, or validation commands.                             |
+| [Feature Development](.agents/docs/feature-development.md)       | Adding or extending a feature end to end.                                            |
+| [UX Design](.agents/docs/ux-design.md)                           | Changing shared shell, navigation, selection/history, focus, or list presentation.   |
+| [UI Patterns](.agents/docs/ui-patterns.md)                       | Changing interactions, forms, dialogs, accessibility, or feedback.                   |
+| [Data Access](.agents/docs/data-access.md)                       | Changing IPC, queries, mutations, persistence, or managed images.                    |
+| [Release Process](.agents/docs/release-process.md)               | Packaging, validating, or distributing releases.                                     |
+
+### Feature Contracts
+
+Load the relevant feature guide instead of loading every workflow. General
+guides own shared rules; feature guides own detailed behavior, feature-specific
+architecture, status, and remaining executable contracts. Follow cross-links
+only for dependencies involved in the task.
+
+| Feature guide                                                         | Read when                                                                                                               |
+| --------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| [Classification](.agents/docs/features/classification.md)             | Changing recognition, aliases, initial vocabulary, evidence/rejections, type suggestions, or standalone classification. |
+| [Import](.agents/docs/features/import.md)                             | Changing discovery/review, selected-file import, Pack registration/reimport, target commits, or result membership.      |
+| [Operation Execution](.agents/docs/features/operation-execution.md)   | Changing the shared confirmed queue, cancellation, exit/restart, history cleanup, or recovery journals.                 |
+| [Search](.agents/docs/features/search.md)                             | Changing global/local matching, filters, ranking, approximate queries, or result pagination.                            |
+| [Duration Analysis](.agents/docs/features/duration-analysis.md)       | Changing persisted duration, background measurement, pause/resume, source invalidation, or retries.                     |
+| [Playback](.agents/docs/features/playback.md)                         | Changing transport/modes, sequence snapshots, unavailable playback, last-Sample restoration, or removal interactions.   |
+| [Catalog Organization](.agents/docs/features/catalog-organization.md) | Changing removal/reinclusion, Collection memberships/order, detail assignments, or manual origin corrections.           |
 
 Keep rules in their owning guide rather than duplicating them here.
 Add guides incrementally when requested; index only existing files.

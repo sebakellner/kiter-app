@@ -224,7 +224,25 @@ Export produces an explicit output set without relocating originals.
 Automatic organization produces a proposal through the same planning pipeline,
 not a separate path that bypasses confirmation.
 
-## Analysis, Search, and Large Libraries
+## Classification Suggestions — Agreed Direction (Planned)
+
+Feature-specific ownership:
+
+- [Classification](features/classification.md): recognition engine, stable
+  vocabulary/alias identity, evidence, rejection memory, and delivery sequence.
+- [Import](features/import.md): reviewed discovery and Sample/Pack transactions.
+- [Operation Execution](features/operation-execution.md): main-owned shared queue,
+  worker-owned journals, atomic outcome records, exit, and restart verification.
+
+These directions are agreed but not implemented. Feature guides own exact
+contracts; the process boundaries above apply throughout. Never treat a typed
+renderer request as proof of reviewed state, authorized paths, or committed work.
+
+## Analysis and Large Libraries
+
+[Duration Analysis](features/duration-analysis.md) owns planned persisted duration,
+scheduling, retries, and pause/restart. [Search](features/search.md) owns planned
+matching/ranking, filters, bounded queries, and catalog-change pagination.
 
 - Preserve lazy waveforms, bounded caching, and a single preview player.
   Current browser decoding remains appropriate for short samples.
