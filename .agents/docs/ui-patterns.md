@@ -1,13 +1,14 @@
 # UI Patterns
 
 Read this guide when changing interactions, forms, dialogs, or user feedback.
-See [Component Organization](component-organization.md) for component ownership
+See [UX Design](ux-design.md) for shell, views, navigation, and workflow decisions,
+[Component Organization](component-organization.md) for component ownership,
 and [Common Guidelines](common-guidelines.md) for English-first wording.
 
 ## Basic Rules
 
 - Reuse UI primitives from `components/ui/` as they are introduced. Keep
-  sample, kit, and task behavior in their owning features.
+  Sample, Pack, Collection, and task behavior in their owning features.
 - Use semantic controls, visible focus, accessible names, and keyboard access.
   Native dragging should complement other interactions, not replace them.
 - Distinguish loading, empty data, no search results, and errors. Preserve the
@@ -22,6 +23,3 @@ and [Common Guidelines](common-guidelines.md) for English-first wording.
   and obtain confirmation. See [Architecture](architecture.md#safe-file-operations-planned).
 - For long tasks, show progress and whether cancellation is available.
   Do not imply cancellation reverses already completed file changes.
-
-Navigation, shortcuts, selection rules, and dialog primitives will be specified
-as their features are implemented; this guide does not introduce a UI framework.
