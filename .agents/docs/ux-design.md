@@ -479,10 +479,12 @@ Combined-save command contracts still require implementation design.
 - Show stages and a visible file-level progress/result list. Use percentages only
   when the total is known, and distinguish discovery from catalog completion and
   Pack registration. Report intermediate committed outcomes accurately if a
-  later stage fails; per-folder atomicity is not yet defined.
+  later stage fails. The classification/import agreements below define per-target
+  commits rather than all-or-nothing folder atomicity.
 
-The exact confirmation/commit boundary, manual history cleanup, interruption
-reconciliation mechanics, and multi-root Pack association contracts require
+Commit policies and queue/recovery behavior are agreed in the classification
+follow-up below and Architecture. Exact command boundaries, manual history cleanup,
+reconciliation queries, and multi-root Pack association contracts still require
 implementation design. This workflow is planned; existing folder import and
 internal Pack operations do not deliver it yet. Persistent queued preparations
 are a new requirement alongside import history, not existing recovery support.
@@ -833,9 +835,10 @@ are planned behaviors, not implemented window constraints.
 - Partial batch outcomes produce a persistent summary with counts and View
   results. Open per-item results and supported retries on request, rather than
   automatically interrupting the current context with a results dialog.
-- Keep non-import batch results for the current session. Closing a notice does
+- Keep other non-import batch results for the current session; standalone
+  classification has persistent history as specified below. Closing a notice does
   not discard its detail: provide Recent results within the global operation
-  indicator. Only import history has agreed cross-session persistence.
+  indicator. Import and standalone classification history survive restart.
 - Short batch operations show pending state in their initiating control/context,
   prevent duplicate submissions, and block only conflicting controls. If the
   user leaves that context, preserve access to the result. This does not override
@@ -891,7 +894,7 @@ rules below; notice timing still requires accessibility validation.
   Recent results. Choosing a completed result opens a modal detail; closing it
   restores focus under the shared overlay rules. Import progress retains its
   previously agreed minimize/reopen behavior.
-- Retain the latest 50 completed/closed non-import operation results for the
+- Retain the latest 50 completed/closed other non-import operation results for the
   session. Protect active operations and unreviewed failures from rotation; this
   protection may exceed the nominal 50-result limit. Clearly communicate that
   these results do not survive restart. Define compact storage and treatment of
@@ -1049,7 +1052,7 @@ These distinctions are intentional; a generic batch policy must not replace them
 | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Save one metadata draft                                     | Atomic across text and assignments; failure preserves the whole draft.                                                                                  |
 | Save all drafts on exit                                     | Independent form saves; a failure prevents exit but does not undo forms already saved.                                                                  |
-| Import folders in one batch                                 | A folder failure stops remaining folders; report completed and intermediate outcomes accurately. Per-folder commit boundaries require technical design. |
+| Import folders in one batch                                 | A folder failure stops remaining folders; report completed and intermediate outcomes accurately. Per-folder commits follow the agreed target contracts. |
 | Import queue after execution failure                        | Continue with the next operation.                                                                                                                       |
 | Import queue requiring fresh review                         | Wait for review or removal before later operations can start.                                                                                           |
 | Sample catalog removal                                      | Independent per Sample; continue and report failures.                                                                                                   |
@@ -1075,29 +1078,205 @@ contracts beyond the implemented catalog and internal volume preference.
 | Visible Sample fields                                            | Persistent typed presentation preference shared across lists.                                 |
 | Last previewed Sample                                            | Persistent stable identity; restore paused from zero after access checks, without a sequence. |
 | Collection recency                                               | Persistent latest opening/successful edit, not a full visit log.                              |
-| Import history and confirmed pending queue                       | Persistent; no automatic execution on restart or automatic history cleanup.                   |
+| Import history and shared confirmed pending queue                | Persistent; no automatic execution on restart or automatic history cleanup.                   |
 | Unconfirmed import preparation                                   | Session-only; reopening retains selection/data and revalidates.                               |
 | Search/filter/sort/scroll, individual selection, inspector state | Session-only context per destination/history entry and tab.                                   |
 | Checked batch                                                    | Within the current view/tab only; cleared on exit, not restored by history.                   |
 | Preferred panel widths                                           | Session-only; Reset layout restores design defaults.                                          |
 | Playback position, sequence, mute, Loop, automatic advance       | Session-only; not restored at restart.                                                        |
-| Non-import operation results                                     | Session-only, with the agreed 50-result rotation and protected active/unreviewed failures.    |
+| Standalone classification history                                | Persistent until manual deletion; no automatic expiration, with paginated per-target details. |
+| Other non-import operation results                               | Session-only, with the agreed 50-result rotation and protected active/unreviewed failures.    |
 
 Session-only does not imply silent disposal of dirty form drafts: transitions
 and ordinary application exit must follow the Save/Discard/Stay rules.
 
 ## Follow-up for the Next PR — Import Classification Suggestions
 
-Review filename/subfolder-based classification in a separate follow-up PR, not
-as part of the current UX conventions work. Candidate scope includes local,
-deterministic token/phrase matching and explicit aliases (for example,
-`__FX-Riser.wav` under `RISERS` suggesting FX and Riser), evidence display,
-deduplication, reuse of existing Categories, and user review before assignment.
+Business rules are recorded in Domain Model; the approved technical direction
+is owned by [Architecture](architecture.md#classification-suggestions--agreed-direction-planned).
+Recognition, Genre/alias identity, and process ownership are agreed directions,
+not implemented features. Recognition normalization and evidence equivalence are
+agreed in Architecture; remaining matching edge cases and exact persistence
+contracts remain open.
+Recognition ambiguity is also agreed there: require explicit conflict resolution
+for vocabulary/rule edits, omit existing ambiguous matches with an explanation,
+and preserve independent suggestions without automatically merging entries.
 
-Decide whether genres share the flat Category vocabulary or require a separate
-dimension. Also define reimport behavior, source provenance, and the distinction
-between filename hints and audio-derived BPM/key estimates. These are discussion
-items for that PR, not finalized classification rules or implemented behavior.
+Review filename/subfolder-based classification in a separate follow-up PR, not
+as part of the current UX conventions work. The first feature will suggest
+Categories and Genres from filenames and folder names, requiring acceptance
+before assignment. Author credits and BPM/tonality hints are outside this slice.
+Path evidence includes the filename, selected root's name, and descendant folder
+names along the file's relative path, excluding ancestors above that root.
+For the Pack itself, use only the name of its supplying folder, without deriving
+Pack proposals from descendant folders, files, or Sample classifications. These
+Pack suggestions also require acceptance. For existing multi-root Packs, combine
+the names of selected associated roots during reimport, or all registered
+associated roots during explicit classification, deduplicating proposals without
+using descendant names or file contents.
+Use an app-supplied recognition vocabulary to reuse existing Categories/Genres
+or propose creating missing recognized entries together with their assignments.
+Create neither entries nor assignments before acceptance; this does not populate
+Categories automatically or restore deleted Genres automatically.
+The initial 25-term Category recognition vocabulary is approved in Domain Model,
+without automatically creating Category records or implying relationships between
+terms. Loop and One-Shot are reserved for a separate Sample-type dimension,
+outside this recognition vocabulary; their contracts still require definition.
+The initial recognition-alias base is also approved in Domain Model; common case
+and separator variants need not become redundant alias records.
+Acceptance during import preparation only stages vocabulary creation and
+assignments. Persist them during confirmed import execution, not on acceptance;
+closing preparation retains those decisions for the session without writing them.
+Rejections are likewise staged and saved only during confirmed execution, even
+for existing Samples and Packs. Discarding preparation saves neither acceptances
+nor rejections.
+Classification decisions commit atomically per Sample or Pack, including accepted
+assignments, required vocabulary creation, and explicit rejections. Failure leaves
+none of that target's classification changes applied, without undoing other
+committed targets or defining folder/batch atomicity.
+Relevant changes to reviewed classification identities, evidence, or recognition
+rules require fresh review of the affected Sample or Pack before execution.
+Preserve decisions that remain valid; do not reinterpret them or silently create
+replacement classifications.
+Existing Category and Genre names, including custom entries, also serve as
+recognition words/phrases without requiring aliases; aliases add variants.
+Offer Pack Genres to Samples during import and explicit classification, combining
+them with path-based proposals and identifying the Pack as evidence. Acceptance
+is required; changing Pack Genres does not trigger background proposals. During
+import, use the reviewed resulting origin and include new Pack Genres accepted
+in preparation. Standalone Samples receive no Pack-derived proposals. Changing
+the origin decision refreshes affected proposals for review before confirmation;
+execution dependencies still require technical contracts.
+For Samples and Packs, retain rejected suggestions while their supporting evidence
+remains unchanged; reimport may offer them again only when supporting evidence is new or
+changed. Preserve confirmed assignments rather than replacing them with proposals.
+Alias/rule updates alone do not reset rejections: the same rejected clue remains
+suppressed even if its recognition rule changes. A distinct newly recognized clue
+may support a fresh proposal.
+Manually removing an assignment is not a suggestion rejection: the same proposal
+may return on reimport with unchanged evidence, requiring acceptance again.
+Explicit classification may include previously rejected proposals for the selected
+Samples/Packs on request. Viewing them does not clear rejections; accepting and
+confirming one applies the assignment and replaces its rejection atomically.
+Allow accepting or rejecting suggestions individually or for explicit groups of
+Samples and reviewed proposals, without replacing existing assignments. Pack-origin
+conflicts continue to require their separately agreed individual decisions.
+Unreviewed suggestions do not block import and are neither applied nor recorded
+as rejected; they may be offered again on reimport.
+Allow explicitly requesting suggestions for selected existing Samples or Packs
+without reimporting, under the same evidence, review, rejection, and preservation
+rules. Alias or rule changes do not automatically generate background proposals.
+This standalone review stages acceptances/rejections until explicit confirmation,
+with session-only retention on closing and no writes on discard. Confirmed
+execution retains per-target atomicity and fresh-review requirements.
+Standalone batch execution continues after individual failures, reports outcomes
+per Sample/Pack, and retries only failed targets after revalidation, with fresh
+review when necessary. Successful targets remain committed; import execution
+keeps its separate failure policy.
+When selected Packs and Samples are classified together, staged accepted Pack
+Genres may support selected Samples' proposals. Execute Packs before dependent
+Samples; a failed Pack leaves dependent Samples unprocessed while unrelated
+targets continue. Selecting a Pack does not select its Samples automatically.
+Standalone execution may be canceled between targets: finish the current target,
+start no others, preserve committed changes, and distinguish completed, failed,
+and unprocessed targets. Confirmed imports remain noncancelable.
+Continuing canceled/interrupted classification explicitly creates a new operation
+for failed and unprocessed targets, preserving the original result and excluding
+completed targets. Reconcile uncertain outcomes first, then revalidate and request
+fresh review where needed; do not apply import's whole-batch Retry policy here.
+Ordinary exit during standalone classification stops after the current target
+finishes and persists a recoverable result for restart. Forced termination requires
+verification of committed outcomes and unverified states, without automatic
+resumption. Keep classification history until explicit manual deletion, without
+automatic expiration or rotation, using summaries and paginated per-target details.
+Cleanup does not undo classifications or delete catalog entities/audio. These
+results are an exception to other non-import session-only results; storage and
+cleanup-eligibility contracts remain to be defined.
+Confirmed imports and standalone classifications share a serial execution queue
+in confirmation order. Allow preparing and confirming further operations during
+execution, and revalidate queued work before it starts. Queued confirmed
+classifications persist across exit, with no automatic execution on restart;
+require user continuation, revalidation, and fresh review if needed, like queued
+imports. Cross-operation recovery and exact exit contracts still require definition.
+After a terminal failure/partial result or standalone cancellation, retain the
+result and advance to the next operation. Needs review pauses the shared queue
+until review or removal. Pending operations can be removed, not edited or
+reordered. An exit request during classification stops after its current target
+and exits without starting the next operation; active imports keep their exit guard.
+During import, classification-write failure stops that import batch before later
+folders begin. Preserve committed content and distinguish incorporated Samples,
+failed classification, and unprocessed work in the partial result. Classification
+remains atomic per target. For a new imported file, Sample creation, source
+registration, and reviewed classification decisions commit together or not at all;
+previously committed Samples remain intact. Create a new Pack with its presentation
+and classification decisions atomically alongside its first reviewed Sample-origin
+association and required Sample writes. Subsequent Samples commit independently;
+a later failure retains and reports the partial Pack. Do not create a new empty
+Pack on first-association failure. Existing-Pack reimport likewise commits each
+Sample's source observation, reviewed classification, and explicit origin decision
+atomically, preserving earlier Samples on failure. Commit an existing Pack's
+classification decisions before processing its Samples; failure blocks those
+Samples and stops the import batch. Later Sample failures preserve and report
+the Pack's committed changes. Exact revalidation contracts remain open; this is
+not current import behavior.
+For existing Samples with unavailable audio, explicit classification may use
+registered source/root path names, identifying them as cataloged-location
+evidence without claiming current availability or audio analysis. This does not
+bypass new-import discovery requirements.
+Explicit classification of an existing Sample combines evidence from all its
+registered root associations, respecting each root boundary and deduplicating
+classification proposals while retaining their evidence. Imports with overlapping
+selected roots likewise combine eligible evidence from every selected containing
+root, independently of the chosen Pack-destination root, with one proposal per
+classification. Pack evidence remains limited to the supplying root names under
+the separate Pack rules above.
+Matching is agreed as local and deterministic, using complete words/phrases,
+common filename separators, and explicit aliases, without arbitrary substring
+matching, inferred unknown abbreviations, or spelling correction. For example,
+`__FX-Riser.wav` under `RISERS` can suggest FX and Riser with matching evidence.
+Within one classification dimension, prefer the most specific phrase over
+contained matches from the same text span: Tech House does not also suggest
+House unless independent eligible evidence supports House. This does not create
+a Genre hierarchy. Different path components do not override one another:
+`Snares/kick_01.wav` may suggest both Snare and Kick with their evidence, leaving
+acceptance of either, both, or neither to the user.
+Kiter supplies initial aliases and users may add custom aliases
+for Categories and Genres, including their own entries; aliases enable suggestions
+without automatic assignment. Each alias has one target per dimension across
+included and custom aliases; changing an occupied alias's target requires explicit
+reassignment. The same alias may target a Category and a Genre independently.
+Within a dimension, an alias cannot match another entry's name; creating or
+renaming vocabulary entries must also require resolving such conflicts explicitly.
+Renaming preserves identity, assignments, and existing aliases; recognition uses
+the new name without automatically creating an alias for the previous name.
+Deleting a Category or Genre includes its attached supplied/custom aliases in
+the impact review and removes them too, freeing their terms for other targets.
+The included recognition vocabulary may later propose creating a deleted entry
+again, requiring acceptance without restoring old assignments or custom aliases;
+deletion does not suppress these proposals or permit automatic restoration.
+Supplied aliases are editable, reassignable, and deletable like custom aliases.
+Updates respect those changes and offer new aliases for voluntary incorporation,
+without automatically restoring deleted aliases.
+Stable identity, normalization, ambiguity handling, and evidence equivalence are
+agreed in Architecture. Exact catalog mappings, remaining tokenization edge cases,
+and serialized evidence keys still need executable contracts.
+
+Genres are now agreed as a separate, optional, multi-value dimension on Samples
+and Packs, with independent assignments and a flat initial vocabulary extended
+by user-created entries. The initial catalog targets roughly 20–30 common Genres
+across electronic, urban, acoustic, and cinematic music; the approved 26-entry list
+is recorded in Domain Model. Pack Genres may be suggested to Samples but require
+explicit acceptance. See [Genre](domain-model.md#genre--agreed-not-implemented)
+for the owning business rules; this extension is not implemented.
+
+Initial vocabulary/aliases and their lifecycle rules are agreed. Persist confirmed
+operations before execution and commit per-target outcomes with their changes,
+following [Verifiable Execution Recovery](architecture.md#verifiable-execution-recovery--agreed-planned).
+Exact schema/migrations, catalog mapping, evidence/rejection keys, review tokens,
+IPC commands, queue bounds, cleanup eligibility, and reconciliation queries remain
+implementation contracts. Loop/One-Shot business rules are separately scoped;
+musical BPM/key analysis remains outside this slice. Visual design and prototype
+work are deferred.
 
 ## Validation and Implementation Checklist
 
@@ -1127,9 +1306,10 @@ validation reveals a concrete problem, recording the change explicitly.
   keeping independently confirmed images and origin corrections separate.
 - Define bounded snapshots for Select all and playback sequence order, stable
   append-order queries, and unavailable-entry handling.
-- Separate import discovery/review from selected-file catalog writes. Define
-  commit boundaries, staged partial outcomes, durable queue/history, interruption
-  reconciliation, and multi-root existing-Pack association support.
+- Separate import discovery/review from selected-file catalog writes. Implement
+  the agreed target commits, staged outcomes, shared durable queue/history, and
+  recovery guarantees; define exact commands, checkpoints, bounded payloads,
+  reconciliation queries, and multi-root existing-Pack association contracts.
 - Define typed presentation/last-Sample persistence and authorization on restore;
   preserve the existing distinction between observed data and user edits.
 - Validate approximate-search thresholds, deterministic tie-breakers, query
@@ -1142,8 +1322,10 @@ validation reveals a concrete problem, recording the change explicitly.
 
 ### Separately Scoped Follow-ups
 
-- Next PR: filename/subfolder classification suggestions and genre vocabulary,
-  as recorded above.
+- Next PR: deliver the agreed Genre, alias, and classification workflows through
+  the incremental Architecture plan; define their remaining executable contracts.
+- Sample type: Loop/One-Shot meanings, unknown states, recognition, and user edits
+  require a separately scoped business/technical decision block.
 - Musical metadata: analyzer, tonic/mode vocabulary, validation, provenance,
   confidence, unknown/not-applicable states, and user confirmation/edit semantics.
   Row placement is agreed; analysis contracts and delivery are not.

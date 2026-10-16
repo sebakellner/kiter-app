@@ -224,6 +224,120 @@ Export produces an explicit output set without relocating originals.
 Automatic organization produces a proposal through the same planning pipeline,
 not a separate path that bypasses confirmation.
 
+## Classification Suggestions — Agreed Direction (Planned)
+
+This direction is approved but not implemented. Business rules, initial Genre
+content, recognition terms, and aliases belong to
+[Domain Model](domain-model.md#suggestions-tasks-and-recovery) and its
+[Genre section](domain-model.md#genre--agreed-not-implemented).
+
+### Identity and Recognition
+
+- Genres and aliases have stable identities independent of their names. Supplied
+  vocabulary and aliases also have stable catalog keys so updates can distinguish
+  renamed, removed, and newly offered content without restoring user deletions.
+- Re-creating a deleted entry creates a new identity; it does not recover former
+  assignments or historical identity. Exact catalog-to-library mapping and
+  tombstone representation remain implementation contracts to define.
+- Keep the recognition vocabulary separate from library classification records.
+  It may recognize a term whose Category/Genre has not yet been created, subject
+  to the agreed creation/review rules.
+- Use a pure, local, deterministic recognition engine combining supplied
+  vocabulary with library names and aliases. It returns proposals and supporting
+  evidence; it does not write assignments. Normalization rules are agreed below;
+  remaining tokenization edge cases need exact contracts; ambiguity behavior is
+  agreed below.
+- Evidence identifies the matched term and its filename/folder source or the
+  supplying Pack. Combine multiple evidence items into one classification
+  proposal. Rejection memory is evidence-based, not just engine-version-based;
+  evidence equivalence is agreed below; serialized keys and persistence contracts
+  remain open.
+
+### Recognition Ambiguity — Agreed
+
+- Never automatically merge or rename library entries whose distinct names
+  normalize to the same recognition phrase, such as Lo-Fi and Lo Fi.
+- Creating or changing names and aliases must detect recognition conflicts within
+  the same dimension and require explicit resolution. This adds recognition
+  validation without changing the agreed name-uniqueness comparison.
+- If existing data contains an unresolved conflict, omit that ambiguous match and
+  report the conflict while continuing with independent suggestions.
+- For partially overlapping phrases where neither fully contains the other,
+  omit only the ambiguous matched span and report its possible targets. Preserve
+  unambiguous matches elsewhere; fully contained matches retain the agreed
+  most-specific-phrase precedence.
+- Category and Genre recognition namespaces are independent; matching a term in
+  both dimensions is not a conflict.
+
+Exact conflict payloads and migration-time detection remain implementation
+contracts. Existing data must remain intact; detection does not authorize cleanup
+or silent normalization of user vocabulary.
+
+### Evidence Equivalence and Rejections — Agreed
+
+- Case and equivalent-separator changes do not create new evidence: `TECH-HOUSE`,
+  `tech_house`, and `Tech House` represent the same normalized clue.
+- Renaming a classification preserves its identity and does not reset rejections.
+- A distinct occurrence at a different eligible path location may provide new
+  evidence. Rejecting a filename clue does not suppress a later independent clue
+  from a newly relevant folder.
+- Registering an additional root that exposes the same folder occurrence does
+  not duplicate evidence or bypass a rejection.
+- Identify Pack-derived evidence by Pack identity and Genre identity. Renaming
+  the Pack does not change that evidence; a different Pack can supply new evidence.
+- Updating rules or aliases alone does not turn the same clue into new evidence.
+
+Track evidence independently from the rule that recognized it, while retaining
+rule provenance for explanation and stale-review validation. Exact serialized
+evidence keys, location-change handling, and rejected-target identity before
+vocabulary creation still require implementation contracts. This is planned
+behavior, not an existing rejection store.
+
+### Process Ownership and Execution
+
+- Renderer owns preparation presentation and the user's staged decisions.
+- Main owns operation orchestration, revalidation, and the shared serial queue
+  for confirmed imports and standalone classification. This queue does not replace
+  worker serialization or schedule every catalog mutation.
+- The DB worker owns bounded queries, transactional writes, durable execution
+  history, and recovery records. Main coordinates recovery through those records.
+- Preload exposes narrow typed operations. Validate renderer decisions against
+  the prepared review and current authoritative state; never trust proposed
+  identities, evidence, or paths merely because they arrive in a typed request.
+- Preserve the per-target atomicity, Pack dependencies, cancellation, queue,
+  interruption, and import-specific failure policies agreed in Domain Model.
+  Concrete schema, review tokens, journal checkpoints, IPC payloads, and bounded
+  execution limits require definition before their respective implementation.
+
+### Incremental Delivery
+
+1. Genre operations, alias management, and the pure recognition engine.
+2. Standalone classification preparation, review, and confirmed execution.
+3. Integration with reviewed import, the shared queue, and interruption recovery.
+
+Each delivered workflow must honor its agreed persistence and recovery rules;
+this outline does not authorize shipping an execution path without them. Preserve
+existing preview, Favorites, and authorized native dragging throughout delivery.
+
+### Verifiable Execution Recovery — Agreed (Planned)
+
+- Persist each confirmed import/classification operation and its reviewed
+  decisions before execution starts.
+- Record each Sample/Pack's committed outcome in the same database transaction
+  as its changes. Coupled Pack/first-Sample creation must record both outcomes
+  with their shared transaction. Do not leave applied changes without their
+  corresponding committed result.
+- On restart, use those records to distinguish completed, failed, and unprocessed
+  targets. Mark outcomes that cannot be established as unverified and block
+  their retry until reconciliation finishes.
+- Never resume automatically or treat execution history as an undo mechanism.
+
+These guarantees cover database-backed import and classification, not future
+filesystem moves or exports, which need additional coordination. Exact journal
+schema, preparation payload bounds, interruption checkpoints, and reconciliation
+queries remain executable contracts to define. Neither a progress event nor a
+renderer acknowledgement is proof of a committed database outcome.
+
 ## Analysis, Search, and Large Libraries
 
 - Preserve lazy waveforms, bounded caching, and a single preview player.
