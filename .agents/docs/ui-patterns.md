@@ -30,6 +30,10 @@ and [Common Guidelines](common-guidelines.md) for English-first wording.
   drafts; never save on blur. Category assignments and Author credits share the
   text draft, independent on Samples/Packs. Save is atomic across that draft;
   invalid, failed, or stale data preserves all recoverable edits.
+- Sample musical decisions use that same atomic draft under
+  [Musical Analysis](features/musical-analysis.md), with per-attribute manual value,
+  Unknown, Not applicable, and Use automatic. They are not separate auto-saving
+  fields or permission to overwrite manual values on reanalysis.
 - Before changing inspector target, navigating, or closing dirty inspector, offer
   Save and continue, Discard and continue, or Stay. Transition only after successful
   save; failed validation/storage keeps draft and context. Cancel requests discard

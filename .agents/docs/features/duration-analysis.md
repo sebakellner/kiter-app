@@ -10,8 +10,10 @@ source-version, and observed/derived-data invariants.
 
 This is agreed, not implemented catalog analysis. Existing preview/waveform
 duration does not establish persistent queryable metadata. Musical BPM/key
-analysis, persistent waveform peaks, and stronger source identity remain separate
-modules. Measurements never change original audio or user organization.
+analysis is owned by [Musical Analysis](musical-analysis.md); persistent waveform
+peaks and stronger source identity remain separate modules. Measurements never
+change original audio or user organization. The agreed musical scheduler shares
+the lifecycle/pause rules below; delivery must coordinate background writers.
 
 ## Measurement and Source Versions
 
@@ -44,7 +46,7 @@ modules. Measurements never change original audio or user organization.
 - Stop safely on exit and resume pending measurements automatically at restart
   unless explicitly paused. Verified restored access uses the retry rule above.
 - This analysis-specific scheduler does not change manual continuation of the
-  confirmed import/classification [queue](operation-execution.md#shared-confirmed-queue).
+  confirmed-operation [queue](operation-execution.md#shared-confirmed-queue).
 - Isolate expensive decoding from main; choose a bounded worker/utility-process
   implementation based on profiling and actual extraction requirements under
   [Architecture](../architecture.md#analysis-and-large-libraries).

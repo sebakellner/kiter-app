@@ -181,8 +181,9 @@ Electron, and React details.
   Preserve STRICT tables and atomic migration/bootstrap rollback; never use
   schema push on application data. See the owning [migration conventions](data-access.md#migrations).
   Version the schema and reject unsupported formats
-  or versions without resetting data. Backups/recovery for future released
-  upgrades remain necessary; they do not require prototype compatibility.
+  or versions without resetting data. Deliver the agreed
+  [backup/recovery](features/backup-recovery.md) protection before data-changing
+  released upgrades; it does not require prototype compatibility.
   Keep recoverable analysis caches separate from user data.
 - **Implemented internally:** copy validated images into shared managed
   storage for Pack/Collection covers and the UserProfile avatar. Startup cleans unreferenced
@@ -232,7 +233,8 @@ Feature-specific ownership:
   vocabulary/alias identity, evidence, rejection memory, and delivery sequence.
 - [Import](features/import.md): reviewed discovery and Sample/Pack transactions.
 - [Operation Execution](features/operation-execution.md): main-owned shared queue,
-  worker-owned journals, atomic outcome records, exit, and restart verification.
+  worker-owned journals, atomic outcome records, exit, and restart verification,
+  also covering confirmed source relinking under Catalog Organization.
 
 These directions are agreed but not implemented. Feature guides own exact
 contracts; the process boundaries above apply throughout. Never treat a typed
@@ -243,6 +245,8 @@ renderer request as proof of reviewed state, authorized paths, or committed work
 [Duration Analysis](features/duration-analysis.md) owns planned persisted duration,
 scheduling, retries, and pause/restart. [Search](features/search.md) owns planned
 matching/ranking, filters, bounded queries, and catalog-change pagination.
+[Musical Analysis](features/musical-analysis.md) owns automatic BPM/tonality,
+manual overrides, effective-value provenance, and validated analyzer delivery.
 
 - Preserve lazy waveforms, bounded caching, and a single preview player.
   Current browser decoding remains appropriate for short samples.

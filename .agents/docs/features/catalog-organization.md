@@ -1,7 +1,7 @@
 # Catalog Organization
 
 Read when changing catalog removal/reinclusion, Collection membership/order,
-Category/Author detail assignments, or manual origin correction. These are agreed
+Category/Author detail assignments, source relinking, or manual origin correction. These are agreed
 planned interactions; internal operations exist only as described in
 [Data Access](../data-access.md). [Domain Model](../domain-model.md) owns entity
 lifecycle/invariants; [UI Patterns](../ui-patterns.md) owns drafts/forms and
@@ -129,6 +129,119 @@ The current worker/client operations are narrower than the planned UI below:
 - Pack lists use explicit checkbox selection, independent inspected row, Select
   all/context clearing, and ordinary open behavior. This does not authorize batch
   Pack deletion or other unagreed actions.
+
+## Source Relinking — Agreed Baseline, Not Implemented
+
+Relinking repairs catalog source references after files were moved outside Kiter
+or explicitly replaces a source. It does not move, rename, copy, or modify audio.
+The business-decision round below is complete; technical contracts and visual
+design remain to be delivered.
+
+- Support locating one Sample's source file and locating a folder to review
+  candidate sources for multiple Samples together. Neither action imports the
+  candidates as new Samples before confirmation.
+- For folder recovery, propose candidates only by the same relative path under
+  the user-selected replacement folder. Do not broaden matching by filename,
+  file characteristics, or content hash. Renamed or reorganized files can be
+  resolved through individual relinking instead.
+- Show proposed old/new locations for review before applying any relink. A
+  relative-path match is a candidate, not proof of unchanged audio content.
+- A selected candidate may differ from stored source observations. Show known
+  differences and require explicit acceptance of that source replacement; do not
+  claim verified content equality from matching size/mtime or relative paths.
+- Confirmed relinking preserves the Sample ID and user organization, including
+  Favorites, presentation edits, origin, Collection memberships, and direct
+  classifications/credits. Invalidate prior derived analysis when the source is
+  replaced; old measurements must not describe the newly selected source.
+- Allow explicit Change source even when the current source is accessible. Review
+  the current and proposed files and explain that the original stays untouched;
+  this is source replacement, not automatic missing-file recovery.
+- When recovering a whole registered source folder that moved, preserve its
+  registration identity and Pack association while updating its reviewed location.
+  Future Pack reimport must recognize that association, not create another Pack
+  from the new path. Files without confirmed candidates remain unresolved; a root
+  location update must not silently relink or authorize those files.
+- For an individual destination outside registered roots, offer explicit review
+  and confirmation to register its containing folder. Do not automatically import
+  the other files in that folder. Selecting the file alone does not authorize
+  silently registering the folder.
+- Existing domain/storage safeguards still apply: no identity merging, no
+  bypassing excluded locations or destinations occupied by another Sample, and
+  no audio authorization based solely on a stored or renderer-supplied path.
+
+### Folder Scope, Conflicts, and Review
+
+- Allow recovery of a subfolder by choosing its old cataloged scope and a
+  replacement folder. Match paths relative to that subfolder. Review registration
+  of the destination as an independent source, reusing its registration if already
+  present. Preserve the original source registration for remaining files. Partial
+  recovery does not create another Pack or transfer the original Pack/root link;
+  Samples retain their origins.
+- Block relocation of a whole source registration to an already registered
+  canonical destination. Do not consolidate registrations or Pack associations.
+  Offer recovery of the Samples into the existing source through partial recovery
+  review instead, preserving both registrations and their Pack associations.
+- Unsupported-extension or unreadable candidates, symbolic links, excluded
+  locations, and destinations occupied by another Sample are blocked with specific
+  reasons. Two Samples cannot confirm the same canonical destination. Correct or
+  deselect conflicting candidates; valid independent candidates may continue.
+  Reinclusion and other catalog changes use their own workflows, not implicit
+  merges, overwrites, or exclusion removal inside relinking.
+- Start valid candidates selected. Known source differences require additional
+  explicit acceptance, individually or for an explicit group showing every Sample
+  and its differences. Selection or final batch confirmation alone does not count
+  as accepting those differences.
+- Revalidate before execution and each write. Invalidate only decisions affected
+  by changed source or association state, preserving valid decisions. A changed
+  shared folder/association invalidates every dependent candidate. Require fresh
+  review for affected work; never apply stale decisions.
+
+### Execution and Recovery — Agreed, Not Implemented
+
+- Commit reviewed source registration/location changes before dependent Sample
+  relinks, after revalidation. Persist those outcomes independently. Registration
+  failure blocks its dependent Samples but does not stop independent destinations.
+- Preserve committed registrations/location changes after cancellation or partial
+  failure, even if no Sample finishes successfully. Report that outcome explicitly.
+  Unresolved Samples keep their old source locations; neither changing a root nor
+  retaining a historical association authorizes them through the new location.
+  Reconcile successful Sample associations against current registered containment,
+  including overlapping roots, without changing origin or Pack/root identity.
+- Commit source changes per Sample. Continue after individual failures, preserving
+  successful changes and reporting completed, failed, and unprocessed items.
+  Retry failed items only after revalidation and renewed review when needed.
+- Allow cancellation between Samples: finish the current transaction and start
+  no further items. Cancellation does not undo completed changes.
+- Persist confirmed work and verifiable item outcomes. After interruption, verify
+  actual committed results before offering manual continuation of remaining work;
+  never automatically resume or blindly replay completed relinks. Scheduling,
+  ordinary exit, durable history, and continuation follow
+  [Operation Execution](operation-execution.md), including verification of the
+  separately committed source-registration changes.
+- For a loaded Sample, apply the playback interaction in
+  [Playback](playback.md#source-replacement-interactions--agreed-not-implemented).
+
+### Source Registration Lifecycle — Agreed, Not Implemented
+
+- Unregistering requires confirmation showing the folder and Samples that would
+  lose authorized access through it. Preserve source registration identity,
+  historical associations, Samples, Packs, and all user organization; never delete
+  audio. Stop scanning that registration.
+- Samples covered by another registered source retain access only after main's
+  normal authorized-access verification. Others lose preview/drag authorization;
+  stop active preview when confirming unregister if it loses access. Distinguish
+  lack of authorization from missing or deleted audio. Apply the player's
+  [authorization-loss behavior](playback.md#source-registration-access-changes--agreed-not-implemented).
+- Reactivation reviews and verifies the location, reuses the registration and
+  associations, and offers a separate optional scan without starting it
+  automatically. Reactivation alone imports no new files and clears no exclusions
+  or manual origin decisions. A moved location follows relinking review rather
+  than silently changing paths during reactivation.
+
+Exact source verification, revision tokens, bounded candidate queries, IPC,
+association reconciliation, authorization, registration lifecycle commands, and
+recovery records remain delivery contracts. Visual controls and routes require
+design. These agreements do not establish implemented workflows.
 
 ## Manual Origin Correction
 

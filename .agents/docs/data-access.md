@@ -137,9 +137,10 @@ and cannot nest in the atomic initialization transaction.
 - Missing assets, invalid formats, migration failures, corruption, and storage
   failures block readiness. Never reset, fall back to memory, or claim success.
 
-Before releasing data-changing upgrades, establish consistent backup/recovery
-and validate packaged loading on macOS and Windows. Runtime rollback is not a
-replacement for backups. Recovery UI and automatic backups are not implemented.
+Before releasing data-changing upgrades, deliver the agreed
+[Backup and Recovery](features/backup-recovery.md) contracts and validate packaged
+loading on macOS and Windows. Runtime rollback is not a replacement for backups.
+Recovery UI and automatic backups are not implemented.
 
 ## IPC Contracts
 

@@ -19,8 +19,8 @@ The current renderer still renders the folder-based Library directly, without a
 router. Visual design, the design system, and prototype validation are deferred.
 
 Use shared sections here and load only the feature guides relevant to a task.
-Routing remains a technical proposal; musical analysis still needs separate
-domain decisions. Agreed feature contracts do not establish shipped capabilities.
+Routing remains a technical proposal; musical analysis follows its agreed
+feature guide. Agreed feature contracts do not establish shipped capabilities.
 
 - [Shell and destinations](#shell-and-destinations)
 - [Selection and playback](#selection-and-playback)
@@ -140,9 +140,17 @@ recent Collections, and quick actions for importing audio/creating a Collection.
   section navigation. Playback includes the persistent preview-volume preference;
   Sample field visibility is an additional planned typed preference specified
   below. Its Settings placement, if any, remains to be designed.
-- Library provides access to Excluded files and persistent import history. The
+- Library provides access to Excluded files and persistent Operation history
+  covering all shared confirmed-operation types, with type/state filters. The
   global operation indicator remains a shortcut to active progress and recent
   results; no separate Activity destination in the header is agreed.
+- Library also exposes backup creation, restoration, and automatic-copy management
+  under [Backup and Recovery](features/backup-recovery.md). Visual placement remains
+  to be designed.
+- Library provides access to independent pending-original cleanup management under
+  [File Organization](features/file-organization.md#verified-execution-and-partial-outcomes),
+  including after the originating history record is deleted. Exact placement and
+  routes remain to be designed.
 - Settings volume and player volume share one live preference. Apply volume
   immediately and persist on completing the adjustment, without Save/Cancel.
   If persistence fails, keep the audible level and report that it was not saved.
@@ -239,7 +247,7 @@ Select all follow the rules below.
   mode and clears the departing batch; returning does not restore checked items.
 - Context restoration is session-only. Restarting opens Home and initializes
   views with default contexts. This does not reset the separately agreed
-  persistent preferences, Collection recency, or import history.
+  persistent preferences, Collection recency, or operation history.
 
 On history restoration, focus the selected row/card when valid; otherwise use
 the nearest useful item or view heading if no results remain. The exact bounded
@@ -306,15 +314,11 @@ Apply shared selection/draft transitions here when results change.
   waveform, observed duration, format, origin Pack, direct Categories, direct
   Authors, and relative source path. Include selection and distinct drag controls
   where applicable. Limit inline relationship labels with access to the rest.
-- BPM and musical key/scale are requested as additional Sample information in
-  the design. They are not implemented metadata contracts or approved analyzer
-  behavior. The agreed direction is a local analysis producing reviewable
-  estimates, with user confirmation and manual editing kept distinct from the
-  original estimate and its provenance. Represent tonality as tonic and mode,
-  such as C minor or F♯ major; do not assume every Sample has a detectable tonal
-  center. Exact vocabulary, confidence, unknown/not-applicable states, validation,
-  and analyzer behavior require a separately scoped domain/analysis design.
-  Follow [Availability and Analysis](domain-model.md#availability-and-analysis).
+- BPM and tonality are planned Sample fields under
+  [Musical Analysis](features/musical-analysis.md). Show usable automatic estimates
+  with provenance and manual precedence, not mandatory acceptance before use.
+  Tonality is tonic plus mode; Unknown and Not applicable remain distinct. These
+  agreed behaviors do not establish an implemented or validated analyzer.
 - Compact Sample rows prioritize name, waveform, and duration. Secondary data
   moves to supporting surfaces or the inspector while essential actions remain
   accessible. Exact responsive layout remains a visual-design decision.
@@ -359,8 +363,8 @@ Apply shared selection/draft transitions here when results change.
   identity reference if ambiguity remains. Creation-date availability and short
   reference collision handling need implementation design; do not invent data.
 
-These are planned presentation requirements. Musical metadata contracts and
-analysis, typed preference contracts, exact responsive field priorities, and
+These are planned presentation requirements. Musical-analysis delivery contracts,
+typed preference contracts, exact responsive field priorities, and
 deterministic duplicate-name disambiguation mechanics still need implementation
 design.
 
@@ -416,7 +420,10 @@ notices, local feedback, partial-result summaries, stale data, and error details
 
 [Operation Execution](features/operation-execution.md#history-and-result-access)
 owns persistent history, session-result rotation, manual cleanup, deleted records,
-and operation-indicator/result access. Shell keyboard boundaries remain here.
+and operation-indicator/result access. Settings → Library exposes a common
+Operation history for import, classification, relinking, file organization, and
+export. Shell
+keyboard boundaries remain here.
 
 ### Keyboard, Focus, and Overlays — Agreed
 
@@ -595,11 +602,12 @@ validation reveals a concrete problem, recording the change explicitly.
 The classification, import execution/queue/recovery, Sample-type, search, and
 duration business-decision round is complete for the scope recorded above.
 Remaining executable contracts are defined per delivery; this does not mark
-future musical analysis/file operations as agreed or any feature as implemented.
+features beyond those guides as agreed or any feature as implemented.
 Visual design and prototype validation remain deferred.
 
 - Adopt/finalize the router and define exact routes/query contracts, including
-  Excluded files, import history, operation results, and history-entry contexts.
+  Excluded files, common operation history, operation results, and history-entry
+  contexts.
 - Define atomic metadata-save commands and conflict/stale-state checks while
   keeping independently confirmed images and origin corrections separate.
 - Define bounded snapshots for Select all and playback sequence order, stable
@@ -617,9 +625,9 @@ Visual design and prototype validation remain deferred.
 
 - Deliver the agreed feature contracts through their owning guides' incremental
   plans, preserving current preview, Favorites, and authorized native dragging.
-- Musical metadata: analyzer, tonic/mode vocabulary, validation, provenance,
-  confidence, unknown/not-applicable states, and user confirmation/edit semantics.
-  Row placement is agreed; analysis contracts and delivery are not.
+- Musical metadata business rules are agreed in
+  [Musical Analysis](features/musical-analysis.md); analyzer selection, validated
+  confidence/ambiguity criteria, technical contracts, and visual delivery remain.
 
 Record subsequent decisions in their owning sections and keep this checklist
 aligned. Update implementation status only when capabilities are delivered.

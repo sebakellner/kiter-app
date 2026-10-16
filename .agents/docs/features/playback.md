@@ -66,6 +66,32 @@ authorization invariants. Visual/proportional-seek prototypes remain deferred.
   only internal volume persistence exists today. Preview duration does not replace
   [persisted duration analysis](duration-analysis.md).
 
+## Source Replacement Interactions — Agreed, Not Implemented
+
+- A playing Sample requires explicit Stop preview within source-replacement
+  review before confirmation. A paused Sample needs no extra Stop action.
+- After successful replacement of the loaded Sample's source, revoke its old
+  source authorization and load the new source paused at zero, without the prior
+  sequence or its Loop/advance modes. Main must authorize the new source; if that
+  fails, retain the Sample identity with an accurate unavailable state.
+- Replacement failure leaves the prior Sample loaded/paused and never resumes
+  audio automatically. An unrelated Sample's replacement does not reload the
+  current player.
+- [Catalog Organization](catalog-organization.md#source-relinking--agreed-baseline-not-implemented)
+  owns source review, identity preservation, and per-item execution/recovery.
+
+## Source Registration Access Changes — Agreed, Not Implemented
+
+- Confirming source unregistration revokes preview/drag authorization for Samples
+  not authorized through another registered root. Stop active audio if it loses
+  access. Keep the loaded Sample identity in an unavailable state with a reason;
+  lack of authorization is not proof that the file is missing or deleted.
+- Overlapping registered coverage preserves playback only through main's normal
+  authorization checks. Reactivation never automatically resumes stopped audio;
+  reauthorize before subsequent preview/drag.
+- [Catalog Organization](catalog-organization.md#source-registration-lifecycle--agreed-not-implemented)
+  owns unregister/reactivation review and optional rescanning.
+
 ## Removal Interactions
 
 - A playing Sample requires Stop preview before catalog removal confirmation;

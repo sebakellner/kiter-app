@@ -36,6 +36,12 @@ records intact. This existing contract is not the planned selected-file workflow
   become Packs automatically.
 - Start eligible files checked; allow unchecking files/subfolders, distinguishing
   existing and new Samples. Discovery/review must not catalog unchecked new files.
+- A former source location vacated by a completed move/relink can supply a new
+  explicitly reviewed import candidate with a new Sample identity. Do not infer
+  that it is the relocated Sample or reconnect that Sample by the old path.
+  Exclusions and independent pending-original cleanup protection take precedence;
+  [File Organization](file-organization.md#verified-execution-and-partial-outcomes)
+  owns protection resolution before such an original becomes importable.
 - Incomplete discovery blocks confirmation until rescanned successfully or the
   affected folder is removed. Never commit incomplete scans as complete results.
 - New Packs offer name, optional description/cover, Categories, and Authors;

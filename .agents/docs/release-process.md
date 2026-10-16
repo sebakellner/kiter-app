@@ -3,6 +3,8 @@
 Read this guide when packaging or distributing Kiter.
 Target platforms are macOS and Windows; see [AGENTS.md](../../AGENTS.md#target-platforms).
 Use [Testing Conventions](testing-conventions.md) for validation details.
+The first beta's agreed required workflows and macOS/Windows exit gates are owned
+by [Beta Scope](beta-scope.md). That plan is not a claim of release readiness.
 
 ## Current Status
 
