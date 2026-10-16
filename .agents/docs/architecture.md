@@ -181,9 +181,9 @@ Electron, and React details.
   Preserve STRICT tables and atomic migration/bootstrap rollback; never use
   schema push on application data. See the owning [migration conventions](data-access.md#migrations).
   Version the schema and reject unsupported formats
-   or versions without resetting data. Deliver the agreed
-   [backup/recovery](features/backup-recovery.md) protection before data-changing
-   released upgrades; it does not require prototype compatibility.
+  or versions without resetting data. Deliver the agreed
+  [backup/recovery](features/backup-recovery.md) protection before data-changing
+  released upgrades; it does not require prototype compatibility.
   Keep recoverable analysis caches separate from user data.
 - **Implemented internally:** copy validated images into shared managed
   storage for Pack/Collection covers and the UserProfile avatar. Startup cleans unreferenced

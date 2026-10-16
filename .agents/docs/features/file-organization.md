@@ -39,17 +39,17 @@ This is Kiter's initial convention, not a claim of an industry standard or a
 hierarchy between Category records. Use confirmed direct Categories to propose
 one physical destination per Sample; no inferred assignment or audio duplication.
 
-| Category | Relative destination |
-| --- | --- |
-| Drums | `Drums` |
-| Kick, Snare, Clap, Hi-Hat, Cymbal, Tom, Percussion | `Drums/<Category>` |
-| Bass | `Bass` |
-| 808 | `Bass/808` |
-| Synth, Lead, Pad, Keys, Piano, Organ, Guitar, Strings, Brass, Woodwinds | `Instruments/<Category>` |
-| Vocals | `Vocals` |
-| FX | `FX` |
-| Riser, Impact, Texture | `FX/<Category>` |
-| No unambiguous mapped Category | `Uncategorized` fallback, with review |
+| Category                                                                | Relative destination                  |
+| ----------------------------------------------------------------------- | ------------------------------------- |
+| Drums                                                                   | `Drums`                               |
+| Kick, Snare, Clap, Hi-Hat, Cymbal, Tom, Percussion                      | `Drums/<Category>`                    |
+| Bass                                                                    | `Bass`                                |
+| 808                                                                     | `Bass/808`                            |
+| Synth, Lead, Pad, Keys, Piano, Organ, Guitar, Strings, Brass, Woodwinds | `Instruments/<Category>`              |
+| Vocals                                                                  | `Vocals`                              |
+| FX                                                                      | `FX`                                  |
+| Riser, Impact, Texture                                                  | `FX/<Category>`                       |
+| No unambiguous mapped Category                                          | `Uncategorized` fallback, with review |
 
 - Propose a destination only when mapped Categories identify one choice. Multiple
   mapped choices require an explicit choice of one destination. A generic family

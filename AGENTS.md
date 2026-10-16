@@ -27,6 +27,7 @@ Load other guides only when relevant to the task:
 | [UI Patterns](.agents/docs/ui-patterns.md)                       | Changing interactions, forms, dialogs, accessibility, or feedback.                   |
 | [Data Access](.agents/docs/data-access.md)                       | Changing IPC, queries, mutations, persistence, or managed images.                    |
 | [Release Process](.agents/docs/release-process.md)               | Packaging, validating, or distributing releases.                                     |
+| [Beta Scope](.agents/docs/beta-scope.md)                         | Planning beta delivery, included workflows, acceptance gates, or platform readiness. |
 
 ### Feature Contracts
 
@@ -35,19 +36,19 @@ guides own shared rules; feature guides own detailed behavior, feature-specific
 architecture, status, and remaining executable contracts. Follow cross-links
 only for dependencies involved in the task.
 
-| Feature guide                                                         | Read when                                                                                                               |
-| --------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| [Classification](.agents/docs/features/classification.md)             | Changing recognition, aliases, initial vocabulary, evidence/rejections, type suggestions, or standalone classification. |
-| [Import](.agents/docs/features/import.md)                             | Changing discovery/review, selected-file import, Pack registration/reimport, target commits, or result membership.      |
-| [Operation Execution](.agents/docs/features/operation-execution.md)   | Changing the shared confirmed-operation queue, cancellation, exit/restart, history cleanup, or recovery journals. |
-| [Search](.agents/docs/features/search.md)                             | Changing global/local matching, filters, ranking, approximate queries, or result pagination.                            |
-| [Duration Analysis](.agents/docs/features/duration-analysis.md)       | Changing persisted duration, background measurement, pause/resume, source invalidation, or retries.                     |
-| [Musical Analysis](.agents/docs/features/musical-analysis.md) | Changing automatic BPM/tonality, manual overrides, confidence, musical source invalidation, or effective values. |
-| [Playback](.agents/docs/features/playback.md)                         | Changing transport/modes, sequence snapshots, unavailable playback, last-Sample restoration, or removal interactions.   |
+| Feature guide                                                         | Read when                                                                                                                                              |
+| --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| [Classification](.agents/docs/features/classification.md)             | Changing recognition, aliases, initial vocabulary, evidence/rejections, type suggestions, or standalone classification.                                |
+| [Import](.agents/docs/features/import.md)                             | Changing discovery/review, selected-file import, Pack registration/reimport, target commits, or result membership.                                     |
+| [Operation Execution](.agents/docs/features/operation-execution.md)   | Changing the shared confirmed-operation queue, cancellation, exit/restart, history cleanup, or recovery journals.                                      |
+| [Search](.agents/docs/features/search.md)                             | Changing global/local matching, filters, ranking, approximate queries, or result pagination.                                                           |
+| [Duration Analysis](.agents/docs/features/duration-analysis.md)       | Changing persisted duration, background measurement, pause/resume, source invalidation, or retries.                                                    |
+| [Musical Analysis](.agents/docs/features/musical-analysis.md)         | Changing automatic BPM/tonality, manual overrides, confidence, musical source invalidation, or effective values.                                       |
+| [Playback](.agents/docs/features/playback.md)                         | Changing transport/modes, sequence snapshots, unavailable playback, last-Sample restoration, or removal interactions.                                  |
 | [Catalog Organization](.agents/docs/features/catalog-organization.md) | Changing removal/reinclusion, Collection memberships/order, detail assignments, source relinking/registration lifecycle, or manual origin corrections. |
-| [Backup and Recovery](.agents/docs/features/backup-recovery.md) | Changing backup contents/creation, migration protection, restoration, or catalog-corruption recovery. |
-| [File Organization](.agents/docs/features/file-organization.md) | Changing physical renaming, relocation, centralization layouts, verified source deletion, or filesystem operation recovery. |
-| [Export](.agents/docs/features/export.md) | Changing audio-copy exports, output layouts, optional Kiter manifests, or export recovery. |
+| [Backup and Recovery](.agents/docs/features/backup-recovery.md)       | Changing backup contents/creation, migration protection, restoration, or catalog-corruption recovery.                                                  |
+| [File Organization](.agents/docs/features/file-organization.md)       | Changing physical renaming, relocation, centralization layouts, verified source deletion, or filesystem operation recovery.                            |
+| [Export](.agents/docs/features/export.md)                             | Changing audio-copy exports, output layouts, optional Kiter manifests, or export recovery.                                                             |
 
 Keep rules in their owning guide rather than duplicating them here.
 Add guides incrementally when requested; index only existing files.

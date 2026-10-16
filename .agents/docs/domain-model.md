@@ -84,18 +84,18 @@ first entity delivery.
 
 ## Product Vocabulary
 
-| Concept     | Meaning                                                                                   | Modeling decision                                                                                                      |
-| ----------- | ----------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| UserProfile | The local profile of the person using this installation.                                  | Exactly one profile with a name, optional avatar, and optional linked Author; no login or account.                     |
+| Concept     | Meaning                                                                                   | Modeling decision                                                                                                                  |
+| ----------- | ----------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| UserProfile | The local profile of the person using this installation.                                  | Exactly one profile with a name, optional avatar, and optional linked Author; no login or account.                                 |
 | Preferences | Application behavior chosen by the local user.                                            | Typed settings for the local profile; volume is implemented internally, field visibility and analysis pause are agreed extensions. |
-| Library     | The complete local scope of imported samples, packs, collections, and their organization. | One Library with multiple source directories; not a separately identified entity in this stage.                        |
-| Sample      | A cataloged audio resource with its own identity and organization.                        | Core entity; it may be standalone or have one origin Pack.                                                             |
-| Pack        | An imported source package, such as a sample product from a producer or provider.         | Core entity with presentation data, samples, categories, and declared authors.                                         |
-| Collection  | A selection of samples assembled inside Kiter.                                            | Core entity referencing samples from different Packs and standalone samples.                                           |
-| Category    | A classification used to organize Samples and Packs.                                      | Classification entity; assignments are independent for each target.                                                    |
-| Genre       | A musical style used to classify Samples and Packs, separately from Category.             | Optional multiple direct assignments; flat vocabulary with initial and user-created entries, without a primary Genre.  |
-| Author      | A declared author, producer, provider, or collaborator credited on Samples or Packs.      | Reusable credit identity, not a user profile or authorization principal; may represent the same person as UserProfile. |
-| Favorite    | A personal mark on a Sample.                                                              | Sample state, not a separate grouping or named-list entity in this stage.                                              |
+| Library     | The complete local scope of imported samples, packs, collections, and their organization. | One Library with multiple source directories; not a separately identified entity in this stage.                                    |
+| Sample      | A cataloged audio resource with its own identity and organization.                        | Core entity; it may be standalone or have one origin Pack.                                                                         |
+| Pack        | An imported source package, such as a sample product from a producer or provider.         | Core entity with presentation data, samples, categories, and declared authors.                                                     |
+| Collection  | A selection of samples assembled inside Kiter.                                            | Core entity referencing samples from different Packs and standalone samples.                                                       |
+| Category    | A classification used to organize Samples and Packs.                                      | Classification entity; assignments are independent for each target.                                                                |
+| Genre       | A musical style used to classify Samples and Packs, separately from Category.             | Optional multiple direct assignments; flat vocabulary with initial and user-created entries, without a primary Genre.              |
+| Author      | A declared author, producer, provider, or collaborator credited on Samples or Packs.      | Reusable credit identity, not a user profile or authorization principal; may represent the same person as UserProfile.             |
+| Favorite    | A personal mark on a Sample.                                                              | Sample state, not a separate grouping or named-list entity in this stage.                                                          |
 
 Use **Pack**, not **Kit**, for imported source packages. Use **Author**, not
 **Owner**, for declared credits.
@@ -439,7 +439,7 @@ Length limits and text validation must be agreed before implementing forms.
 | Concept     | Required information                                                                       | Optional information / associations                                                                                                              |
 | ----------- | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
 | UserProfile | Stable ID and presentation name.                                                           | Managed avatar reference and linked Author.                                                                                                      |
-| Preferences | Profile reference and preview volume in the inclusive range 0 to 1.                        | Planned typed field-visibility and analysis-pause settings follow their owning guides; current storage supports volume only.                      |
+| Preferences | Profile reference and preview volume in the inclusive range 0 to 1.                        | Planned typed field-visibility and analysis-pause settings follow their owning guides; current storage supports volume only.                     |
 | Sample      | Stable ID, source location reference, actual filename, availability, and Favorite boolean. | Presentation-name override, notes, zero or one origin Pack, direct Category/Author assignments, and Collection memberships.                      |
 | Pack        | Stable ID, name, and the source-directory association used to recognize reimports.         | Description, cover reference, Category assignments, and Author credits. Origin Sample references follow the creation and empty-Pack rules above. |
 | Collection  | Stable ID, name, and an ordered membership list, which can be empty.                       | Description and cover reference.                                                                                                                 |
