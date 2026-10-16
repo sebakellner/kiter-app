@@ -164,6 +164,74 @@ URL or merely a filename.
 Memberships reference the same Sample ID; they do not create new Samples or
 duplicate source audio.
 
+### Sample Type — Agreed, Not Implemented
+
+Each Sample has at most one optional type: Loop or One-Shot. An unset value means
+unknown; classification is not required. This is independent of Category, Genre,
+and Pack origin, and users may edit it. The vocabulary is fixed for this stage,
+not a user-extensible collection of types.
+
+- Loop: a phrase, pattern, or texture prepared to repeat as a musical unit.
+- One-Shot: a sound intended to be triggered as one event, such as a hit, note,
+  vocal, or effect.
+- Unknown: unclassified or insufficient information, represented by an unset type.
+
+Type describes intended musical use, not duration. A long impact may be a
+One-Shot and a short phrase a Loop. BPM or tonality alone does not determine
+type.
+
+Suggest type only from explicit filename/folder terms and agreed aliases, such as
+Loops or One Shots, with user acceptance before assignment. Retain the supporting
+clue separately from the user's confirmed type. Do not infer type from instrument
+classification or analyze audio for this delivery.
+
+For contradictory type clues, an explicit filename type takes precedence over
+folder clues. If the filename supplies no type, use the nearest folder with an
+explicit type clue. For example, `Loops/kick_one_shot.wav` suggests One-Shot.
+This type-specific precedence does not change Category/Genre evidence combination.
+If the same filename or folder name contains contradictory Loop and One-Shot
+clues, emit no type proposal and report the contradiction. Preserve the existing
+type or leave it unknown; allow manual editing without blocking import. Do not
+fall back to a lower-priority folder to conceal an ambiguous filename clue.
+Use the same eligible roots and path boundaries as other classification, combining
+selected containing roots during import and registered roots during explicit
+classification. Count the same folder occurrence only once across roots. Apply
+filename-first, then nearest-folder precedence across the eligible evidence; if
+contradictory clues remain at equal priority, emit no proposal and explain the
+conflict. Do not derive type from the Pack or other Samples. Explicit type
+classification may use registered paths for unavailable audio, with the same
+cataloged-evidence qualification as other classification.
+
+Confirmed Sample types survive reimport, whether chosen manually or accepted
+from a suggestion. If eligible evidence suggests a different type, offer an
+explicit replacement proposal showing the existing and proposed values; change
+the type only on acceptance. Never automatically replace a confirmed type based
+on its original assignment method.
+
+Type suggestions follow the agreed classification review rules: remember explicit
+rejections while evidence is unchanged, allow including rejected proposals on
+explicit request, and do not treat unreviewed proposals as rejection or block
+import because of them. Clearing a type to unknown is not rejection and permits
+later suggestions. Stage decisions until confirmation and commit them atomically
+with the Sample's other reviewed classification changes. Group decisions are
+allowed for explicit selections, identifying any existing types to be replaced.
+
+Recognize Loop from Loop/Loops and One-Shot from One Shot/One Shots/Oneshot/
+Oneshots. Apply the agreed separator normalization to forms such as `one_shot`
+and `one-shot`; do not initially recognize OS or standalone Shot. Users may add
+aliases targeting either fixed type, under the same alias conflict and management
+rules, without creating new types or assigning automatically. Type aliases form
+a separate recognition dimension from Categories and Genres.
+
+Sample lists may filter by confirmed Loop, One-Shot, or unknown type. Multiple
+selected type values combine with OR; combine the type filter with other filter
+groups using AND. Pending suggestions never count as confirmed filter values.
+Free-text search does not implicitly turn words such as loop into a type filter.
+
+Persistence/IPC contracts remain open. This is a separate Sample-type suggestion
+extension; it does not
+turn Loop/One-Shot into Categories or expand musical BPM/key analysis scope.
+
 ### Pack
 
 A Pack represents a source package imported into Kiter, not a grouping manually
@@ -305,6 +373,15 @@ and Techno are Genres, while Kick, Snare, and Riser can be Categories.
 Genre assignments are user organization and must survive rescans and source or
 origin changes. This agreed extension is not part of the current logical data
 profiles or implemented 17-table schema below.
+
+Library search matches Samples and Packs by their directly assigned Genre names,
+not pending suggestions or a Sample's Pack Genres. Genre filters combine selected
+values with OR and combine with other filter groups using AND. Recognition
+aliases do not expand search queries or implicitly activate Genre filters.
+Genres also appear as search results in their own right. Activating a Genre
+result opens Samples filtered by that Genre; support querying its directly
+associated Packs as well. This does not introduce a new primary navigation
+destination or imply that these queries are implemented.
 
 The approved initial catalog contains these 26 independent entries: House,
 Tech House, Deep House, Techno, Trance, Drum and Bass, Dubstep, UK Garage,
@@ -570,6 +647,46 @@ groupings. Their representation belongs to later technical planning.
 
 ### Availability and Analysis
 
+Measure observed duration in background after import, without making import wait
+for audio decoding across its Samples. Until measured, duration remains unknown.
+Persist the observation against the source version and invalidate it when that
+version changes. This is an agreed duration-analysis extension, not existing
+catalog metadata or a musical BPM/key analyzer. Add previously imported Samples
+with pending duration measurements gradually to the same background analysis,
+respecting pause, priorities, and bounded work without requiring reimport.
+Unavailable audio retains unknown duration. Exact scheduling and persistence
+contracts remain to be defined.
+
+Duration-extraction failure preserves the Sample and its organization, leaves
+duration unknown, and records the analysis failure separately. It does not turn
+a completed import into a failed import. Allow explicit retries for affected
+Samples and retry when a new source version is detected; do not retry the same
+failure indefinitely on the same version. Duration, waveform, and preview
+capabilities and outcomes remain independent.
+
+Distinguish temporary source unavailability from decoding/extraction errors.
+After an authorized check or rescan verifies renewed access, retry measurement
+that failed because the source was unavailable, even if its version is unchanged.
+Do not continuously poll unavailable sources. Same-version decoding failures
+require explicit retry; a detected new source version also permits retry.
+
+Users may pause and resume background duration measurement. Prioritize explicit
+user analysis requests and keep queued/active work bounded without blocking main
+or competing without limits with preview. Stop safely on exit and automatically
+resume pending measurement after restart, preserving an explicitly paused state.
+Automatic resumption alone does not retry same-version failures; verified access
+restoration follows the exception above, still respecting pause and limits. This
+analysis-specific policy does not permit automatic resumption of confirmed
+imports or classification. Pause persistence, scheduling limits, and shutdown
+checkpoints remain implementation contracts.
+
+Library search includes matching Samples even when their audio is missing or
+inaccessible, identifying known availability accurately rather than hiding their
+catalog data. Users may inspect and organize those records. Preview and native
+dragging require main to verify authorized audio access; inclusion in results
+does not establish availability or authorize a stored path. This is agreed search
+behavior, not an implemented library-wide query.
+
 Availability and analysis are independent. Planned availability meanings are
 **available**, **missing**, and **inaccessible**. Planned analysis states are
 **not requested**, **queued**, **running**, **ready**, **failed**, and **stale**;
@@ -581,6 +698,10 @@ errors; do not collapse them into one `supported` flag.
 
 Use seconds for duration, Hz for sample rate, positive integers for channel
 count, and bytes for file size. Unknown values remain unknown, not zero.
+Duration queries use optional inclusive bounds in seconds without rounding stored
+observations before comparison. Input accepts decimal seconds or minutes:seconds;
+empty bounds impose no limit. Reject negative/nonfinite bounds and inverted
+ranges. Unknown duration is included only through an explicit option, not as zero.
 Musical attributes such as BPM or key require a separately scoped analyzer and
 provenance; filenames alone are not verified measurements.
 
@@ -613,8 +734,9 @@ Synth, Lead, Pad, Keys, Piano, Organ, Guitar, Strings, Brass, Woodwinds,
 Vocals, FX, Riser, Impact, and Texture. Recognizing one term does not imply
 another (for example, Piano does not automatically suggest Keys). These are
 recognition terms, not automatically created Category records. Loop and One-Shot
-are excluded from this vocabulary and reserved for a separate Sample-type dimension whose business rules and
-implementation contracts still require agreement.
+are excluded from this vocabulary and reserved for the separate optional
+Sample-type dimension defined above; remaining business and implementation
+contracts still require agreement.
 
 The approved initial recognition aliases are:
 
@@ -848,8 +970,12 @@ from session-only unconfirmed reviews and requires storage/recovery contracts.
 Keep standalone classification execution history across restarts until the user
 explicitly deletes it; do not automatically expire or rotate those records.
 Preserve summaries and per-target outcomes with paginated details. History cleanup
-does not undo classifications or delete Samples, Packs, or audio. Storage limits,
-cleanup eligibility during execution/recovery, and query contracts remain open.
+does not undo classifications or delete Samples, Packs, or audio. Allow individual
+or batch history deletion after explicit confirmation only for terminal operations
+whose recovery verification has finished. Active, queued, or recovering operations
+cannot have their history deleted. Terminal failures and interrupted results may
+be deleted after verification even when the operation did not succeed. Storage
+and exact cleanup/query contracts remain open.
 
 Confirmed imports and standalone classification operations share one serial
 execution queue, ordered by confirmation. Users may prepare and confirm further

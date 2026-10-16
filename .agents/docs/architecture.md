@@ -340,6 +340,31 @@ renderer acknowledgement is proof of a committed database outcome.
 
 ## Analysis, Search, and Large Libraries
 
+- **Agreed, planned:** measure and persist observed duration in background after
+  import, without blocking import on library-wide decoding. Unknown duration
+  stays unknown until measured. Bind observations to source versions and
+  invalidate them on source change; reject stale analysis results. Extraction,
+  scheduling, retry, and storage contracts remain open, separately from musical
+  BPM/key analysis and the existing preview/waveform duration.
+- Duration failures retain the Sample and organization with unknown duration and
+  a separate analysis error, without changing a completed import's outcome.
+  Support explicit retry and retry on detected new source versions; avoid endless
+  retries for the same version. Duration, waveform, and preview outcomes remain
+  independent; exact retry scheduling and error contracts need definition.
+- Gradually include previously imported Samples lacking duration in the same
+  background scheduler, without reimport and under the same pause/priorities/limits.
+  Distinguish source unavailability from decoding errors. An authorized check or
+  rescan verifying restored access permits retry of an unavailability failure on
+  the same source version, respecting pause; do not continuously poll. Decoding
+  failures still need explicit retry or a new source version.
+- Background duration measurement supports pause/resume, prioritizes explicit
+  requests, and bounds queued/active work without blocking main or overwhelming
+  preview. Stop safely on exit; automatically resume pending work after restart
+  unless the user left measurement paused. Persist that pause choice. Resumption
+  alone does not retry same-version failures; verified access restoration follows
+  the exception above. It does not change manual continuation rules for
+  import/classification. Exact scheduler, resource budgets, and checkpoints remain
+  contracts to define.
 - Preserve lazy waveforms, bounded caching, and a single preview player.
   Current browser decoding remains appropriate for short samples.
 - **Planned:** move expensive analysis to a bounded worker or Electron utility
@@ -354,6 +379,32 @@ renderer acknowledgement is proof of a committed database outcome.
 - **Planned:** search the catalog across imported roots, not only the currently
   displayed folder. Use indexed fields, stable ordering, and pagination; add
   full-text indexing when its requirements justify it.
+- Approximate library search follows the agreed baseline in
+  [Global Search](ux-design.md#global-search--agreed-interaction): query words of
+  at least four characters, one edit or adjacent transposition, no approximate
+  numeric/short-term matches, all words required, and approximate results last.
+  Validate against real examples before implementation; this does not loosen
+  deterministic classification recognition or expand recognition aliases.
+- Within each search relevance tier, use the agreed deterministic tie-breakers:
+  fewer approximate words, lower total edit distance, normalized name, entity
+  type, then stable ID. Do not add Favorite or recency weighting. Define cursor
+  and snapshot behavior against this ordering before implementing pagination.
+- Main validates search requests; the DB worker executes catalog queries without
+  transferring the whole library to renderer. Wait 250 ms after typing stops
+  before querying and reject stale responses in the owning renderer context.
+- Return at most five suggestions per entity type, with access to full results.
+  Full-result pages default to 50 records, maximum 100 per request, following the
+  agreed relevance and tie-break ordering. Validate these initial limits against
+  representative libraries before implementation.
+- On refresh failure, retain the last valid results with an explicit failure
+  state. Query correlation, pagination cursors, catalog-change behavior, and
+  bounded approximate-match execution remain technical contracts to define.
+- Relevant catalog changes do not automatically reorder displayed search results;
+  expose available changes and offer refresh. If they invalidate pagination,
+  reject continuation rather than mixing catalog versions. Refresh starts at the
+  first page with the same query/filters and preserves valid selection. Mutations
+  revalidate current state; this is not a full retained query snapshot. Exact
+  invalidation scope and cursor/version tokens remain implementation contracts.
 - **Planned:** return scan results and progress in batches, and virtualize large
   lists so offscreen rows do not all create components or observers.
 - Bound queued and active work, not just concurrency. Deduplicate repeated

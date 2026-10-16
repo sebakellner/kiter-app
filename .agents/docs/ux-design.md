@@ -649,7 +649,19 @@ design. Batch origin correction is outside the initial agreed scope.
 ### Global Search — Agreed Interaction
 
 - Show suggestions while the user types in the global header search.
+- Empty global search waits for input without listing the library or showing
+  query history. Do not execute global queries for a single character; start
+  textual search at two characters, with approximation still limited to words
+  of at least four characters. Do not persist search queries across restart in
+  this delivery; navigation context remains session-only.
 - Search Samples, Packs, Collections, Categories, and Authors.
+- Include Genres as their own result type. Activating a Genre opens Samples
+  filtered by that Genre; also support querying its directly associated Packs.
+  This does not add a primary sidebar destination; exact navigation/query
+  contracts remain to be defined.
+- Include matching Samples with unavailable audio, accurately indicating known
+  availability. They remain inspectable and organizable; preview and native drag
+  require main-verified authorized access, not merely presence in search results.
 - Search entity names and Sample filenames/relative source paths, notes and
   descriptions, and related metadata. Samples match the names of their directly
   assigned Categories and Authors and their origin Pack's name, but not that
@@ -657,17 +669,53 @@ design. Batch origin correction is outside the initial agreed scope.
   Author names. Collections, Categories, and Authors match their own text fields,
   not an expansion through their members or uses. Do not infer musical properties
   from audio.
+- Samples and Packs also match directly assigned Genre names, without expanding
+  through a Sample's Pack Genres or pending suggestions. Recognition aliases do
+  not expand search or implicitly activate filters.
 - Match text case- and accent-insensitively, support substrings, and require all
   query words to match, potentially across different searchable fields. Also
   tolerate approximate spelling errors. Prioritize exact names, then name
   prefixes/substrings, other text or relation matches, and finally approximate
-  matches. Explain non-obvious matching reasons. Approximation thresholds and
-  deterministic ranking details need validation with real library examples;
-  do not introduce recency weighting.
+  matches. Explain non-obvious matching reasons; do not introduce recency weighting.
+- Use plain text in the first delivery, without a query language. Words may match
+  different searchable fields, but all are required. Do not interpret AND, OR,
+  minus-prefixed words, quotes, or `genre:techno` as operators, exclusions, exact
+  phrases, or filter activation. Structured filters remain explicit controls;
+  punctuation/tokenization details still require a technical contract.
+- The agreed initial approximation baseline applies only to query words of at
+  least four characters, allowing one insertion, deletion, substitution, or
+  adjacent transposition (for example, `tehcno` to techno). Do not approximate
+  numbers or short terms such as 808, FX, or BD. All query words must still match;
+  approximate matches rank after textual matches. Validate thresholds against
+  real library examples before implementation; this is not a shipped matcher.
 - Group a bounded set of suggestions by entity type, with access to all results.
+- Query after 250 ms without typing. Return at most five suggestions per entity
+  type; full results use pages of 50, maximum 100 per request. Main validates
+  requests and the DB worker executes catalog queries. Never transfer the entire
+  library to renderer; stale responses must not replace newer query results.
+  Preserve last valid results with explicit failure feedback on refresh errors.
+  Validate these initial limits against representative libraries.
+- If relevant catalog changes affect an open search, retain displayed results
+  and offer refresh rather than automatically reordering them. When pagination
+  becomes invalid, do not append pages from another catalog version: require
+  refresh. Refresh restarts at page one, preserves query/filters, and retains
+  selection if still valid. Actions always validate current authoritative state;
+  existing stale-result restrictions on result-wide actions still apply.
+- Within each relevance tier, break ties by fewer approximately matched query
+  words, then lower total edit distance, normalized name alphabetically, entity
+  type, and stable ID. Do not boost Favorites, recent use, or import recency.
+  Repeating a query over unchanged data must produce reproducible ordering for
+  pagination; exact normalization, entity-type order, and cursor contracts remain
+  technical details to specify.
 - Allow opening a matching entity directly or opening a full results view.
 - Present full results as a mixed list ordered by relevance, with entity-type
   filters and clear type identification.
+- Mixed global results offer entity-type filtering. When limited to Samples,
+  also offer their Genre, Category, Author, Loop/One-Shot/unknown type, source,
+  origin, format, and observed-duration filters. When limited to Packs, offer
+  direct Genre, Category, and Author filters. Returning to mixed results disables
+  entity-specific filters while retaining their configuration for the session.
+  Never apply Sample filters to other entities or infer matches through members.
 - Activating a Sample suggestion navigates to Samples, locates and selects that
   Sample, and allows inspection without automatically starting playback. Clear
   the destination's local search and filters so the Sample is not hidden; Back
@@ -684,31 +732,63 @@ design. Batch origin correction is outside the initial agreed scope.
   standalone Samples, direct Category assignments, direct Author credits, audio
   format, and observed duration.
 - Do not implicitly inherit Sample classifications or credits from its Pack.
+- Offer Genre filters for Sample/Pack lists using direct confirmed assignments.
+  Combine selected Genres with OR and combine that group with Category, type,
+  and other applicable filter groups using AND. Pending suggestions do not match.
 - Combine selected values within one filter group with OR (any selected value),
   and combine different groups with AND. Multiple selected Categories or Authors
   therefore require at least one direct match within each respective group.
+- Sample lists additionally support confirmed type filters for Loop, One-Shot,
+  and Unknown. Selected types combine with OR, and with other filter groups using
+  AND. Pending type suggestions are not filter values; free-text words such as
+  loop do not automatically activate the type filter.
 - Apply each filter change immediately, display active filters as removable
   chips, and provide Clear all. No Apply step is needed.
 - Local search uses the same searchable fields and relationship rules as global
   search for the listed entity type, constrained to the current view or tab.
   Update after a brief typing pause, keep field focus, reject stale responses,
   and never initiate preview from a query update.
+- Empty local search shows the owning view's list under its other active filters;
+  it does not clear those filters.
 - Duration filtering requires catalog-queryable observed data; the current
   browse-time waveform/player duration does not establish that capability.
   Unknown durations must remain distinguishable from measured values.
+- Measure duration in background after import rather than delaying import for
+  decoding. Persist it against the source version and invalidate it on source
+  changes. Samples awaiting measurement remain unknown for duration filters;
+  this agreed behavior is not currently implemented catalog analysis.
+- Duration extraction failures keep duration unknown and report the analysis
+  failure separately, preserving the Sample and completed import outcome. Allow
+  explicit retries and retry on a newly detected source version, without endless
+  retries on the same version. Waveform and preview retain independent outcomes.
+- Gradually analyze previously imported Samples lacking duration without requiring
+  reimport, respecting the same pause, priorities, and execution limits. Unavailable
+  audio remains unknown. Retry unavailability failures when an authorized check or
+  rescan verifies renewed access, even on the same source version, without continuous
+  polling. Decoding failures require explicit retry or a new source version.
+- Allow pausing/resuming duration measurement and prioritize explicit requests
+  under bounded scheduling. Stop safely on exit and resume pending measurement
+  automatically after restart unless explicitly paused, preserving that choice.
+  Restart alone does not retry same-version failures; verified restored access
+  follows the exception above. Import/classification still require manual
+  continuation after restart.
 - A duration range initially excludes unknown durations. Provide an explicit
   option to include unknown durations alongside matching measured values.
 - Duration uses optional minimum and maximum fields with clear units and inclusive
   endpoints. Either bound may be absent. Explain invalid values or inverted
-  bounds without applying an invalid query; numeric limits and input formatting
-  belong to the eventual metadata/query contract.
+  bounds without applying an invalid query. Accept decimal seconds and
+  minutes:seconds (for example, `1.5` or `1:30`), normalizing to seconds. Reject
+  negative/nonfinite values and minimum greater than maximum. Empty bounds mean
+  no limit, not zero. Compare stored duration without rounding; presentation
+  rounding never changes membership. Unknowns require the explicit include option.
 - Availability was not selected as an initial filter. Missing-source states must
   still be presented accurately when applicable.
 
-Search and filters are planned. Approximation thresholds, ranking tie-breakers,
-query timing, and numeric duration contracts need implementation design and
-validation. These decisions do not imply that library-wide search or its required
-queries are implemented.
+Search and filters are planned. Initial approximation thresholds, tie-breakers,
+query timing, and duration-filter semantics are agreed above. Exact parsing,
+cursor/version tokens, bounded query execution, and duration storage/extraction
+contracts still need implementation design and validation. These decisions do
+not imply library-wide search or its required queries are implemented.
 
 ### List and Card Presentation — Agreed
 
@@ -1121,7 +1201,35 @@ Categories automatically or restore deleted Genres automatically.
 The initial 25-term Category recognition vocabulary is approved in Domain Model,
 without automatically creating Category records or implying relationships between
 terms. Loop and One-Shot are reserved for a separate Sample-type dimension,
-outside this recognition vocabulary; their contracts still require definition.
+outside this recognition vocabulary. Each Sample may have one optional, editable
+type (Loop or One-Shot), with an unset value meaning unknown, independently of
+Category and Genre. Remaining rules and contracts belong to
+[Sample Type](domain-model.md#sample-type--agreed-not-implemented).
+Sample type may be suggested separately from explicit filename/folder terms and
+agreed aliases, requiring acceptance and retaining evidence apart from the user's
+choice. No instrument-based inference or audio analysis is included in this slice.
+For type only, explicit filename clues override folder clues; without a filename
+type, use the nearest folder with an explicit clue. Contradictory types within
+the same filename/folder produce no proposal and an explanation, preserving an
+existing type or leaving it unknown without blocking import. Manual editing
+remains possible; do not hide the contradiction through lower-priority fallback.
+Use the same root scope and unavailable-audio evidence rules as classification,
+deduplicating folder occurrences across roots. Apply filename-first/nearest-folder
+precedence across eligible evidence; unresolved equal-priority contradictions
+produce no proposal and an explanation. Never derive type from the Pack or other
+Samples.
+Preserve confirmed types on reimport, whether manually chosen or accepted from a
+suggestion. A different recognized type may be offered as an explicit replacement
+proposal, showing both values; never replace it without acceptance.
+Type uses the same rejection memory, optional inclusion of rejected proposals,
+unreviewed-proposal behavior, staging, and confirmation rules as classification.
+Clearing to unknown is not rejection. Commit type decisions with the Sample's
+other reviewed classification changes atomically; explicit group decisions must
+identify replacements of existing types.
+Initial type recognition uses Loop/Loops and One Shot/One Shots/Oneshot/Oneshots,
+with equivalent separators, excluding OS and standalone Shot. Custom aliases may
+target either fixed type under the same alias management/conflict rules in an
+independent type dimension; they do not create types or assign automatically.
 The initial recognition-alias base is also approved in Domain Model; common case
 and separator variants need not become redundant alias records.
 Acceptance during import preparation only stages vocabulary creation and
@@ -1190,8 +1298,11 @@ verification of committed outcomes and unverified states, without automatic
 resumption. Keep classification history until explicit manual deletion, without
 automatic expiration or rotation, using summaries and paginated per-target details.
 Cleanup does not undo classifications or delete catalog entities/audio. These
-results are an exception to other non-import session-only results; storage and
-cleanup-eligibility contracts remain to be defined.
+results are an exception to other non-import session-only results. Allow individual
+or batch history deletion with confirmation only for terminal operations after
+recovery verification finishes, including failed/interrupted outcomes. Do not
+delete history for active, queued, or recovering operations. Verification is not
+proof of success. Exact storage and cleanup/query contracts remain to be defined.
 Confirmed imports and standalone classifications share a serial execution queue
 in confirmation order. Allow preparing and confirming further operations during
 execution, and revalidate queued work before it starts. Queued confirmed
@@ -1273,7 +1384,7 @@ Initial vocabulary/aliases and their lifecycle rules are agreed. Persist confirm
 operations before execution and commit per-target outcomes with their changes,
 following [Verifiable Execution Recovery](architecture.md#verifiable-execution-recovery--agreed-planned).
 Exact schema/migrations, catalog mapping, evidence/rejection keys, review tokens,
-IPC commands, queue bounds, cleanup eligibility, and reconciliation queries remain
+IPC commands, queue bounds, cleanup commands, and reconciliation queries remain
 implementation contracts. Loop/One-Shot business rules are separately scoped;
 musical BPM/key analysis remains outside this slice. Visual design and prototype
 work are deferred.
@@ -1300,6 +1411,12 @@ validation reveals a concrete problem, recording the change explicitly.
 
 ### Technical Contracts and Delivery Dependencies
 
+The classification, import execution/queue/recovery, Sample-type, search, and
+duration business-decision round is complete for the scope recorded above.
+Remaining executable contracts are defined per delivery; this does not mark
+future musical analysis/file operations as agreed or any feature as implemented.
+Visual design and prototype validation remain deferred.
+
 - Adopt/finalize the router and define exact routes/query contracts, including
   Excluded files, import history, operation results, and history-entry contexts.
 - Define atomic metadata-save commands and conflict/stale-state checks while
@@ -1313,7 +1430,9 @@ validation reveals a concrete problem, recording the change explicitly.
 - Define typed presentation/last-Sample persistence and authorization on restore;
   preserve the existing distinction between observed data and user edits.
 - Validate approximate-search thresholds, deterministic tie-breakers, query
-  timing, and observed-duration numeric/query contracts against real examples.
+  timing, and duration-filter semantics against real examples. Define exact
+  parsing, cursor/version tokens, indexes, bounded query execution, duration
+  extraction/scheduler contracts, and persisted pause behavior per delivery.
 - Define history cleanup/storage contracts and compact or paginated result
   details, reviewed-result tracking, and interruption-verification completion;
   protected failures must not require retaining unbounded file payloads.
@@ -1324,8 +1443,11 @@ validation reveals a concrete problem, recording the change explicitly.
 
 - Next PR: deliver the agreed Genre, alias, and classification workflows through
   the incremental Architecture plan; define their remaining executable contracts.
-- Sample type: Loop/One-Shot meanings, unknown states, recognition, and user edits
-  require a separately scoped business/technical decision block.
+- Sample type: optional Loop/One-Shot values, unknown state, editability, and
+  musical-use meanings and explicit-name suggestions are agreed in Domain Model;
+  recognition terms, review/reimport behavior, and alias management are agreed;
+  root scope and conflicts are also agreed. Executable persistence, review, query,
+  and IPC contracts remain to be defined.
 - Musical metadata: analyzer, tonic/mode vocabulary, validation, provenance,
   confidence, unknown/not-applicable states, and user confirmation/edit semantics.
   Row placement is agreed; analysis contracts and delivery are not.
