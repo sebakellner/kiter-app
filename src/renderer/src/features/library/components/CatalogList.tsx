@@ -1,7 +1,7 @@
 import { Button } from '@renderer/components/ui/Button'
 import { useLibrarySession } from '../hooks/useLibrarySession'
 import { useCatalog } from '../hooks/useCatalog'
-import { FileList } from './FileList'
+import { SampleList } from './SampleList'
 
 export function CatalogList({
   favoritesOnly = false,
@@ -38,8 +38,8 @@ export function CatalogList({
                   : 'Your library is empty. Open a folder to add audio samples. Original files stay in place.'}
               </p>
             ) : (
-              <FileList
-                files={page.items}
+              <SampleList
+                samples={page.items}
                 onFavoriteChanged={updateFavorite}
                 preview={preview}
               />
