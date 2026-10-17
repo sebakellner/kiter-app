@@ -1,10 +1,53 @@
 # Backup and Recovery
 
 Read when changing library backups, restoration, migration protection, or recovery
-from catalog corruption. These business rules are agreed, not implemented backup
-or recovery capabilities. [Data Access](../data-access.md) owns storage and
+from catalog corruption. The rules below describe the complete agreed scope;
+the startup-only slice documented below is implemented. [Data Access](../data-access.md) owns storage and
 migration mechanics; [Operation Execution](operation-execution.md) owns confirmed
 operation reconciliation.
+
+## Implemented Startup Protection
+
+- The DB worker creates a verified protective snapshot before applying pending
+  migrations to an existing catalog. Fresh bootstrap and unchanged versions do
+  not create copies. Failure blocks migration before any migration SQL runs.
+- Copies are version-1 `kiter-backup` directories containing `manifest.json`,
+  `catalog.sqlite`, and `images/`. The catalog includes saved organization,
+  Favorites, profile and Preferences. Only referenced immutable managed images
+  are copied; audio, caches, session capabilities and other backups are excluded.
+- Default storage is `userData/db/backups/<timestamp>-<uuid>`. Copies are retained;
+  there is no automatic rotation. Startup failure offers Retry, another backup
+  directory, Restore backup, or Quit. Alternate storage is scoped to that startup.
+- Capture runs before DB readiness, image reconciliation/publication, IPC, or
+  other writers. `VACUUM INTO` captures committed SQLite WAL data. A versioned
+  manifest records schema version, date, kind, byte sizes and SHA-256 hashes.
+  Integrity, migration-prefix compatibility, required saved records and exact
+  referenced-image coverage are verified before publication. Files are flushed;
+  directory entries are also flushed on macOS. Windows directory flush behavior
+  and packaged interruption durability still require platform validation.
+- Copies are staged in uniquely owned `.pending` directories and published by
+  same-directory rename. Failed attempts remove only their own staging folder;
+  interruption can leave an unpublished folder, never an accepted valid backup.
+- Startup recovery selects a backup folder and reviews its date, location, scope,
+  and replacement consequences. The worker validates it, creates a verified
+  pre-restoration backup of the current catalog/images, stages the selected
+  catalog, verifies/publishes missing immutable images without overwrite, then
+  replaces the catalog by same-directory rename. Existing image conflicts block
+  replacement. Preview and temporary audio authorization are not restored; source
+  access still requires current-folder discovery and authorization.
+- Interruption before catalog replacement leaves current references usable;
+  after replacement the restored catalog references already-published images.
+  Startup image reconciliation handles generated unreferenced images/temps.
+  An interrupted catalog staging file is retained, not automatically replayed.
+- A corrupt current catalog or missing current referenced image blocks restoration
+  because a verified protective copy cannot be made. Explicit damaged-state
+  preservation/recovery is **not implemented**. Settings backup creation,
+  management/deletion, normal-runtime restoration, and confirmed-operation or
+  analysis reconciliation also remain pending. The current implementation has
+  neither persisted analysis nor confirmed operations to restore.
+- Node filesystem/worker tests validate migration gating, rollback copies, WAL,
+  tampering, immutable-image conflicts, restoration and current-state protection
+  on macOS. This does not establish Windows or packaged-app recovery support.
 
 ## Backup Contents and Creation
 
