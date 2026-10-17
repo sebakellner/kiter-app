@@ -31,8 +31,7 @@ export function SampleListRow({
     >
       <div role="gridcell">
         <div className="sample-heading">
-          <button
-            type="button"
+          <Button
             className="sample-name"
             data-testid="sample-name"
             disabled={!sample.audioUrl}
@@ -41,7 +40,7 @@ export function SampleListRow({
             onClick={onPreview}
           >
             {sample.relativePath}
-          </button>
+          </Button>
           {'rootPath' in sample &&
             sample.name !== sample.relativePath.split(/[\\/]/).pop() && (
               <span>{sample.name}</span>
