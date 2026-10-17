@@ -7,6 +7,7 @@ export function useLibrary(): {
   files: AudioSample[]
   loading: boolean
   error: string | null
+  revision: number
   openFolder: () => Promise<boolean>
   updateFavorite: (state: FavoriteState) => void
 } {
@@ -14,6 +15,7 @@ export function useLibrary(): {
   const [files, setFiles] = useState<AudioSample[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [revision, setRevision] = useState(0)
   const opening = useRef(false)
 
   const openFolder = useCallback(async () => {
@@ -34,6 +36,7 @@ export function useLibrary(): {
       )
       setDir(selected)
       setFiles(nextFiles)
+      setRevision((value) => value + 1)
       return true
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Unable to read the folder')
@@ -45,6 +48,7 @@ export function useLibrary(): {
   }, [])
 
   const updateFavorite = useCallback((state: FavoriteState) => {
+    setRevision((value) => value + 1)
     setFiles((current) =>
       current.map((file) =>
         file.id === state.id ? { ...file, favorite: state.favorite } : file,
@@ -52,5 +56,5 @@ export function useLibrary(): {
     )
   }, [])
 
-  return { dir, files, loading, error, openFolder, updateFavorite }
+  return { dir, files, loading, error, revision, openFolder, updateFavorite }
 }

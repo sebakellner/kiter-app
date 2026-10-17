@@ -47,7 +47,9 @@ export async function verifyListing(ctx) {
   )
   assert.deepEqual(await ctx.names(), fixtures.expected)
   assert.ok(
-    await execute('document.body.textContent.includes("5 audio files")'),
+    await execute(
+      'document.body.textContent.includes("5 samples in your library")',
+    ),
   )
 }
 
@@ -105,6 +107,7 @@ export async function verifyMainFrameAuthorization(ctx) {
     const requests = [
       ['dialog:open-folder'],
       ['library:import-folder', { directory: fixtures.samples }],
+      ['library:list', {}],
       ['library:set-favorite', { id: sample.id, favorite: true }],
       ['categories:list', {}],
       ['categories:create', { name: 'Unauthorized Category' }],
@@ -397,6 +400,9 @@ export async function verifyPlaybackAndStreaming(ctx) {
 export async function verifyFolderOutcomesAndRevocation(ctx) {
   const { fixtures, execute, waitFor, nativeDrags } = ctx
   await ctx.open(fixtures.samples)
+  await execute(
+    `document.querySelector('[aria-label="Global player"] button').click()`,
+  )
   await execute('document.querySelector("audio").muted = true')
   await ctx.preview(fixtures.validSample)
   await ctx.waitForPlaying(fixtures.validSample)
@@ -438,9 +444,7 @@ export async function verifyFolderOutcomesAndRevocation(ctx) {
   )
   assert.deepEqual(await ctx.names(), fixtures.expected)
   await ctx.open(fixtures.empty)
-  assert.ok(
-    await execute('document.body.textContent.includes("No audio files")'),
-  )
+  assert.deepEqual(await ctx.names(), fixtures.expected)
   assert.equal(
     await execute(
       'document.querySelector("[data-testid=library-error]") !== null',
@@ -451,11 +455,17 @@ export async function verifyFolderOutcomesAndRevocation(ctx) {
     await execute(
       `fetch(${JSON.stringify(previousUrl)}).then(response => response.status)`,
     ),
-    403,
-    'Previous folders must no longer be available',
+    200,
+    'Registered catalog sources remain available after opening another folder',
   )
   const errorsBefore = await execute('globalThis.libraryTest.dragErrors.length')
   await execute(`window.api.library.startDrag(${JSON.stringify(previousUrl)})`)
+  await waitFor(
+    () => nativeDrags.length === beforeDrag + 2,
+    'catalog drag after folder change',
+  )
+  const invalidUrl = `${previousUrl}tampered`
+  await execute(`window.api.library.startDrag(${JSON.stringify(invalidUrl)})`)
   await waitFor(
     () =>
       execute(
@@ -465,14 +475,14 @@ export async function verifyFolderOutcomesAndRevocation(ctx) {
   )
   assert.equal(
     nativeDrags.length,
-    beforeDrag + 1,
-    'Previous libraries must not remain draggable',
+    beforeDrag + 2,
+    'Tampered catalog capabilities must not be draggable',
   )
   await execute(`
     globalThis.libraryTest.unsubscribeDragErrors();
     globalThis.libraryTest.dragBarrierCount = 0;
     globalThis.libraryTest.unsubscribeBarrier = window.api.library.onDragError(() => globalThis.libraryTest.dragBarrierCount++);
-    window.api.library.startDrag(${JSON.stringify(previousUrl)});
+    window.api.library.startDrag(${JSON.stringify(invalidUrl)});
   `)
   try {
     await waitFor(
@@ -491,10 +501,11 @@ export async function verifyFolderOutcomesAndRevocation(ctx) {
 
 export async function verifyLazyWaveforms(ctx) {
   const { fixtures, execute, waitFor } = ctx
-  const lastSample = `audio${fixtures.largeSampleCount - 1}.wav`
   await execute('globalThis.libraryTest.waveformFetches.length = 0')
   await ctx.open(fixtures.large)
-  assert.equal((await ctx.names()).length, fixtures.largeSampleCount)
+  const names = await ctx.names()
+  assert.equal(names.length, 50)
+  const lastSample = names[names.length - 1]
   await execute('document.querySelector("main").scrollTo(0, 0)')
   await waitFor(
     () =>

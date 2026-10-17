@@ -13,7 +13,6 @@ export function LibrarySessionProvider({
 
   async function openFolder(): Promise<boolean> {
     if (await library.openFolder()) {
-      preview.reset()
       return true
     }
     return false

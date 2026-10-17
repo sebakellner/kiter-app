@@ -30,8 +30,8 @@ export function Home(): React.JSX.Element {
         )}
       </div>
       <p>
-        This first prototype browses one folder at a time. Library-wide
-        summaries and recent activity are coming later.
+        Samples and Favorites include all folders added to your library.
+        Library-wide summaries and recent activity are coming later.
       </p>
     </section>
   )

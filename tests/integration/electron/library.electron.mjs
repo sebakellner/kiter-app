@@ -74,9 +74,9 @@ async function createFixtures(directory) {
     expected: [
       'broken.mp3',
       path.join('folder #1.mp3', 'nested.wav'),
+      'track10.wav',
       path.join('folder #1.mp3', 'deep', 'track2.WAV'),
       'track2.WAV',
-      'track10.wav',
     ],
   }
 }
@@ -229,6 +229,13 @@ async function run() {
             'document.querySelector("main").getAttribute("aria-busy") === "false" && !document.querySelector("[data-testid=open-folder]").disabled',
           ),
         'folder reading',
+      )
+      await waitFor(
+        () =>
+          execute(
+            'document.querySelector("[data-testid=catalog-results]")?.getAttribute("aria-busy") === "false"',
+          ),
+        'catalog query',
       )
       await refreshSamples()
     }

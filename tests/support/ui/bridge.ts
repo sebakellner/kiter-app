@@ -9,6 +9,7 @@ export function createTestApi(): {
     rename: ReturnType<typeof vi.fn<Api['categories']['rename']>>
   }
   library: {
+    list: ReturnType<typeof vi.fn<Api['library']['list']>>
     importFolder: ReturnType<typeof vi.fn<Api['library']['importFolder']>>
     setFavorite: ReturnType<typeof vi.fn<Api['library']['setFavorite']>>
     startDrag: ReturnType<typeof vi.fn<Api['library']['startDrag']>>
@@ -23,6 +24,7 @@ export function createTestApi(): {
       rename: vi.fn<Api['categories']['rename']>(),
     },
     library: {
+      list: vi.fn<Api['library']['list']>(),
       importFolder: vi.fn<Api['library']['importFolder']>(),
       setFavorite: vi.fn<Api['library']['setFavorite']>(),
       startDrag: vi.fn<Api['library']['startDrag']>(),

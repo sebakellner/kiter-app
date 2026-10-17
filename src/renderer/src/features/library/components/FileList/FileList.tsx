@@ -4,16 +4,17 @@ import './FileList.css'
 import { Button } from '@renderer/components/ui/Button'
 import { Checkbox } from '@renderer/components/ui/Checkbox'
 import type { AudioDragError, AudioSample, FavoriteState } from '@shared/ipc'
+import type { CatalogAudioSample } from '@shared/ipc/library'
 import { Waveform } from '../Waveform'
 import { FavoriteButton } from '../FavoriteButton'
 import type { PreviewController } from '../../hooks/usePreview'
 
 type Props = {
-  files: AudioSample[]
+  files: (AudioSample | CatalogAudioSample)[]
   onFavoriteChanged: (state: FavoriteState) => void
   preview: PreviewController
-  favoritesOnly: boolean
-  onFavoritesOnlyChanged: (value: boolean) => void
+  favoritesOnly?: boolean
+  onFavoritesOnlyChanged?: (value: boolean) => void
 }
 
 export function FileList({
@@ -40,50 +41,73 @@ export function FileList({
       <p className="sample-drag-hint">
         Drag a sample into your DAW to import the original file.
       </p>
-      <label className="favorites-filter">
-        <Checkbox
-          data-testid="favorites-filter"
-          checked={favoritesOnly}
-          onChange={(event) => onFavoritesOnlyChanged(event.target.checked)}
-        />
-        Favorites in this folder
-      </label>
+      {onFavoritesOnlyChanged && (
+        <label className="favorites-filter">
+          <Checkbox
+            data-testid="favorites-filter"
+            checked={favoritesOnly}
+            onChange={(event) => onFavoritesOnlyChanged(event.target.checked)}
+          />
+          Favorites in this folder
+        </label>
+      )}
       {favoritesOnly && visibleFiles.length === 0 && (
         <p>No favorites in this folder yet.</p>
       )}
       <ul className="audio-files" aria-label="Audio files">
         {visibleFiles.map((file) => (
           <li
-            key={file.audioUrl}
+            key={file.id}
             title={`${file.path}\nDrag this sample into your DAW`}
             data-audio-url={file.audioUrl}
             data-sample-id={file.id}
-            draggable
+            draggable={file.audioUrl !== null}
             onDragStart={(event) => {
               event.preventDefault()
               setDragError(null)
-              window.api.library.startDrag(file.audioUrl)
+              if (file.audioUrl) {
+                window.api.library.startDrag(file.audioUrl)
+              }
             }}
           >
             <div className="sample-heading">
               <span className="sample-name" data-testid="sample-name">
                 {file.relativePath}
               </span>
+              {'rootPath' in file &&
+                file.name !== file.relativePath.split(/[\\/]/).pop() && (
+                  <span>{file.name}</span>
+                )}
               <FavoriteButton file={file} onChanged={onFavoriteChanged} />
               <Button
                 draggable={false}
+                disabled={!file.audioUrl}
                 className="preview-button"
                 data-testid="preview-toggle"
                 aria-label={`${selected?.audioUrl === file.audioUrl && playing ? 'Stop' : 'Play'} ${file.relativePath}`}
                 aria-pressed={selected?.audioUrl === file.audioUrl && playing}
-                onClick={() => void togglePreview(file)}
+                onClick={() => {
+                  if (file.audioUrl) {
+                    void togglePreview({ ...file, audioUrl: file.audioUrl })
+                  }
+                }}
               >
                 {selected?.audioUrl === file.audioUrl && playing
                   ? 'Stop'
                   : 'Preview'}
               </Button>
             </div>
-            <Waveform audioUrl={file.audioUrl} name={file.relativePath} />
+            {'rootPath' in file && <p>{file.rootPath ?? file.path}</p>}
+            {file.audioUrl && (
+              <Waveform
+                key={file.audioUrl}
+                audioUrl={file.audioUrl}
+                name={file.relativePath}
+              />
+            )}
+            {'unavailableReason' in file && file.unavailableReason && (
+              <p role="status">{file.unavailableReason}</p>
+            )}
             {dragError?.audioUrl === file.audioUrl && (
               <p role="alert" className="sample-error sample-drag-error">
                 {dragError.message}
