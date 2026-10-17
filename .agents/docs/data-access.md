@@ -104,6 +104,36 @@ Future upgrades of the Drizzle database use its committed migration history.
 - Shared pure pagination contracts and validation live in
   `src/shared/domain/pagination.ts`; protocol-specific validation stays private.
 
+## Local Database Viewer
+
+Run the development app at least once to initialize its database, then close it.
+Copy `.env.example` to `.env` and set `KITER_DB_PATH` to the database's absolute
+path before starting Drizzle Studio:
+
+```bash
+pnpm db:studio
+```
+
+Open the URL printed by the command to browse tables and run queries. The command
+uses `localhost` to match local TLS certificates when available and rebuilds
+`better-sqlite3` for Node; `pnpm dev` prepares it for Electron again.
+Stop Studio before restarting the development app.
+
+Electron's default development database locations are:
+
+- macOS: `~/Library/Application Support/kiter-app/db/kiter.sqlite`
+- Windows: `%APPDATA%\kiter-app\db\kiter.sqlite`
+
+Quote paths containing spaces and expand the locations above to absolute paths.
+`~` and environment variables inside the value are not expanded. Existing shell
+variables take precedence over `.env`. Studio requires an explicit absolute path;
+there is no automatic fallback. `db:generate` and `db:check` do not require it.
+This setting affects Drizzle tooling only; it does not change the app's storage
+location. `.env` is ignored by Git.
+
+Studio edits write directly to the local catalog and bypass application
+validation. Apply schema changes through committed migrations.
+
 ## Migrations
 
 [drizzle.config.ts](../../drizzle.config.ts) points to the TypeScript schema and
