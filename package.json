@@ -33,6 +33,7 @@
     "rebuild:electron": "electron-builder install-app-deps",
     "db:generate": "drizzle-kit generate",
     "db:check": "drizzle-kit check",
+    "db:studio": "pnpm run rebuild:node && drizzle-kit studio --host localhost",
     "build:unpack": "pnpm run build && electron-builder --dir",
     "build:win": "pnpm run build && electron-builder --win",
     "build:mac": "electron-vite build && electron-builder --mac",
