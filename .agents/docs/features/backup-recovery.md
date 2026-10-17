@@ -47,7 +47,10 @@ operation reconciliation.
   neither persisted analysis nor confirmed operations to restore.
 - Node filesystem/worker tests validate migration gating, rollback copies, WAL,
   tampering, immutable-image conflicts, restoration and current-state protection
-  on macOS. This does not establish Windows or packaged-app recovery support.
+  on macOS. A separate instrumented packaged macOS smoke also covers startup,
+  migration protection, backup-location failure/retry, restoration and durable
+  Favorites; see [Release Process](../release-process.md#local-packaged-recovery-smoke).
+  Windows recovery remains unvalidated.
 
 ## Backup Contents and Creation
 
