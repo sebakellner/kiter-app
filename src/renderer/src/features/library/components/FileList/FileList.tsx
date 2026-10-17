@@ -1,90 +1,35 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import '../../library.css'
 import './FileList.css'
 import { Button } from '@renderer/components/ui/Button'
+import { Checkbox } from '@renderer/components/ui/Checkbox'
 import type { AudioDragError, AudioSample, FavoriteState } from '@shared/ipc'
 import { Waveform } from '../Waveform'
 import { FavoriteButton } from '../FavoriteButton'
+import type { PreviewController } from '../../hooks/usePreview'
 
 type Props = {
   files: AudioSample[]
   onFavoriteChanged: (state: FavoriteState) => void
+  preview: PreviewController
+  favoritesOnly: boolean
+  onFavoritesOnlyChanged: (value: boolean) => void
 }
 
 export function FileList({
   files,
   onFavoriteChanged,
+  preview,
+  favoritesOnly,
+  onFavoritesOnlyChanged,
 }: Props): React.JSX.Element {
-  const player = useRef<HTMLAudioElement>(null)
-  const playback = useRef<{ version: number; pendingUrl: string | null }>({
-    version: 0,
-    pendingUrl: null,
-  })
-  const [selected, setSelected] = useState<AudioSample | null>(null)
-  const [playing, setPlaying] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const { selected, playing, togglePreview } = preview
   const [dragError, setDragError] = useState<AudioDragError | null>(null)
-  const [favoritesOnly, setFavoritesOnly] = useState(false)
   const visibleFiles = favoritesOnly
     ? files.filter((file) => file.favorite)
     : files
 
   useEffect(() => window.api.library.onDragError(setDragError), [])
-
-  useEffect(() => {
-    const audio = player.current
-    const state = playback.current
-    return () => {
-      state.version++
-      state.pendingUrl = null
-      if (audio) {
-        audio.pause()
-        audio.removeAttribute('src')
-        audio.load()
-      }
-    }
-  }, [])
-
-  async function togglePreview(file: AudioSample): Promise<void> {
-    const audio = player.current
-    if (!audio) {
-      setSelected(file)
-      setError('Unable to initialize the preview player')
-      return
-    }
-    const state = playback.current
-    const version = ++state.version
-    if (
-      audio.getAttribute('src') === file.audioUrl &&
-      (!audio.paused || state.pendingUrl === file.audioUrl)
-    ) {
-      state.pendingUrl = null
-      audio.pause()
-      audio.currentTime = 0
-      setPlaying(false)
-      return
-    }
-
-    audio.pause()
-    setSelected(file)
-    setError(null)
-    setPlaying(false)
-    state.pendingUrl = file.audioUrl
-    audio.src = file.audioUrl
-    try {
-      await audio.play()
-    } catch (reason) {
-      if (state.version === version) {
-        const detail =
-          reason instanceof Error ? reason.message : 'Unknown error'
-        setError(`Unable to play the sample: ${detail}`)
-      }
-    } finally {
-      if (state.version === version) {
-        state.pendingUrl = null
-      }
-    }
-  }
 
   if (files.length === 0) {
     return <p>No audio files to display.</p>
@@ -96,11 +41,10 @@ export function FileList({
         Drag a sample into your DAW to import the original file.
       </p>
       <label className="favorites-filter">
-        <input
-          type="checkbox"
+        <Checkbox
           data-testid="favorites-filter"
           checked={favoritesOnly}
-          onChange={(event) => setFavoritesOnly(event.target.checked)}
+          onChange={(event) => onFavoritesOnlyChanged(event.target.checked)}
         />
         Favorites in this folder
       </label>
@@ -140,15 +84,6 @@ export function FileList({
               </Button>
             </div>
             <Waveform audioUrl={file.audioUrl} name={file.relativePath} />
-            {selected?.audioUrl === file.audioUrl && error && (
-              <p
-                role="alert"
-                className="sample-error"
-                data-testid="preview-error"
-              >
-                {error}
-              </p>
-            )}
             {dragError?.audioUrl === file.audioUrl && (
               <p role="alert" className="sample-error sample-drag-error">
                 {dragError.message}
@@ -157,24 +92,6 @@ export function FileList({
           </li>
         ))}
       </ul>
-      <div className="preview-player" hidden={!selected}>
-        <p>Preview: {selected?.relativePath}</p>
-        <audio
-          ref={player}
-          controls
-          preload="none"
-          aria-label="Preview player"
-          onPlaying={() => setPlaying(true)}
-          onPause={() => setPlaying(false)}
-          onEnded={() => setPlaying(false)}
-          onError={() => {
-            setPlaying(false)
-            setError(
-              'Unable to play the sample. Audio is unsupported or the file is unavailable.',
-            )
-          }}
-        />
-      </div>
     </>
   )
 }

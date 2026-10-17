@@ -1,17 +1,22 @@
-import type { ComponentPropsWithRef, JSX } from 'react'
+import type { ComponentPropsWithRef, ElementType, JSX } from 'react'
 import './Button.css'
 
-export type ButtonProps = ComponentPropsWithRef<'button'>
+export type ButtonProps<T extends ElementType = 'button'> = {
+  as?: T
+  className?: string
+} & Omit<ComponentPropsWithRef<T>, 'as' | 'className'>
 
-export function Button({
-  type = 'button',
+export function Button<T extends ElementType = 'button'>({
+  as,
   className,
   ...props
-}: ButtonProps): JSX.Element {
+}: ButtonProps<T>): JSX.Element {
+  const Component = as ?? 'button'
+
   return (
-    <button
+    <Component
+      {...(Component === 'button' ? { type: 'button' } : {})}
       {...props}
-      type={type}
       className={className ? `ui-button ${className}` : 'ui-button'}
     />
   )

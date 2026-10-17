@@ -179,9 +179,9 @@ async function run() {
           await waitFor(
             () =>
               execute(
-                'document.querySelector("main").getAttribute("aria-busy") === "true" && !document.querySelector("[data-testid=favorite-toggle]")',
+                'document.querySelector("main").getAttribute("aria-busy") === "true" && document.querySelector("[data-testid=favorite-toggle]").disabled',
               ),
-            'unmounted row during folder selection',
+            'pending favorite preserved during folder selection',
           )
           releaseCancel()
           await waitFor(
