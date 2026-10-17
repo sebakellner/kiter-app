@@ -8,7 +8,12 @@ export function PreviewPlayer({
   preview: PreviewController
 }): React.JSX.Element {
   return (
-    <section className="preview-player" aria-label="Global player">
+    <section
+      className="preview-player"
+      aria-label="Global player"
+      data-shell-region="player"
+      tabIndex={-1}
+    >
       <div className="preview-player-description">
         <p>
           {selected
