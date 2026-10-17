@@ -183,7 +183,14 @@ recent Collections, and quick actions for importing audio/creating a Collection.
 ### Sample Selection and Preview — Agreed
 
 These conventions apply to Sample lists in Samples, Favorites, Packs, and
-Collections. They describe intended behavior, not current implementation.
+Collections. Samples and Favorites implement individual row selection independently
+of the global player, name/Play preview, and row-focused Up/Down, Enter, and Space
+shortcuts. Selection uses stable Sample IDs, clears when the selected row leaves
+the loaded results, and never automatically chooses a replacement. Keyboard
+traversal is limited to the loaded page. Favorite and native dragging do not change
+selection. Selection is currently local to the mounted list; history restoration,
+the inspector, and multiple selection remain planned. The full conventions below
+describe the agreed target.
 
 - Normal interaction selects one Sample. Multiple selection requires entering
   an explicit mode with checkboxes; it is not the default interaction mode.

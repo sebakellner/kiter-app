@@ -10,7 +10,9 @@ authorization invariants. Visual/proportional-seek prototypes remain deferred.
 
 The initial shell prototype keeps one audio element mounted across Home/Samples
 navigation, with an empty state, native media controls, and an explicit Stop
-action. Row preview retains its current play/stop behavior. The complete custom
+action. Row name/Play and list-focused Space toggle pause/resume without resetting
+the current position; ended playback restarts at zero. Row selection remains
+independent of the loaded player Sample. The complete custom
 transport and sequence contracts below remain planned.
 
 Samples and Favorites load bounded persistent catalog pages. After restart,

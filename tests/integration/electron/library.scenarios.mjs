@@ -366,6 +366,9 @@ export async function verifyPlaybackAndStreaming(ctx) {
   )
   await ctx.preview(fixtures.otherSample)
   assert.ok(await execute('document.querySelector("audio").paused'))
+  await execute(
+    `document.querySelector('[aria-label="Global player"] button').click()`,
+  )
   assert.equal(await execute('document.querySelector("audio").currentTime'), 0)
   await ctx.preview(fixtures.validSample)
   await ctx.waitForPlaying(fixtures.validSample)
