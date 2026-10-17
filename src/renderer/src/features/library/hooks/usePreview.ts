@@ -70,7 +70,10 @@ export function usePreview(): PreviewController {
       audio.getAttribute('src') === file.audioUrl &&
       (!audio.paused || state.pendingUrl === file.audioUrl)
     ) {
-      stop()
+      state.version++
+      state.pendingUrl = null
+      audio.pause()
+      setPlaying(false)
       return
     }
 
@@ -80,7 +83,11 @@ export function usePreview(): PreviewController {
     setError(null)
     setPlaying(false)
     state.pendingUrl = file.audioUrl
-    audio.src = file.audioUrl
+    if (audio.getAttribute('src') !== file.audioUrl) {
+      audio.src = file.audioUrl
+    } else if (audio.ended) {
+      audio.currentTime = 0
+    }
     try {
       await audio.play()
     } catch {

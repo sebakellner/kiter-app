@@ -306,7 +306,7 @@ test('preview advances, switching keeps one player and stop resets playback', as
   await expect(
     library
       .row('snare.wav')
-      .getByRole('button', { name: 'Stop snare.wav', exact: true }),
+      .getByRole('button', { name: 'Pause snare.wav', exact: true }),
   ).toHaveAttribute('aria-pressed', 'true')
   await expect(
     library
@@ -314,10 +314,7 @@ test('preview advances, switching keeps one player and stop resets playback', as
       .getByRole('button', { name: 'Play kick.wav', exact: true }),
   ).toHaveAttribute('aria-pressed', 'false')
   await expect(player).toHaveCount(1)
-  await library
-    .row('snare.wav')
-    .getByRole('button', { name: 'Stop snare.wav', exact: true })
-    .click()
+  await kiter.page.getByRole('button', { name: 'Stop', exact: true }).click()
   await expect
     .poll(() =>
       player.evaluate((audio: HTMLAudioElement) => ({
@@ -326,4 +323,80 @@ test('preview advances, switching keeps one player and stop resets playback', as
       })),
     )
     .toEqual({ paused: true, time: 0 })
+})
+
+test('Samples and Favorites select independently of playback and keyboard preview resumes in place', async ({
+  kiter,
+}) => {
+  const library = new LibraryPage(kiter.page)
+  await kiter.selectFolder(kiter.samples)
+  await library.openFolder()
+  const kick = library.row('kick.wav')
+  const snare = library.row('snare.wav')
+  const player = kiter.page.locator('audio')
+  await kick.getByTestId('sample-name').click()
+  await expect
+    .poll(() =>
+      player.evaluate(
+        (audio: HTMLAudioElement) => !audio.paused && audio.currentTime > 0,
+      ),
+    )
+    .toBe(true)
+  const url = await player.getAttribute('src')
+  await snare.click({ position: { x: 5, y: 5 } })
+  await expect(snare).toHaveAttribute('aria-selected', 'true')
+  await expect(kick).toHaveAttribute('aria-selected', 'false')
+  await expect(player).toHaveAttribute('src', url!)
+  await expect
+    .poll(() => player.evaluate((audio: HTMLAudioElement) => !audio.paused))
+    .toBe(true)
+
+  await snare.press('Space')
+  await expect
+    .poll(() => player.evaluate((audio: HTMLAudioElement) => audio.paused))
+    .toBe(true)
+  const pausedTime = await player.evaluate(
+    (audio: HTMLAudioElement) => audio.currentTime,
+  )
+  expect(pausedTime).toBeGreaterThan(0)
+  await snare.press('Space')
+  await expect
+    .poll(() =>
+      player.evaluate(
+        (audio: HTMLAudioElement, time) =>
+          !audio.paused && audio.currentTime >= time,
+        pausedTime,
+      ),
+    )
+    .toBe(true)
+  await expect(player).toHaveAttribute('src', url!)
+  await snare.press('Enter')
+  await expect(snare.getByTestId('preview-toggle')).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  )
+  await snare.press('ArrowUp')
+  await expect(kick).toBeFocused()
+  await expect(kick).toHaveAttribute('aria-selected', 'true')
+  await expect(snare.getByTestId('preview-toggle')).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  )
+
+  await kick.getByTestId('favorite-toggle').click()
+  await expect(kick.getByTestId('favorite-toggle')).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  )
+  await expect(kick).toHaveAttribute('aria-selected', 'true')
+  await kiter.page.getByRole('link', { name: 'Favorites', exact: true }).click()
+  await expect(kick).toHaveAttribute('aria-selected', 'false')
+  await kick.click({ position: { x: 5, y: 5 } })
+  await expect(kick).toHaveAttribute('aria-selected', 'true')
+  await expect(kick.getByTestId('preview-toggle')).toHaveAttribute(
+    'aria-pressed',
+    'false',
+  )
+  await kick.getByTestId('favorite-toggle').click()
+  await expect(kiter.page.getByRole('row')).toHaveCount(0)
 })

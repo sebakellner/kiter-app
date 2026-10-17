@@ -9,8 +9,8 @@ export class LibraryPage {
 
   row(name: string): Locator {
     return this.page
-      .getByRole('list', { name: 'Audio files' })
-      .getByRole('listitem')
+      .getByRole('grid', { name: 'Audio files' })
+      .getByRole('row')
       .filter({
         has: this.page.getByText(name, { exact: true }),
       })
