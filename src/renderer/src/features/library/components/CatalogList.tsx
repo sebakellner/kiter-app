@@ -2,6 +2,7 @@ import { Button } from '@renderer/components/ui/Button'
 import { useLibrarySession } from '../hooks/useLibrarySession'
 import { useCatalog } from '../hooks/useCatalog'
 import { SampleList } from './SampleList'
+import { useSampleInspector } from './SampleInspector'
 
 export function CatalogList({
   favoritesOnly = false,
@@ -9,6 +10,7 @@ export function CatalogList({
   favoritesOnly?: boolean
 }): React.JSX.Element {
   const { revision, updateFavorite, preview } = useLibrarySession()
+  const { setSample, openSample, open } = useSampleInspector()
   const { page, loading, error, load, refresh } = useCatalog(
     favoritesOnly,
     revision,
@@ -42,6 +44,9 @@ export function CatalogList({
                 samples={page.items}
                 onFavoriteChanged={updateFavorite}
                 preview={preview}
+                onSelectionChanged={setSample}
+                onInspect={openSample}
+                inspectorOpen={open}
               />
             )}
             <nav aria-label="Sample pages">

@@ -10,16 +10,23 @@ type Props = {
   samples: ListSample[]
   onFavoriteChanged: (state: FavoriteState) => void
   preview: PreviewController
+  onSelectionChanged?: (sample: ListSample | null) => void
+  onInspect?: (sample: ListSample, opener: HTMLElement) => void
+  inspectorOpen?: boolean
 }
 
 export function SampleList({
   samples,
   onFavoriteChanged,
   preview,
+  onSelectionChanged,
+  onInspect,
+  inspectorOpen = false,
 }: Props): React.JSX.Element {
-  const { dragError, previewSample, getRowProps } = useSampleList(
+  const { dragError, previewSample, getRowProps, selectSample } = useSampleList(
     samples,
     preview,
+    onSelectionChanged,
   )
 
   if (samples.length === 0) {
@@ -43,6 +50,15 @@ export function SampleList({
             }
             onPreview={() => previewSample(sample)}
             onFavoriteChanged={onFavoriteChanged}
+            inspectorOpen={inspectorOpen}
+            onInspect={
+              onInspect
+                ? (opener) => {
+                    selectSample(sample)
+                    onInspect(sample, opener)
+                  }
+                : undefined
+            }
           />
         ))}
       </ul>

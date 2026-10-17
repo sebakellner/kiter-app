@@ -16,9 +16,63 @@
 }
 
 .app-shell-workspace {
+  position: relative;
   display: grid;
   grid-template-columns: 200px minmax(0, 1fr);
   min-height: 0;
+}
+
+.app-shell-workspace[data-inspector-open='true'] {
+  grid-template-columns: 200px minmax(0, 1fr) minmax(260px, 320px);
+}
+
+.app-shell-inspector {
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-background);
+  border-left: 1px solid var(--ev-c-gray-3);
+  overflow-wrap: anywhere;
+}
+
+.app-shell-inspector-header {
+  padding: 12px;
+  flex-shrink: 0;
+}
+
+.app-shell-inspector-body {
+  padding: 12px;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.app-shell-inspector-body dt {
+  font-weight: bold;
+  margin-top: 12px;
+}
+
+.app-shell-inspector-body dd {
+  margin: 0;
+  user-select: text;
+}
+
+.app-shell-workspace[data-inspector-compact='true'] {
+  grid-template-columns: 200px minmax(0, 1fr);
+}
+
+[data-inspector-compact='true'] .app-shell-inspector {
+  position: absolute;
+  inset: 0 0 0 auto;
+  width: min(320px, 80%);
+  z-index: 2;
+}
+
+.app-shell-inspector-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgb(0 0 0 / 35%);
+  z-index: 1;
 }
 
 .app-shell-sidebar {
