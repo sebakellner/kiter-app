@@ -3,6 +3,7 @@ export type DbErrorCode =
   | 'UNSUPPORTED_FORMAT'
   | 'UNSUPPORTED_VERSION'
   | 'DB_INTEGRITY'
+  | 'BACKUP_FAILED'
   | 'NOT_FOUND'
   | 'NAME_CONFLICT'
   | 'STALE_REVIEW'

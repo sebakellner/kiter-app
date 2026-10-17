@@ -4,8 +4,7 @@ import { registerAudioProtocol } from './services/audio'
 
 import { createWindow } from './window'
 import { electronApp, optimizer } from '@electron-toolkit/utils'
-import { join } from 'node:path'
-import { DbClient } from './db'
+import { openLibrary } from './library-startup'
 import { ManagedImages } from './services/images'
 
 // One owner coordinates publication and startup reconciliation in userData.
@@ -33,9 +32,11 @@ app
     if (!primaryInstance) {
       return
     }
-    const database = await DbClient.open(
-      join(app.getPath('userData'), 'db', 'kiter.sqlite'),
-    )
+    const database = await openLibrary(app.getPath('userData'))
+    if (!database) {
+      app.quit()
+      return
+    }
     let images: ManagedImages
     try {
       images = await ManagedImages.open(app.getPath('userData'), database)

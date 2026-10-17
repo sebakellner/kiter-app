@@ -11,6 +11,9 @@ export type DbCommand = WithoutRequestId<DbRequest>
 interface WorkerLocation {
   workerPath: string | URL
   migrationsFolder: string
+  backupDirectory?: string
+  imagesDirectory?: string
+  restoreFrom?: string
 }
 
 type PendingRequest = {
@@ -37,7 +40,13 @@ export class WorkerTransport {
       this.rejectReady = reject
     })
     this.worker = new Worker(location.workerPath, {
-      workerData: { filename, migrationsFolder: location.migrationsFolder },
+      workerData: {
+        filename,
+        migrationsFolder: location.migrationsFolder,
+        backupDirectory: location.backupDirectory,
+        imagesDirectory: location.imagesDirectory,
+        restoreFrom: location.restoreFrom,
+      },
     })
     this.workerExited = new Promise((resolve) =>
       this.worker.once('exit', () => resolve()),
