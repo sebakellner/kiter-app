@@ -10,7 +10,7 @@ import { createWav } from '../../support/fixtures/wav.mjs'
 import { waitFor } from '../../support/electron/wait-for.mjs'
 import { verifyCategoriesIpc } from './categories.scenarios.mjs'
 import {
-  verifyListingAndStyles,
+  verifyListing,
   verifyMainFrameAuthorization,
   verifyWaveformsAndDragging,
   verifyPlaybackAndStreaming,
@@ -271,7 +271,7 @@ async function run() {
     }
     const scenarios = [
       ['Categories IPC contracts and persistence', verifyCategoriesIpc],
-      ['recursive listing and UI styles', verifyListingAndStyles],
+      ['recursive listing and folder selection', verifyListing],
       ['main-frame IPC authorization', verifyMainFrameAuthorization],
       ['waveforms and native drag payloads', verifyWaveformsAndDragging],
       ['shared playback and audio streaming', verifyPlaybackAndStreaming],

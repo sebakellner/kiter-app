@@ -137,6 +137,14 @@ assert both earlier development databases and original audio remain untouched.
 
 ## UI Queries and Text Assertions
 
+- UI prototype tests verify navigation, actions, state transitions, accessibility
+  semantics, and resource continuity. Do not assert computed styles, CSS classes,
+  exact spacing, panel dimensions, or visual geometry before design contracts are
+  established. Retain geometry observations only when needed to exercise behavior,
+  such as lazy loading after scrolling; they are not visual acceptance assertions.
+- Validate the future Kiter UI kit's visual contracts in its own design delivery,
+  rather than locking provisional prototype styles into application tests.
+
 - Prefer semantic roles and meaningful accessible names when the test tooling
   supports them. Scope queries to the relevant dialog, group, or sample row.
 - In the current Electron DOM scripts, identify elements by stable semantic

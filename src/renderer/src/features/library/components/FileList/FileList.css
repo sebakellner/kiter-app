@@ -31,29 +31,11 @@
   margin-bottom: 16px;
 }
 
-.library .preview-button {
+.preview-button {
   flex-shrink: 0;
   margin-bottom: 0;
 }
 
 .preview-button[aria-pressed='true'] {
   background: #7c93ee;
-}
-
-.preview-player {
-  position: sticky;
-  bottom: 0;
-  padding: 12px;
-  background: var(--color-background-soft);
-  border: 1px solid var(--ev-c-gray-3);
-  border-radius: 8px;
-}
-
-.preview-player p {
-  margin-bottom: 8px;
-}
-
-.preview-player audio {
-  display: block;
-  width: 100%;
 }

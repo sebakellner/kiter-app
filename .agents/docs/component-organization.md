@@ -10,6 +10,9 @@ See [Common Guidelines](common-guidelines.md) for coding rules,
 
 | Location                                          | Responsibility                                                                        |
 | ------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| `src/renderer/src/routes/`                        | Router configuration, route tree, and redirects.                                      |
+| `src/renderer/src/views/<View>/`                  | Route-level views, each in its own PascalCase folder with a matching component file.  |
+| `src/renderer/src/layouts/<Layout>/`              | Application-level route composition, navigation, and connections to feature state.    |
 | `src/renderer/src/features/<feature>/`            | Feature-specific UI, hooks, presentation types, and helpers.                          |
 | `src/renderer/src/features/<feature>/components/` | Optional grouping when a feature has enough components to benefit from it.            |
 | `src/renderer/src/components/`                    | Reusable application compositions independent of feature services and business rules. |
@@ -36,6 +39,26 @@ These are ownership conventions, not directories to scaffold in advance.
   components should not duplicate IPC, filesystem, or task-management logic.
 - Keep application composition in `App` and explicit layout components.
   Do not introduce a shared UI package solely to reorganize one desktop app.
+- App-level layouts compose feature APIs and generic presentation layouts.
+  Feature state providers remain with their owning feature, independent of the
+  router. View-specific session state stays with its view, even when its provider
+  is mounted above routes to preserve it during navigation.
+
+## Views and the Kiter UI Kit
+
+- Route destinations live in `views/<View>/<View>.tsx`. Views compose feature
+  components and hooks; reusable domain workflows stay in their owning feature.
+- Keep view-private pieces beside the view until reuse justifies extraction.
+  Create folders only for views being delivered, not for the full route roadmap.
+- `components/ui/` is the incremental home of Kiter's proprietary UI kit. Add
+  primitives for actual shared needs; visual variants, tokens, and a complete
+  design-system API will be defined in a future design delivery.
+- During UI prototyping, keep new CSS minimal and structural: shell regions,
+  scrolling, necessary spacing, readable content, and accessible focus. Reuse
+  existing primitives and native controls. Defer decorative styling, new visual
+  variants, and speculative tokens to the UI-kit design work.
+- Keep structural styles colocated with their owner so the future kit can replace
+  presentation without moving domain behavior or rewriting route composition.
 
 ## Granularity and Module Folders
 

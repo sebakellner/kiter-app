@@ -1,6 +1,63 @@
 import { test, expect } from './fixtures'
 import { LibraryPage } from './pages/library-page'
 
+test('sidebar destinations open their placeholder views and support history navigation', async ({
+  kiter,
+}) => {
+  const navigation = kiter.page.getByRole('navigation', {
+    name: 'Main navigation',
+  })
+  for (const destination of [
+    'Favorites',
+    'Packs',
+    'Collections',
+    'Categories',
+    'Authors',
+  ]) {
+    const link = navigation.getByRole('link', {
+      name: destination,
+      exact: true,
+    })
+    await link.click()
+    await expect(
+      kiter.page.getByRole('heading', { name: destination, exact: true }),
+    ).toBeVisible()
+    await expect(link).toHaveAttribute('aria-current', 'page')
+    await expect(navigation.locator('[aria-current="page"]')).toHaveCount(1)
+  }
+
+  await kiter.page.getByRole('button', { name: 'Back', exact: true }).click()
+  await expect(
+    kiter.page.getByRole('heading', { name: 'Categories', exact: true }),
+  ).toBeVisible()
+  await kiter.page.getByRole('button', { name: 'Forward', exact: true }).click()
+  await expect(
+    kiter.page.getByRole('heading', { name: 'Authors', exact: true }),
+  ).toBeVisible()
+})
+
+test('starts on Home with an empty permanent player and preserves the view when folder selection is canceled', async ({
+  kiter,
+}) => {
+  await expect(
+    kiter.page.getByRole('heading', { name: 'Home', exact: true }),
+  ).toBeVisible()
+  await expect(
+    kiter.page.getByRole('region', { name: 'Global player' }),
+  ).toContainText('Choose a sample to preview')
+  await expect(
+    kiter.page.getByRole('button', { name: 'Stop', exact: true }),
+  ).toBeDisabled()
+  await kiter.selectFolder(null)
+  await new LibraryPage(kiter.page).openFolder()
+  await expect(
+    kiter.page.getByRole('button', { name: 'Open folder' }),
+  ).toBeEnabled()
+  await expect(
+    kiter.page.getByRole('heading', { name: 'Home', exact: true }),
+  ).toBeVisible()
+})
+
 test('folder import lists original samples and cancellation preserves the current view', async ({
   kiter,
 }) => {
@@ -49,6 +106,13 @@ test('favorite changes preserve Sample identity across separate Electron process
   await library.filterFavorites()
   await expect(kiter.page.getByTestId('sample-name')).toHaveText(['kick.wav'])
 
+  await kiter.page.getByRole('link', { name: 'Home', exact: true }).click()
+  await kiter.page.getByRole('link', { name: 'Samples', exact: true }).click()
+  await expect(
+    kiter.page.getByRole('checkbox', { name: 'Favorites in this folder' }),
+  ).toBeChecked()
+  await expect(kiter.page.getByTestId('sample-name')).toHaveText(['kick.wav'])
+
   await kiter.restart()
   library = new LibraryPage(kiter.page)
   await kiter.selectFolder(kiter.samples)
@@ -86,6 +150,28 @@ test('preview advances, switching keeps one player and stop resets playback', as
       ),
     )
     .toBe(true)
+
+  const beforeNavigation = await player.evaluate((audio: HTMLAudioElement) => {
+    audio.dataset.navigationMarker = 'same-player'
+    return audio.currentTime
+  })
+  await kiter.page.getByRole('link', { name: 'Home', exact: true }).click()
+  await expect(
+    kiter.page.getByRole('heading', { name: 'Home', exact: true }),
+  ).toBeVisible()
+  await expect(player).toHaveAttribute('data-navigation-marker', 'same-player')
+  await expect
+    .poll(() =>
+      player.evaluate(
+        (audio: HTMLAudioElement, previousTime) =>
+          !audio.paused && audio.currentTime > previousTime,
+        beforeNavigation,
+      ),
+    )
+    .toBe(true)
+  await kiter.page.getByRole('button', { name: 'Back', exact: true }).click()
+  await expect(library.row('kick.wav')).toBeVisible()
+  await expect(player).toHaveAttribute('data-navigation-marker', 'same-player')
 
   await library
     .row('snare.wav')

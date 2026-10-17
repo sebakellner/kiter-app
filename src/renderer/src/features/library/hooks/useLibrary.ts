@@ -7,7 +7,7 @@ export function useLibrary(): {
   files: AudioSample[]
   loading: boolean
   error: string | null
-  openFolder: () => Promise<void>
+  openFolder: () => Promise<boolean>
   updateFavorite: (state: FavoriteState) => void
 } {
   const [dir, setDir] = useState<string | null>(null)
@@ -18,7 +18,7 @@ export function useLibrary(): {
 
   const openFolder = useCallback(async () => {
     if (opening.current) {
-      return
+      return false
     }
     opening.current = true
     setLoading(true)
@@ -26,7 +26,7 @@ export function useLibrary(): {
     try {
       const selected = unwrapIpcResult(await window.api.dialog.openFolder())
       if (!selected) {
-        return
+        return false
       }
 
       const nextFiles = unwrapIpcResult(
@@ -34,8 +34,10 @@ export function useLibrary(): {
       )
       setDir(selected)
       setFiles(nextFiles)
+      return true
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Unable to read the folder')
+      return false
     } finally {
       opening.current = false
       setLoading(false)

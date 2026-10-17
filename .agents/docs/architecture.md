@@ -83,6 +83,44 @@ driver, schema, failure behavior, and backup limitations.
   helpers independent of Electron and using explicit `.ts` paths for Node's
   type-stripping runner. Integration tests exercise the public service APIs.
 
+### Renderer Navigation and Shell
+
+The renderer uses React Router with `createHashRouter` for compatibility with
+packaged file-based loading. `/home` is the default destination; `/samples`
+contains the current folder browser. Unknown routes redirect to Home. Favorites,
+Packs, Collections, Categories, and Authors are registered as placeholder views
+for sidebar navigation; their domain workflows remain planned. Other destinations
+in UX Design are not registered yet.
+
+Define the route tree, layout nesting, and redirects in
+`src/renderer/src/routes/router.tsx`. Create the router once at module scope;
+`App` composes application providers and mounts `RouterProvider` with that router.
+Keep route destinations in `views/` and persistent shell composition in `layouts/`.
+
+Nested views render inside a persistent `layouts/AppLayout` composition, with
+app-owned header and sidebar. `AppShell` receives presentation regions through
+props. The library feature's session provider owns the folder and shared preview
+controller, exposing React context independently of the router. Samples owns its
+favorite-filter context; App mounts its provider above routes to preserve that
+view state during navigation without adding it to the layout's contract.
+
+The single audio element stays mounted outside changing views; navigation does
+not interrupt it. The library session resets preview after successful folder
+replacement, when temporary URLs are no longer authorized. Canceling or failing
+folder selection preserves the current view, folder, and preview.
+
+The layout component receives regions through props and does not call the bridge.
+Feature-owned components and hooks coordinate library operations. Catalog data
+remains behind the typed preload API; router state is not catalog persistence.
+The initial shell uses the native title bar and browser audio controls. Custom
+window-header integration, inspector, full transport, and complete per-history
+view-context/focus restoration remain planned.
+
+Route-level components live in `src/renderer/src/views/<View>/` and compose
+feature-owned UI and hooks. Component Organization owns view/UI-kit placement and
+the minimal structural-CSS policy during prototyping; Testing Conventions owns
+behavior-focused prototype validation.
+
 ## Process Boundaries
 
 ```text

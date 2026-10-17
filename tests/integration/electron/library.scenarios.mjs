@@ -3,7 +3,7 @@ import { realpath, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { BrowserWindow, ipcMain } from 'electron'
 
-export async function verifyListingAndStyles(ctx) {
+export async function verifyListing(ctx) {
   const { execute, fixtures, waitFor } = ctx
   assert.equal(
     await execute('typeof window.api.library.importFolder'),
@@ -48,37 +48,6 @@ export async function verifyListingAndStyles(ctx) {
   assert.deepEqual(await ctx.names(), fixtures.expected)
   assert.ok(
     await execute('document.body.textContent.includes("5 audio files")'),
-  )
-  assert.ok(
-    await execute(`
-    Array.from(document.querySelectorAll("button")).every(button => {
-      const style = getComputedStyle(button);
-      return button.type === "button" && button.classList.contains("ui-button") &&
-        style.paddingTop === "8px" && style.paddingRight === "16px" && style.cursor === "pointer";
-    })
-  `),
-    'Library buttons must preserve native semantics and their colocated styles',
-  )
-  assert.deepEqual(
-    await execute(`
-    ({
-      libraryPadding: getComputedStyle(document.querySelector("main")).padding,
-      libraryMaxWidth: getComputedStyle(document.querySelector("main")).maxWidth,
-      rowWrapping: getComputedStyle(${ctx.rowCode(fixtures.validSample)}).overflowWrap,
-      favoriteMargin: getComputedStyle(${ctx.rowCode(fixtures.validSample)}.querySelector("[data-testid=favorite-toggle]")).marginBottom,
-      previewMargin: getComputedStyle(${ctx.rowCode(fixtures.validSample)}.querySelector("[data-testid=preview-toggle]")).marginBottom,
-      playerLabelMargin: getComputedStyle(document.querySelector(".preview-player p")).marginBottom
-    })
-  `),
-    {
-      libraryPadding: '24px',
-      libraryMaxWidth: '960px',
-      rowWrapping: 'anywhere',
-      favoriteMargin: '0px',
-      previewMargin: '0px',
-      playerLabelMargin: '8px',
-    },
-    'Colocated library styles must preserve layout and cascade overrides',
   )
 }
 
@@ -411,7 +380,7 @@ export async function verifyPlaybackAndStreaming(ctx) {
   await waitFor(
     () =>
       execute(
-        `!!${ctx.rowCode(fixtures.invalidSample)}.querySelector("[data-testid=preview-error][role=alert]")`,
+        `!!document.querySelector('[aria-label="Global player"] [data-testid=preview-error][role=alert]')`,
       ),
     'preview format error',
   )
@@ -439,7 +408,7 @@ export async function verifyFolderOutcomesAndRevocation(ctx) {
   assert.deepEqual(await ctx.names(), fixtures.expected)
   assert.ok(
     await execute(
-      'globalThis.libraryTest.previousAudio.paused && !globalThis.libraryTest.previousAudio.hasAttribute("src")',
+      'globalThis.libraryTest.previousAudio === document.querySelector("audio") && globalThis.libraryTest.previousAudio.hasAttribute("src")',
     ),
   )
   const beforeDrag = nativeDrags.length
@@ -526,14 +495,15 @@ export async function verifyLazyWaveforms(ctx) {
   await execute('globalThis.libraryTest.waveformFetches.length = 0')
   await ctx.open(fixtures.large)
   assert.equal((await ctx.names()).length, fixtures.largeSampleCount)
-  await execute('window.scrollTo(0, 0)')
+  await execute('document.querySelector("main").scrollTo(0, 0)')
   await waitFor(
     () =>
       execute(`
     (() => {
       const visible = Array.from(document.querySelectorAll("canvas[role=img]")).filter(canvas => {
         const rect = canvas.parentElement.getBoundingClientRect();
-        return rect.top < window.innerHeight && rect.bottom > 0;
+         const viewport = document.querySelector("main").getBoundingClientRect();
+         return rect.top < viewport.bottom && rect.bottom > viewport.top;
       });
       return visible.length > 0 && visible.every(canvas => !canvas.hidden);
     })()
@@ -554,12 +524,16 @@ export async function verifyLazyWaveforms(ctx) {
     'Distant samples must not be decoded initially',
   )
   assert.ok(
-    await execute('document.documentElement.scrollHeight > window.innerHeight'),
+    await execute(
+      'document.querySelector("main").scrollHeight > document.querySelector("main").clientHeight',
+    ),
     'Long lists must be scrollable',
   )
-  await execute('window.scrollTo(0, document.documentElement.scrollHeight)')
+  await execute(
+    'document.querySelector("main").scrollTo(0, document.querySelector("main").scrollHeight)',
+  )
   assert.ok(
-    await execute('window.scrollY > 0'),
+    await execute('document.querySelector("main").scrollTop > 0'),
     'Scrolling must not be blocked',
   )
   await waitFor(
