@@ -10,10 +10,17 @@ import {
 import {
   isImportFolderRequest,
   isSetFavoriteRequest,
+  requireLibraryListRequest,
 } from '../../shared/ipc/library'
 import { IpcError } from '../../shared/ipc/result'
 import { importLibraryFolder } from '../services/library'
-import { getAudioSource, registerAudioSources } from '../services/audio'
+import {
+  getAudioSource,
+  registerAudioSources,
+  configureCatalogAudio,
+  catalogAudioUrl,
+} from '../services/audio'
+import { listLibraryCatalog } from '../services/library'
 import icon from '../../../resources/icon.png?asset'
 import type { DbClient } from '../db'
 import { requireMainFrameWindow } from './authorize'
@@ -22,10 +29,10 @@ import { invokeResult } from './result'
 const DRAG_ICON_SIZE = 64
 
 export function registerLibraryIpc(database: DbClient): void {
+  configureCatalogAudio(database)
   const dragIcon = nativeImage
     .createFromPath(icon)
     .resize({ width: DRAG_ICON_SIZE, height: DRAG_ICON_SIZE })
-  let activeIds = new Set<string>()
 
   async function handleImportFolder(
     event: IpcMainInvokeEvent,
@@ -36,7 +43,6 @@ export function registerLibraryIpc(database: DbClient): void {
       throw new IpcError('INVALID_INPUT', 'Invalid folder')
     }
     const samples = await importLibraryFolder(request.directory, database)
-    activeIds = new Set(samples.map((sample) => sample.id))
     return registerAudioSources(samples)
   }
 
@@ -45,7 +51,7 @@ export function registerLibraryIpc(database: DbClient): void {
     request: unknown,
   ): Promise<FavoriteState> {
     requireMainFrameWindow(event)
-    if (!isSetFavoriteRequest(request) || !activeIds.has(request.id)) {
+    if (!isSetFavoriteRequest(request)) {
       throw new IpcError('INVALID_INPUT', 'Invalid or inactive sample')
     }
     return database.setFavorite(request.id, request.favorite)
@@ -103,6 +109,26 @@ export function registerLibraryIpc(database: DbClient): void {
           'Unable to load the folder. Check folder access and database storage.',
       },
       () => handleImportFolder(event, request),
+    ),
+  )
+  ipcMain.handle(LIBRARY_CHANNELS.list, (event, request: unknown) =>
+    invokeResult(
+      'library.list',
+      {
+        code: 'STORAGE_FAILED',
+        message:
+          'Unable to load samples. Check database storage and try again.',
+      },
+      async () => {
+        requireMainFrameWindow(event)
+        let input
+        try {
+          input = requireLibraryListRequest(request)
+        } catch {
+          throw new IpcError('INVALID_INPUT', 'Invalid library page request.')
+        }
+        return listLibraryCatalog(input, database, catalogAudioUrl)
+      },
     ),
   )
   ipcMain.handle(LIBRARY_CHANNELS.setFavorite, (event, request: unknown) =>

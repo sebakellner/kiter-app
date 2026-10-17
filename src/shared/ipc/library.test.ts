@@ -5,6 +5,8 @@ import {
   isAudioSamples,
   isImportFolderRequest,
   isSetFavoriteRequest,
+  isLibraryPage,
+  requireLibraryListRequest,
 } from './library.ts'
 
 test('library IPC guards reject malformed requests and unauthorized URL shapes', () => {
@@ -32,6 +34,47 @@ test('library IPC guards reject malformed requests and unauthorized URL shapes',
         audioUrl: 'file:///sample.wav',
       },
     ]),
+    false,
+  )
+})
+
+test('catalog IPC validates bounded pages and distinguishes unavailable audio from empty results', () => {
+  assert.deepEqual(requireLibraryListRequest({}), {
+    limit: 50,
+    offset: 0,
+    favoritesOnly: false,
+  })
+  for (const input of [
+    null,
+    { limit: 101 },
+    { offset: -1 },
+    { favoritesOnly: 'true' },
+  ]) {
+    assert.throws(() => requireLibraryListRequest(input))
+  }
+  const item = {
+    id: randomUUID(),
+    favorite: true,
+    name: 'kick.wav',
+    path: '/samples/kick.wav',
+    relativePath: 'kick.wav',
+    rootPath: '/samples',
+    sourceRevision: 1,
+    audioUrl: null,
+    unavailableReason: 'Audio unavailable.',
+  }
+  const page = { items: [item], total: 1, limit: 50, offset: 0 }
+  assert.ok(isLibraryPage(page))
+  assert.equal(isLibraryPage({ ...page, total: 0 }), false)
+  assert.equal(
+    isLibraryPage({
+      ...page,
+      items: [{ ...item, audioUrl: 'file:///samples/kick.wav' }],
+    }),
+    false,
+  )
+  assert.equal(
+    isLibraryPage({ ...page, items: [{ ...item, unavailableReason: null }] }),
     false,
   )
 })

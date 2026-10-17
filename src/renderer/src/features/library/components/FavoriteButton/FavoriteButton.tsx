@@ -2,10 +2,10 @@ import { useEffect, useRef, useState } from 'react'
 import '../../library.css'
 import './FavoriteButton.css'
 import { Button } from '@renderer/components/ui/Button'
-import type { AudioSample, FavoriteState } from '@shared/ipc'
+import type { LibrarySample, FavoriteState } from '@shared/ipc'
 import { unwrapIpcResult } from '@shared/ipc/result'
 
-type Props = { file: AudioSample; onChanged: (state: FavoriteState) => void }
+type Props = { file: LibrarySample; onChanged: (state: FavoriteState) => void }
 
 export function FavoriteButton({ file, onChanged }: Props): React.JSX.Element {
   const [pending, setPending] = useState(false)

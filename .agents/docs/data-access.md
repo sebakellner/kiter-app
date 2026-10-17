@@ -25,9 +25,27 @@ Profile name/Author editing and image publication/reference/cleanup operations
 are implemented through the worker/client. Profile updates preserve the avatar
 and Preferences and reject missing Authors. A main-only image service validates
 copies, publishes immutable files, and reconciles interrupted work at startup.
-Sample/Pack IPC/UI, remaining organization commands, image/profile UI, settings
+Pack IPC/UI, remaining Sample organization commands, image/profile UI, settings
 UI, and player volume restoration remain planned. Persistent analysis/peaks are
 separate.
+
+Samples and Favorites query the persistent catalog through `library:list`.
+Pages default to 50 rows (maximum 100), ordered by effective presentation name
+(SQLite lowercase ordering), canonical path and UUID. Favorites filtering runs in
+the worker; overlapping root associations do not duplicate Samples. Read failures
+retain the last page with Retry. Favorite writes address any existing catalog
+Sample, independently of current-folder discovery or audio availability.
+
+Main checks each returned page's sources against a registered discovery root,
+canonical containment, readable regular files and a symlink-free root-to-file
+chain. Unavailable rows retain identity and Favorite controls, with disabled
+audio/drag and Refresh to check again. Main issues session-signed audio
+capabilities containing its resolved source context; renderer paths never grant
+authorization. Streaming rechecks the current catalog identity/root and source;
+native dragging verifies the signed source and bounded path chain synchronously.
+Capabilities expire with the process, require no growing catalog-sized map, and
+remain usable when another folder is opened. Catalog removal/unregistration UI
+and immediate player/capability revocation remain with their owning workflows.
 
 This foundation intentionally starts at `userData/db/kiter.sqlite`. Neither
 the experimental `userData/catalog.sqlite` nor the earlier

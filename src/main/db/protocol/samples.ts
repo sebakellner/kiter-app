@@ -26,8 +26,16 @@ import {
   isNonnegativeInteger as isCount,
   isPage,
 } from './validation.ts'
+import {
+  isCatalogSample,
+  requireLibraryListRequest,
+  type CatalogSample,
+  type LibraryListRequest,
+} from '../../../shared/ipc/library.ts'
 
 export type SampleRequest =
+  | { action: 'list-catalog-samples'; input: LibraryListRequest }
+  | { action: 'get-catalog-sample'; id: string }
   | { action: 'get-sample' | 'review-sample-removal'; id: string }
   | { action: 'update-sample'; input: SampleUpdateRequest }
   | { action: 'list-sample-references'; input: SampleReferencesRequest }
@@ -41,6 +49,8 @@ export type SampleRequest =
     }
 
 export type SampleReply =
+  | { action: 'list-catalog-samples'; result: SamplePage<CatalogSample> }
+  | { action: 'get-catalog-sample'; result: CatalogSample }
   | {
       action: 'get-sample' | 'update-sample' | 'reinclude-source'
       result: Sample
@@ -58,6 +68,11 @@ export function isSampleRequest(value: unknown): value is SampleRequest {
   const input = value.input
   try {
     switch (value.action) {
+      case 'list-catalog-samples':
+        requireLibraryListRequest(input)
+        return true
+      case 'get-catalog-sample':
+        return isEntityId(value.id)
       case 'get-sample':
       case 'review-sample-removal':
         return isEntityId(value.id)
@@ -125,6 +140,10 @@ export function isSampleReply(value: unknown): value is SampleReply {
   }
   const result = value.result
   switch (value.action) {
+    case 'list-catalog-samples':
+      return isPage(result, isCatalogSample)
+    case 'get-catalog-sample':
+      return isCatalogSample(result)
     case 'get-sample':
     case 'update-sample':
     case 'reinclude-source':

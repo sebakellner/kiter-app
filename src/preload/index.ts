@@ -6,6 +6,7 @@ import {
   isAudioSamples,
   isAudioDragError,
   isFavoriteState,
+  isLibraryPage,
 } from '@shared/ipc/library'
 import { requireIpcResult } from '@shared/ipc/result'
 import {
@@ -41,6 +42,11 @@ const api: Api = {
       ),
   },
   library: {
+    list: async (request = {}) =>
+      requireIpcResult(
+        await ipcRenderer.invoke(LIBRARY_CHANNELS.list, request),
+        isLibraryPage,
+      ),
     importFolder: async (directory) =>
       requireIpcResult(
         await ipcRenderer.invoke(LIBRARY_CHANNELS.importFolder, { directory }),

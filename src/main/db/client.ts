@@ -1,6 +1,11 @@
 import { join } from 'node:path'
 import { WorkerTransport } from './client/worker-transport'
 import type { LibrarySample, FavoriteState } from '../../shared/ipc'
+import type {
+  CatalogSample,
+  LibraryListRequest,
+} from '../../shared/ipc/library'
+import type { Page } from '../../shared/domain/pagination'
 import type { DiscoveredAudioFile } from '../../shared/domain/source'
 import type {
   LocalProfile,
@@ -85,6 +90,26 @@ import type {
 const UNEXPECTED_REPLY_MESSAGE = 'Unexpected database response'
 
 export class DbClient {
+  async listCatalogSamples(
+    input: LibraryListRequest = {},
+  ): Promise<Page<CatalogSample>> {
+    const reply = await this.sampleRequest({
+      action: 'list-catalog-samples',
+      input,
+    })
+    if (reply.action !== 'list-catalog-samples') {
+      throw new Error(UNEXPECTED_REPLY_MESSAGE)
+    }
+    return reply.result
+  }
+
+  async getCatalogSample(id: string): Promise<CatalogSample> {
+    const reply = await this.sampleRequest({ action: 'get-catalog-sample', id })
+    if (reply.action !== 'get-catalog-sample') {
+      throw new Error(UNEXPECTED_REPLY_MESSAGE)
+    }
+    return reply.result
+  }
   private readonly transport: WorkerTransport
 
   private constructor(transport: WorkerTransport) {

@@ -15,9 +15,9 @@ its documentation location is still to be defined.
 
 The first functional UX baseline is agreed. The sections marked Agreed describe
 the intended experience, not shipped capabilities or existing IPC contracts.
-The current renderer has a first shell prototype with Home and a folder-based
-Samples view under a persistent player. Sidebar destinations also have navigable
-placeholder views; their workflows and the inspector remain planned. Visual
+The current renderer has a first shell prototype with Home and paginated,
+library-wide Samples and Favorites under a persistent player. Other sidebar
+destinations have navigable placeholder views; their workflows and the inspector remain planned. Visual
 design, the design system, and cross-platform prototype
 validation are still pending.
 
@@ -497,7 +497,8 @@ review without changing these draft-preservation rules.
 
 A React Router SPA with nested routes under a persistent shell is adopted using
 `createHashRouter`. Home and Samples are implemented prototype destinations;
-Favorites, Packs, Collections, Categories, and Authors have placeholder views.
+Favorites is connected to the persistent catalog; Packs, Collections, Categories,
+and Authors have placeholder views.
 [Architecture](architecture.md#renderer-navigation-and-shell) owns configuration
 and current state boundaries. The remaining route map and complete navigation
 context restoration below are proposals for later deliveries.

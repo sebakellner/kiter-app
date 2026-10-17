@@ -1,9 +1,10 @@
 import { test, expect } from './fixtures'
 import { LibraryPage } from './pages/library-page'
+import { writeFile, rename, realpath } from 'node:fs/promises'
+import path from 'node:path'
+import { createWav } from '../support/fixtures/wav.mjs'
 
-test('sidebar destinations open their placeholder views and support history navigation', async ({
-  kiter,
-}) => {
+test('sidebar destinations support history navigation', async ({ kiter }) => {
   const navigation = kiter.page.getByRole('navigation', {
     name: 'Main navigation',
   })
@@ -109,14 +110,44 @@ test('favorite changes preserve Sample identity across separate Electron process
   await kiter.page.getByRole('link', { name: 'Home', exact: true }).click()
   await kiter.page.getByRole('link', { name: 'Samples', exact: true }).click()
   await expect(
-    kiter.page.getByRole('checkbox', { name: 'Favorites in this folder' }),
+    kiter.page.getByRole('checkbox', { name: 'Favorites only' }),
   ).toBeChecked()
   await expect(kiter.page.getByTestId('sample-name')).toHaveText(['kick.wav'])
 
   await kiter.restart()
   library = new LibraryPage(kiter.page)
-  await kiter.selectFolder(kiter.samples)
-  await library.openFolder()
+  await kiter.page.getByRole('link', { name: 'Favorites', exact: true }).click()
+  await expect(kiter.page.getByTestId('sample-name')).toHaveText(['kick.wav'])
+  await library
+    .row('kick.wav')
+    .getByRole('button', { name: 'Play kick.wav', exact: true })
+    .click()
+  await expect
+    .poll(() =>
+      kiter.page
+        .locator('audio')
+        .evaluate(
+          (audio: HTMLAudioElement) => !audio.paused && audio.currentTime > 0,
+        ),
+    )
+    .toBe(true)
+  const url = await library.row('kick.wav').getAttribute('data-audio-url')
+  // The event bridge is asynchronous; observe the native payload through an explicit promise.
+  const dragResult = kiter.application.evaluate(
+    ({ BrowserWindow }) =>
+      new Promise<string>((resolve) => {
+        BrowserWindow.getAllWindows()[0].webContents.startDrag = ({ file }) =>
+          resolve(file)
+      }),
+  )
+  await kiter.page.evaluate(
+    (audioUrl) => window.api.library.startDrag(audioUrl!),
+    url,
+  )
+  expect(await dragResult).toBe(
+    await realpath(path.join(kiter.samples, 'kick.wav')),
+  )
+  await kiter.page.getByRole('link', { name: 'Samples', exact: true }).click()
 
   await expect(library.row('kick.wav')).toHaveAttribute('data-sample-id', id!)
   await expect(
@@ -129,6 +160,100 @@ test('favorite changes preserve Sample identity across separate Electron process
       .row('snare.wav')
       .getByRole('button', { name: 'Add favorite: snare.wav', exact: true }),
   ).toHaveAttribute('aria-pressed', 'false')
+})
+
+test('multiple folders share one catalog and unavailable favorites retain their identity', async ({
+  kiter,
+}) => {
+  const library = new LibraryPage(kiter.page)
+  await kiter.selectFolder(kiter.samples)
+  await library.openFolder()
+  await library
+    .row('kick.wav')
+    .getByRole('button', { name: 'Add favorite: kick.wav', exact: true })
+    .click()
+  await expect(
+    library
+      .row('kick.wav')
+      .getByRole('button', { name: 'Remove favorite: kick.wav', exact: true }),
+  ).toBeEnabled()
+  const id = await library.row('kick.wav').getAttribute('data-sample-id')
+  await writeFile(path.join(kiter.empty, 'hat.wav'), createWav(1))
+  await kiter.selectFolder(kiter.empty)
+  await library.openFolder()
+  await expect(kiter.page.getByTestId('sample-name')).toHaveText([
+    'hat.wav',
+    'kick.wav',
+    'snare.wav',
+  ])
+  await expect(library.row('kick.wav')).toHaveAttribute('data-sample-id', id!)
+  const original = path.join(kiter.samples, 'kick.wav')
+  const moved = path.join(kiter.samples, 'temporarily-moved.wav')
+  await rename(original, moved)
+  try {
+    await kiter.page
+      .getByRole('link', { name: 'Favorites', exact: true })
+      .click()
+    await expect(library.row('kick.wav')).toHaveAttribute('data-sample-id', id!)
+    await expect(
+      library
+        .row('kick.wav')
+        .getByRole('button', { name: 'Play kick.wav', exact: true }),
+    ).toBeDisabled()
+    await expect(library.row('kick.wav')).toContainText('Audio unavailable.')
+    await expect(
+      library.row('kick.wav').getByRole('button', {
+        name: 'Remove favorite: kick.wav',
+        exact: true,
+      }),
+    ).toBeEnabled()
+  } finally {
+    await rename(moved, original)
+  }
+  await kiter.page.getByRole('button', { name: 'Refresh', exact: true }).click()
+  await expect(
+    library
+      .row('kick.wav')
+      .getByRole('button', { name: 'Play kick.wav', exact: true }),
+  ).toBeEnabled()
+  await library
+    .row('kick.wav')
+    .getByRole('button', { name: 'Remove favorite: kick.wav', exact: true })
+    .click()
+  await expect(kiter.page.getByTestId('sample-name')).toHaveCount(0)
+  await kiter.page.getByRole('link', { name: 'Samples', exact: true }).click()
+  await expect(
+    library
+      .row('kick.wav')
+      .getByRole('button', { name: 'Add favorite: kick.wav', exact: true }),
+  ).toHaveAttribute('aria-pressed', 'false')
+})
+
+test('catalog browsing uses bounded pages', async ({ kiter }) => {
+  for (let index = 0; index < 53; index++) {
+    await writeFile(
+      path.join(kiter.empty, `sample-${String(index).padStart(2, '0')}.wav`),
+      createWav(0.1),
+    )
+  }
+  await kiter.selectFolder(kiter.empty)
+  await new LibraryPage(kiter.page).openFolder()
+  await expect(kiter.page.getByTestId('sample-name')).toHaveCount(50)
+  await kiter.page
+    .getByRole('button', { name: 'Next page', exact: true })
+    .click()
+  await expect(kiter.page.getByTestId('sample-name')).toHaveText([
+    'sample-50.wav',
+    'sample-51.wav',
+    'sample-52.wav',
+  ])
+  await expect(
+    kiter.page.getByRole('button', { name: 'Next page', exact: true }),
+  ).toBeDisabled()
+  await kiter.page
+    .getByRole('button', { name: 'Previous page', exact: true })
+    .click()
+  await expect(kiter.page.getByTestId('sample-name')).toHaveCount(50)
 })
 
 test('preview advances, switching keeps one player and stop resets playback', async ({

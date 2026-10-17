@@ -48,7 +48,7 @@ complete entity workflows are delivered separately.
 | [Library UI](../../src/renderer/src/features/library/components/FileList/index.ts)                 | Sample rows, current-folder favorite filter, shared preview, and native dragging.                                                                |
 | [Waveform processing](../../src/renderer/src/features/library/components/Waveform/waveformData.ts) | Serialized, cancellable decoding and bounded peak caching.                                                                                       |
 
-The folder view remains session-scoped, while sample UUIDs and favorites persist
+The last opened folder remains session-scoped, while catalog browsing, sample UUIDs and favorites persist
 in SQLite under `userData`. Sample URLs are temporary capabilities, not durable
 sample identities. Entity types/schema exist, but there is no task journal, Pack/Collection editor, global search index,
 automatic restore of the selected folder, or relocation/relinking workflow.
@@ -87,8 +87,9 @@ driver, schema, failure behavior, and backup limitations.
 
 The renderer uses React Router with `createHashRouter` for compatibility with
 packaged file-based loading. `/home` is the default destination; `/samples`
-contains the current folder browser. Unknown routes redirect to Home. Favorites,
-Packs, Collections, Categories, and Authors are registered as placeholder views
+contains paginated library-wide browsing, with Favorites as a separate catalog
+destination. Unknown routes redirect to Home. Packs, Collections, Categories,
+and Authors are registered as placeholder views
 for sidebar navigation; their domain workflows remain planned. Other destinations
 in UX Design are not registered yet.
 
@@ -105,8 +106,7 @@ favorite-filter context; App mounts its provider above routes to preserve that
 view state during navigation without adding it to the layout's contract.
 
 The single audio element stays mounted outside changing views; navigation does
-not interrupt it. The library session resets preview after successful folder
-replacement, when temporary URLs are no longer authorized. Canceling or failing
+not interrupt it. Adding another folder preserves catalog preview. Canceling or failing
 folder selection preserves the current view, folder, and preview.
 
 The layout component receives regions through props and does not call the bridge.

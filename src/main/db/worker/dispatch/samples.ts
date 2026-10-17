@@ -2,6 +2,10 @@ import type { SampleRequest, SampleReply } from '../../protocol/samples.ts'
 import type { AppDatabase } from '../../runtime/connection.ts'
 import * as samples from '../../operations/samples/operations.ts'
 import {
+  listCatalogSamples,
+  getCatalogSample,
+} from '../../operations/samples/catalog.ts'
+import {
   getReinclusionRoot,
   reincludeSource,
 } from '../../operations/sources/reinclusion.ts'
@@ -11,6 +15,16 @@ export function executeSample(
   request: SampleRequest,
 ): SampleReply {
   switch (request.action) {
+    case 'list-catalog-samples':
+      return {
+        action: request.action,
+        result: listCatalogSamples(db, request.input),
+      }
+    case 'get-catalog-sample':
+      return {
+        action: request.action,
+        result: getCatalogSample(db, request.id),
+      }
     case 'get-sample':
       return {
         action: request.action,

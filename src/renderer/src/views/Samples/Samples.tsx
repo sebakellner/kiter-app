@@ -1,18 +1,16 @@
-import { FileList } from '@renderer/features/library/components/FileList'
+import { CatalogList } from '@renderer/features/library/components/CatalogList'
 import { useLibrarySession } from '@renderer/features/library/hooks/useLibrarySession'
 import { useSamplesViewState } from './useSamplesViewState'
 
 export function Samples(): React.JSX.Element {
-  const { dir, files, loading, error, updateFavorite, preview } =
-    useLibrarySession()
+  const { dir, loading, error } = useLibrarySession()
   const { favoritesOnly, setFavoritesOnly } = useSamplesViewState()
 
   return (
     <section aria-labelledby="samples-title">
       <h1 id="samples-title">Samples</h1>
-      <p>Browse the current folder. Library-wide browsing is coming later.</p>
+      <p>Browse samples from all folders added to your library.</p>
 
-      {!dir && <p>Open a folder to list its audio samples.</p>}
       {dir && <p data-testid="library-directory">Folder: {dir}</p>}
       {loading && <p role="status">Opening folder and loading samples...</p>}
       {error && (
@@ -21,18 +19,16 @@ export function Samples(): React.JSX.Element {
         </p>
       )}
 
-      {dir && (
-        <>
-          <p>{files.length} audio files</p>
-          <FileList
-            files={files}
-            onFavoriteChanged={updateFavorite}
-            preview={preview}
-            favoritesOnly={favoritesOnly}
-            onFavoritesOnlyChanged={setFavoritesOnly}
-          />
-        </>
-      )}
+      <label>
+        <input
+          type="checkbox"
+          data-testid="favorites-filter"
+          checked={favoritesOnly}
+          onChange={(event) => setFavoritesOnly(event.target.checked)}
+        />
+        Favorites only
+      </label>
+      <CatalogList key={String(favoritesOnly)} favoritesOnly={favoritesOnly} />
     </section>
   )
 }
