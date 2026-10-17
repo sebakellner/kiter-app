@@ -140,7 +140,9 @@ and cannot nest in the atomic initialization transaction.
 Before releasing data-changing upgrades, deliver the agreed
 [Backup and Recovery](features/backup-recovery.md) contracts and validate packaged
 loading on macOS and Windows. Runtime rollback is not a replacement for backups.
-Recovery UI and automatic backups are not implemented.
+Startup-only automatic protective backups and reviewed restoration are implemented;
+see the owning feature guide for exact scope and remaining recovery limitations.
+Settings backup management and damaged-catalog restoration remain pending.
 
 ## IPC Contracts
 

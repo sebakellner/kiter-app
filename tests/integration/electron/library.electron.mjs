@@ -97,6 +97,9 @@ async function run() {
       return
     }
     window = createdWindow
+    // Desktop automation may occlude the window (including while the separate
+    // authorization fixture owns focus). Keep real media/observer work active.
+    window.webContents.setBackgroundThrottling(false)
     onConsoleMessage = (event) => {
       if (event.level === 'error') {
         consoleErrors.push(event.message)
@@ -298,6 +301,26 @@ async function run() {
           'Every queued folder selection must be consumed',
         )
       } catch (cause) {
+        console.error(
+          'Renderer media diagnostics:',
+          await execute(`(() => {
+          const audio = document.querySelector('audio');
+          return {
+            visibility: document.visibilityState,
+            focused: document.hasFocus(),
+            audio: audio && {
+              paused: audio.paused, ended: audio.ended,
+              currentTime: audio.currentTime, readyState: audio.readyState,
+              networkState: audio.networkState, errorCode: audio.error?.code,
+            },
+            waveforms: Array.from(document.querySelectorAll('[data-sample-id]')).slice(0, 8).map(row => ({
+              ready: !row.querySelector('canvas[role=img]').hidden,
+              status: row.querySelector('.waveform-status')?.textContent,
+              error: row.querySelector('[role=alert]')?.textContent,
+            })),
+          };
+        })()`),
+        )
         throw new Error(`Scenario failed: ${name}`, { cause })
       }
       console.log(

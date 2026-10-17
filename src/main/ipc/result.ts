@@ -16,7 +16,12 @@ export async function invokeResult<T>(
       failure = { code: error.code, message: error.message }
     } else if (error instanceof DbError) {
       failure = {
-        code: error.code === 'DB_INTEGRITY' ? 'INTEGRITY_FAILED' : error.code,
+        code:
+          error.code === 'DB_INTEGRITY'
+            ? 'INTEGRITY_FAILED'
+            : error.code === 'BACKUP_FAILED'
+              ? 'STORAGE_FAILED'
+              : error.code,
         message: error.message,
       }
     }

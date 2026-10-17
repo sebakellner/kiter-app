@@ -91,11 +91,19 @@ export class DbClient {
     this.transport = transport
   }
 
-  static async open(filename: string): Promise<DbClient> {
+  static async open(
+    filename: string,
+    options: {
+      backupDirectory?: string
+      imagesDirectory?: string
+      restoreFrom?: string
+    } = {},
+  ): Promise<DbClient> {
     return new DbClient(
       await WorkerTransport.open(filename, {
         workerPath: join(__dirname, 'dbWorker.js'),
         migrationsFolder: join(__dirname, 'migrations'),
+        ...options,
       }),
     )
   }

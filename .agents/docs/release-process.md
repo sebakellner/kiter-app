@@ -35,3 +35,49 @@ Signing, update delivery, minimum OS versions, and CPU support remain to be agre
 A development build or mocked drag test is not release validation.
 Installer, signing, update, and rollback procedures will be expanded when the
 distribution approach is selected.
+
+## Local Packaged Recovery Smoke
+
+Build an unsigned local macOS `.app`, then run the isolated recovery smoke:
+
+```bash
+pnpm rebuild:electron
+pnpm build
+CSC_IDENTITY_AUTO_DISCOVERY=false pnpm exec electron-builder --mac --dir --publish never
+pnpm test:packaged:mac
+# Optional explicit bundle path (for example another CPU target)
+pnpm test:packaged:mac "/absolute/path/to/my-app.app"
+```
+
+The runner preserves macOS framework symlinks while copying the bundle to a
+temporary directory. It extracts/repackages ASAR only in that disposable copy,
+adding a test-only bootstrap for isolated userData, native-dialog answers and
+worker inspection, plus synthetic migrations. Production entrypoints, worker,
+renderer and native binaries are reused; the original bundle is untouched.
+This checks packaged runtime boundaries, not an unmodified signed artifact.
+
+Verified locally on macOS Darwin 25.6.0 arm64 with Electron 39.8.10:
+
+- ASAR startup and packaged SQLite/sharp loading; folder import, Favorite write,
+  real WAV waveform decoding and muted playback.
+- Pre-upgrade backup publication and catalog checksum verification.
+- Blocked backup destination, alternate destination selection, migration failure,
+  reviewed restoration and protective pre-restoration copy.
+- Restored Sample identity/Favorite across separate processes, and byte-identical
+  original generated audio. Temporary fixture storage is removed after shutdown.
+
+The Electron library integration previously timed out while its renderer was
+occluded (`visibilityState=hidden`, no focus). The test harness now disables
+background throttling for its window and records bounded media diagnostics on
+failure. Real playback and lazy-waveform assertions and timeouts are retained.
+The complete integration/Favorites restart suite passed after that adjustment.
+
+Remaining platform qualification:
+
+- **Windows:** run Node backup/worker tests and Electron integration in Windows;
+  adapt the packaged runner to `.exe`/`resources` paths and verify alternate-drive
+  destinations, locked files, non-overwrite image publication, catalog replacement,
+  interruption/restart and original preservation. Record Windows version/CPU.
+- **Distributed artifacts:** validate an unmodified signed/notarized artifact,
+  installation/launch from the chosen distribution format and actual DAW drops.
+  This local unsigned, instrumented `.app` smoke does not establish those claims.
