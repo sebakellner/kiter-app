@@ -13,6 +13,13 @@ navigation, with an empty state, native media controls, and an explicit Stop
 action. Row preview retains its current play/stop behavior. The complete custom
 transport and sequence contracts below remain planned.
 
+Samples and Favorites load bounded persistent catalog pages. After restart,
+users can preview and drag those rows without selecting their source folder again.
+Main verifies registered-root coverage and current filesystem access; missing or
+inaccessible rows keep their identities and Favorite controls, with Refresh to
+check again. Opening another folder preserves existing catalog playback. This
+does not implement automatic last-Sample restoration or playback sequences.
+
 - Keep one permanent global player mounted across navigation, including empty
   state. Show loaded Sample name, Play/Pause, Previous/Next, Stop, volume, mute,
   position, observed duration, Favorite, Locate, Loop, and automatic advance.
