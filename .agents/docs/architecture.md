@@ -113,8 +113,22 @@ The layout component receives regions through props and does not call the bridge
 Feature-owned components and hooks coordinate library operations. Catalog data
 remains behind the typed preload API; router state is not catalog persistence.
 The initial shell uses the native title bar and browser audio controls. Custom
-window-header integration, inspector, full transport, and complete per-history
+window-header integration, inspector editing, full transport, and complete per-history
 view-context/focus restoration remain planned.
+
+The layout mounts a feature-owned Sample inspector provider, separate from the
+player. Sample lists publish their selected loaded record and clear it on removal
+from the result or unmount. The inspector displays existing catalog fields without
+additional IPC, persistence, or audio analysis. AppShell accepts an optional
+inspector region; layout-owned focus handling and inert covered regions keep the
+compact overlay and global player available together without claiming a full-window
+modal. Each row's Info action selects its Sample and explicitly opens the panel;
+the provider retains the opener as a focus-return fallback. Wide-mode opening
+focuses the selected row; compact opening focuses the overlay. Closing prioritizes
+the current selected row. Selection alone does not open the panel, and playback
+does not retarget it. Layout-owned F6/Shift+F6 navigation follows available shell
+regions, restoring the active row when returning to content and skipping inert
+regions while a compact inspector is open.
 
 Route-level components live in `src/renderer/src/views/<View>/` and compose
 feature-owned UI and hooks. Component Organization owns view/UI-kit placement and
