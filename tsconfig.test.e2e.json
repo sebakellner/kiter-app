@@ -1,7 +1,7 @@
 {
   "extends": "./tsconfig.node.json",
-  "include": ["tests/e2e/**/*.ts", "tests/support/fixtures/wav.mjs", "playwright.config.ts"],
-  "exclude": ["node_modules"],
+  "include": ["tests/e2e/**/*.ts", "tests/support/fixtures/wav.mjs", "playwright.config.ts", "src/shared/**/*.ts"],
+  "exclude": ["node_modules", "src/**/*.test.ts"],
   "compilerOptions": {
     "composite": true,
     "tsBuildInfoFile": "./node_modules/.cache/typescript/tests-e2e.tsbuildinfo",
