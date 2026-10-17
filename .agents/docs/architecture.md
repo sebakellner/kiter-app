@@ -87,8 +87,15 @@ driver, schema, failure behavior, and backup limitations.
 
 The renderer uses React Router with `createHashRouter` for compatibility with
 packaged file-based loading. `/home` is the default destination; `/samples`
-contains the current folder browser. Unknown routes redirect to Home. Remaining
-destinations in UX Design are planned, and are not registered routes yet.
+contains the current folder browser. Unknown routes redirect to Home. Favorites,
+Packs, Collections, Categories, and Authors are registered as placeholder views
+for sidebar navigation; their domain workflows remain planned. Other destinations
+in UX Design are not registered yet.
+
+Define the route tree, layout nesting, and redirects in
+`src/renderer/src/routes/router.tsx`. Create the router once at module scope;
+`App` composes application providers and mounts `RouterProvider` with that router.
+Keep route destinations in `views/` and persistent shell composition in `layouts/`.
 
 Nested views render inside a persistent `layouts/AppLayout` composition, with
 app-owned header and sidebar. `AppShell` receives presentation regions through

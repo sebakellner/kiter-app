@@ -10,6 +10,7 @@ See [Common Guidelines](common-guidelines.md) for coding rules,
 
 | Location                                          | Responsibility                                                                        |
 | ------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| `src/renderer/src/routes/`                        | Router configuration, route tree, and redirects.                                      |
 | `src/renderer/src/views/<View>/`                  | Route-level views, each in its own PascalCase folder with a matching component file.  |
 | `src/renderer/src/layouts/<Layout>/`              | Application-level route composition, navigation, and connections to feature state.    |
 | `src/renderer/src/features/<feature>/`            | Feature-specific UI, hooks, presentation types, and helpers.                          |

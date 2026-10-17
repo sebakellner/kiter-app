@@ -16,8 +16,9 @@ its documentation location is still to be defined.
 The first functional UX baseline is agreed. The sections marked Agreed describe
 the intended experience, not shipped capabilities or existing IPC contracts.
 The current renderer has a first shell prototype with Home and a folder-based
-Samples view under a persistent player. Other destinations and the inspector
-remain planned. Visual design, the design system, and cross-platform prototype
+Samples view under a persistent player. Sidebar destinations also have navigable
+placeholder views; their workflows and the inspector remain planned. Visual
+design, the design system, and cross-platform prototype
 validation are still pending.
 
 Use shared sections here and load only the feature guides relevant to a task.
@@ -375,6 +376,10 @@ design.
 - Target a minimum useful window size of 1024 × 680 logical pixels. This is a
   design target requiring prototype validation on macOS and Windows, not a
   validated or implemented minimum supported window size.
+- Use 1280 × 800 logical pixels as the prototype's initial window size, giving
+  catalog browsing more room than the compact-use target. These are outer window
+  dimensions, including the native frame; they do not establish an equivalent content viewport or enforce
+  a minimum resize size.
 - Sidebar and wide-mode inspector widths are user-resizable within limits.
   Preserve readable sidebar labels and a useful central content width. Provide
   keyboard-accessible resizing; exact bounds and defaults remain open.
@@ -492,6 +497,7 @@ review without changing these draft-preservation rules.
 
 A React Router SPA with nested routes under a persistent shell is adopted using
 `createHashRouter`. Home and Samples are implemented prototype destinations;
+Favorites, Packs, Collections, Categories, and Authors have placeholder views.
 [Architecture](architecture.md#renderer-navigation-and-shell) owns configuration
 and current state boundaries. The remaining route map and complete navigation
 context restoration below are proposals for later deliveries.
