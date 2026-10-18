@@ -7,7 +7,7 @@ See [Architecture](architecture.md) for process ownership and
 ## Clean Foundation: Scope and Status
 
 The database uses stable Drizzle ORM with `better-sqlite3` in a dedicated worker.
-The 17-table schema, reviewed initial migration, singleton profile/Preferences
+The 22-table schema, reviewed migrations, singleton profile/Preferences
 bootstrap, source imports, Favorites, and internal profile/volume operations are
 implemented. Internal Author/Category commands, independent Sample/Pack assignments,
 paginated queries/use inspection, and impact-checked deletion are implemented through
@@ -245,22 +245,24 @@ of truth; reviewed migrations are the executable history. Do not duplicate DDL
 in this guide. Domain contracts, schema declarations, migration SQL, and IPC DTOs
 have different responsibilities.
 
-| Table                                         | Responsibility                                                                       |
-| --------------------------------------------- | ------------------------------------------------------------------------------------ |
-| `user_profiles`                               | Singleton local profile, name, optional Author and managed avatar; not an account.   |
-| `user_preferences`                            | One typed settings record; preview volume inclusive 0–1.                             |
-| `samples`                                     | UUID, presentation override, notes, Favorite, origin Pack, manual-origin protection. |
-| `sample_sources`                              | One current source per Sample, canonical path, availability, observations, revision. |
-| `source_roots`                                | Canonical discovery roots, registration and latest completed scan outcome.           |
-| `source_root_samples`                         | Discovery associations independent of Pack membership.                               |
-| `packs`                                       | Imported package, presentation data, cover and unique source-root association.       |
-| `collections`                                 | User-created grouping with optional description and cover.                           |
-| `collection_samples`                          | Duplicate-free Sample references with unique ordered positions.                      |
-| `categories`                                  | Shared flat vocabulary, unique normalized name keys.                                 |
-| `sample_categories` / `pack_categories`       | Independent direct classifications.                                                  |
-| `authors` / `pack_authors` / `sample_authors` | Explicit independent credits; homonyms allowed, no roles.                            |
-| `excluded_sources`                            | Library-wide canonical-location exclusions.                                          |
-| `image_assets`                                | Shared managed cover/avatar metadata and cleanup state.                              |
+| Table                                            | Responsibility                                                                       |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------ |
+| `user_profiles`                                  | Singleton local profile, name, optional Author and managed avatar; not an account.   |
+| `user_preferences`                               | One typed settings record; preview volume inclusive 0–1.                             |
+| `samples`                                        | UUID, presentation override, notes, Favorite, origin Pack, manual-origin protection. |
+| `sample_sources`                                 | One current source per Sample, canonical path, availability, observations, revision. |
+| `source_roots`                                   | Canonical discovery roots, registration and latest completed scan outcome.           |
+| `source_root_samples`                            | Discovery associations independent of Pack membership.                               |
+| `packs`                                          | Imported package, presentation data, cover and unique source-root association.       |
+| `collections`                                    | User-created grouping with optional description and cover.                           |
+| `collection_samples`                             | Duplicate-free Sample references with unique ordered positions.                      |
+| `categories`                                     | Shared flat vocabulary, unique normalized name keys.                                 |
+| `genres` / `sample_genres` / `pack_genres`       | Musical-style vocabulary and independent direct Sample/Pack assignments.             |
+| `recognition_vocabulary` / `recognition_aliases` | Stable recognition mappings, offered/retired terms and editable aliases.             |
+| `sample_categories` / `pack_categories`          | Independent direct classifications.                                                  |
+| `authors` / `pack_authors` / `sample_authors`    | Explicit independent credits; homonyms allowed, no roles.                            |
+| `excluded_sources`                               | Library-wide canonical-location exclusions.                                          |
+| `image_assets`                                   | Shared managed cover/avatar metadata and cleanup state.                              |
 
 No account User, Library, Favorite, or Pack-membership table is needed.
 Do not add Kits, Tags, named favorite lists, or speculative analysis tables.

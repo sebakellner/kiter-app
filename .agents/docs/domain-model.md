@@ -298,7 +298,7 @@ and internal spaces. Author names remain non-unique.
 owns implemented assignment/query/impact contracts; library-wide search has its
 separate matching rules.
 
-### Genre — Agreed, Not Implemented
+### Genre — Internal Persistence Implemented; UI Planned
 
 Genre is a musical-style dimension separate from Category. For example, House
 and Techno are Genres, while Kick, Snare, and Riser can be Categories.
@@ -334,8 +334,9 @@ and Techno are Genres, while Kick, Snare, and Riser can be Categories.
   internal spaces.
 
 Genre assignments are user organization and must survive rescans and source or
-origin changes. This agreed extension is not part of the current logical data
-profiles or implemented 17-table schema below.
+origin changes. Internal persistence and worker operations are implemented;
+reviewed classification and renderer management remain planned. See Classification
+for initialization and effective vocabulary behavior.
 
 [Classification](features/classification.md#genre-seed) owns the approved initial
 26-entry catalog and recognition/alias delivery. [Search](features/search.md) owns
