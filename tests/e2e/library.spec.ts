@@ -47,7 +47,9 @@ test('read-only inspector follows selection, clears hidden rows and restores foc
   await kiter.page.keyboard.press('Shift+F6')
   await expect(kick).toBeFocused()
   await expect(inspector).toContainText('kick.wav')
-  await expect(inspector).toContainText(path.join(kiter.samples, 'kick.wav'))
+  await expect(inspector).toContainText(
+    await realpath(path.join(kiter.samples, 'kick.wav')),
+  )
   await expect(inspector.getByRole('textbox')).toHaveCount(0)
   await kick.getByTestId('sample-name').click()
   const player = kiter.page.locator('audio')
