@@ -1,0 +1,12 @@
+.ui-badge {
+  display: inline-block;
+  max-width: 100%;
+  padding: 0.125rem 0.5rem;
+  border: 1px solid currentColor;
+  border-radius: 0.25rem;
+  background: var(--color-background-soft);
+  color: inherit;
+  font-size: 0.875em;
+  overflow-wrap: anywhere;
+  vertical-align: middle;
+}
