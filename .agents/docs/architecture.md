@@ -33,6 +33,31 @@ complete entity workflows are delivered separately.
 
 ## Current Foundation
 
+### Development Profile
+
+`pnpm dev` uses the repository-local `.kiter-dev/current/` Electron profile,
+selected before the single-instance lock and session initialization. Both
+`userData` and `sessionData` point there. Production/preview builds retain
+Electron's default profile; isolated integration profiles are unchanged.
+Existing default-profile databases are not copied, migrated or deleted.
+
+With the development app fully quit, run `pnpm dev:reset` to archive the entire
+profile under `.kiter-dev/archives/<timestamp>-<uuid>/`. The command acquires
+Electron's single-instance lock for the same profile and refuses while it is
+in use. Nothing is archived if no development profile exists. The next
+`pnpm dev` creates a fresh profile using normal migrations and bootstrap.
+Catalog data, SQLite sidecars, managed images, preferences and Chromium state
+stay together in the archive; original source audio is untouched.
+
+To recover an archive, quit the development app, archive the current profile
+with `pnpm dev:reset` if one exists, then move the chosen archive directory to
+`.kiter-dev/current/` before starting again. Archives are retained until explicitly
+removed by the developer. The entire `.kiter-dev/` directory is git-ignored.
+For Drizzle Studio, set `KITER_DB_PATH` to the absolute path of
+`.kiter-dev/current/db/kiter.sqlite`; that setting does not select the app profile.
+
+### Application Layers
+
 | Layer                                                                                              | Current responsibility                                                                                                                           |
 | -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
 | [Main entry point](../../src/main/index.ts)                                                        | Application lifecycle, protocol registration, IPC registration, and window creation.                                                             |

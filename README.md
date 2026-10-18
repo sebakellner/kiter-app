@@ -82,6 +82,27 @@ pnpm install --frozen-lockfile
 pnpm dev
 ```
 
+### Reset Development Data
+
+`pnpm dev` keeps its database, managed images, preferences, and browser state in
+the isolated `.kiter-dev/current/` profile inside the repository.
+
+To start fresh, fully quit the development app, then run:
+
+```bash
+pnpm dev:reset
+pnpm dev
+```
+
+The reset archives the entire profile in `.kiter-dev/archives/`. The next launch
+creates a clean profile with the current migrations. Original audio files and
+data from earlier default-profile runs remain untouched. Archives are retained
+until you remove them, and `.kiter-dev/` is excluded from Git.
+
+To recover an archive, quit the app, run `pnpm dev:reset` if a current profile
+exists, then move the chosen archive directory to `.kiter-dev/current/` and
+restart with `pnpm dev`.
+
 For contributors, see the [development commands](AGENTS.md#development-and-validation),
 [architecture](.agents/docs/architecture.md),
 [data access](.agents/docs/data-access.md), and

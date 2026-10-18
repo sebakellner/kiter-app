@@ -72,6 +72,9 @@ pnpm format:check
 # Build and Electron integration; requires a desktop session
 pnpm test:app
 
+# Development-profile archival and real Electron lock checks; no build required
+pnpm exec node --test tests/integration/electron/dev-profile-reset.mjs
+
 # Built Electron E2E journeys
 pnpm test:e2e
 
