@@ -22,7 +22,10 @@ test('Sample classification previews path evidence without creating Categories o
     .click()
   await expect(
     inspector.getByRole('list', { name: 'Classification evidence' }),
-  ).toContainText('category: Kick')
+  ).toContainText('Kick')
+  await expect(
+    inspector.getByRole('heading', { name: 'Categories', exact: true }),
+  ).toBeVisible()
   await expect(inspector).toContainText('Would create on acceptance')
   await expect(inspector).toContainText('Cataloged location:')
   await expect(inspector).toContainText('Matched clue: kick (name)')
