@@ -33,8 +33,11 @@ import {
   isClassificationRequest,
   isClassificationReply,
 } from './classification.ts'
+import type { RecognitionRequest, RecognitionReply } from './recognition.ts'
+import { isRecognitionRequest, isRecognitionReply } from './recognition.ts'
 
 export type DbRequest =
+  | (RecognitionRequest & { requestId: number })
   | (AssetRequest & { requestId: number })
   | (SampleRequest & { requestId: number })
   | (PackRequest & { requestId: number })
@@ -53,6 +56,7 @@ export type DbRequest =
   | { requestId: number; action: 'close' }
 
 export type DbReply =
+  | (RecognitionReply & { requestId: number })
   | (AssetReply & { requestId: number })
   | (SampleReply & { requestId: number })
   | (PackReply & { requestId: number })
@@ -140,6 +144,7 @@ export function isDbRequest(value: unknown): value is DbRequest {
       return true
     default:
       return (
+        isRecognitionRequest(value) ||
         isClassificationRequest(value) ||
         isAssetRequest(value) ||
         isCollectionRequest(value) ||
@@ -194,6 +199,7 @@ export function isDbReply(value: unknown): value is DbReply {
       return isFailure(value.failure)
     default:
       return (
+        isRecognitionReply(value) ||
         isClassificationReply(value) ||
         isAssetReply(value) ||
         isCollectionReply(value) ||

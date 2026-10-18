@@ -126,6 +126,18 @@ function referenceQuery(
         )
         .orderBy(collections.id)
         .$dynamic()
+    case 'genre':
+      return db
+        .select({
+          id: sql<string>`${genres.id}`.as('id'),
+          name: sql<string>`${genres.name}`.as('name'),
+          position: sql<number | null>`NULL`.as('position'),
+        })
+        .from(sampleGenres)
+        .innerJoin(genres, eq(genres.id, sampleGenres.genreId))
+        .where(and(eq(sampleGenres.sampleId, input.id), gt(genres.id, after)))
+        .orderBy(genres.id)
+        .$dynamic()
     case 'category':
       return db
         .select({
@@ -194,8 +206,14 @@ function removalReview(db: AppDatabase, id: string): SampleRemovalReview {
     )
   }
   const hash = createReviewHash('sample', entity, source)
-  const counts = { collection: 0, category: 0, author: 0, root: 0 }
-  for (const kind of ['collection', 'category', 'author', 'root'] as const) {
+  const counts = { collection: 0, category: 0, genre: 0, author: 0, root: 0 }
+  for (const kind of [
+    'collection',
+    'category',
+    'genre',
+    'author',
+    'root',
+  ] as const) {
     hash.update(kind)
     let after = ''
     for (;;) {
@@ -215,6 +233,7 @@ function removalReview(db: AppDatabase, id: string): SampleRemovalReview {
     source,
     collectionCount: counts.collection,
     categoryCount: counts.category,
+    genreCount: counts.genre,
     authorCount: counts.author,
     rootCount: counts.root,
     token: hash.digest('hex'),
@@ -270,3 +289,4 @@ export function listExcludedSources(
     ...page,
   }))
 }
+import { genres, sampleGenres } from '../../schema/recognition.ts'

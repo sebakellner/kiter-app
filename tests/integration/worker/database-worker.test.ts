@@ -13,6 +13,72 @@ import type {
 } from '../../../src/main/db/protocol/messages.ts'
 import type { AssetRequest } from '../../../src/main/db/protocol/assets.ts'
 import type { ProfileUpdateRequest } from '../../../src/shared/domain/profile.ts'
+import type { RecognitionRequest } from '../../../src/main/db/protocol/recognition.ts'
+
+test('Genre and alias worker commands retain edited vocabulary across restart', async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), 'kiter-worker-genres-'))
+  const filename = path.join(directory, 'catalog.sqlite')
+  let worker = startWorker(filename)
+  let requestId = 0
+  const send = (request: RecognitionRequest): Promise<DbReply> =>
+    exchange(worker, { ...request, requestId: ++requestId })
+  const stop = async (): Promise<void> => {
+    const exit = once(worker, 'exit')
+    await exchange(worker, { action: 'close', requestId: ++requestId })
+    await exit
+  }
+  try {
+    assert.deepEqual((await once(worker, 'message'))[0], { action: 'ready' })
+    const created = await send({
+      action: 'create-genre',
+      input: { name: 'Custom Style' },
+    })
+    assert.equal(created.action, 'create-genre')
+    if (created.action !== 'create-genre') {
+      assert.fail('Expected Genre creation')
+    }
+    const id = created.result.id
+    const alias = await send({
+      action: 'write-recognition-alias',
+      input: { targetKey: `genre:${id}`, term: 'My Style' },
+    })
+    assert.equal(alias.action, 'write-recognition-alias')
+    const renamed = await send({
+      action: 'rename-genre',
+      input: { id, name: 'Edited Style' },
+    })
+    assert.equal(renamed.action, 'rename-genre')
+    await stop()
+    worker = startWorker(filename)
+    assert.deepEqual((await once(worker, 'message'))[0], { action: 'ready' })
+    const restored = await send({ action: 'get-genre', id })
+    assert.equal(restored.action, 'get-genre')
+    if (restored.action !== 'get-genre') {
+      assert.fail('Expected Genre read')
+    }
+    assert.deepEqual(restored.result, { id, name: 'Edited Style' })
+    const aliases = await send({
+      action: 'list-recognition-aliases',
+      input: { limit: 100 },
+    })
+    assert.equal(aliases.action, 'list-recognition-aliases')
+    if (
+      aliases.action !== 'list-recognition-aliases' ||
+      alias.action !== 'write-recognition-alias'
+    ) {
+      assert.fail('Expected aliases')
+    }
+    assert.ok(
+      aliases.result.items.some(
+        (item) => item.id === alias.result.id && item.term === 'My Style',
+      ),
+    )
+    await stop()
+  } finally {
+    await worker.terminate()
+    await rm(directory, { recursive: true, force: true })
+  }
+})
 
 test(
   'Profile and image worker commands persist references, protect cleanup claims and drain before shutdown',

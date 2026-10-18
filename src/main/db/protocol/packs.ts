@@ -204,6 +204,7 @@ export function isPackReply(value: unknown): value is PackReply {
         isCount(result.sampleCount) &&
         isCount(result.authorCount) &&
         isCount(result.categoryCount) &&
+        isCount(result.genreCount) &&
         isToken(result.token)
       )
     default:

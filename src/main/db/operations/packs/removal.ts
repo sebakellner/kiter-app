@@ -12,12 +12,32 @@ import {
 import { packs } from '../../schema/packs.ts'
 import { samples } from '../../schema/samples.ts'
 import { packAuthors, packCategories } from '../../schema/classification.ts'
+import { packGenres } from '../../schema/recognition.ts'
 import { scheduleUnusedImageCleanup } from '../assets/references.ts'
 import { getPack } from './operations.ts'
 
 function removalReview(db: AppDatabase, id: string): PackRemovalReview {
   const entity = getPack(db, id)
   const hash = createReviewHash('pack-removal', entity)
+  let genreCount = 0
+  let genreAfter = ''
+  for (;;) {
+    const rows = db
+      .select({ id: packGenres.genreId })
+      .from(packGenres)
+      .where(and(eq(packGenres.packId, id), gt(packGenres.genreId, genreAfter)))
+      .orderBy(packGenres.genreId)
+      .limit(500)
+      .all()
+    for (const row of rows) {
+      hash.update(JSON.stringify(['genre', row]))
+    }
+    genreCount += rows.length
+    if (rows.length < 500) {
+      break
+    }
+    genreAfter = rows[rows.length - 1].id
+  }
   let sampleCount = 0,
     categoryCount = 0,
     authorCount = 0
@@ -79,6 +99,7 @@ function removalReview(db: AppDatabase, id: string): PackRemovalReview {
     entity,
     sampleCount,
     categoryCount,
+    genreCount,
     authorCount,
     token: hash.digest('hex'),
   }

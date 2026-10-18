@@ -16,6 +16,8 @@ import { executeSample } from './dispatch/samples.ts'
 import { executePack } from './dispatch/packs.ts'
 import { executeCollection } from './dispatch/collections.ts'
 import { executeClassification } from './dispatch/classification.ts'
+import { isRecognitionRequest } from '../protocol/recognition.ts'
+import { executeRecognition } from './dispatch/recognition.ts'
 
 export function dispatchRequest(
   db: AppDatabase,
@@ -50,6 +52,9 @@ export function dispatchRequest(
         result: setPreviewVolume(db, request.volume),
       }
     default:
+      if (isRecognitionRequest(request)) {
+        return { requestId, ...executeRecognition(db, request) }
+      }
       if (isAssetRequest(request)) {
         return { requestId, ...executeAsset(db, request) }
       }

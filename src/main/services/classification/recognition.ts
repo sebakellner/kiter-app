@@ -6,6 +6,7 @@ import type {
   RecognitionResult,
   RecognitionTarget,
 } from './recognition.types.ts'
+import { recognitionTokens as tokens } from '../../../shared/domain/recognition.ts'
 
 type Term = {
   target: RecognitionTarget
@@ -15,16 +16,6 @@ type Term = {
 }
 
 type Match = { target: RecognitionTarget; evidence: PathEvidence }
-
-function tokens(text: string): string[] {
-  return (
-    text
-      .normalize('NFC')
-      .toLowerCase()
-      .replace(/[\s._-]+/gu, ' ')
-      .match(/[\p{L}\p{M}\p{N}]+|[^\s\p{L}\p{M}\p{N}]/gu) ?? []
-  )
-}
 
 function identity(target: RecognitionTarget): string {
   return JSON.stringify([target.dimension, target.key])

@@ -1,4 +1,5 @@
-export type RecognitionDimension = 'category' | 'genre' | 'sample-type'
+import type { RecognitionDimension } from '../../../shared/domain/recognition.ts'
+export type { RecognitionDimension } from '../../../shared/domain/recognition.ts'
 
 export type RecognitionTarget = {
   dimension: RecognitionDimension

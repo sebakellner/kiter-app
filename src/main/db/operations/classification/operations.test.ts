@@ -101,7 +101,10 @@ test('Category uniqueness and rename rollback coexist with independent homonymou
       name: 'Électro',
     },
   )
-  classification.renameCategory(db, { id: category.id, name: 'Textures' })
+  classification.renameCategory(db, {
+    id: category.id,
+    name: 'Custom Textures',
+  })
   assert.equal(
     classification.createCategory(db, { name: 'Électro' }).name,
     'Électro',

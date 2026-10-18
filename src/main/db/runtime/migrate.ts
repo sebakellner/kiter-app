@@ -11,6 +11,7 @@ export function applyMigrations(
   initialize: () => void,
   validate: () => void,
   protect: () => void,
+  initializeVocabulary: (fresh: boolean) => void,
 ): void {
   const { migrations, fresh, version } = inspectMigrations(
     native,
@@ -45,6 +46,7 @@ export function applyMigrations(
       if (fresh) {
         initialize()
       }
+      initializeVocabulary(fresh)
       validate()
       native.pragma(`application_id = ${DB_APPLICATION_ID}`)
       native.pragma(`user_version = ${migrations.length}`)
