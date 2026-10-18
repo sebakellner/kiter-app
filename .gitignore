@@ -9,3 +9,4 @@ out
 !.env.example
 test-results/
 playwright-report/
+.kiter-dev/

@@ -72,6 +72,9 @@ pnpm format:check
 # Build and Electron integration; requires a desktop session
 pnpm test:app
 
+# Development-profile archival and real Electron lock checks; no build required
+pnpm exec node --test tests/integration/electron/dev-profile-reset.mjs
+
 # Built Electron E2E journeys
 pnpm test:e2e
 
@@ -118,6 +121,13 @@ properties may be lost. Cancellation is a successful `null`, not a failure.
 Worker startup tests reject missing migration assets. Favorite restart processes
 run from a temporary working directory, verify bundled asset resolution, and
 assert both earlier development databases and original audio remain untouched.
+Development-profile reset tests launch the real Electron CLI without a build.
+They cover complete archival, repeated/no-profile resets, preserved earlier
+archives, invalid archive destinations, and active-profile refusal. The lock
+holder uses a loopback socket for readiness and shutdown instead of Electron
+stdin, and must exit normally rather than pass through its process timeout.
+Directory-link guards use Windows junctions so those cases need no symlink
+privileges and run on both target platforms.
 
 ## Test Design
 
