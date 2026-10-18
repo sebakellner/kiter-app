@@ -91,7 +91,7 @@ function AppLayoutContent({
         frame.current = null
       }
     }
-  }, [key, context.favoritesOnly])
+  }, [key])
 
   return (
     <AppShell

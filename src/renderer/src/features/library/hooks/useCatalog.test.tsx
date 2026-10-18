@@ -55,3 +55,50 @@ test('returns to a valid page after the final favorite on the last page is remov
     offset: 0,
   })
 })
+
+test('revalidates an out-of-range restored offset before exposing the page', async () => {
+  const api = createTestApi()
+  const fallback = deferred<IpcResult<LibraryPage>>()
+  api.library.list
+    .mockResolvedValueOnce({
+      ok: true,
+      data: { ...empty, offset: 100, total: 0 },
+    })
+    .mockReturnValueOnce(fallback.promise)
+  vi.stubGlobal('api', api)
+  const { result } = renderHook(() => useCatalog(true, 0, 100))
+  await waitFor(() => expect(api.library.list).toHaveBeenCalledTimes(2))
+  expect(
+    api.library.list.mock.calls.map(([request]) => request?.offset),
+  ).toEqual([100, 0])
+  expect(result.current.page).toBeNull()
+  expect(result.current.loading).toBe(true)
+  await act(async () => fallback.resolve({ ok: true, data: empty }))
+  expect(result.current.page).toEqual(empty)
+  expect(result.current.loading).toBe(false)
+})
+
+test('retry preserves the restored offset after an initial load failure', async () => {
+  const api = createTestApi()
+  api.library.list
+    .mockResolvedValueOnce({
+      ok: false,
+      error: { code: 'STORAGE_FAILED', message: 'Catalog unavailable.' },
+    })
+    .mockResolvedValueOnce({
+      ok: true,
+      data: { ...empty, offset: 50, total: 50 },
+    })
+    .mockResolvedValueOnce({ ok: true, data: empty })
+  vi.stubGlobal('api', api)
+  const { result } = renderHook(() => useCatalog(false, 0, 50))
+  await waitFor(() => expect(result.current.error).toBe('Catalog unavailable.'))
+  expect(result.current.page).toBeNull()
+  act(() => result.current.refresh())
+  await waitFor(() => expect(result.current.page).toEqual(empty))
+  expect(
+    api.library.list.mock.calls.map(([request]) => request?.offset),
+  ).toEqual([50, 50, 0])
+  expect(result.current.error).toBeNull()
+  expect(result.current.loading).toBe(false)
+})

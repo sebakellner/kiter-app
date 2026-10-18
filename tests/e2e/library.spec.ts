@@ -78,12 +78,32 @@ test('history restores distinct Samples contexts and sidebar uses the latest des
     kiter.page.getByRole('checkbox', { name: 'Favorites only' }),
   ).toBeChecked()
   await expect(kiter.page.getByRole('row')).toHaveCount(0)
+})
+
+test('restart clears navigation context while preserving catalog and Favorites', async ({
+  kiter,
+}) => {
+  const library = new LibraryPage(kiter.page)
+  await kiter.selectFolder(kiter.samples)
+  await library.openFolder()
+  await library.row('kick.wav').getByTestId('favorite-toggle').click()
+  await kiter.page.getByRole('checkbox', { name: 'Favorites only' }).check()
+  await library
+    .row('kick.wav')
+    .getByRole('button', { name: 'Info: kick.wav', exact: true })
+    .click()
+  await expect(
+    kiter.page.getByRole('complementary', { name: 'Sample info' }),
+  ).toContainText('kick.wav')
   await kiter.restart()
   await expect(
     kiter.page.getByRole('heading', { name: 'Home', exact: true }),
   ).toBeVisible()
   await kiter.page.getByRole('link', { name: 'Samples', exact: true }).click()
-  await expect(kiter.page.getByTestId('sample-name')).toHaveCount(50)
+  await expect(kiter.page.getByTestId('sample-name')).toHaveText([
+    'kick.wav',
+    'snare.wav',
+  ])
   await expect(
     kiter.page.locator('[role="row"][aria-selected="true"]'),
   ).toHaveCount(0)
@@ -93,6 +113,39 @@ test('history restores distinct Samples contexts and sidebar uses the latest des
   await expect(
     kiter.page.getByRole('checkbox', { name: 'Favorites only' }),
   ).not.toBeChecked()
+  await expect(
+    new LibraryPage(kiter.page).row('kick.wav').getByTestId('favorite-toggle'),
+  ).toHaveAttribute('aria-pressed', 'true')
+})
+
+test('history restores a compact inspector without focusing covered content', async ({
+  kiter,
+}) => {
+  const library = new LibraryPage(kiter.page)
+  await kiter.selectFolder(kiter.samples)
+  await library.openFolder()
+  await library
+    .row('snare.wav')
+    .getByRole('button', { name: 'Info: snare.wav', exact: true })
+    .click()
+  await kiter.page.getByRole('link', { name: 'Home', exact: true }).click()
+  await kiter.application.evaluate(({ BrowserWindow }) =>
+    BrowserWindow.getAllWindows()[0].setContentSize(900, 650),
+  )
+  await kiter.page.getByRole('button', { name: 'Back', exact: true }).click()
+  const inspector = kiter.page.getByRole('complementary', {
+    name: 'Sample info',
+  })
+  await expect(inspector).toContainText('snare.wav')
+  await expect(inspector).toBeFocused()
+  await expect(kiter.page.locator('#main-content')).toHaveAttribute('inert', '')
+  await inspector.press('Escape')
+  await expect(inspector).toHaveCount(0)
+  await expect(library.row('snare.wav')).toBeFocused()
+  await expect(library.row('snare.wav')).toHaveAttribute(
+    'aria-selected',
+    'true',
+  )
 })
 
 test('restoring Favorites revalidates selection and leaves an open inspector empty', async ({
@@ -196,6 +249,10 @@ test('read-only inspector follows selection, clears hidden rows and restores foc
   await expect(inspector).toContainText(
     'Select a sample to see its information.',
   )
+  await expect(kiter.page.getByRole('row')).toHaveCount(0)
+  await expect(
+    kiter.page.getByRole('checkbox', { name: 'Favorites only' }),
+  ).toBeFocused()
   await inspector.press('Escape')
   await expect(inspector).toHaveCount(0)
   await expect(kiter.page.locator('#main-content')).toBeFocused()
