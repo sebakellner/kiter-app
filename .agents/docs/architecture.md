@@ -46,6 +46,8 @@ profile under `.kiter-dev/archives/<timestamp>-<uuid>/`. The command acquires
 Electron's single-instance lock for the same profile and refuses while it is
 in use. Nothing is archived if no development profile exists. The next
 `pnpm dev` creates a fresh profile using normal migrations and bootstrap.
+On Windows, the command releases its own Chromium lock immediately before
+the synchronous rename because the open lockfile prevents moving its parent.
 Catalog data, SQLite sidecars, managed images, preferences and Chromium state
 stay together in the archive; original source audio is untouched.
 

@@ -37,14 +37,25 @@ function reset() {
     throw new Error('Close the development app before running pnpm dev:reset.')
   }
 
-  const archives = join(root, 'archives')
-  if (!isDirectory(archives)) {
-    mkdirSync(archives)
+  try {
+    const archives = join(root, 'archives')
+    if (!isDirectory(archives)) {
+      mkdirSync(archives)
+    }
+    const name = `${new Date().toISOString().replaceAll(':', '-')}-${randomUUID()}`
+    // Chromium's Windows lockfile prevents renaming its parent directory.
+    // Release it immediately before the synchronous rename, without yielding.
+    if (process.platform === 'win32') {
+      app.releaseSingleInstanceLock()
+    }
+    renameSync(profile, join(archives, name))
+    console.log(`Development profile archived to .kiter-dev/archives/${name}`)
+    console.log(
+      'Run pnpm dev to create a fresh profile with current migrations.',
+    )
+  } finally {
+    app.releaseSingleInstanceLock()
   }
-  const name = `${new Date().toISOString().replaceAll(':', '-')}-${randomUUID()}`
-  renameSync(profile, join(archives, name))
-  console.log(`Development profile archived to .kiter-dev/archives/${name}`)
-  console.log('Run pnpm dev to create a fresh profile with current migrations.')
 }
 
 // Finish filesystem work before Electron becomes ready or creates a session.
