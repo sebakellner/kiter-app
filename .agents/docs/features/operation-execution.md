@@ -19,6 +19,10 @@ Duration analysis has [separate scheduling](duration-analysis.md), including its
 distinct restart behavior. File Organization owns additional filesystem recovery
 rules beyond catalog-only transactions.
 
+Direct single-Sample Apply/Apply all suggestions are short atomic metadata
+actions under Classification, outside this queue. Batch standalone classification
+and reviewed import retain the confirmed-operation contracts below.
+
 ## Shared Confirmed Queue
 
 - Confirmed imports, standalone classification, source relinking, physical
