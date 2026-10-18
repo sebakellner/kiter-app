@@ -162,7 +162,26 @@ export function createClassificationRecognizer(
             }
           }
         }
-        specific.filter((match) => !ambiguous.has(match)).forEach(propose)
+        for (const match of specific.filter((match) => !ambiguous.has(match))) {
+          propose(match)
+          // Explicit co-classification, not a general Category hierarchy. Only
+          // the supplied Drum Break(s) phrase activates the companion proposal.
+          if (
+            dimension === 'category' &&
+            match.target.key === 'category:drum-breaks' &&
+            /^drum breaks?$/u.test(match.evidence.clue) &&
+            entries.some(
+              (entry) =>
+                entry.target.dimension === 'category' &&
+                entry.target.key === 'category:drums',
+            )
+          ) {
+            propose({
+              target: { dimension: 'category', key: 'category:drums' },
+              evidence: { ...match.evidence, rule: 'alias' },
+            })
+          }
+        }
       }
     }
 

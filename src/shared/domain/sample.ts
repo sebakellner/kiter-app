@@ -9,6 +9,7 @@ export interface Sample {
   id: string
   displayName: string | null
   notes: string | null
+  sampleType: 'loop' | 'one-shot' | null
   favorite: boolean
   packId: string | null
   originAssignment: OriginAssignment

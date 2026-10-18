@@ -17,6 +17,7 @@ export function SampleInspector({
       <div className="app-shell-inspector-body">
         {sample ? (
           <>
+            <SampleSuggestions key={sample.id} sampleId={sample.id} />
             <dl>
               <dt>Name</dt>
               <dd>{sample.name}</dd>
@@ -39,7 +40,6 @@ export function SampleInspector({
                   : 'Available for preview'}
               </dd>
             </dl>
-            <SampleSuggestions key={sample.id} sampleId={sample.id} />
           </>
         ) : (
           <p>Select a sample to see its information.</p>

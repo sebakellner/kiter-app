@@ -3,6 +3,7 @@ import type { Api } from '../../../src/shared/ipc/index.ts'
 
 export function createTestApi(): {
   classification: {
+    applySample: ReturnType<typeof vi.fn<Api['classification']['applySample']>>
     listAliasUpdates: ReturnType<
       typeof vi.fn<Api['classification']['listAliasUpdates']>
     >
@@ -29,6 +30,7 @@ export function createTestApi(): {
 } {
   return {
     classification: {
+      applySample: vi.fn<Api['classification']['applySample']>(),
       listAliasUpdates: vi.fn<Api['classification']['listAliasUpdates']>(),
       incorporateAlias: vi.fn<Api['classification']['incorporateAlias']>(),
       prepareSample: vi.fn<Api['classification']['prepareSample']>(),

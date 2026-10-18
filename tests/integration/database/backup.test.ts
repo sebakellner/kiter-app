@@ -71,11 +71,11 @@ async function upgradeFolder(
     idx: journal.entries.length,
     version: '6',
     when: journal.entries.at(-1).when + 1,
-    tag: '0002_test',
+    tag: '0003_test',
     breakpoints: true,
   })
   await writeFile(journalPath, JSON.stringify(journal))
-  await writeFile(join(folder, '0002_test.sql'), sql)
+  await writeFile(join(folder, '0003_test.sql'), sql)
   return folder
 }
 
@@ -91,7 +91,7 @@ test('upgrades create a verified pre-migration snapshot once; fresh and unchange
   assert.equal(backups.length, 1)
   const backup = join(f.storage.backupDirectory, backups[0])
   const manifest = verifyBackup(backup, folder)
-  assert.equal(manifest.schemaVersion, 2)
+  assert.equal(manifest.schemaVersion, 3)
   assert.equal(manifest.kind, 'pre-migration')
   const saved = openDatabase(join(backup, 'catalog.sqlite'), migrationsFolder)
   assert.deepEqual(readLocalProfile(saved.db), profile)
@@ -121,7 +121,7 @@ test('backup failure blocks all migration SQL and permits retry at another desti
     ...f.storage,
     backupDirectory: join(f.directory, 'alternative'),
   })
-  assert.equal(retried.native.pragma('user_version', { simple: true }), 3)
+  assert.equal(retried.native.pragma('user_version', { simple: true }), 4)
   assert.deepEqual(
     retried.native.prepare('SELECT id, favorite FROM samples').get(),
     { id: f.sample.id, favorite: 1 },
@@ -145,7 +145,7 @@ test('a failed migration retains both the unchanged library and its usable prote
     reopened.native.prepare('SELECT id, favorite FROM samples').get(),
     { id: f.sample.id, favorite: 1 },
   )
-  assert.equal(reopened.native.pragma('user_version', { simple: true }), 2)
+  assert.equal(reopened.native.pragma('user_version', { simple: true }), 3)
   reopened.close()
 })
 

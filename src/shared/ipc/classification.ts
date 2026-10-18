@@ -13,6 +13,7 @@ export const CLASSIFICATION_CHANNELS = {
   prepareSample: 'classification:prepare-sample',
   listAliasUpdates: 'classification:list-alias-updates',
   incorporateAlias: 'classification:incorporate-alias',
+  applySample: 'classification:apply-sample',
 } as const
 
 export type ClassificationPreparationRequest = {
@@ -25,7 +26,7 @@ export type ClassificationPreparationRequest = {
 // Each row is one evidence occurrence, so a single proposal cannot create an
 // unbounded IPC payload. Repeated target keys belong to the same proposal.
 export type ClassificationPreparationItem = {
-  kind: 'proposal' | 'ambiguity'
+  kind: 'proposal' | 'ambiguity' | 'assigned'
   dimension: RecognitionDimension
   key: string
   name: string
@@ -52,9 +53,50 @@ export type ClassificationPreparationPage = {
 }
 
 export interface ClassificationApi extends AliasUpdatesApi {
+  applySample: (
+    request: ClassificationApplyRequest,
+  ) => Promise<IpcResult<{ sampleId: string }>>
   prepareSample: (
     request: ClassificationPreparationRequest,
   ) => Promise<IpcResult<ClassificationPreparationPage>>
+}
+
+export type ClassificationApplyRequest = {
+  sampleId: string
+  token: string
+  keys: string[]
+}
+
+export function requireClassificationApplyRequest(
+  value: unknown,
+): ClassificationApplyRequest {
+  if (
+    !isRecord(value) ||
+    typeof value.token !== 'string' ||
+    !/^[a-f0-9]{64}$/u.test(value.token) ||
+    !Array.isArray(value.keys) ||
+    value.keys.length === 0 ||
+    value.keys.length > 100 ||
+    !value.keys.every(
+      (key) => typeof key === 'string' && key.length > 0 && key.length <= 160,
+    ) ||
+    new Set(value.keys).size !== value.keys.length
+  ) {
+    throw new DomainValidationError(
+      'Invalid classification application request.',
+    )
+  }
+  return {
+    sampleId: requireEntityId(value.sampleId),
+    token: value.token,
+    keys: value.keys,
+  }
+}
+
+export function isClassificationApplyResult(
+  value: unknown,
+): value is { sampleId: string } {
+  return isRecord(value) && isEntityId(value.sampleId)
 }
 
 export function requireClassificationPreparationRequest(
@@ -91,7 +133,9 @@ function isCount(value: unknown): value is number {
 function isItem(value: unknown): value is ClassificationPreparationItem {
   return (
     isRecord(value) &&
-    (value.kind === 'proposal' || value.kind === 'ambiguity') &&
+    (value.kind === 'proposal' ||
+      value.kind === 'ambiguity' ||
+      value.kind === 'assigned') &&
     (value.dimension === 'category' ||
       value.dimension === 'genre' ||
       value.dimension === 'sample-type') &&
@@ -108,7 +152,7 @@ function isItem(value: unknown): value is ClassificationPreparationItem {
     (value.rule === 'name' ||
       value.rule === 'alias' ||
       value.rule === 'pack-genre') &&
-    (value.kind === 'proposal'
+    (value.kind !== 'ambiguity'
       ? value.reason === null
       : value.reason === 'conflicting-targets' ||
         value.reason === 'overlapping-phrases' ||

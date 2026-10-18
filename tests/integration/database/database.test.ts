@@ -37,7 +37,7 @@ test('fresh initialization creates strict typed tables, migration history and on
       native.pragma('application_id', { simple: true }),
       DB_APPLICATION_ID,
     )
-    assert.equal(native.pragma('user_version', { simple: true }), 2)
+    assert.equal(native.pragma('user_version', { simple: true }), 3)
     assert.equal(native.pragma('foreign_keys', { simple: true }), 1)
     const tables = native
       .prepare<[], { name: string; strict: number }>('PRAGMA table_list')
@@ -54,8 +54,8 @@ test('fresh initialization creates strict typed tables, migration history and on
         .prepare<[], { name: string }>(`PRAGMA table_info("${config.name}")`)
         .all()
       assert.deepEqual(
-        columns.map((column) => column.name),
-        config.columns.map((column) => column.name),
+        columns.map((column) => column.name).sort(),
+        config.columns.map((column) => column.name).sort(),
       )
       const definition = native
         .prepare<[string], { sql: string }>(
@@ -92,7 +92,7 @@ test('fresh initialization creates strict typed tables, migration history and on
           'SELECT count(*) AS count FROM __drizzle_migrations',
         )
         .get()?.count,
-      2,
+      3,
     )
     assert.deepEqual(native.prepare('PRAGMA foreign_key_check').all(), [])
   } finally {
@@ -241,7 +241,7 @@ test('Sample IDs, Favorites and zero preview volume survive reopening and overla
         'SELECT count(*) AS count FROM __drizzle_migrations',
       )
       .get()?.count,
-    2,
+    3,
   )
 })
 
@@ -401,11 +401,11 @@ async function extendedMigrations(dir: string, sql: string): Promise<string> {
     idx: journal.entries.length,
     version: '6',
     when: journal.entries.at(-1).when + 1,
-    tag: '0002_test',
+    tag: '0003_test',
     breakpoints: true,
   })
   await writeFile(journalFile, JSON.stringify(journal))
-  await writeFile(path.join(folder, '0002_test.sql'), sql)
+  await writeFile(path.join(folder, '0003_test.sql'), sql)
   return folder
 }
 
@@ -427,7 +427,7 @@ test('pending migrations apply once and preserve existing data; older applicatio
       try {
         assert.equal(
           upgraded.native.pragma('user_version', { simple: true }),
-          3,
+          4,
         )
         assert.deepEqual(readLocalProfile(upgraded.db), profile)
         assert.deepEqual(importFolder(upgraded.db, dir, [fileAt(dir)]), [
@@ -439,7 +439,7 @@ test('pending migrations apply once and preserve existing data; older applicatio
               'SELECT count(*) AS count FROM __drizzle_migrations',
             )
             .get()?.count,
-          3,
+          4,
         )
       } finally {
         upgraded.close()
@@ -503,7 +503,7 @@ test('classification migration preserves an original library and offers Genres w
   }
   const upgraded = open(filename)
   try {
-    assert.equal(upgraded.native.pragma('user_version', { simple: true }), 2)
+    assert.equal(upgraded.native.pragma('user_version', { simple: true }), 3)
     assert.deepEqual(
       upgraded.native.prepare('SELECT id, favorite FROM samples').get(),
       { id: sampleId, favorite: 1 },
@@ -557,7 +557,7 @@ test('failed migrations and bootstrap roll back SQL, migration history and versi
     const reopened = open(filename)
     try {
       assert.deepEqual(readLocalProfile(reopened.db), profile)
-      assert.equal(reopened.native.pragma('user_version', { simple: true }), 2)
+      assert.equal(reopened.native.pragma('user_version', { simple: true }), 3)
       assert.equal(
         reopened.native
           .prepare("SELECT name FROM sqlite_schema WHERE name = 'rolled_back'")
@@ -568,7 +568,7 @@ test('failed migrations and bootstrap roll back SQL, migration history and versi
       reopened.close()
     }
     await writeFile(
-      path.join(folder, '0002_test.sql'),
+      path.join(folder, '0003_test.sql'),
       `CREATE TRIGGER reject_profile BEFORE INSERT ON user_profiles
       BEGIN SELECT RAISE(ABORT, 'Injected bootstrap failure'); END;`,
     )
