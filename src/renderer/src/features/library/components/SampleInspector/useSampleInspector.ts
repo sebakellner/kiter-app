@@ -6,7 +6,7 @@ type InspectorState = {
   sample: ListSample | null
   setSample: Dispatch<SetStateAction<ListSample | null>>
   open: boolean
-  setOpen: Dispatch<SetStateAction<boolean>>
+  setOpen: (open: boolean) => void
   opener: HTMLElement | null
   openSample: (sample: ListSample, opener: HTMLElement) => void
 }

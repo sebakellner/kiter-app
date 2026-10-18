@@ -101,9 +101,13 @@ Keep route destinations in `views/` and persistent shell composition in `layouts
 Nested views render inside a persistent `layouts/AppLayout` composition, with
 app-owned header and sidebar. `AppShell` receives presentation regions through
 props. The library feature's session provider owns the folder and shared preview
-controller, exposing React context independently of the router. Samples owns its
-favorite-filter context; App mounts its provider above routes to preserve that
-view state during navigation without adding it to the layout's contract.
+controller, exposing React context independently of the router. A renderer-only
+Zustand store owns session navigation snapshots: Samples' Favorite filter, catalog
+offset, selected Sample ID, inspector visibility, and content scroll position.
+Snapshots are keyed by React Router's location key, with the latest context per
+destination used for new visits. The store retains up to 100 history snapshots;
+older evicted entries fall back to the destination's latest context. It uses no
+browser storage and does not cache catalog records or playback state.
 
 The single audio element stays mounted outside changing views; navigation does
 not interrupt it. Adding another folder preserves catalog preview. Canceling or failing
@@ -113,11 +117,16 @@ The layout component receives regions through props and does not call the bridge
 Feature-owned components and hooks coordinate library operations. Catalog data
 remains behind the typed preload API; router state is not catalog persistence.
 The initial shell uses the native title bar and browser audio controls. Custom
-window-header integration, inspector editing, full transport, and complete per-history
-view-context/focus restoration remain planned.
+window-header integration, inspector editing, and full transport remain planned.
+Samples/Favorites requery their saved bounded page, clamp empty out-of-range pages,
+and restore selection only if the ID remains in the results. Focus and scroll are
+restored after loading, respecting compact inspector boundaries; unavailable
+selection leaves an open inspector empty and focuses the heading. Other entity
+contexts, future search/sort controls, and inspector editing targets remain planned.
 
 The layout mounts a feature-owned Sample inspector provider, separate from the
-player. Sample lists publish their selected loaded record and clear it on removal
+player, with visibility controlled by the current navigation context. Sample lists
+publish their selected loaded record and clear it on removal
 from the result or unmount. The inspector displays existing catalog fields without
 additional IPC, persistence, or audio analysis. AppShell accepts an optional
 inspector region; layout-owned focus handling and inert covered regions keep the

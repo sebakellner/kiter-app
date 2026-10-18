@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { expect, test, vi } from 'vitest'
+import { useState } from 'react'
 import { SampleList } from './SampleList'
 import type { PreviewController } from '../../hooks/usePreview'
 import { makeAudioSample } from '../../../../../../../tests/support/fixtures/audio-sample'
@@ -142,4 +143,39 @@ test('clears hidden selection without selecting a replacement and keeps unavaila
     'aria-selected',
     'false',
   )
+})
+
+test('controlled selection restores by ID, follows keyboard changes and stays cleared when a hidden row returns', async () => {
+  const user = userEvent.setup()
+  const { preview } = setup()
+  function ControlledList({
+    samples,
+  }: {
+    samples: (typeof kick)[]
+  }): React.JSX.Element {
+    const [id, onChange] = useState<string | null>(snare.id)
+    return (
+      <SampleList
+        samples={samples}
+        preview={preview}
+        onFavoriteChanged={vi.fn()}
+        selection={{ id, onChange }}
+      />
+    )
+  }
+  const { rerender } = render(<ControlledList samples={[kick, snare]} />)
+  const [first, second] = screen.getAllByRole('row')
+  expect(second).toHaveAttribute('aria-selected', 'true')
+  second.focus()
+  await user.keyboard('{ArrowUp}')
+  expect(first).toHaveFocus()
+  expect(first).toHaveAttribute('aria-selected', 'true')
+  expect(second).toHaveAttribute('aria-selected', 'false')
+  rerender(<ControlledList samples={[snare]} />)
+  expect(screen.getByRole('row')).toHaveAttribute('aria-selected', 'false')
+  rerender(<ControlledList samples={[kick, snare]} />)
+  for (const row of screen.getAllByRole('row')) {
+    expect(row).toHaveAttribute('aria-selected', 'false')
+  }
+  expect(preview.togglePreview).not.toHaveBeenCalled()
 })

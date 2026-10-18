@@ -24,7 +24,12 @@ following list selection and showing an empty state when no row is selected.
 It supports Close/Escape with focus return, a side-by-side wide layout, and a
 compact workspace overlay that blocks underlying regions while preserving player
 access. The prototype uses a provisional 1000px viewport breakpoint and a 320px
-panel; visual sizing, resizing, and history restoration remain pending. Visual
+panel; visual sizing and resizing remain pending. Samples/Favorites restore their
+session context on history navigation and reuse the latest destination context
+for new visits, including pagination, the Samples Favorite filter, selection,
+inspector visibility, scroll, and focus after revalidating loaded results. The
+renderer retains 100 history snapshots; older entries fall back to the latest
+destination context. Visual
 design, the design system, and cross-platform prototype
 validation are still pending.
 
@@ -195,8 +200,9 @@ of the global player, name/Play preview, and row-focused Up/Down, Enter, and Spa
 shortcuts. Selection uses stable Sample IDs, clears when the selected row leaves
 the loaded results, and never automatically chooses a replacement. Keyboard
 traversal is limited to the loaded page. Favorite and native dragging do not change
-selection. Selection is currently local to the mounted list; history restoration,
-inspector editing, and multiple selection remain planned. The full conventions below
+selection. Catalog selection is retained in session navigation context and
+revalidated on return; inspector editing and multiple selection remain planned.
+The full conventions below
 describe the agreed target.
 
 - Normal interaction selects one Sample. Multiple selection requires entering

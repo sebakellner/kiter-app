@@ -11,6 +11,7 @@ See [Common Guidelines](common-guidelines.md) for coding rules,
 | Location                                          | Responsibility                                                                        |
 | ------------------------------------------------- | ------------------------------------------------------------------------------------- |
 | `src/renderer/src/routes/`                        | Router configuration, route tree, and redirects.                                      |
+| `src/renderer/src/stores/`                        | Application-wide renderer stores, independent of routing and UI components.           |
 | `src/renderer/src/views/<View>/`                  | Route-level views, each in its own PascalCase folder with a matching component file.  |
 | `src/renderer/src/layouts/<Layout>/`              | Application-level route composition, navigation, and connections to feature state.    |
 | `src/renderer/src/features/<feature>/`            | Feature-specific UI, hooks, presentation types, and helpers.                          |
@@ -43,6 +44,20 @@ These are ownership conventions, not directories to scaffold in advance.
   Feature state providers remain with their owning feature, independent of the
   router. View-specific session state stays with its view, even when its provider
   is mounted above routes to preserve it during navigation.
+
+## Renderer Stores
+
+- Put application-wide stores in `src/renderer/src/stores/` and feature-owned
+  stores in `features/<feature>/stores/`. View-private state stays with its view
+  until it needs a shared owner; do not create empty store directories.
+- Name Zustand store modules `use<Name>Store.ts`. Keep state, actions, and their
+  types together in a single file initially; introduce a module folder only when
+  substantial private pieces justify it.
+- Keep stores independent of React Router, UI components, and privileged APIs.
+  Routing adapters belong in `routes/` or the owning layout; feature workflow
+  hooks coordinate bridge access. Subscribe through focused selectors.
+- Define each store's lifecycle and bounds explicitly. Persistence is opt-in
+  under the owning feature contract, not an automatic store convention.
 
 ## Views and the Kiter UI Kit
 

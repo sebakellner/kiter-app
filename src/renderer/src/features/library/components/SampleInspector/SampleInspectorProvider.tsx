@@ -5,11 +5,14 @@ import { SampleInspectorContext } from './useSampleInspector'
 
 export function SampleInspectorProvider({
   children,
+  open,
+  setOpen,
 }: {
   children: ReactNode
+  open: boolean
+  setOpen: (open: boolean) => void
 }): React.JSX.Element {
   const [sample, setSample] = useState<ListSample | null>(null)
-  const [open, setOpen] = useState(false)
   const [opener, setOpener] = useState<HTMLElement | null>(null)
 
   function openSample(sample: ListSample, element: HTMLElement): void {

@@ -3,18 +3,52 @@ import { useLibrarySession } from '../hooks/useLibrarySession'
 import { useCatalog } from '../hooks/useCatalog'
 import { SampleList } from './SampleList'
 import { useSampleInspector } from './SampleInspector'
+import { useCallback, useLayoutEffect } from 'react'
+import type { CatalogViewContext } from '@renderer/routes/navigationContext'
 
 export function CatalogList({
   favoritesOnly = false,
+  context,
+  update,
+  onReady,
 }: {
   favoritesOnly?: boolean
-}): React.JSX.Element {
+} & CatalogViewContext): React.JSX.Element {
   const { revision, updateFavorite, preview } = useLibrarySession()
   const { setSample, openSample, open } = useSampleInspector()
   const { page, loading, error, load, refresh } = useCatalog(
     favoritesOnly,
     revision,
+    context.offset,
   )
+  const select = useCallback(
+    (selectedId: string | null) => update({ selectedId }),
+    [update],
+  )
+
+  useLayoutEffect(() => {
+    if (page && !loading && !error) {
+      const selectedId = page.items.some(
+        (item) => item.id === context.selectedId,
+      )
+        ? context.selectedId
+        : null
+      if (context.offset !== page.offset || selectedId !== context.selectedId) {
+        update({ offset: page.offset, selectedId })
+      }
+      onReady()
+    } else if (!loading && error) {
+      onReady()
+    }
+  }, [
+    page,
+    loading,
+    error,
+    context.offset,
+    context.selectedId,
+    update,
+    onReady,
+  ])
   return (
     <>
       <Button onClick={refresh} disabled={loading}>
@@ -47,6 +81,7 @@ export function CatalogList({
                 onSelectionChanged={setSample}
                 onInspect={openSample}
                 inspectorOpen={open}
+                selection={{ id: context.selectedId, onChange: select }}
               />
             )}
             <nav aria-label="Sample pages">
