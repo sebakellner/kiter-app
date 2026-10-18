@@ -1,10 +1,13 @@
 import { CatalogList } from '@renderer/features/library/components/CatalogList'
 import { useLibrarySession } from '@renderer/features/library/hooks/useLibrarySession'
-import { useSamplesViewState } from './useSamplesViewState'
+import { useCatalogViewContext } from '@renderer/routes/navigationContext'
+import { useLocation } from 'react-router-dom'
 
 export function Samples(): React.JSX.Element {
   const { dir, loading, error } = useLibrarySession()
-  const { favoritesOnly, setFavoritesOnly } = useSamplesViewState()
+  const view = useCatalogViewContext()
+  const { key } = useLocation()
+  const { favoritesOnly } = view.context
 
   return (
     <section aria-labelledby="samples-title">
@@ -24,11 +27,22 @@ export function Samples(): React.JSX.Element {
           type="checkbox"
           data-testid="favorites-filter"
           checked={favoritesOnly}
-          onChange={(event) => setFavoritesOnly(event.target.checked)}
+          onChange={(event) =>
+            view.update({
+              favoritesOnly: event.target.checked,
+              offset: 0,
+              selectedId: null,
+              scrollTop: 0,
+            })
+          }
         />
         Favorites only
       </label>
-      <CatalogList key={String(favoritesOnly)} favoritesOnly={favoritesOnly} />
+      <CatalogList
+        key={`${key}:${favoritesOnly}`}
+        favoritesOnly={favoritesOnly}
+        {...view}
+      />
     </section>
   )
 }

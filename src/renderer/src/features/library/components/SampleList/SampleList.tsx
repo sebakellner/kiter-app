@@ -13,6 +13,7 @@ type Props = {
   onSelectionChanged?: (sample: ListSample | null) => void
   onInspect?: (sample: ListSample, opener: HTMLElement) => void
   inspectorOpen?: boolean
+  selection?: { id: string | null; onChange: (id: string | null) => void }
 }
 
 export function SampleList({
@@ -22,11 +23,13 @@ export function SampleList({
   onSelectionChanged,
   onInspect,
   inspectorOpen = false,
+  selection,
 }: Props): React.JSX.Element {
   const { dragError, previewSample, getRowProps, selectSample } = useSampleList(
     samples,
     preview,
     onSelectionChanged,
+    selection,
   )
 
   if (samples.length === 0) {

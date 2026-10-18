@@ -17,13 +17,21 @@ export function useSampleList(
   samples: ListSample[],
   preview: PreviewController,
   onSelectionChanged?: (sample: ListSample | null) => void,
+  selection?: { id: string | null; onChange: (id: string | null) => void },
 ): SampleListController {
-  const [activeId, setActiveId] = useState<string | null>(null)
+  const [localId, setLocalId] = useState<string | null>(null)
+  const activeId = selection ? selection.id : localId
+  const setActiveId = selection ? selection.onChange : setLocalId
   const [dragError, setDragError] = useState<AudioDragError | null>(null)
 
-  if (activeId !== null && !samples.some((sample) => sample.id === activeId)) {
-    setActiveId(null)
-  }
+  useEffect(() => {
+    if (
+      activeId !== null &&
+      !samples.some((sample) => sample.id === activeId)
+    ) {
+      setActiveId(null)
+    }
+  }, [activeId, samples, setActiveId])
 
   useEffect(() => window.api.library.onDragError(setDragError), [])
 

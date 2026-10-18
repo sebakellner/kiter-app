@@ -5,6 +5,7 @@ import type { LibraryPage } from '@shared/ipc/library'
 export function useCatalog(
   favoritesOnly: boolean,
   revision: number,
+  initialOffset = 0,
 ): {
   page: LibraryPage | null
   loading: boolean
@@ -13,7 +14,7 @@ export function useCatalog(
   refresh: () => void
 } {
   const [page, setPage] = useState<LibraryPage | null>(null)
-  const [request, setRequest] = useState({ offset: 0, version: 0 })
+  const [request, setRequest] = useState({ offset: initialOffset, version: 0 })
   const [completion, setCompletion] = useState<{
     request: typeof request
     revision: number
