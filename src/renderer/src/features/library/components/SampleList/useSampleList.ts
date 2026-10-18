@@ -10,11 +10,13 @@ type SampleListController = {
   dragError: AudioDragError | null
   previewSample: (sample: ListSample) => void
   getRowProps: (index: number) => ComponentProps<'li'>
+  selectSample: (sample: ListSample) => void
 }
 
 export function useSampleList(
   samples: ListSample[],
   preview: PreviewController,
+  onSelectionChanged?: (sample: ListSample | null) => void,
 ): SampleListController {
   const [activeId, setActiveId] = useState<string | null>(null)
   const [dragError, setDragError] = useState<AudioDragError | null>(null)
@@ -24,6 +26,13 @@ export function useSampleList(
   }
 
   useEffect(() => window.api.library.onDragError(setDragError), [])
+
+  const activeSample = samples.find((sample) => sample.id === activeId) ?? null
+  useEffect(() => {
+    onSelectionChanged?.(activeSample)
+  }, [activeSample, onSelectionChanged])
+
+  useEffect(() => () => onSelectionChanged?.(null), [onSelectionChanged])
 
   function previewSample(sample: ListSample): void {
     if (sample.audioUrl) {
@@ -94,5 +103,10 @@ export function useSampleList(
     }
   }
 
-  return { dragError, previewSample, getRowProps }
+  return {
+    dragError,
+    previewSample,
+    getRowProps,
+    selectSample: (sample) => setActiveId(sample.id),
+  }
 }

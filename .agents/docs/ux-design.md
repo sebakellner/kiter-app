@@ -17,7 +17,14 @@ The first functional UX baseline is agreed. The sections marked Agreed describe
 the intended experience, not shipped capabilities or existing IPC contracts.
 The current renderer has a first shell prototype with Home and paginated,
 library-wide Samples and Favorites under a persistent player. Other sidebar
-destinations have navigable placeholder views; their workflows and the inspector remain planned. Visual
+destinations have navigable placeholder views; their workflows remain planned.
+Samples and Favorites have a read-only inspector opened explicitly with each
+Sample row's Info action, which selects that Sample and opens the panel,
+following list selection and showing an empty state when no row is selected.
+It supports Close/Escape with focus return, a side-by-side wide layout, and a
+compact workspace overlay that blocks underlying regions while preserving player
+access. The prototype uses a provisional 1000px viewport breakpoint and a 320px
+panel; visual sizing, resizing, and history restoration remain pending. Visual
 design, the design system, and cross-platform prototype
 validation are still pending.
 
@@ -189,7 +196,7 @@ shortcuts. Selection uses stable Sample IDs, clears when the selected row leaves
 the loaded results, and never automatically chooses a replacement. Keyboard
 traversal is limited to the loaded page. Favorite and native dragging do not change
 selection. Selection is currently local to the mounted list; history restoration,
-the inspector, and multiple selection remain planned. The full conventions below
+inspector editing, and multiple selection remain planned. The full conventions below
 describe the agreed target.
 
 - Normal interaction selects one Sample. Multiple selection requires entering
@@ -444,6 +451,12 @@ keyboard boundaries remain here.
 - Selecting an element updates selection but does not open a closed inspector.
   Info or Edit explicitly opens it; while open, it follows selection under the
   dirty-draft rules.
+  Sample Info belongs to its row, not the global header. It selects and inspects
+  that Sample without changing playback; preview, pause, and resume do not retarget
+  the inspector. In wide mode, Info focuses the selected row so Up/Down can
+  continue browsing; inspector updates never take focus from the list. In compact
+  mode, opening moves focus into the overlay. Closing returns focus to the current
+  selected row, falling back to the opener or content when selection is gone.
 - In compact mode, the inspector overlay blocks interaction with the underlying
   content while keeping the player available. Keyboard focus stays within the
   inspector and player rather than reaching covered content. This is not an
@@ -464,6 +477,9 @@ keyboard boundaries remain here.
 - F6 and Shift+F6 move between shell regions in forward/reverse order: header,
   sidebar, content, open inspector, and player. Respect active overlay boundaries;
   unavailable or blocked regions are not focus destinations.
+  The prototype implements this region cycle, using the selected Sample row as
+  the content destination when present. Compact inspector mode restricts it to
+  inspector/player; modal dialogs suspend the shell shortcut.
 - Creation, confirmation, and review dialogs confine focus and interaction to the
   dialog. Existing audio may continue, but the underlying player and its Space
   shortcut are unavailable until dismissal. Escape and outside-click behavior

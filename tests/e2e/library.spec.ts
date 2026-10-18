@@ -4,6 +4,159 @@ import { writeFile, rename, realpath } from 'node:fs/promises'
 import path from 'node:path'
 import { createWav } from '../support/fixtures/wav.mjs'
 
+test('read-only inspector follows selection, clears hidden rows and restores focus without interrupting preview', async ({
+  kiter,
+}) => {
+  const library = new LibraryPage(kiter.page)
+  await kiter.selectFolder(kiter.samples)
+  await library.openFolder()
+  const kick = library.row('kick.wav')
+  const snare = library.row('snare.wav')
+  await kick.click({ position: { x: 5, y: 5 } })
+  const inspector = kiter.page.getByRole('complementary', {
+    name: 'Sample info',
+  })
+  await expect(inspector).toHaveCount(0)
+  const info = kick.getByRole('button', { name: 'Info: kick.wav', exact: true })
+  await info.click()
+  await expect(kick).toBeFocused()
+  await kick.press('ArrowDown')
+  await expect(snare).toBeFocused()
+  await expect(inspector).toContainText('snare.wav')
+  await snare.press('ArrowUp')
+  await expect(kick).toBeFocused()
+  await kick.press('F6')
+  await expect(
+    inspector.getByRole('button', { name: 'Close inspector' }),
+  ).toBeFocused()
+  await kiter.page.keyboard.press('F6')
+  await expect(
+    kiter.page.getByRole('region', { name: 'Global player' }).locator('audio'),
+  ).toBeFocused()
+  await kiter.page.keyboard.press('F6')
+  await expect(
+    kiter.page.getByRole('button', { name: 'Back', exact: true }),
+  ).toBeFocused()
+  await kiter.page.keyboard.press('F6')
+  await expect(
+    kiter.page.getByRole('link', { name: 'Samples', exact: true }),
+  ).toBeFocused()
+  await kiter.page.keyboard.press('F6')
+  await expect(kick).toBeFocused()
+  await kick.press('F6')
+  await kiter.page.keyboard.press('Shift+F6')
+  await expect(kick).toBeFocused()
+  await expect(inspector).toContainText('kick.wav')
+  await expect(inspector).toContainText(
+    await realpath(path.join(kiter.samples, 'kick.wav')),
+  )
+  await expect(inspector.getByRole('textbox')).toHaveCount(0)
+  await kick.getByTestId('sample-name').click()
+  const player = kiter.page.locator('audio')
+  await expect
+    .poll(() =>
+      player.evaluate(
+        (audio: HTMLAudioElement) => !audio.paused && audio.currentTime > 0,
+      ),
+    )
+    .toBe(true)
+  const url = await player.getAttribute('src')
+  await snare.click({ position: { x: 5, y: 5 } })
+  await expect(inspector).toContainText('snare.wav')
+  await expect(inspector).not.toContainText('kick.wav')
+  await expect(player).toHaveAttribute('src', url!)
+  await expect
+    .poll(() => player.evaluate((audio: HTMLAudioElement) => !audio.paused))
+    .toBe(true)
+  await inspector.getByRole('button', { name: 'Close inspector' }).click()
+  await expect(snare).toBeFocused()
+  await expect(snare).toHaveAttribute('aria-selected', 'true')
+  const snareInfo = snare.getByRole('button', {
+    name: 'Info: snare.wav',
+    exact: true,
+  })
+  await snareInfo.click()
+  await expect(snare).toHaveAttribute('aria-selected', 'true')
+  await kiter.page.getByRole('checkbox', { name: 'Favorites only' }).check()
+  await expect(inspector).toContainText(
+    'Select a sample to see its information.',
+  )
+  await inspector.press('Escape')
+  await expect(inspector).toHaveCount(0)
+  await expect(kiter.page.locator('#main-content')).toBeFocused()
+})
+
+test('compact inspector blocks covered regions, keeps the player available and consumes outside clicks', async ({
+  kiter,
+}) => {
+  const library = new LibraryPage(kiter.page)
+  await kiter.selectFolder(kiter.samples)
+  await library.openFolder()
+  await library.row('kick.wav').getByTestId('sample-name').click()
+  await kiter.application.evaluate(({ BrowserWindow }) =>
+    BrowserWindow.getAllWindows()[0].setContentSize(900, 650),
+  )
+  const info = library
+    .row('snare.wav')
+    .getByRole('button', { name: 'Info: snare.wav', exact: true })
+  await info.click()
+  const inspector = kiter.page.getByRole('complementary', {
+    name: 'Sample info',
+  })
+  await expect(inspector).toBeFocused()
+  await expect(inspector).toContainText('snare.wav')
+  await expect(library.row('snare.wav')).toHaveAttribute(
+    'aria-selected',
+    'true',
+  )
+  await expect(kiter.page.locator('#main-content')).toHaveAttribute('inert', '')
+  const close = inspector.getByRole('button', { name: 'Close inspector' })
+  await inspector.press('F6')
+  await expect(
+    kiter.page.getByRole('button', { name: 'Stop', exact: true }),
+  ).toBeFocused()
+  await kiter.page.keyboard.press('F6')
+  await expect(close).toBeFocused()
+  await kiter.page.keyboard.press('Shift+F6')
+  await expect(
+    kiter.page.getByRole('button', { name: 'Stop', exact: true }),
+  ).toBeFocused()
+  await close.focus()
+  await kiter.page.keyboard.press('Tab')
+  await expect(
+    kiter.page.getByRole('button', { name: 'Stop', exact: true }),
+  ).toBeFocused()
+  await kiter.page.keyboard.press('Shift+Tab')
+  await expect(close).toBeFocused()
+  await kiter.page.getByRole('button', { name: 'Stop', exact: true }).click()
+  await expect(inspector).toBeVisible()
+  await expect
+    .poll(() =>
+      kiter.page
+        .locator('audio')
+        .evaluate(
+          (audio: HTMLAudioElement) => audio.paused && audio.currentTime === 0,
+        ),
+    )
+    .toBe(true)
+  // Click the exposed workspace outside the overlay, consuming the dismissal gesture.
+  await kiter.page.mouse.click(220, 150)
+  await expect(inspector).toHaveCount(0)
+  await expect(library.row('snare.wav')).toBeFocused()
+  await expect(library.row('kick.wav')).toHaveAttribute(
+    'aria-selected',
+    'false',
+  )
+  await expect(library.row('snare.wav')).toHaveAttribute(
+    'aria-selected',
+    'true',
+  )
+  await expect(kiter.page.locator('#main-content')).not.toHaveAttribute(
+    'inert',
+    '',
+  )
+})
+
 test('sidebar destinations support history navigation', async ({ kiter }) => {
   const navigation = kiter.page.getByRole('navigation', {
     name: 'Main navigation',

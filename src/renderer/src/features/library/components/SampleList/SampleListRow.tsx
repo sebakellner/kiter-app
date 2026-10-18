@@ -12,6 +12,8 @@ type Props = {
   dragError: string | null
   onPreview: () => void
   onFavoriteChanged: (state: FavoriteState) => void
+  onInspect?: (opener: HTMLElement) => void
+  inspectorOpen: boolean
 }
 
 export function SampleListRow({
@@ -21,6 +23,8 @@ export function SampleListRow({
   dragError,
   onPreview,
   onFavoriteChanged,
+  onInspect,
+  inspectorOpen,
 }: Props): React.JSX.Element {
   return (
     <li
@@ -46,6 +50,23 @@ export function SampleListRow({
               <span>{sample.name}</span>
             )}
           <FavoriteButton file={sample} onChanged={onFavoriteChanged} />
+          {onInspect && (
+            <Button
+              draggable={false}
+              aria-label={`Info: ${sample.relativePath}`}
+              aria-controls="sample-inspector"
+              aria-expanded={
+                inspectorOpen && rowProps['aria-selected'] === true
+              }
+              onDragStart={(event) => {
+                event.preventDefault()
+                event.stopPropagation()
+              }}
+              onClick={(event) => onInspect(event.currentTarget)}
+            >
+              Info
+            </Button>
+          )}
           <Button
             draggable={false}
             disabled={!sample.audioUrl}
