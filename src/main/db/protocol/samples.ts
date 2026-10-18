@@ -92,7 +92,9 @@ export function isSampleRequest(value: unknown): value is SampleRequest {
           isRecord(input) &&
           isEntityId(input.id) &&
           typeof input.kind === 'string' &&
-          ['collection', 'category', 'author', 'root'].includes(input.kind)
+          ['collection', 'category', 'genre', 'author', 'root'].includes(
+            input.kind,
+          )
         )
       case 'remove-sample':
         return isRecord(input) && isEntityId(input.id) && isToken(input.token)
@@ -209,6 +211,7 @@ export function isSampleReply(value: unknown): value is SampleReply {
             source.lastErrorCode.length > 0)) &&
         isCount(result.collectionCount) &&
         isCount(result.categoryCount) &&
+        isCount(result.genreCount) &&
         isCount(result.authorCount) &&
         isCount(result.rootCount) &&
         isToken(result.token)

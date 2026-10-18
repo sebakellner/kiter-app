@@ -12,3 +12,10 @@ export {
   sampleAuthors,
 } from './classification.ts'
 export { userProfiles, userPreferences } from './profile.ts'
+export {
+  genres,
+  sampleGenres,
+  packGenres,
+  recognitionVocabulary,
+  recognitionAliases,
+} from './recognition.ts'

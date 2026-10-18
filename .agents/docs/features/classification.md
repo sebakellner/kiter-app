@@ -34,7 +34,8 @@ Hip Hop, Trap, R&B, Soul, Funk, Pop, Reggaeton, Dancehall, Afrobeats, Rock, Jazz
 Blues, Folk, Classical, Ambient, and Cinematic. This is a bounded starting
 selection across electronic, urban, acoustic, and cinematic music, not an
 exhaustive catalog or a limit on custom Genres. Domain Model owns its flat,
-user-editable lifecycle rules. Seed migration/delivery is not implemented.
+user-editable lifecycle rules. Fresh libraries now persist this seed; existing
+libraries receive offered vocabulary without automatic Genre creation.
 
 ### Category Recognition Terms
 
@@ -241,7 +242,7 @@ Sample/Pack at a time. It returns Category/Genre/type proposals, path and Pack
 Genre evidence, and explicit ambiguous matches without reading or writing data.
 
 - Initial terms have stable keys independent of display names. The in-code Genre
-  vocabulary is not a persisted Genre seed or a catalog-to-library mapping.
+  vocabulary also supplies the persistent initialization described below.
 - Callers supply eligible path components, excluding ancestors outside registered
   scope. Each carries an occurrence identity, root/folder/filename kind, observed
   or cataloged availability, and distance from the file. Distances are comparable
@@ -262,6 +263,30 @@ Genre evidence, and explicit ambiguous matches without reading or writing data.
   or authorize audio, choose existing records, stage decisions, filter remembered
   rejections, or persist results. Those belong to subsequent delivery slices.
 
+### Implemented Persistent Vocabulary Slice
+
+- An additive STRICT migration adds Genres, independent Sample/Pack Genre
+  memberships, recognition vocabulary mappings, and aliases. Existing catalog
+  identities and organization are preserved under the protective-backup runner.
+- Fresh libraries receive 26 Genre records, 25 Category recognition terms (no
+  Category records), and the two fixed Sample types. Existing libraries receive
+  offered Genres, reuse matching Categories, and retain custom Category names.
+- Vocabulary keys survive renames and deletion. Deleted targets and aliases have
+  tombstones so reopening never restores defaults. Custom re-creation gets a new
+  identity. Alias reassignment uses the alias ID explicitly; duplicate normalized
+  terms in the same dimension reject with `NAME_CONFLICT`.
+- Internal worker/DbClient commands provide Genre creation/rename/read/pagination,
+  direct assignments and impact-checked removal, plus vocabulary/alias pages and
+  alias creation/edit/reassignment/removal. Category name writes enforce alias and
+  recognition conflicts. Removal reviews include aliases and Genre memberships;
+  no renderer IPC or management UI is delivered by this slice.
+- `loadCatalogRecognizer` compiles effective names and aliases through bounded
+  worker pages. It recognizes offered terms for later explicit creation, omits
+  retired entries, and preserves stable vocabulary keys for linked records.
+- Future vocabulary updates, voluntary incorporation UI, authoritative review
+  snapshots, rejected-proposal memory, and confirmed assignment execution remain
+  pending. The adapter is not a stale-safe preparation/execution token.
+
 ### Remaining Workflow Delivery
 
 - Pure recognition combines included vocabulary, library names, and aliases into
@@ -275,8 +300,7 @@ Genre evidence, and explicit ambiguous matches without reading or writing data.
   executable workflow must include its agreed persistence/recovery guarantees.
   Preserve preview, Favorites, and authorized native dragging throughout.
 
-Remaining implementation contracts: schema/migrations, catalog-to-library mapping
-and deletion tracking, alias-update conflicts, serialized evidence/rejection keys
+Remaining implementation contracts: future catalog updates, serialized evidence/rejection keys
 (including targets not yet created), tokenization punctuation edge cases, conflict
 payloads, review tokens, dependency queries, IPC, and bounded execution limits.
 Visual design/prototypes remain deferred. These open technical contracts do not

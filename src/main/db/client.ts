@@ -82,6 +82,20 @@ import { isSampleRequest } from './protocol/samples'
 import type { AssetRequest } from './protocol/assets'
 import { isAssetRequest } from './protocol/assets'
 import type {
+  RecognitionRequest,
+  RecognitionReply,
+} from './protocol/recognition'
+import {
+  isRecognitionRequest,
+  isRecognitionReply,
+} from './protocol/recognition'
+import type {
+  AliasWriteRequest,
+  Genre,
+  RecognitionAlias,
+  VocabularyEntry,
+} from '../../shared/domain/recognition'
+import type {
   ImageAsset,
   ImagePublicationRequest,
   ImageReferenceRequest,
@@ -90,6 +104,153 @@ import type {
 const UNEXPECTED_REPLY_MESSAGE = 'Unexpected database response'
 
 export class DbClient {
+  private async recognitionRequest(
+    request: RecognitionRequest,
+  ): Promise<RecognitionReply> {
+    this.transport.assertOpen()
+    if (!isRecognitionRequest(request)) {
+      throw new DomainValidationError('Invalid recognition request.')
+    }
+    const reply = await this.transport.request(request)
+    if (!isRecognitionReply(reply) || reply.action !== request.action) {
+      throw new Error(UNEXPECTED_REPLY_MESSAGE)
+    }
+    return reply
+  }
+
+  async createGenre(input: { name: string }): Promise<Genre> {
+    const reply = await this.recognitionRequest({
+      action: 'create-genre',
+      input,
+    })
+    if (reply.action !== 'create-genre') {
+      throw new Error(UNEXPECTED_REPLY_MESSAGE)
+    }
+    return reply.result
+  }
+  async renameGenre(input: { id: string; name: string }): Promise<Genre> {
+    const reply = await this.recognitionRequest({
+      action: 'rename-genre',
+      input,
+    })
+    if (reply.action !== 'rename-genre') {
+      throw new Error(UNEXPECTED_REPLY_MESSAGE)
+    }
+    return reply.result
+  }
+  async getGenre(id: string): Promise<Genre> {
+    const reply = await this.recognitionRequest({ action: 'get-genre', id })
+    if (reply.action !== 'get-genre') {
+      throw new Error(UNEXPECTED_REPLY_MESSAGE)
+    }
+    return reply.result
+  }
+  async listGenres(
+    input: ClassificationPageRequest = {},
+  ): Promise<Page<Genre>> {
+    const reply = await this.recognitionRequest({
+      action: 'list-genres',
+      input,
+    })
+    if (reply.action !== 'list-genres') {
+      throw new Error(UNEXPECTED_REPLY_MESSAGE)
+    }
+    return reply.result
+  }
+  async listTargetGenres(
+    target: ClassificationTarget,
+    input: ClassificationPageRequest = {},
+  ): Promise<Page<Genre>> {
+    const reply = await this.recognitionRequest({
+      action: 'list-target-genres',
+      target,
+      input,
+    })
+    if (reply.action !== 'list-target-genres') {
+      throw new Error(UNEXPECTED_REPLY_MESSAGE)
+    }
+    return reply.result
+  }
+  async setGenreAssignment(
+    input: ClassificationAssignmentRequest,
+  ): Promise<{ assigned: boolean }> {
+    const reply = await this.recognitionRequest({
+      action: 'set-genre-assignment',
+      input,
+    })
+    if (reply.action !== 'set-genre-assignment') {
+      throw new Error(UNEXPECTED_REPLY_MESSAGE)
+    }
+    return reply.result
+  }
+  async reviewGenreRemoval(id: string): Promise<ClassificationRemovalReview> {
+    const reply = await this.recognitionRequest({
+      action: 'review-genre-removal',
+      id,
+    })
+    if (reply.action !== 'review-genre-removal') {
+      throw new Error(UNEXPECTED_REPLY_MESSAGE)
+    }
+    return reply.result
+  }
+  async removeGenre(
+    input: ClassificationRemovalRequest,
+  ): Promise<{ id: string }> {
+    const reply = await this.recognitionRequest({
+      action: 'remove-genre',
+      input,
+    })
+    if (reply.action !== 'remove-genre') {
+      throw new Error(UNEXPECTED_REPLY_MESSAGE)
+    }
+    return reply.result
+  }
+  async listRecognitionVocabulary(
+    input: ClassificationPageRequest = {},
+  ): Promise<Page<VocabularyEntry>> {
+    const reply = await this.recognitionRequest({
+      action: 'list-recognition-vocabulary',
+      input,
+    })
+    if (reply.action !== 'list-recognition-vocabulary') {
+      throw new Error(UNEXPECTED_REPLY_MESSAGE)
+    }
+    return reply.result
+  }
+  async listRecognitionAliases(
+    input: ClassificationPageRequest = {},
+  ): Promise<Page<RecognitionAlias>> {
+    const reply = await this.recognitionRequest({
+      action: 'list-recognition-aliases',
+      input,
+    })
+    if (reply.action !== 'list-recognition-aliases') {
+      throw new Error(UNEXPECTED_REPLY_MESSAGE)
+    }
+    return reply.result
+  }
+  async writeRecognitionAlias(
+    input: AliasWriteRequest,
+  ): Promise<RecognitionAlias> {
+    const reply = await this.recognitionRequest({
+      action: 'write-recognition-alias',
+      input,
+    })
+    if (reply.action !== 'write-recognition-alias') {
+      throw new Error(UNEXPECTED_REPLY_MESSAGE)
+    }
+    return reply.result
+  }
+  async removeRecognitionAlias(id: string): Promise<{ id: string }> {
+    const reply = await this.recognitionRequest({
+      action: 'remove-recognition-alias',
+      id,
+    })
+    if (reply.action !== 'remove-recognition-alias') {
+      throw new Error(UNEXPECTED_REPLY_MESSAGE)
+    }
+    return reply.result
+  }
   async listCatalogSamples(
     input: LibraryListRequest = {},
   ): Promise<Page<CatalogSample>> {

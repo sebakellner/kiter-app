@@ -4,6 +4,7 @@ import { cp, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import Database from 'better-sqlite3'
+import { readMigrationFiles } from 'drizzle-orm/migrator'
 import { test } from 'node:test'
 import { getTableConfig } from 'drizzle-orm/sqlite-core'
 import {
@@ -36,12 +37,12 @@ test('fresh initialization creates strict typed tables, migration history and on
       native.pragma('application_id', { simple: true }),
       DB_APPLICATION_ID,
     )
-    assert.equal(native.pragma('user_version', { simple: true }), 1)
+    assert.equal(native.pragma('user_version', { simple: true }), 2)
     assert.equal(native.pragma('foreign_keys', { simple: true }), 1)
     const tables = native
       .prepare<[], { name: string; strict: number }>('PRAGMA table_list')
       .all()
-    assert.equal(Object.keys(schema).length, 17)
+    assert.equal(Object.keys(schema).length, 22)
     for (const table of Object.values(schema)) {
       const config = getTableConfig(table)
       assert.ok(
@@ -91,7 +92,7 @@ test('fresh initialization creates strict typed tables, migration history and on
           'SELECT count(*) AS count FROM __drizzle_migrations',
         )
         .get()?.count,
-      1,
+      2,
     )
     assert.deepEqual(native.prepare('PRAGMA foreign_key_check').all(), [])
   } finally {
@@ -240,7 +241,7 @@ test('Sample IDs, Favorites and zero preview volume survive reopening and overla
         'SELECT count(*) AS count FROM __drizzle_migrations',
       )
       .get()?.count,
-    1,
+    2,
   )
 })
 
@@ -397,14 +398,14 @@ async function extendedMigrations(dir: string, sql: string): Promise<string> {
   const journalFile = path.join(folder, 'meta', '_journal.json')
   const journal = JSON.parse(await readFile(journalFile, 'utf8'))
   journal.entries.push({
-    idx: 1,
+    idx: journal.entries.length,
     version: '6',
-    when: journal.entries[0].when + 1,
-    tag: '0001_test',
+    when: journal.entries.at(-1).when + 1,
+    tag: '0002_test',
     breakpoints: true,
   })
   await writeFile(journalFile, JSON.stringify(journal))
-  await writeFile(path.join(folder, '0001_test.sql'), sql)
+  await writeFile(path.join(folder, '0002_test.sql'), sql)
   return folder
 }
 
@@ -426,7 +427,7 @@ test('pending migrations apply once and preserve existing data; older applicatio
       try {
         assert.equal(
           upgraded.native.pragma('user_version', { simple: true }),
-          2,
+          3,
         )
         assert.deepEqual(readLocalProfile(upgraded.db), profile)
         assert.deepEqual(importFolder(upgraded.db, dir, [fileAt(dir)]), [
@@ -438,7 +439,7 @@ test('pending migrations apply once and preserve existing data; older applicatio
               'SELECT count(*) AS count FROM __drizzle_migrations',
             )
             .get()?.count,
-          2,
+          3,
         )
       } finally {
         upgraded.close()
@@ -447,6 +448,95 @@ test('pending migrations apply once and preserve existing data; older applicatio
     assert.throws(() => open(filename), { code: 'UNSUPPORTED_VERSION' })
   } finally {
     await rm(dir, { recursive: true, force: true })
+  }
+})
+
+test('classification migration preserves an original library and offers Genres without silently seeding existing catalogs', async (t) => {
+  const disk = await createDiskDatabase(t)
+  disk.connection.close()
+  const filename = path.join(disk.directory, 'original.sqlite')
+  const original = new Database(filename)
+  const [migration] = readMigrationFiles({ migrationsFolder })
+  const profileId = randomUUID(),
+    categoryId = randomUUID(),
+    sampleId = randomUUID()
+  try {
+    for (const statement of migration.sql) {
+      original.exec(statement)
+    }
+    original.exec(
+      'CREATE TABLE __drizzle_migrations (id INTEGER PRIMARY KEY, hash TEXT NOT NULL, created_at INTEGER NOT NULL) STRICT',
+    )
+    original
+      .prepare(
+        'INSERT INTO __drizzle_migrations(hash, created_at) VALUES (?, ?)',
+      )
+      .run(migration.hash, migration.folderMillis)
+    original
+      .prepare('INSERT INTO user_profiles(id, name) VALUES (?, ?)')
+      .run(profileId, 'Existing profile')
+    original
+      .prepare(
+        'INSERT INTO user_preferences(profile_id, preview_volume) VALUES (?, 0)',
+      )
+      .run(profileId)
+    original
+      .prepare('INSERT INTO categories(id, name, name_key) VALUES (?, ?, ?)')
+      .run(categoryId, 'Kick', 'kick')
+    original
+      .prepare('INSERT INTO samples(id, favorite) VALUES (?, 1)')
+      .run(sampleId)
+    original
+      .prepare(
+        "INSERT INTO sample_sources(sample_id, canonical_path, availability, last_checked_at) VALUES (?, ?, 'available', '2026-01-01T00:00:00.000Z')",
+      )
+      .run(sampleId, path.join(disk.directory, 'kick.wav'))
+    original
+      .prepare(
+        'INSERT INTO sample_categories(sample_id, category_id) VALUES (?, ?)',
+      )
+      .run(sampleId, categoryId)
+    original.pragma(`application_id = ${DB_APPLICATION_ID}`)
+    original.pragma('user_version = 1')
+  } finally {
+    original.close()
+  }
+  const upgraded = open(filename)
+  try {
+    assert.equal(upgraded.native.pragma('user_version', { simple: true }), 2)
+    assert.deepEqual(
+      upgraded.native.prepare('SELECT id, favorite FROM samples').get(),
+      { id: sampleId, favorite: 1 },
+    )
+    assert.deepEqual(
+      upgraded.native.prepare('SELECT * FROM sample_categories').get(),
+      { sample_id: sampleId, category_id: categoryId },
+    )
+    assert.equal(readLocalProfile(upgraded.db).preferences.previewVolume, 0)
+    assert.equal(
+      upgraded.native
+        .prepare<[], { count: number }>('SELECT count(*) AS count FROM genres')
+        .get()?.count,
+      0,
+    )
+    assert.equal(
+      upgraded.native
+        .prepare<[], { count: number }>(
+          "SELECT count(*) AS count FROM recognition_vocabulary WHERE dimension = 'genre' AND state = 'offered'",
+        )
+        .get()?.count,
+      26,
+    )
+    assert.equal(
+      upgraded.native
+        .prepare<[], { category_id: string }>(
+          "SELECT category_id FROM recognition_vocabulary WHERE key = 'category:kick'",
+        )
+        .get()?.category_id,
+      categoryId,
+    )
+  } finally {
+    upgraded.close()
   }
 })
 
@@ -467,7 +557,7 @@ test('failed migrations and bootstrap roll back SQL, migration history and versi
     const reopened = open(filename)
     try {
       assert.deepEqual(readLocalProfile(reopened.db), profile)
-      assert.equal(reopened.native.pragma('user_version', { simple: true }), 1)
+      assert.equal(reopened.native.pragma('user_version', { simple: true }), 2)
       assert.equal(
         reopened.native
           .prepare("SELECT name FROM sqlite_schema WHERE name = 'rolled_back'")
@@ -478,7 +568,7 @@ test('failed migrations and bootstrap roll back SQL, migration history and versi
       reopened.close()
     }
     await writeFile(
-      path.join(folder, '0001_test.sql'),
+      path.join(folder, '0002_test.sql'),
       `CREATE TRIGGER reject_profile BEFORE INSERT ON user_profiles
       BEGIN SELECT RAISE(ABORT, 'Injected bootstrap failure'); END;`,
     )

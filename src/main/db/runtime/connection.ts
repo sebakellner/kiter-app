@@ -9,6 +9,7 @@ import { applyMigrations } from './migrate.ts'
 import { validateCatalog } from './validate.ts'
 import { createProtectiveBackup, type BackupStorage } from './backup.ts'
 import * as schema from '../schema/index.ts'
+import { initializeRecognitionVocabulary } from '../operations/classification/vocabulary.ts'
 
 export type AppDatabase = BetterSQLite3Database<typeof schema>
 
@@ -39,6 +40,7 @@ export function openDatabase(
       },
       () => validateCatalog(native),
       () => createProtectiveBackup(native, filename, migrationsFolder, storage),
+      (fresh) => initializeRecognitionVocabulary(db, fresh),
     )
     return { db, native, close: () => native.close() }
   } catch (error) {

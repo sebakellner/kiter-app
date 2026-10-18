@@ -1,5 +1,6 @@
 export { createClassificationRecognizer } from './recognition.ts'
 export { initialRecognitionVocabulary } from './vocabulary.ts'
+export { loadCatalogRecognizer } from './catalog.ts'
 export type {
   RecognitionComponent,
   RecognitionDimension,

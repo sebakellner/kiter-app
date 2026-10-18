@@ -40,6 +40,15 @@ import { samples, sampleSources } from '../../schema/samples.ts'
 import { packs } from '../../schema/packs.ts'
 import { userProfiles } from '../../schema/profile.ts'
 import { DbError } from '../../errors.ts'
+import {
+  registerVocabularyEntity,
+  requireRecognitionNameAvailable,
+  retireVocabularyEntity,
+} from './vocabulary.ts'
+import {
+  recognitionVocabulary,
+  recognitionAliases,
+} from '../../schema/recognition.ts'
 
 function requireTarget(target: ClassificationTarget): void {
   if (!isClassificationTarget(target)) {
@@ -147,10 +156,23 @@ export function createCategory(
   return db.transaction(
     () => {
       requireUniqueCategory(db, nameKey)
+      const offered = db
+        .select()
+        .from(recognitionVocabulary)
+        .where(eq(recognitionVocabulary.dimension, 'category'))
+        .all()
+        .find(
+          (row) =>
+            row.categoryId === null &&
+            row.state !== 'deleted' &&
+            normalizeName(row.name) === nameKey,
+        )
+      requireRecognitionNameAvailable(db, 'category', name, offered?.key)
       const entity = { id: randomUUID(), name }
       db.insert(categories)
         .values({ ...entity, nameKey })
         .run()
+      registerVocabularyEntity(db, 'category', entity)
       return entity
     },
     { behavior: 'immediate' },
@@ -168,10 +190,22 @@ export function renameCategory(
     () => {
       getCategory(db, input.id)
       requireUniqueCategory(db, nameKey, input.id)
+      const vocabulary = db
+        .select()
+        .from(recognitionVocabulary)
+        .where(eq(recognitionVocabulary.categoryId, input.id))
+        .get()
+      requireRecognitionNameAvailable(db, 'category', name, vocabulary?.key)
       db.update(categories)
         .set({ name, nameKey })
         .where(eq(categories.id, input.id))
         .run()
+      if (vocabulary) {
+        db.update(recognitionVocabulary)
+          .set({ name })
+          .where(eq(recognitionVocabulary.key, vocabulary.key))
+          .run()
+      }
       return { id: input.id, name }
     },
     { behavior: 'immediate' },
@@ -481,6 +515,25 @@ function reviewRemoval(
 ): ClassificationRemovalReview {
   const entity = kind === 'author' ? getAuthor(db, id) : getCategory(db, id)
   const hash = createReviewHash(kind, entity)
+  if (kind === 'category') {
+    const target = db
+      .select()
+      .from(recognitionVocabulary)
+      .where(eq(recognitionVocabulary.categoryId, id))
+      .get()
+    if (target) {
+      hash.update(
+        JSON.stringify(
+          db
+            .select()
+            .from(recognitionAliases)
+            .where(eq(recognitionAliases.targetKey, target.key))
+            .orderBy(recognitionAliases.id)
+            .all(),
+        ),
+      )
+    }
+  }
   let sampleCount = 0,
     packCount = 0
   // Hash bounded, ordered batches without transferring every use to the caller.
@@ -623,6 +676,7 @@ export function removeCategory(
           'Category uses changed. Review them again before removing.',
         )
       }
+      retireVocabularyEntity(db, 'category', input.id)
       db.delete(categories).where(eq(categories.id, input.id)).run()
       return { id: input.id }
     },
