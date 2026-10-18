@@ -68,6 +68,10 @@ app
       }
       event.preventDefault()
       shutdown = true
+      // Stop renderer requests before closing the services that authorize them.
+      for (const window of BrowserWindow.getAllWindows()) {
+        window.destroy()
+      }
       void images
         .close()
         .then(() => database.close())

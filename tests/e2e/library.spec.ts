@@ -175,6 +175,26 @@ test('restart clears navigation context while preserving catalog and Favorites',
   ).toHaveAttribute('aria-pressed', 'true')
 })
 
+test('quit destroys renderer windows before draining application services', async ({
+  kiter,
+}) => {
+  const remainingWindows = kiter.application.evaluate(
+    ({ app, BrowserWindow }) =>
+      new Promise<number>((resolve) => {
+        app.once('before-quit', () => {
+          resolve(BrowserWindow.getAllWindows().length)
+        })
+      }),
+  )
+
+  await kiter.restart()
+
+  expect(await remainingWindows).toBe(0)
+  await expect(
+    kiter.page.getByRole('heading', { name: 'Home', exact: true }),
+  ).toBeVisible()
+})
+
 test('history restores a compact inspector without focusing covered content', async ({
   kiter,
 }) => {
