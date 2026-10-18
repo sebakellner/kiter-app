@@ -8,9 +8,11 @@ owns Category, Genre, and Sample-type meanings and validation;
 
 ## Status and Scope
 
-The rules below are agreed but not implemented. Current Author/Category DB
-operations and Category list/create/rename IPC do not deliver this workflow.
-Suggestions must remain distinct from confirmed user organization.
+The reviewed classification workflow below is agreed but not implemented. A pure
+recognition engine and initial in-code vocabulary are implemented as described
+under Architecture and Delivery. Current Author/Category DB operations and
+Category list/create/rename IPC do not deliver the reviewed workflow. Suggestions
+remain distinct from confirmed user organization.
 
 - Suggest Categories and Genres from filenames and folder names. Sample type
   has the separate rules below; Author credits and musical BPM/key hints are
@@ -181,6 +183,14 @@ meaning, optionality, and fixed values.
   Category/Genre proposals add assignments without replacing existing ones;
   Sample-type replacement follows its single-value rule above. Pack-origin
   conflicts retain individual keep/assign review under [Import](import.md).
+- Provide an explicit Accept all action for the current preparation's reviewable
+  proposals. Show its complete target/proposal scope, including items outside the
+  visible page or filters, any required vocabulary creation, and existing-type
+  replacements before applying the group decision. Keep affected targets and
+  evidence consultable through bounded pages. Accept all stages acceptances;
+  separate execution confirmation is still required. Ambiguous matches remain
+  explained without inventing proposals or resolving them automatically. Rejection
+  memory still controls which proposals are offered under the rules below.
 - Unreviewed suggestions neither block import nor count as rejected; offer them
   again later. Rescans/reimport preserve confirmed organization.
 - Acceptances and rejections are staged, not saved immediately, even for existing
@@ -221,6 +231,38 @@ meaning, optionality, and fixed values.
   [Operation Execution](operation-execution.md).
 
 ## Architecture and Delivery
+
+### Implemented Pure Recognition Slice
+
+`src/main/services/classification/` exports `createClassificationRecognizer` and
+the initial recognition vocabulary. The compiled recognizer accepts an effective
+vocabulary with explicit target identities, names, and aliases and processes one
+Sample/Pack at a time. It returns Category/Genre/type proposals, path and Pack
+Genre evidence, and explicit ambiguous matches without reading or writing data.
+
+- Initial terms have stable keys independent of display names. The in-code Genre
+  vocabulary is not a persisted Genre seed or a catalog-to-library mapping.
+- Callers supply eligible path components, excluding ancestors outside registered
+  scope. Each carries an occurrence identity, root/folder/filename kind, observed
+  or cataloged availability, and distance from the file. Distances are comparable
+  across roots; duplicate occurrences are recognized once. Packs use roots only.
+- Tokenization uses NFC/lowercase, equivalent whitespace/hyphen/underscore/dot
+  separators, Unicode letter/mark/number runs, and separate preserved punctuation
+  tokens. Only the filename's final extension is removed. Letter/number boundaries
+  are not split. Evidence includes normalized clue, matched name/alias, token span,
+  original component text, occurrence, and `path-v1` provenance.
+- Most-specific phrases suppress contained matches within each component and
+  Category/Genre dimension. Conflicting targets or partially overlapping phrases
+  omit ambiguous matches; independent matches continue. Sample type uses filename
+  first, then the nearest eligible folder, with no fallback from contradictions.
+- Pack Genre evidence supplied by the caller merges by target identity and
+  deduplicates Pack/Genre pairs. The engine does not derive Pack assignments.
+- Callers must resolve effective vocabulary edits and library identities before
+  compilation. The engine does not enforce alias-write conflicts, validate paths
+  or authorize audio, choose existing records, stage decisions, filter remembered
+  rejections, or persist results. Those belong to subsequent delivery slices.
+
+### Remaining Workflow Delivery
 
 - Pure recognition combines included vocabulary, library names, and aliases into
   proposals/evidence; it never writes assignments.
