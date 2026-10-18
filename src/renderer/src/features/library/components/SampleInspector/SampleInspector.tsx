@@ -1,5 +1,6 @@
 import { Button } from '@renderer/components/ui/Button'
 import { useSampleInspector } from './useSampleInspector'
+import { SampleSuggestions } from '@renderer/features/classification/components/SampleSuggestions/SampleSuggestions'
 
 export function SampleInspector({
   onClose,
@@ -15,28 +16,31 @@ export function SampleInspector({
       </header>
       <div className="app-shell-inspector-body">
         {sample ? (
-          <dl>
-            <dt>Name</dt>
-            <dd>{sample.name}</dd>
-            <dt>Relative path</dt>
-            <dd>{sample.relativePath}</dd>
-            <dt>Source file</dt>
-            <dd>{sample.path}</dd>
-            {'rootPath' in sample && (
-              <>
-                <dt>Source folder</dt>
-                <dd>{sample.rootPath ?? 'No registered folder'}</dd>
-              </>
-            )}
-            <dt>Favorite</dt>
-            <dd>{sample.favorite ? 'Yes' : 'No'}</dd>
-            <dt>Audio access</dt>
-            <dd>
-              {'unavailableReason' in sample && sample.unavailableReason
-                ? sample.unavailableReason
-                : 'Available for preview'}
-            </dd>
-          </dl>
+          <>
+            <dl>
+              <dt>Name</dt>
+              <dd>{sample.name}</dd>
+              <dt>Relative path</dt>
+              <dd>{sample.relativePath}</dd>
+              <dt>Source file</dt>
+              <dd>{sample.path}</dd>
+              {'rootPath' in sample && (
+                <>
+                  <dt>Source folder</dt>
+                  <dd>{sample.rootPath ?? 'No registered folder'}</dd>
+                </>
+              )}
+              <dt>Favorite</dt>
+              <dd>{sample.favorite ? 'Yes' : 'No'}</dd>
+              <dt>Audio access</dt>
+              <dd>
+                {'unavailableReason' in sample && sample.unavailableReason
+                  ? sample.unavailableReason
+                  : 'Available for preview'}
+              </dd>
+            </dl>
+            <SampleSuggestions key={sample.id} sampleId={sample.id} />
+          </>
         ) : (
           <p>Select a sample to see its information.</p>
         )}

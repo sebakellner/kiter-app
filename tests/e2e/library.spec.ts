@@ -4,6 +4,47 @@ import { writeFile, rename, realpath } from 'node:fs/promises'
 import path from 'node:path'
 import { createWav } from '../support/fixtures/wav.mjs'
 
+test('Sample classification previews path evidence without creating Categories or changing playback', async ({
+  kiter,
+}) => {
+  const library = new LibraryPage(kiter.page)
+  await kiter.selectFolder(kiter.samples)
+  await library.openFolder()
+  await library
+    .row('kick.wav')
+    .getByRole('button', { name: 'Info: kick.wav', exact: true })
+    .click()
+  const inspector = kiter.page.getByRole('complementary', {
+    name: 'Sample info',
+  })
+  await inspector
+    .getByRole('button', { name: 'Suggest classifications' })
+    .click()
+  await expect(
+    inspector.getByRole('list', { name: 'Classification evidence' }),
+  ).toContainText('Kick')
+  await expect(
+    inspector.getByRole('heading', { name: 'Categories', exact: true }),
+  ).toBeVisible()
+  await expect(inspector).toContainText('Would create on acceptance')
+  await expect(inspector).toContainText('Cataloged location:')
+  await expect(inspector).toContainText('Matched clue: kick (name)')
+  await expect(kiter.page.locator('audio')).not.toHaveAttribute('src')
+  const categories = await kiter.page.evaluate(() =>
+    window.api.categories.list(),
+  )
+  expect(categories.ok).toBe(true)
+  if (categories.ok) {
+    expect(categories.data.total).toBe(0)
+  }
+  const invalid = await kiter.page.evaluate(() =>
+    window.api.classification.prepareSample({
+      sampleId: '/arbitrary/file.wav',
+    }),
+  )
+  expect(invalid).toMatchObject({ ok: false, error: { code: 'INVALID_INPUT' } })
+})
+
 test('history restores distinct Samples contexts and sidebar uses the latest destination context', async ({
   kiter,
 }) => {
@@ -296,7 +337,23 @@ test('compact inspector blocks covered regions, keeps the player available and c
   await close.focus()
   await kiter.page.keyboard.press('Tab')
   await expect(
+    inspector.getByRole('button', { name: 'Check vocabulary updates' }),
+  ).toBeFocused()
+  await kiter.page.keyboard.press('Tab')
+  await expect(
+    inspector.getByRole('button', { name: 'Suggest classifications' }),
+  ).toBeFocused()
+  await kiter.page.keyboard.press('Tab')
+  await expect(
     kiter.page.getByRole('button', { name: 'Stop', exact: true }),
+  ).toBeFocused()
+  await kiter.page.keyboard.press('Shift+Tab')
+  await expect(
+    inspector.getByRole('button', { name: 'Suggest classifications' }),
+  ).toBeFocused()
+  await kiter.page.keyboard.press('Shift+Tab')
+  await expect(
+    inspector.getByRole('button', { name: 'Check vocabulary updates' }),
   ).toBeFocused()
   await kiter.page.keyboard.press('Shift+Tab')
   await expect(close).toBeFocused()

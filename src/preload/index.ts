@@ -10,6 +10,14 @@ import {
 } from '@shared/ipc/library'
 import { requireIpcResult } from '@shared/ipc/result'
 import {
+  isAliasUpdatePage,
+  isAliasUpdateResult,
+} from '@shared/ipc/aliasUpdates'
+import {
+  CLASSIFICATION_CHANNELS,
+  isClassificationPreparationPage,
+} from '@shared/ipc/classification'
+import {
   CATEGORY_CHANNELS,
   isCategory,
   isCategoryPage,
@@ -17,6 +25,32 @@ import {
 
 // Custom APIs for renderer
 const api: Api = {
+  classification: {
+    listAliasUpdates: async (request = {}) =>
+      requireIpcResult(
+        await ipcRenderer.invoke(
+          CLASSIFICATION_CHANNELS.listAliasUpdates,
+          request,
+        ),
+        isAliasUpdatePage,
+      ),
+    incorporateAlias: async (request) =>
+      requireIpcResult(
+        await ipcRenderer.invoke(
+          CLASSIFICATION_CHANNELS.incorporateAlias,
+          request,
+        ),
+        isAliasUpdateResult,
+      ),
+    prepareSample: async (request) =>
+      requireIpcResult(
+        await ipcRenderer.invoke(
+          CLASSIFICATION_CHANNELS.prepareSample,
+          request,
+        ),
+        isClassificationPreparationPage,
+      ),
+  },
   categories: {
     list: async (request = {}) =>
       requireIpcResult(

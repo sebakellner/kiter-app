@@ -28,10 +28,13 @@ export interface Genre {
   name: string
 }
 
-export function recognitionTokens(text: string): string[] {
+export function recognitionTokens(text: string, splitCase = false): string[] {
+  const normalized = text.normalize('NFC')
   return (
-    text
-      .normalize('NFC')
+    (splitCase
+      ? normalized.replace(/(\p{Ll}\p{M}*)(\p{Lu})/gu, '$1 $2')
+      : normalized
+    )
       .toLowerCase()
       .replace(/[\s._-]+/gu, ' ')
       .match(/[\p{L}\p{M}\p{N}]+|[^\s\p{L}\p{M}\p{N}]/gu) ?? []

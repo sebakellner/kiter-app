@@ -5,12 +5,32 @@ import type {
 } from '../../protocol/recognition.ts'
 import * as genres from '../../operations/classification/genres.ts'
 import * as vocabulary from '../../operations/classification/vocabulary.ts'
+import {
+  listAliasUpdates,
+  incorporateAlias,
+} from '../../operations/classification/alias-updates.ts'
+import { prepareSampleClassification } from '../../operations/classification/preparation.ts'
 
 export function executeRecognition(
   db: AppDatabase,
   request: RecognitionRequest,
 ): RecognitionReply {
   switch (request.action) {
+    case 'list-alias-updates':
+      return {
+        action: request.action,
+        result: listAliasUpdates(db, request.input),
+      }
+    case 'incorporate-alias':
+      return {
+        action: request.action,
+        result: incorporateAlias(db, request.input),
+      }
+    case 'prepare-sample-classification':
+      return {
+        action: request.action,
+        result: prepareSampleClassification(db, request.input),
+      }
     case 'create-genre':
       return {
         action: request.action,

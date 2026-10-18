@@ -1,11 +1,13 @@
 import type { DialogApi } from './dialog.ts'
 import type { LibraryApi } from './library.ts'
 import type { CategoriesApi } from './categories.ts'
+import type { ClassificationApi } from './classification.ts'
 
 export interface Api {
   dialog: DialogApi
   library: LibraryApi
   categories: CategoriesApi
+  classification: ClassificationApi
 }
 export { DIALOG_CHANNELS } from './dialog.ts'
 export { LIBRARY_CHANNELS } from './library.ts'

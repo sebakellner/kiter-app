@@ -39,7 +39,7 @@ export type PathEvidence = {
   clue: string
   term: string
   rule: 'name' | 'alias'
-  ruleVersion: 'path-v1'
+  ruleVersion: 'path-v2'
   // Half-open token offsets within this component, not character offsets.
   span: readonly [number, number]
 }

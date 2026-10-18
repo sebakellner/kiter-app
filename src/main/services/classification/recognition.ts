@@ -47,7 +47,7 @@ function matchComponent(
     component.kind === 'filename'
       ? component.text.replace(/\.[^.]+$/u, '')
       : component.text
-  const words = tokens(text)
+  const words = tokens(text, true)
   const matches: Match[] = []
   for (const term of terms) {
     for (let start = 0; start <= words.length - term.tokens.length; start++) {
@@ -63,7 +63,7 @@ function matchComponent(
             clue: term.tokens.join(' '),
             term: term.text,
             rule: term.rule,
-            ruleVersion: 'path-v1',
+            ruleVersion: 'path-v2',
             span: [start, start + term.tokens.length],
           },
         })
@@ -84,16 +84,17 @@ export function createClassificationRecognizer(
   const seen = new Set<string>()
   for (const entry of entries) {
     for (const [index, text] of [entry.name, ...entry.aliases].entries()) {
-      const words = tokens(text)
-      const key = JSON.stringify([identity(entry.target), words])
-      if (words.length > 0 && !seen.has(key)) {
-        seen.add(key)
-        terms.push({
-          target: { ...entry.target },
-          tokens: words,
-          text,
-          rule: index === 0 ? 'name' : 'alias',
-        })
+      for (const words of [tokens(text), tokens(text, true)]) {
+        const key = JSON.stringify([identity(entry.target), words])
+        if (words.length > 0 && !seen.has(key)) {
+          seen.add(key)
+          terms.push({
+            target: { ...entry.target },
+            tokens: words,
+            text,
+            rule: index === 0 ? 'name' : 'alias',
+          })
+        }
       }
     }
   }

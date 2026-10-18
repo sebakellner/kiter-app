@@ -49,6 +49,7 @@ Sample-type dimension, not Categories.
 
 ### Initial Aliases
 
+- Category Drums: Drum.
 - Category Kick: Kicks, Bass Drum, Bass Drums, BD.
 - Category Snare: Snares.
 - Category Clap: Claps.
@@ -127,6 +128,12 @@ and equivalent separators should not produce redundant records.
 - Match complete words/phrases and explicit aliases. Do not infer unknown
   abbreviations, spelling corrections, or arbitrary substring matches.
 - Normalize Unicode to NFC and lowercase locale-independently; preserve accents.
+- Before lowercasing recognition text, separate lowercase-to-uppercase word
+  boundaries: `VintageDrums` recognizes Drums. Apply the same split to matched
+  names/aliases so explicit mixed-case aliases remain usable. Do not split
+  all-uppercase runs or letter/number boundaries. Stored alias uniqueness keys
+  retain their existing case-insensitive normalization; new recognition collisions
+  are reported as ambiguities rather than merging existing entries.
   Accent-free variants require aliases.
 - Spaces, hyphens, underscores, and dots are equivalent word separators. Exclude
   the audio filename extension. Do not automatically separate letters/numbers:
@@ -251,7 +258,9 @@ Genre evidence, and explicit ambiguous matches without reading or writing data.
   separators, Unicode letter/mark/number runs, and separate preserved punctuation
   tokens. Only the filename's final extension is removed. Letter/number boundaries
   are not split. Evidence includes normalized clue, matched name/alias, token span,
-  original component text, occurrence, and `path-v1` provenance.
+  original component text, occurrence, and `path-v2` provenance (case-boundary
+  splitting before lowercasing). Existing libraries use the new recognition rule
+  without inserting aliases or changing stored names/keys.
 - Most-specific phrases suppress contained matches within each component and
   Category/Genre dimension. Conflicting targets or partially overlapping phrases
   omit ambiguous matches; independent matches continue. Sample type uses filename
@@ -286,6 +295,47 @@ Genre evidence, and explicit ambiguous matches without reading or writing data.
 - Future vocabulary updates, voluntary incorporation UI, authoritative review
   snapshots, rejected-proposal memory, and confirmed assignment execution remain
   pending. The adapter is not a stale-safe preparation/execution token.
+
+### Implemented Single-Sample Preparation Preview
+
+- Samples/Favorites expose Suggest classifications in the selected Sample's
+  read-only inspector. It explicitly prepares one existing Sample and displays
+  proposals, existing assignments, required creation, and ambiguity explanations.
+  Changing selection or leaving the inspector discards this read-only preview.
+- `classification:prepare-sample` accepts a Sample UUID and bounded pagination,
+  never renderer paths or vocabulary. Main authorizes the window; the worker
+  reads source, registered root associations, vocabulary/aliases, assignments,
+  and origin Pack Genres in one read transaction and runs the pure recognizer.
+  No metadata, assignments, vocabulary, files, or rejection decisions are written.
+- Evidence uses cataloged paths, explicitly labeled as such, without asserting
+  current existence or audio access. Components include each eligible root and
+  descendants only, deduplicating physical occurrences across overlapping roots;
+  display-name overrides are not recognition clues. Unregistered roots contribute
+  no path evidence. Pack Genres contribute separately through current origin.
+- Output pages contain evidence rows, default 50 and maximum 100, with distinct
+  proposal/ambiguity counts. Multiple evidence rows may share a proposal key.
+  A SHA-256 read-state token is required beyond the first page; changed inputs
+  return `STALE_REVIEW` and require a new preparation. No retained preparations
+  or execution authorization are implied by this token.
+- This first preview caps root associations at 100 and vocabulary/alias reads at
+  10,000 each, failing explicitly rather than truncating recognition. These are
+  implementation limits, not measured large-library performance guarantees.
+- Multi-Sample scopes, retained staged decisions, Accept all, rejection memory,
+  and confirmed execution/recovery remain pending.
+
+### Explicit Alias Updates
+
+The Sample suggestions panel exposes Check vocabulary updates, with bounded
+pages of new supplied aliases and an individual Add alias action. Checking never
+writes data. Incorporation revalidates the displayed offer token transactionally,
+rejects conflicts/stale offers, and records the supplied alias identity without
+creating Categories/Genres or assignments. It clears the old preview and asks
+the user to prepare suggestions again.
+
+An alias is offered only when its supplied identity has never been incorporated;
+edited, reassigned, and deleted supplied aliases are not restored. Retired targets
+are excluded. Terms already in use appear blocked rather than being overwritten.
+This delivers alias additions only, not general vocabulary-update management.
 
 ### Remaining Workflow Delivery
 
