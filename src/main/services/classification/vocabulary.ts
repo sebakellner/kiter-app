@@ -3,7 +3,7 @@ import type { RecognitionEntry } from './recognition.types.ts'
 // Keys are stable vocabulary identities, independent of editable display names.
 export const initialRecognitionVocabulary: readonly RecognitionEntry[] = [
   ...[
-    ['drums', 'Drums'],
+    ['drums', 'Drums', 'Drum'],
     ['kick', 'Kick', 'Kicks', 'Bass Drum', 'Bass Drums', 'BD'],
     ['snare', 'Snare', 'Snares'],
     ['clap', 'Clap', 'Claps'],

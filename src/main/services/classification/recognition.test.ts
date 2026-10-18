@@ -59,7 +59,7 @@ test('recognizes scoped path components with exact evidence and no implied class
         clue: 'kicks',
         term: 'Kicks',
         rule: 'alias',
-        ruleVersion: 'path-v1',
+        ruleVersion: 'path-v2',
         span: [0, 1],
       },
       {
@@ -71,7 +71,7 @@ test('recognizes scoped path components with exact evidence and no implied class
         clue: 'kick',
         term: 'Kick',
         rule: 'name',
-        ruleVersion: 'path-v1',
+        ruleVersion: 'path-v2',
         span: [0, 1],
       },
     ],
@@ -81,6 +81,49 @@ test('recognizes scoped path components with exact evidence and no implied class
       recognize({ kind: 'sample', components: [component('piano_808.wav')] }),
     ),
     ['category:808', 'category:piano'],
+  )
+})
+
+test('Vintage Drum Breaks recognizes Drums and Loop from explicit folder clues', () => {
+  const result = recognize({
+    kind: 'sample',
+    components: [
+      component('Touch.Loops.Vintage.Drum.Breaks', 'root', 4),
+      component('Touch_Loops_Vintage_Drum_Breaks_SAMPLE_PACK', 'folder', 3),
+      component('_(WAVs)_Loops', 'folder', 2),
+      component('_(WAVs)_(100BPM)', 'folder', 1),
+      component('100_VintageDrums_05_TL.wav'),
+    ],
+  })
+  assert.deepEqual(keys(result), ['category:drums', 'loop'])
+  assert.deepEqual(result.ambiguities, [])
+  const evidence = result.proposals.find(
+    ({ target }) => target.key === 'category:drums',
+  )!.evidence
+  assert.equal(evidence.length, 3)
+  for (const clue of evidence.slice(0, 2)) {
+    assert.equal(clue.kind, 'path')
+    if (clue.kind === 'path') {
+      assert.equal(clue.term, 'Drum')
+      assert.equal(clue.rule, 'alias')
+      assert.equal(clue.clue, 'drum')
+    }
+  }
+  for (const text of ['drummer.wav', 'drumroll.wav']) {
+    assert.deepEqual(
+      keys(recognize({ kind: 'sample', components: [component(text)] })),
+      [],
+      text,
+    )
+  }
+  assert.deepEqual(
+    keys(
+      recognize({
+        kind: 'sample',
+        components: [component('100_VintageDrums_05_TL.wav')],
+      }),
+    ),
+    ['category:drums'],
   )
 })
 
@@ -132,6 +175,7 @@ test('recognition preserves accents, symbols and letter-number boundaries while 
       ],
     ],
     ['kick01_snarecrow_housing.wav', []],
+    ['hiphop_rnb.wav', ['genre:hip-hop', 'genre:r-and-b']],
     ['E\u0301TE\u0301.wav', ['custom']],
     ['ete.wav', []],
     ['kick.wav', ['category:kick']],
@@ -257,7 +301,7 @@ test('Pack recognition uses only roots; Sample evidence deduplicates overlapping
     clue: 'house',
     term: 'House',
     rule: 'name',
-    ruleVersion: 'path-v1',
+    ruleVersion: 'path-v2',
     span: [0, 1],
   })
   assert.deepEqual(

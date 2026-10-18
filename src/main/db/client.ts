@@ -82,6 +82,15 @@ import { isSampleRequest } from './protocol/samples'
 import type { AssetRequest } from './protocol/assets'
 import { isAssetRequest } from './protocol/assets'
 import type {
+  AliasUpdate,
+  AliasUpdateRequest,
+} from '../../shared/ipc/aliasUpdates'
+import type { PageRequest } from '../../shared/domain/pagination'
+import type {
+  ClassificationPreparationRequest,
+  ClassificationPreparationPage,
+} from '../../shared/ipc/classification'
+import type {
   RecognitionRequest,
   RecognitionReply,
 } from './protocol/recognition'
@@ -104,6 +113,38 @@ import type {
 const UNEXPECTED_REPLY_MESSAGE = 'Unexpected database response'
 
 export class DbClient {
+  async listAliasUpdates(input: PageRequest = {}): Promise<Page<AliasUpdate>> {
+    const reply = await this.recognitionRequest({
+      action: 'list-alias-updates',
+      input,
+    })
+    if (reply.action !== 'list-alias-updates') {
+      throw new Error(UNEXPECTED_REPLY_MESSAGE)
+    }
+    return reply.result
+  }
+  async incorporateAlias(input: AliasUpdateRequest): Promise<{ key: string }> {
+    const reply = await this.recognitionRequest({
+      action: 'incorporate-alias',
+      input,
+    })
+    if (reply.action !== 'incorporate-alias') {
+      throw new Error(UNEXPECTED_REPLY_MESSAGE)
+    }
+    return reply.result
+  }
+  async prepareSampleClassification(
+    input: ClassificationPreparationRequest,
+  ): Promise<ClassificationPreparationPage> {
+    const reply = await this.recognitionRequest({
+      action: 'prepare-sample-classification',
+      input,
+    })
+    if (reply.action !== 'prepare-sample-classification') {
+      throw new Error(UNEXPECTED_REPLY_MESSAGE)
+    }
+    return reply.result
+  }
   private async recognitionRequest(
     request: RecognitionRequest,
   ): Promise<RecognitionReply> {

@@ -19,8 +19,33 @@ import type {
   VocabularyEntry,
 } from '../../../shared/domain/recognition.ts'
 import { isPage, isToken } from './validation.ts'
+import { requirePage } from '../../../shared/domain/pagination.ts'
+import {
+  requireAliasUpdateRequest,
+  isAliasUpdatePage,
+  isAliasUpdateResult,
+} from '../../../shared/ipc/aliasUpdates.ts'
+import type {
+  AliasUpdate,
+  AliasUpdateRequest,
+} from '../../../shared/ipc/aliasUpdates.ts'
+import type { PageRequest } from '../../../shared/domain/pagination.ts'
+import {
+  requireClassificationPreparationRequest,
+  isClassificationPreparationPage,
+} from '../../../shared/ipc/classification.ts'
+import type {
+  ClassificationPreparationRequest,
+  ClassificationPreparationPage,
+} from '../../../shared/ipc/classification.ts'
 
 export type RecognitionRequest =
+  | { action: 'list-alias-updates'; input: PageRequest }
+  | { action: 'incorporate-alias'; input: AliasUpdateRequest }
+  | {
+      action: 'prepare-sample-classification'
+      input: ClassificationPreparationRequest
+    }
   | { action: 'create-genre'; input: { name: string } }
   | { action: 'rename-genre'; input: { id: string; name: string } }
   | { action: 'get-genre' | 'review-genre-removal'; id: string }
@@ -42,6 +67,12 @@ export type RecognitionRequest =
   | { action: 'remove-recognition-alias'; id: string }
 
 export type RecognitionReply =
+  | { action: 'list-alias-updates'; result: Page<AliasUpdate> }
+  | { action: 'incorporate-alias'; result: { key: string } }
+  | {
+      action: 'prepare-sample-classification'
+      result: ClassificationPreparationPage
+    }
   | { action: 'create-genre' | 'rename-genre' | 'get-genre'; result: Genre }
   | { action: 'list-genres' | 'list-target-genres'; result: Page<Genre> }
   | { action: 'review-genre-removal'; result: ClassificationRemovalReview }
@@ -63,6 +94,15 @@ export function isRecognitionRequest(
   const input = value.input
   try {
     switch (value.action) {
+      case 'list-alias-updates':
+        requirePage(input)
+        return true
+      case 'incorporate-alias':
+        requireAliasUpdateRequest(input)
+        return true
+      case 'prepare-sample-classification':
+        requireClassificationPreparationRequest(input)
+        return true
       case 'create-genre':
       case 'rename-genre':
         if (!isRecord(input)) {
@@ -154,6 +194,12 @@ export function isRecognitionReply(value: unknown): value is RecognitionReply {
   }
   const result = value.result
   switch (value.action) {
+    case 'list-alias-updates':
+      return isAliasUpdatePage(result)
+    case 'incorporate-alias':
+      return isAliasUpdateResult(result)
+    case 'prepare-sample-classification':
+      return isClassificationPreparationPage(result)
     case 'create-genre':
     case 'rename-genre':
     case 'get-genre':

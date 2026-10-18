@@ -2,6 +2,17 @@ import { vi } from 'vitest'
 import type { Api } from '../../../src/shared/ipc/index.ts'
 
 export function createTestApi(): {
+  classification: {
+    listAliasUpdates: ReturnType<
+      typeof vi.fn<Api['classification']['listAliasUpdates']>
+    >
+    incorporateAlias: ReturnType<
+      typeof vi.fn<Api['classification']['incorporateAlias']>
+    >
+    prepareSample: ReturnType<
+      typeof vi.fn<Api['classification']['prepareSample']>
+    >
+  }
   dialog: { openFolder: ReturnType<typeof vi.fn<Api['dialog']['openFolder']>> }
   categories: {
     list: ReturnType<typeof vi.fn<Api['categories']['list']>>
@@ -17,6 +28,11 @@ export function createTestApi(): {
   }
 } {
   return {
+    classification: {
+      listAliasUpdates: vi.fn<Api['classification']['listAliasUpdates']>(),
+      incorporateAlias: vi.fn<Api['classification']['incorporateAlias']>(),
+      prepareSample: vi.fn<Api['classification']['prepareSample']>(),
+    },
     dialog: { openFolder: vi.fn<Api['dialog']['openFolder']>() },
     categories: {
       list: vi.fn<Api['categories']['list']>(),
