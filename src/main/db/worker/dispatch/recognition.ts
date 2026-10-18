@@ -5,6 +5,7 @@ import type {
 } from '../../protocol/recognition.ts'
 import * as genres from '../../operations/classification/genres.ts'
 import * as vocabulary from '../../operations/classification/vocabulary.ts'
+import { applySampleClassification } from '../../operations/classification/apply.ts'
 import {
   listAliasUpdates,
   incorporateAlias,
@@ -16,6 +17,11 @@ export function executeRecognition(
   request: RecognitionRequest,
 ): RecognitionReply {
   switch (request.action) {
+    case 'apply-sample-classification':
+      return {
+        action: request.action,
+        result: applySampleClassification(db, request.input),
+      }
     case 'list-alias-updates':
       return {
         action: request.action,

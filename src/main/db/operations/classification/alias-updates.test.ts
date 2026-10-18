@@ -20,7 +20,7 @@ test('explicit alias updates fix singular Drum evidence and survive reopen witho
   const [sample] = importFolder(db, root, [
     makeDiscoveredAudioFile(
       root,
-      'Samplephonics - Vintage Drum Breaks Vol.1/VintageDrumBreaks1_Acid_SP/100 bpm/100_001_Mic1_TG1_SP.wav',
+      'Vintage Drum Vol.1/100 bpm/100_001_Mic1_TG1_SP.wav',
     ),
   ])
   assert.equal(

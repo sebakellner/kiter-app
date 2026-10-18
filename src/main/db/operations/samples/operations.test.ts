@@ -203,6 +203,7 @@ test('Sample removal checks exact impact, rolls back failures and excludes acros
     favorite: false,
     packId: null,
     originAssignment: 'manual',
+    sampleType: null,
   })
   assert.equal(operations.listExcludedSources(db).total, 0)
   assert.equal(importFolder(db, root, [file])[0].id, reincluded.id)
@@ -372,6 +373,7 @@ test('Sample worker protocol validates requests and reply shapes', () => {
     id,
     displayName: null,
     notes: null,
+    sampleType: null,
     favorite: false,
     packId: null,
     originAssignment: 'manual',

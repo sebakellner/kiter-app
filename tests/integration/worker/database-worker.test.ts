@@ -384,6 +384,7 @@ test(
         favorite: false,
         packId: null,
         originAssignment: 'manual',
+        sampleType: null,
       })
       await restart()
       assert.deepEqual(

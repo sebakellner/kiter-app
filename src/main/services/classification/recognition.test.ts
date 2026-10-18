@@ -95,7 +95,11 @@ test('Vintage Drum Breaks recognizes Drums and Loop from explicit folder clues',
       component('100_VintageDrums_05_TL.wav'),
     ],
   })
-  assert.deepEqual(keys(result), ['category:drums', 'loop'])
+  assert.deepEqual(keys(result), [
+    'category:drum-breaks',
+    'category:drums',
+    'loop',
+  ])
   assert.deepEqual(result.ambiguities, [])
   const evidence = result.proposals.find(
     ({ target }) => target.key === 'category:drums',
@@ -104,9 +108,9 @@ test('Vintage Drum Breaks recognizes Drums and Loop from explicit folder clues',
   for (const clue of evidence.slice(0, 2)) {
     assert.equal(clue.kind, 'path')
     if (clue.kind === 'path') {
-      assert.equal(clue.term, 'Drum')
+      assert.equal(clue.term, 'Drum Breaks')
       assert.equal(clue.rule, 'alias')
-      assert.equal(clue.clue, 'drum')
+      assert.equal(clue.clue, 'drum breaks')
     }
   }
   for (const text of ['drummer.wav', 'drumroll.wav']) {
@@ -132,7 +136,7 @@ test('initial vocabulary has stable distinct keys and the approved dimensions', 
     initialRecognitionVocabulary.filter(
       ({ target }) => target.dimension === 'category',
     ).length,
-    25,
+    26,
   )
   assert.equal(
     initialRecognitionVocabulary.filter(
@@ -148,7 +152,74 @@ test('initial vocabulary has stable distinct keys and the approved dimensions', 
   )
   assert.equal(
     new Set(initialRecognitionVocabulary.map(({ target }) => target.key)).size,
-    53,
+    54,
+  )
+})
+
+test('Drum Break phrases propose both Categories without implying Loop or a Genre', () => {
+  for (const text of [
+    'drum_break.wav',
+    'VintageDrumBreaks.wav',
+    'Drum.Breaks',
+  ]) {
+    const result = recognize({
+      kind: 'sample',
+      components: [component(text, 'folder', 1)],
+    })
+    assert.deepEqual(
+      keys(result),
+      ['category:drum-breaks', 'category:drums'],
+      text,
+    )
+    assert.deepEqual(result.ambiguities, [])
+  }
+  assert.deepEqual(
+    keys(
+      recognize({
+        kind: 'sample',
+        components: [component('drum_break_loop.wav')],
+      }),
+    ),
+    ['category:drum-breaks', 'category:drums', 'loop'],
+  )
+  assert.deepEqual(
+    keys(
+      recognize({
+        kind: 'sample',
+        components: [component('drum_breaks1.wav')],
+      }),
+    ),
+    ['category:drums'],
+  )
+  const withoutDrums = createClassificationRecognizer(
+    initialRecognitionVocabulary.filter(
+      (entry) => entry.target.key !== 'category:drums',
+    ),
+  )
+  assert.deepEqual(
+    keys(
+      withoutDrums({
+        kind: 'sample',
+        components: [component('drum_break.wav')],
+      }),
+    ),
+    ['category:drum-breaks'],
+  )
+  const edited = createClassificationRecognizer(
+    initialRecognitionVocabulary.map((entry) =>
+      entry.target.key === 'category:drum-breaks'
+        ? { ...entry, name: 'Rhythmic Phrase', aliases: [] }
+        : entry,
+    ),
+  )
+  assert.deepEqual(
+    keys(
+      edited({
+        kind: 'sample',
+        components: [component('rhythmic_phrase.wav')],
+      }),
+    ),
+    ['category:drum-breaks'],
   )
 })
 

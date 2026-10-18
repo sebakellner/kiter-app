@@ -2,6 +2,7 @@ import { ipcMain } from 'electron'
 import {
   CLASSIFICATION_CHANNELS,
   requireClassificationPreparationRequest,
+  requireClassificationApplyRequest,
 } from '../../shared/ipc/classification'
 import type { DbClient } from '../db'
 import { requireMainFrameWindow } from './authorize'
@@ -10,6 +11,24 @@ import { requirePage } from '../../shared/domain/pagination'
 import { requireAliasUpdateRequest } from '../../shared/ipc/aliasUpdates'
 
 export function registerClassificationIpc(database: DbClient): void {
+  ipcMain.handle(
+    CLASSIFICATION_CHANNELS.applySample,
+    (event, request: unknown) =>
+      invokeResult(
+        'classification.applySample',
+        {
+          code: 'STORAGE_FAILED',
+          message:
+            'Unable to apply suggestions. Refresh to check the saved classifications.',
+        },
+        () => {
+          requireMainFrameWindow(event)
+          return database.applySampleClassification(
+            requireClassificationApplyRequest(request),
+          )
+        },
+      ),
+  )
   ipcMain.handle(
     CLASSIFICATION_CHANNELS.listAliasUpdates,
     (event, request: unknown) =>

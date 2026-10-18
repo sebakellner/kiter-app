@@ -126,6 +126,9 @@ function isSample(value: unknown): boolean {
       isEntityId(value.id) &&
       value.displayName === requireSampleDisplayName(value.displayName) &&
       value.notes === requireSampleNotes(value.notes) &&
+      (value.sampleType === null ||
+        value.sampleType === 'loop' ||
+        value.sampleType === 'one-shot') &&
       typeof value.favorite === 'boolean' &&
       (value.packId === null || isEntityId(value.packId)) &&
       (value.originAssignment === 'automatic' ||

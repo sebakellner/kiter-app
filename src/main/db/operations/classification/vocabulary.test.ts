@@ -26,7 +26,7 @@ test('fresh vocabulary seeds Genres but no Categories, with stable mappings and 
   assert.equal(genres.listGenres(db).total, 26)
   assert.equal(categories.listCategories(db).total, 0)
   const entries = vocabulary.listRecognitionVocabulary(db, { limit: 100 })
-  assert.equal(entries.total, 53)
+  assert.equal(entries.total, 54)
   assert.equal(
     entries.items.filter((item) => item.dimension === 'genre' && item.entityId)
       .length,

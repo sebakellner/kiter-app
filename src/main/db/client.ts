@@ -81,6 +81,7 @@ import type { SampleRequest } from './protocol/samples'
 import { isSampleRequest } from './protocol/samples'
 import type { AssetRequest } from './protocol/assets'
 import { isAssetRequest } from './protocol/assets'
+import type { ClassificationApplyRequest } from '../../shared/ipc/classification'
 import type {
   AliasUpdate,
   AliasUpdateRequest,
@@ -113,6 +114,18 @@ import type {
 const UNEXPECTED_REPLY_MESSAGE = 'Unexpected database response'
 
 export class DbClient {
+  async applySampleClassification(
+    input: ClassificationApplyRequest,
+  ): Promise<{ sampleId: string }> {
+    const reply = await this.recognitionRequest({
+      action: 'apply-sample-classification',
+      input,
+    })
+    if (reply.action !== 'apply-sample-classification') {
+      throw new Error(UNEXPECTED_REPLY_MESSAGE)
+    }
+    return reply.result
+  }
   async listAliasUpdates(input: PageRequest = {}): Promise<Page<AliasUpdate>> {
     const reply = await this.recognitionRequest({
       action: 'list-alias-updates',

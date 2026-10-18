@@ -19,6 +19,11 @@ import type {
   VocabularyEntry,
 } from '../../../shared/domain/recognition.ts'
 import { isPage, isToken } from './validation.ts'
+import {
+  requireClassificationApplyRequest,
+  isClassificationApplyResult,
+} from '../../../shared/ipc/classification.ts'
+import type { ClassificationApplyRequest } from '../../../shared/ipc/classification.ts'
 import { requirePage } from '../../../shared/domain/pagination.ts'
 import {
   requireAliasUpdateRequest,
@@ -40,6 +45,7 @@ import type {
 } from '../../../shared/ipc/classification.ts'
 
 export type RecognitionRequest =
+  | { action: 'apply-sample-classification'; input: ClassificationApplyRequest }
   | { action: 'list-alias-updates'; input: PageRequest }
   | { action: 'incorporate-alias'; input: AliasUpdateRequest }
   | {
@@ -67,6 +73,7 @@ export type RecognitionRequest =
   | { action: 'remove-recognition-alias'; id: string }
 
 export type RecognitionReply =
+  | { action: 'apply-sample-classification'; result: { sampleId: string } }
   | { action: 'list-alias-updates'; result: Page<AliasUpdate> }
   | { action: 'incorporate-alias'; result: { key: string } }
   | {
@@ -94,6 +101,9 @@ export function isRecognitionRequest(
   const input = value.input
   try {
     switch (value.action) {
+      case 'apply-sample-classification':
+        requireClassificationApplyRequest(input)
+        return true
       case 'list-alias-updates':
         requirePage(input)
         return true
@@ -194,6 +204,8 @@ export function isRecognitionReply(value: unknown): value is RecognitionReply {
   }
   const result = value.result
   switch (value.action) {
+    case 'apply-sample-classification':
+      return isClassificationApplyResult(result)
     case 'list-alias-updates':
       return isAliasUpdatePage(result)
     case 'incorporate-alias':

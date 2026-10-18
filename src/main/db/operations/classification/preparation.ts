@@ -159,6 +159,15 @@ export function prepareSampleClassification(
           : []
       }),
     })
+    // A confirmed Sample type is preserved; replacements need a separate explicit
+    // change workflow and are never included in one-click Apply all.
+    if (sample.samples.sampleType !== null) {
+      result.proposals = result.proposals.filter(
+        (proposal) =>
+          proposal.target.dimension !== 'sample-type' ||
+          proposal.target.key === sample.samples.sampleType,
+      )
+    }
     const token = createHash('sha256')
       .update(
         JSON.stringify({
@@ -180,6 +189,7 @@ export function prepareSampleClassification(
       )
     }
     const items: ClassificationPreparationItem[] = []
+    const savedType = sample.samples.sampleType
     function targetFields(
       key: string,
     ): Pick<
@@ -191,8 +201,9 @@ export function prepareSampleClassification(
       const alreadyAssigned =
         entry.dimension === 'category'
           ? assignedCategories.some((row) => row.categoryId === entityId)
-          : entry.dimension === 'genre' &&
-            assignedGenres.some((row) => row.genreId === entityId)
+          : entry.dimension === 'genre'
+            ? assignedGenres.some((row) => row.genreId === entityId)
+            : entry.key === savedType
       return {
         key,
         name: entry.name,
@@ -233,6 +244,20 @@ export function prepareSampleClassification(
             reason: ambiguity.reason,
           })
         }
+      }
+    }
+    for (const entry of vocabulary) {
+      const fields = targetFields(entry.key)
+      if (entry.state !== 'deleted' && fields.alreadyAssigned) {
+        items.push({
+          kind: 'assigned',
+          dimension: entry.dimension,
+          ...fields,
+          evidence: 'Saved classification',
+          clue: '',
+          rule: 'name',
+          reason: null,
+        })
       }
     }
     return {

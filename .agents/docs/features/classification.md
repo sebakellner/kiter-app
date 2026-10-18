@@ -39,7 +39,7 @@ libraries receive offered vocabulary without automatic Genre creation.
 
 ### Category Recognition Terms
 
-The approved 25 independent terms are Drums, Kick, Snare, Clap, Hi-Hat, Cymbal,
+The approved 26 independent terms are Drums, Drum Breaks, Kick, Snare, Clap, Hi-Hat, Cymbal,
 Tom, Percussion, Bass, 808, Synth, Lead, Pad, Keys, Piano, Organ, Guitar, Strings,
 Brass, Woodwinds, Vocals, FX, Riser, Impact, and Texture.
 
@@ -50,6 +50,7 @@ Sample-type dimension, not Categories.
 ### Initial Aliases
 
 - Category Drums: Drum.
+- Category Drum Breaks: Drum Break.
 - Category Kick: Kicks, Bass Drum, Bass Drums, BD.
 - Category Snare: Snares.
 - Category Clap: Claps.
@@ -145,6 +146,13 @@ and equivalent separators should not produce redundant records.
 - Within a dimension, prefer the most specific phrase over fully contained
   matches in the same span. `tech_house_kick.wav` suggests Tech House and Kick,
   not House unless independently supported. This is not Genre hierarchy.
+- Explicit exception: an unambiguous supplied Drum Break/Drum Breaks phrase
+  proposes both Drum Breaks and Drums, with the same phrase as evidence. The
+  companion Drums proposal requires its vocabulary target to remain available;
+  this is not a hierarchy or inheritance rule. Renamed terms/custom aliases do
+  not imply Drums unless they still match that explicit phrase. Loop and Genres
+  require independent evidence. Letter/number boundaries remain intact, so
+  `Breaks1` alone does not match `Breaks`.
 - Different path components do not override one another for Category/Genre:
   `Snares/kick_01.wav` may suggest both, each with evidence, for user review.
 
@@ -301,7 +309,8 @@ Genre evidence, and explicit ambiguous matches without reading or writing data.
 - Samples/Favorites expose Suggest classifications in the selected Sample's
   read-only inspector. It explicitly prepares one existing Sample and displays
   proposals, existing assignments, required creation, and ambiguity explanations.
-  Changing selection or leaving the inspector discards this read-only preview.
+  Session review retention and staged choices follow the implemented review slice
+  below.
 - `classification:prepare-sample` accepts a Sample UUID and bounded pagination,
   never renderer paths or vocabulary. Main authorizes the window; the worker
   reads source, registered root associations, vocabulary/aliases, assignments,
@@ -320,17 +329,45 @@ Genre evidence, and explicit ambiguous matches without reading or writing data.
 - This first preview caps root associations at 100 and vocabulary/alias reads at
   10,000 each, failing explicitly rather than truncating recognition. These are
   implementation limits, not measured large-library performance guarantees.
-- Multi-Sample scopes, retained staged decisions, Accept all, rejection memory,
-  and confirmed execution/recovery remain pending.
+- Multi-Sample scopes, rejection memory, and confirmed execution/recovery remain
+  pending.
+
+### Direct Single-Sample Suggestions — Adopted Simplified Workflow
+
+This replaces the staged single-Sample review prototype. Batch/import review and
+rejection-memory contracts elsewhere in this guide remain future workflows.
+
+- Opening a selected Sample's inspector automatically loads suggestions and saved
+  classifications. Show grouped Badges under Categories, Genres and Sample type;
+  evidence is collapsed under Why these suggestions? by default.
+- Apply (+) saves one proposal immediately. Apply all saves every displayed
+  actionable suggestion for this Sample; show required vocabulary creation inline.
+  Ambiguities and existing assignments are excluded. Ignoring suggestions writes
+  nothing. No Accept/Reject drafts, counters, extra confirmation, or review store.
+- `classification:apply-sample` accepts Sample identity, current read-state token,
+  and explicit proposal keys (maximum 100). An immediate worker transaction
+  revalidates the complete scope, creates necessary vocabulary, and saves all
+  selected assignments/type together or rolls everything back. Forged, missing,
+  stale, and already-applied proposals cannot silently execute.
+- This is an immediate short metadata action, outside the confirmed batch queue.
+  No persistent preparation/history/restart continuation is promised. After an
+  uncertain response or failure refresh saved data; never blindly replay a write.
+  Source audio, Sample identity, Favorites and existing organization are preserved.
+- Sample type is persisted with an additive nullable constrained column. Once
+  assigned, differing automatic types are not offered by this short workflow;
+  explicit replacement requires a future change-type interaction.
+- Renderer reads bounded evidence pages (maximum 2,000 rows) under one token,
+  groups duplicate proposals, and disables writes during loading, saving or errors.
+  Successful writes refresh saved classifications. Reopening queries current data.
 
 ### Explicit Alias Updates
 
-The Sample suggestions panel exposes Check vocabulary updates, with bounded
+Categories exposes Check vocabulary updates separately from the Sample inspector, with bounded
 pages of new supplied aliases and an individual Add alias action. Checking never
 writes data. Incorporation revalidates the displayed offer token transactionally,
 rejects conflicts/stale offers, and records the supplied alias identity without
-creating Categories/Genres or assignments. It clears the old preview and asks
-the user to prepare suggestions again.
+creating Categories/Genres or assignments. Reopening Sample Info uses the updated
+vocabulary automatically.
 
 An alias is offered only when its supplied identity has never been incorporated;
 edited, reassigned, and deleted supplied aliases are not restored. Retired targets

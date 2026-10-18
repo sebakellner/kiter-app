@@ -4,7 +4,7 @@ import { writeFile, rename, realpath } from 'node:fs/promises'
 import path from 'node:path'
 import { createWav } from '../support/fixtures/wav.mjs'
 
-test('Sample classification previews path evidence without creating Categories or changing playback', async ({
+test('Sample classification suggests automatically and persists explicit application without changing playback', async ({
   kiter,
 }) => {
   const library = new LibraryPage(kiter.page)
@@ -17,25 +17,41 @@ test('Sample classification previews path evidence without creating Categories o
   const inspector = kiter.page.getByRole('complementary', {
     name: 'Sample info',
   })
-  await inspector
-    .getByRole('button', { name: 'Suggest classifications' })
-    .click()
+  await expect(
+    inspector.getByRole('button', { name: 'Apply Kick', exact: true }),
+  ).toBeEnabled()
+  await inspector.getByText('Why these suggestions?', { exact: true }).click()
   await expect(
     inspector.getByRole('list', { name: 'Classification evidence' }),
   ).toContainText('Kick')
   await expect(
     inspector.getByRole('heading', { name: 'Categories', exact: true }),
   ).toBeVisible()
-  await expect(inspector).toContainText('Would create on acceptance')
+  await expect(inspector).toContainText('Creates Kick when applied.')
   await expect(inspector).toContainText('Cataloged location:')
   await expect(inspector).toContainText('Matched clue: kick (name)')
+  await inspector
+    .getByRole('button', { name: 'Apply Kick', exact: true })
+    .click()
+  await expect(inspector).toContainText('Classifications saved.')
+  await expect(
+    inspector.getByRole('button', { name: 'Apply Kick', exact: true }),
+  ).toHaveCount(0)
+  await inspector.getByRole('button', { name: 'Close inspector' }).click()
+  await library
+    .row('kick.wav')
+    .getByRole('button', { name: 'Info: kick.wav', exact: true })
+    .click()
+  await expect(
+    inspector.getByRole('region', { name: 'category', exact: true }),
+  ).toContainText('Kick')
   await expect(kiter.page.locator('audio')).not.toHaveAttribute('src')
   const categories = await kiter.page.evaluate(() =>
     window.api.categories.list(),
   )
   expect(categories.ok).toBe(true)
   if (categories.ok) {
-    expect(categories.data.total).toBe(0)
+    expect(categories.data.total).toBe(1)
   }
   const invalid = await kiter.page.evaluate(() =>
     window.api.classification.prepareSample({
@@ -335,13 +351,16 @@ test('compact inspector blocks covered regions, keeps the player available and c
     kiter.page.getByRole('button', { name: 'Stop', exact: true }),
   ).toBeFocused()
   await close.focus()
+  await expect(
+    inspector.getByRole('button', { name: 'Apply Snare', exact: true }),
+  ).toBeEnabled()
   await kiter.page.keyboard.press('Tab')
   await expect(
-    inspector.getByRole('button', { name: 'Check vocabulary updates' }),
+    inspector.getByRole('button', { name: 'Apply Snare', exact: true }),
   ).toBeFocused()
   await kiter.page.keyboard.press('Tab')
   await expect(
-    inspector.getByRole('button', { name: 'Suggest classifications' }),
+    inspector.getByText('Why these suggestions?', { exact: true }),
   ).toBeFocused()
   await kiter.page.keyboard.press('Tab')
   await expect(
@@ -349,11 +368,11 @@ test('compact inspector blocks covered regions, keeps the player available and c
   ).toBeFocused()
   await kiter.page.keyboard.press('Shift+Tab')
   await expect(
-    inspector.getByRole('button', { name: 'Suggest classifications' }),
+    inspector.getByText('Why these suggestions?', { exact: true }),
   ).toBeFocused()
   await kiter.page.keyboard.press('Shift+Tab')
   await expect(
-    inspector.getByRole('button', { name: 'Check vocabulary updates' }),
+    inspector.getByRole('button', { name: 'Apply Snare', exact: true }),
   ).toBeFocused()
   await kiter.page.keyboard.press('Shift+Tab')
   await expect(close).toBeFocused()

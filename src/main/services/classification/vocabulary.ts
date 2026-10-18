@@ -4,6 +4,7 @@ import type { RecognitionEntry } from './recognition.types.ts'
 export const initialRecognitionVocabulary: readonly RecognitionEntry[] = [
   ...[
     ['drums', 'Drums', 'Drum'],
+    ['drum-breaks', 'Drum Breaks', 'Drum Break'],
     ['kick', 'Kick', 'Kicks', 'Bass Drum', 'Bass Drums', 'BD'],
     ['snare', 'Snare', 'Snares'],
     ['clap', 'Clap', 'Claps'],

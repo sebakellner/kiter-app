@@ -65,7 +65,7 @@ export function useInspectorPanel(
       }
       const controls = Array.from(
         document.querySelectorAll<HTMLElement>(
-          '#sample-inspector button:not(:disabled), [aria-label="Global player"] button:not(:disabled), [aria-label="Global player"] audio',
+          '#sample-inspector button:not(:disabled), #sample-inspector summary, [aria-label="Global player"] button:not(:disabled), [aria-label="Global player"] audio',
         ),
       )
       if (controls.length === 0) {

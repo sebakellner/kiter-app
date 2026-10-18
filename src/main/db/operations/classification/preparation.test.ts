@@ -126,26 +126,28 @@ test('VintageDrums is recognized with existing vocabulary and Drum adds folder e
     ),
   ])
   const before = prepareSampleClassification(db, { sampleId: sample.id })
-  assert.equal(before.proposalCount, 2)
+  assert.equal(before.proposalCount, 3)
   assert.deepEqual(
     [...new Set(before.items.map((item) => item.name))],
-    ['Drums', 'Loop'],
+    ['Drum Breaks', 'Drums', 'Loop'],
   )
   writeRecognitionAlias(db, { targetKey: 'category:drums', term: 'Drum' })
   const after = prepareSampleClassification(db, { sampleId: sample.id })
-  assert.equal(after.proposalCount, 2)
+  assert.equal(after.proposalCount, 3)
   assert.equal(after.ambiguityCount, 0)
   const drums = after.items.filter((item) => item.key === 'category:drums')
   assert.equal(drums.length, 3)
   assert.ok(
     drums
-      .filter((item) => item.clue === 'drum')
+      .filter((item) => item.clue === 'drum breaks')
       .every(
         (item) =>
-          item.clue === 'drum' && item.rule === 'alias' && item.needsCreation,
+          item.clue === 'drum breaks' &&
+          item.rule === 'alias' &&
+          item.needsCreation,
       ),
   )
-  assert.equal(drums.filter((item) => item.clue === 'drum').length, 2)
+  assert.equal(drums.filter((item) => item.clue === 'drum breaks').length, 2)
   assert.ok(drums.some((item) => item.clue === 'drums' && item.rule === 'name'))
   assert.throws(
     () =>

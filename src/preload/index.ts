@@ -16,6 +16,7 @@ import {
 import {
   CLASSIFICATION_CHANNELS,
   isClassificationPreparationPage,
+  isClassificationApplyResult,
 } from '@shared/ipc/classification'
 import {
   CATEGORY_CHANNELS,
@@ -26,6 +27,11 @@ import {
 // Custom APIs for renderer
 const api: Api = {
   classification: {
+    applySample: async (request) =>
+      requireIpcResult(
+        await ipcRenderer.invoke(CLASSIFICATION_CHANNELS.applySample, request),
+        isClassificationApplyResult,
+      ),
     listAliasUpdates: async (request = {}) =>
       requireIpcResult(
         await ipcRenderer.invoke(

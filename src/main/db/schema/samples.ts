@@ -17,6 +17,7 @@ export const samples = sqliteTable(
     id: text('id').primaryKey().notNull(),
     displayName: text('display_name'),
     notes: text('notes'),
+    sampleType: text('sample_type', { enum: ['loop', 'one-shot'] }),
     favorite: integer('favorite', { mode: 'boolean' }).notNull().default(false),
     packId: text('pack_id').references(() => packs.id, {
       onDelete: 'set null',
@@ -33,6 +34,10 @@ export const samples = sqliteTable(
       sql`${table.displayName} IS NULL OR length(trim(${table.displayName})) > 0`,
     ),
     check('sample_favorite', sql`${table.favorite} IN (0, 1)`),
+    check(
+      'sample_type',
+      sql`${table.sampleType} IS NULL OR ${table.sampleType} IN ('loop', 'one-shot')`,
+    ),
     check(
       'sample_origin',
       sql`${table.originAssignment} IN ('automatic', 'manual')`,
