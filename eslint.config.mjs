@@ -13,6 +13,7 @@ export default defineConfig(
       '**/out',
       'test-results/**',
       'playwright-report/**',
+      '.kiter-dev/**',
     ],
   },
   tseslint.configs.recommended,

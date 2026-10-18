@@ -6,6 +6,15 @@ import { createWindow } from './window'
 import { electronApp, optimizer } from '@electron-toolkit/utils'
 import { openLibrary } from './library-startup'
 import { ManagedImages } from './services/images'
+import { mkdirSync } from 'node:fs'
+import { resolve } from 'node:path'
+
+if (import.meta.env.DEV && !app.isPackaged) {
+  const profile = resolve(__dirname, '../../.kiter-dev/current')
+  mkdirSync(profile, { recursive: true })
+  app.setPath('userData', profile)
+  app.setPath('sessionData', profile)
+}
 
 // One owner coordinates publication and startup reconciliation in userData.
 const primaryInstance = app.requestSingleInstanceLock()
