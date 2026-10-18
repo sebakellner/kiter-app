@@ -1,6 +1,6 @@
 import { test, expect } from './fixtures'
 import { LibraryPage } from './pages/library-page'
-import { writeFile, rename, realpath } from 'node:fs/promises'
+import { writeFile, rename, realpath, readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { createWav } from '../support/fixtures/wav.mjs'
 
@@ -178,18 +178,18 @@ test('restart clears navigation context while preserving catalog and Favorites',
 test('quit destroys renderer windows before draining application services', async ({
   kiter,
 }) => {
-  const remainingWindows = kiter.application.evaluate(
-    ({ app, BrowserWindow }) =>
-      new Promise<number>((resolve) => {
-        app.once('before-quit', () => {
-          resolve(BrowserWindow.getAllWindows().length)
-        })
-      }),
-  )
+  const observationPath = path.join(kiter.empty, 'quit-windows.txt')
+  await kiter.application.evaluate(({ app, BrowserWindow }, filePath) => {
+    const { writeFileSync } = process.getBuiltinModule('node:fs')
+    // Persist before exit; the debugger may disconnect before evaluate resolves.
+    app.once('before-quit', () => {
+      writeFileSync(filePath, String(BrowserWindow.getAllWindows().length))
+    })
+  }, observationPath)
 
   await kiter.restart()
 
-  expect(await remainingWindows).toBe(0)
+  expect(await readFile(observationPath, 'utf8')).toBe('0')
   await expect(
     kiter.page.getByRole('heading', { name: 'Home', exact: true }),
   ).toBeVisible()
