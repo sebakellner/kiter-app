@@ -15,6 +15,13 @@
       "when": 1792329998966,
       "tag": "0001_classification-vocabulary",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1792337176434,
+      "tag": "0002_sample-classification-type",
+      "breakpoints": true
     }
   ]
 }
