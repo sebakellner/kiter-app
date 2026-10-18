@@ -46,7 +46,8 @@
     "drizzle-orm": "^0.45.4",
     "electron-updater": "^6.3.9",
     "react-router-dom": "^7.18.4",
-    "sharp": "^0.35.5"
+    "sharp": "^0.35.5",
+    "zustand": "^5.0.15"
   },
   "devDependencies": {
     "@electron-toolkit/eslint-config-prettier": "^3.0.0",
