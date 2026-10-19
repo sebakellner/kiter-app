@@ -10,6 +10,10 @@ test('Sample right-click and More actions share preview and Info without changin
   const library = new LibraryPage(page)
   await kiter.selectFolder(kiter.samples)
   await library.openFolder()
+  // Navigation restores focus on the next frame after the catalog is ready.
+  await expect(
+    page.getByRole('heading', { name: 'Samples', exact: true }),
+  ).toBeFocused()
   const kick = library.row('kick.wav')
   const snare = library.row('snare.wav')
   await snare.click({ position: { x: 4, y: 4 } })
@@ -70,6 +74,10 @@ test('Sample menus support keyboard navigation, replace another row menu and dis
   const library = new LibraryPage(page)
   await kiter.selectFolder(kiter.samples)
   await library.openFolder()
+  // Finish navigation focus restoration before testing menu-owned focus.
+  await expect(
+    page.getByRole('heading', { name: 'Samples', exact: true }),
+  ).toBeFocused()
   const kick = library.row('kick.wav')
   const snare = library.row('snare.wav')
   await kick.focus()
