@@ -4,6 +4,7 @@ import { useSampleSuggestions } from './useSampleSuggestions'
 import { useState } from 'react'
 import { CategoryEditor } from '../SampleCategories/CategoryEditor'
 import { ClassificationEditor } from '../ClassificationEditor/ClassificationEditor'
+import { SampleTypeEditor } from '../SampleTypeEditor/SampleTypeEditor'
 
 export function SampleSuggestions({
   sampleId,
@@ -21,12 +22,15 @@ export function SampleSuggestions({
   const ambiguous = groups.filter(({ item }) => item.kind === 'ambiguity')
   const [categoryAnchor, setCategoryAnchor] = useState<HTMLElement | null>(null)
   const [genreAnchor, setGenreAnchor] = useState<HTMLElement | null>(null)
+  const [typeAnchor, setTypeAnchor] = useState<HTMLElement | null>(null)
+  const editing =
+    categoryAnchor !== null || genreAnchor !== null || typeAnchor !== null
   const disabled = loading || pending || error !== null
   return (
     <section aria-label="Classification suggestions">
       <h3>Classification</h3>
       <Button
-        disabled={pending || genreAnchor !== null}
+        disabled={pending || genreAnchor !== null || typeAnchor !== null}
         aria-haspopup="dialog"
         aria-expanded={categoryAnchor !== null}
         onClick={(event) => setCategoryAnchor(event.currentTarget)}
@@ -34,13 +38,29 @@ export function SampleSuggestions({
         Edit categories
       </Button>
       <Button
-        disabled={pending || categoryAnchor !== null}
+        disabled={pending || categoryAnchor !== null || typeAnchor !== null}
         aria-haspopup="dialog"
         aria-expanded={genreAnchor !== null}
         onClick={(event) => setGenreAnchor(event.currentTarget)}
       >
         Edit genres
       </Button>
+      <Button
+        disabled={pending || categoryAnchor !== null || genreAnchor !== null}
+        aria-haspopup="dialog"
+        aria-expanded={typeAnchor !== null}
+        onClick={(event) => setTypeAnchor(event.currentTarget)}
+      >
+        Edit Sample type
+      </Button>
+      {typeAnchor && (
+        <SampleTypeEditor
+          sampleId={sampleId}
+          anchor={typeAnchor}
+          onClose={() => setTypeAnchor(null)}
+          onSaved={refresh}
+        />
+      )}
       {genreAnchor && (
         <ClassificationEditor
           dimension="genre"
@@ -104,11 +124,7 @@ export function SampleSuggestions({
                         <small>Creates {item.name} when applied. </small>
                       )}
                       <Button
-                        disabled={
-                          disabled ||
-                          categoryAnchor !== null ||
-                          genreAnchor !== null
-                        }
+                        disabled={disabled || editing}
                         aria-label={`Apply ${item.name}`}
                         onClick={() => void apply([item.key])}
                       >
@@ -124,12 +140,7 @@ export function SampleSuggestions({
       })}
       {suggestions.length > 1 && (
         <Button
-          disabled={
-            disabled ||
-            categoryAnchor !== null ||
-            genreAnchor !== null ||
-            suggestions.length > 100
-          }
+          disabled={disabled || editing || suggestions.length > 100}
           onClick={() => void apply(suggestions.map(({ item }) => item.key))}
         >
           Apply all ({suggestions.length})

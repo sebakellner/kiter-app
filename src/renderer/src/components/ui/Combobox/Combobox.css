@@ -1,0 +1,29 @@
+.ui-combobox {
+  position: relative;
+  max-width: 100%;
+}
+
+.ui-combobox-popup {
+  max-height: 240px;
+}
+
+.ui-combobox-popup ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.ui-combobox [role='option'] {
+  padding: 4px;
+  cursor: pointer;
+}
+
+.ui-combobox [role='option'][data-active] {
+  outline: 2px solid currentColor;
+  outline-offset: -2px;
+}
+
+.ui-combobox [role='option'][aria-disabled='true'] {
+  cursor: default;
+  opacity: 0.5;
+}

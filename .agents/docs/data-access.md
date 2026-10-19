@@ -211,6 +211,9 @@ type IpcResult<T> =
   operation and code, never raw SQL errors, producer paths, or full payloads.
 - [Preload](../../src/preload/index.ts) exposes narrow methods and validates
   returned envelopes/data. It never exposes generic `invoke`, SQL, or a DB client.
+  Zod response validators used in preload must parse with `{ jitless: true }`:
+  Electron's isolated context forbids runtime code generation. Validate this path
+  in Electron, since Node and jsdom do not reproduce that restriction.
 - UI unwraps results at the owning workflow and presents failures. Empty success,
   dialog cancellation (`ok: true, data: null`), and failure are distinct.
 - Shared types are not runtime validation. Check IDs, booleans, metadata, and

@@ -4,6 +4,80 @@ import { writeFile, rename, realpath, readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { createWav } from '../support/fixtures/wav.mjs'
 
+test('Sample type changes override saved suggestions and Unknown allows fresh proposals after restart', async ({
+  kiter,
+}) => {
+  await writeFile(path.join(kiter.empty, 'kick_loop.wav'), createWav(0.1))
+  let library = new LibraryPage(kiter.page)
+  await kiter.selectFolder(kiter.empty)
+  await library.openFolder()
+  await library
+    .row('kick_loop.wav')
+    .getByRole('button', { name: 'Info: kick_loop.wav', exact: true })
+    .click()
+  let inspector = kiter.page.getByRole('complementary', { name: 'Sample info' })
+  await inspector
+    .getByRole('button', { name: 'Apply Loop', exact: true })
+    .click()
+  await expect(inspector).toContainText('Classifications saved.')
+  await inspector
+    .getByRole('button', { name: 'Edit Sample type', exact: true })
+    .click()
+  let editor = kiter.page.getByRole('dialog', {
+    name: 'Edit Sample type',
+    exact: true,
+  })
+  await expect(
+    editor.getByRole('combobox', { name: 'Sample type' }),
+  ).toHaveValue('loop')
+  await editor
+    .getByRole('combobox', { name: 'Sample type' })
+    .selectOption('one-shot')
+  await kiter.page.keyboard.press('Escape')
+  await editor.getByRole('button', { name: 'Stay', exact: true }).click()
+  await editor.getByRole('button', { name: 'Save', exact: true }).click()
+  await expect(editor).toHaveCount(0)
+  await expect(
+    inspector.getByRole('button', { name: 'Edit Sample type', exact: true }),
+  ).toBeFocused()
+  await expect(
+    inspector.getByRole('region', { name: 'sample-type', exact: true }),
+  ).toContainText('One Shot')
+  await expect(
+    inspector.getByRole('button', { name: 'Apply Loop', exact: true }),
+  ).toHaveCount(0)
+  await kiter.restart()
+  library = new LibraryPage(kiter.page)
+  await kiter.page.getByRole('link', { name: 'Samples', exact: true }).click()
+  await library
+    .row('kick_loop.wav')
+    .getByRole('button', { name: 'Info: kick_loop.wav', exact: true })
+    .click()
+  inspector = kiter.page.getByRole('complementary', { name: 'Sample info' })
+  await expect(
+    inspector.getByRole('region', { name: 'sample-type', exact: true }),
+  ).toContainText('One Shot')
+  await inspector
+    .getByRole('button', { name: 'Edit Sample type', exact: true })
+    .click()
+  editor = kiter.page.getByRole('dialog', {
+    name: 'Edit Sample type',
+    exact: true,
+  })
+  await editor
+    .getByRole('combobox', { name: 'Sample type' })
+    .selectOption('unknown')
+  await editor.getByRole('button', { name: 'Save', exact: true }).click()
+  await expect(editor).toHaveCount(0)
+  await expect(
+    inspector.getByRole('button', { name: 'Apply Loop', exact: true }),
+  ).toBeEnabled()
+  await expect(kiter.page.locator('audio')).not.toHaveAttribute('src')
+  expect(await readFile(path.join(kiter.empty, 'kick_loop.wav'))).toEqual(
+    createWav(0.1),
+  )
+})
+
 test('manual genres preserve categories and Favorites across restart, protect drafts and allow clearing', async ({
   kiter,
 }) => {
@@ -571,6 +645,10 @@ test('compact inspector blocks covered regions, keeps the player available and c
   ).toBeFocused()
   await kiter.page.keyboard.press('Tab')
   await expect(
+    inspector.getByRole('button', { name: 'Edit Sample type', exact: true }),
+  ).toBeFocused()
+  await kiter.page.keyboard.press('Tab')
+  await expect(
     inspector.getByRole('button', { name: 'Apply Snare', exact: true }),
   ).toBeFocused()
   await kiter.page.keyboard.press('Tab')
@@ -588,6 +666,10 @@ test('compact inspector blocks covered regions, keeps the player available and c
   await kiter.page.keyboard.press('Shift+Tab')
   await expect(
     inspector.getByRole('button', { name: 'Apply Snare', exact: true }),
+  ).toBeFocused()
+  await kiter.page.keyboard.press('Shift+Tab')
+  await expect(
+    inspector.getByRole('button', { name: 'Edit Sample type', exact: true }),
   ).toBeFocused()
   await kiter.page.keyboard.press('Shift+Tab')
   await expect(

@@ -188,7 +188,7 @@ of its containing folder, without automatically importing the other files.
 Memberships reference the same Sample ID; they do not create new Samples or
 duplicate source audio.
 
-### Sample Type — Agreed, Not Implemented
+### Sample Type
 
 Each Sample has at most one optional type: Loop or One-Shot. An unset value means
 unknown; classification is not required. This is independent of Category, Genre,
@@ -206,8 +206,9 @@ type. Confirmed user choices survive reimport until an explicit change.
 
 [Classification](features/classification.md#sample-type-suggestions) owns type
 recognition, aliases, evidence priority, replacement/rejection review, and atomic
-execution. [Search](features/search.md) owns confirmed-type filters. This planned
-extension does not turn types into Categories or musical analysis results.
+execution and the implemented single-Sample manual type editor.
+[Search](features/search.md) owns planned confirmed-type filters. Types are not
+Categories or musical analysis results.
 
 ### Pack
 

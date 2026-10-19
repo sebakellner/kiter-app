@@ -1,5 +1,10 @@
 import { join } from 'node:path'
 import type {
+  SampleTypeRequest,
+  SampleTypeSaveRequest,
+  SampleTypeSnapshot,
+} from '../../shared/ipc/sampleType'
+import type {
   SampleGenresRequest,
   SampleGenresSaveRequest,
   SampleGenresSnapshot,
@@ -124,6 +129,29 @@ import type {
 const UNEXPECTED_REPLY_MESSAGE = 'Unexpected database response'
 
 export class DbClient {
+  async readSampleType(input: SampleTypeRequest): Promise<SampleTypeSnapshot> {
+    const reply = await this.recognitionRequest({
+      action: 'read-sample-type',
+      input,
+    })
+    if (reply.action !== 'read-sample-type') {
+      throw new Error(UNEXPECTED_REPLY_MESSAGE)
+    }
+    return reply.result
+  }
+
+  async saveSampleType(
+    input: SampleTypeSaveRequest,
+  ): Promise<SampleTypeSnapshot> {
+    const reply = await this.recognitionRequest({
+      action: 'save-sample-type',
+      input,
+    })
+    if (reply.action !== 'save-sample-type') {
+      throw new Error(UNEXPECTED_REPLY_MESSAGE)
+    }
+    return reply.result
+  }
   async readSampleGenres(
     input: SampleGenresRequest,
   ): Promise<SampleGenresSnapshot> {

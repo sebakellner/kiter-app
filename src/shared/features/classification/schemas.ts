@@ -32,3 +32,18 @@ export const sampleGenresSaveSchema = sampleGenresRequestSchema.extend({
       'Select each genre only once.',
     ),
 })
+
+export const sampleTypeSelectionSchema = z.object({
+  sampleType: z.enum(['loop', 'one-shot', 'unknown']),
+})
+
+export const sampleTypeRequestSchema = sampleCategoriesRequestSchema
+
+export const sampleTypeSaveSchema = sampleTypeRequestSchema.extend({
+  token: z
+    .string()
+    .regex(/^[a-f0-9]{64}$/u, 'Reload saved type before saving.'),
+  ...sampleTypeSelectionSchema.shape,
+})
+
+export const sampleTypeSnapshotSchema = sampleTypeSaveSchema

@@ -115,6 +115,11 @@ export async function verifyMainFrameAuthorization(ctx) {
       ['categories:read-sample', { sampleId: sample.id }],
       ['genres:list', {}],
       ['genres:read-sample', { sampleId: sample.id }],
+      ['classification:read-sample-type', { sampleId: sample.id }],
+      [
+        'classification:save-sample-type',
+        { sampleId: sample.id, token: 'a'.repeat(64), sampleType: 'loop' },
+      ],
       [
         'genres:save-sample',
         { sampleId: sample.id, token: 'a'.repeat(64), genreIds: [] },
