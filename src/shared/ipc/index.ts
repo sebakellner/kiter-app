@@ -2,9 +2,11 @@ import type { DialogApi } from './dialog.ts'
 import type { LibraryApi } from './library.ts'
 import type { CategoriesApi } from './categories.ts'
 import type { ClassificationApi } from './classification.ts'
+import type { GenresApi } from './genres.ts'
 import type { LifecycleApi } from './lifecycle.ts'
 
 export interface Api {
+  genres: GenresApi
   lifecycle: LifecycleApi
   dialog: DialogApi
   library: LibraryApi

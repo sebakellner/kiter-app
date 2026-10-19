@@ -17,3 +17,18 @@ export const sampleCategoriesSaveSchema = sampleCategoriesRequestSchema.extend({
       'Select each category only once.',
     ),
 })
+
+export const sampleGenresRequestSchema = sampleCategoriesRequestSchema
+
+export const sampleGenresSaveSchema = sampleGenresRequestSchema.extend({
+  token: z
+    .string()
+    .regex(/^[a-f0-9]{64}$/u, 'Reload saved genres before saving.'),
+  genreIds: z
+    .array(z.string().refine(isEntityId, 'Invalid Genre identifier.'))
+    .max(1000, 'Select at most 1,000 genres.')
+    .refine(
+      (ids) => new Set(ids).size === ids.length,
+      'Select each genre only once.',
+    ),
+})

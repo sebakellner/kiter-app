@@ -2,6 +2,11 @@ import { vi } from 'vitest'
 import type { Api } from '../../../src/shared/ipc/index.ts'
 
 export function createTestApi(): {
+  genres: {
+    list: ReturnType<typeof vi.fn<Api['genres']['list']>>
+    readSample: ReturnType<typeof vi.fn<Api['genres']['readSample']>>
+    saveSample: ReturnType<typeof vi.fn<Api['genres']['saveSample']>>
+  }
   lifecycle: {
     onCloseRequested: ReturnType<
       typeof vi.fn<Api['lifecycle']['onCloseRequested']>
@@ -36,6 +41,11 @@ export function createTestApi(): {
   }
 } {
   return {
+    genres: {
+      list: vi.fn<Api['genres']['list']>(),
+      readSample: vi.fn<Api['genres']['readSample']>(),
+      saveSample: vi.fn<Api['genres']['saveSample']>(),
+    },
     lifecycle: {
       onCloseRequested: vi
         .fn<Api['lifecycle']['onCloseRequested']>()

@@ -4,6 +4,85 @@ import { writeFile, rename, realpath, readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { createWav } from '../support/fixtures/wav.mjs'
 
+test('manual genres preserve categories and Favorites across restart, protect drafts and allow clearing', async ({
+  kiter,
+}) => {
+  let library = new LibraryPage(kiter.page)
+  await kiter.selectFolder(kiter.samples)
+  await library.openFolder()
+  await library.row('kick.wav').getByTestId('favorite-toggle').click()
+  await library
+    .row('kick.wav')
+    .getByRole('button', { name: 'Info: kick.wav', exact: true })
+    .click()
+  let inspector = kiter.page.getByRole('complementary', { name: 'Sample info' })
+  await inspector
+    .getByRole('button', { name: 'Apply Kick', exact: true })
+    .click()
+  await expect(inspector).toContainText('Classifications saved.')
+  await inspector
+    .getByRole('button', { name: 'Edit genres', exact: true })
+    .click()
+  let editor = kiter.page.getByRole('dialog', {
+    name: 'Edit genres',
+    exact: true,
+  })
+  await editor.getByRole('searchbox', { name: 'Search genres' }).fill('house')
+  await editor.getByRole('checkbox', { name: 'House', exact: true }).check()
+  await editor
+    .getByRole('checkbox', { name: 'Tech House', exact: true })
+    .check()
+  await editor.getByRole('button', { name: 'Cancel', exact: true }).click()
+  await editor.getByRole('button', { name: 'Stay', exact: true }).click()
+  await expect(
+    editor.getByRole('checkbox', { name: 'House', exact: true }),
+  ).toBeChecked()
+  await editor.getByRole('button', { name: 'Save', exact: true }).click()
+  await expect(editor).toHaveCount(0)
+  await expect(
+    inspector.getByRole('button', { name: 'Edit genres', exact: true }),
+  ).toBeFocused()
+  await expect(
+    inspector.getByRole('region', { name: 'genre', exact: true }),
+  ).toContainText('House')
+  await expect(
+    inspector.getByRole('region', { name: 'category', exact: true }),
+  ).toContainText('Kick')
+  await expect(kiter.page.locator('audio')).not.toHaveAttribute('src')
+  await kiter.restart()
+  library = new LibraryPage(kiter.page)
+  await kiter.page.getByRole('link', { name: 'Samples', exact: true }).click()
+  await library
+    .row('kick.wav')
+    .getByRole('button', { name: 'Info: kick.wav', exact: true })
+    .click()
+  inspector = kiter.page.getByRole('complementary', { name: 'Sample info' })
+  await expect(
+    inspector.getByRole('region', { name: 'genre', exact: true }),
+  ).toContainText('Tech House')
+  await expect(
+    library.row('kick.wav').getByTestId('favorite-toggle'),
+  ).toHaveAttribute('aria-pressed', 'true')
+  await inspector
+    .getByRole('button', { name: 'Edit genres', exact: true })
+    .click()
+  editor = kiter.page.getByRole('dialog', { name: 'Edit genres', exact: true })
+  await editor
+    .getByRole('button', { name: 'Remove House', exact: true })
+    .click()
+  await editor
+    .getByRole('button', { name: 'Remove Tech House', exact: true })
+    .click()
+  await editor.getByRole('button', { name: 'Save', exact: true }).click()
+  await expect(editor).toHaveCount(0)
+  await expect(
+    inspector.getByRole('region', { name: 'genre', exact: true }),
+  ).toHaveCount(0)
+  await expect(
+    inspector.getByRole('region', { name: 'category', exact: true }),
+  ).toContainText('Kick')
+})
+
 test('manual category popover protects drafts, corrects suggestions and persists after restart', async ({
   kiter,
 }) => {
@@ -488,6 +567,10 @@ test('compact inspector blocks covered regions, keeps the player available and c
   ).toBeFocused()
   await kiter.page.keyboard.press('Tab')
   await expect(
+    inspector.getByRole('button', { name: 'Edit genres', exact: true }),
+  ).toBeFocused()
+  await kiter.page.keyboard.press('Tab')
+  await expect(
     inspector.getByRole('button', { name: 'Apply Snare', exact: true }),
   ).toBeFocused()
   await kiter.page.keyboard.press('Tab')
@@ -505,6 +588,10 @@ test('compact inspector blocks covered regions, keeps the player available and c
   await kiter.page.keyboard.press('Shift+Tab')
   await expect(
     inspector.getByRole('button', { name: 'Apply Snare', exact: true }),
+  ).toBeFocused()
+  await kiter.page.keyboard.press('Shift+Tab')
+  await expect(
+    inspector.getByRole('button', { name: 'Edit genres', exact: true }),
   ).toBeFocused()
   await kiter.page.keyboard.press('Shift+Tab')
   await expect(
