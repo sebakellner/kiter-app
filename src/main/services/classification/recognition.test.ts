@@ -41,13 +41,13 @@ test('recognizes scoped path components with exact evidence and no implied class
     ],
   })
   assert.deepEqual(keys(result), [
-    'category:drums',
-    'category:kick',
     'genre:tech-house',
+    'instrument:drums',
+    'instrument:kick',
   ])
   assert.deepEqual(result.ambiguities, [])
   assert.deepEqual(
-    result.proposals.find(({ target }) => target.key === 'category:kick')
+    result.proposals.find(({ target }) => target.key === 'instrument:kick')
       ?.evidence,
     [
       {
@@ -80,7 +80,7 @@ test('recognizes scoped path components with exact evidence and no implied class
     keys(
       recognize({ kind: 'sample', components: [component('piano_808.wav')] }),
     ),
-    ['category:808', 'category:piano'],
+    ['instrument:808', 'instrument:piano'],
   )
 })
 
@@ -96,13 +96,13 @@ test('Vintage Drum Breaks recognizes Drums and Loop from explicit folder clues',
     ],
   })
   assert.deepEqual(keys(result), [
-    'category:drum-breaks',
-    'category:drums',
+    'instrument:drum-breaks',
+    'instrument:drums',
     'loop',
   ])
   assert.deepEqual(result.ambiguities, [])
   const evidence = result.proposals.find(
-    ({ target }) => target.key === 'category:drums',
+    ({ target }) => target.key === 'instrument:drums',
   )!.evidence
   assert.equal(evidence.length, 3)
   for (const clue of evidence.slice(0, 2)) {
@@ -127,7 +127,7 @@ test('Vintage Drum Breaks recognizes Drums and Loop from explicit folder clues',
         components: [component('100_VintageDrums_05_TL.wav')],
       }),
     ),
-    ['category:drums'],
+    ['instrument:drums'],
   )
 })
 
@@ -168,7 +168,7 @@ test('Drum Break phrases propose both Instruments without implying Loop or a Gen
     })
     assert.deepEqual(
       keys(result),
-      ['category:drum-breaks', 'category:drums'],
+      ['instrument:drum-breaks', 'instrument:drums'],
       text,
     )
     assert.deepEqual(result.ambiguities, [])
@@ -180,7 +180,7 @@ test('Drum Break phrases propose both Instruments without implying Loop or a Gen
         components: [component('drum_break_loop.wav')],
       }),
     ),
-    ['category:drum-breaks', 'category:drums', 'loop'],
+    ['instrument:drum-breaks', 'instrument:drums', 'loop'],
   )
   assert.deepEqual(
     keys(
@@ -189,11 +189,11 @@ test('Drum Break phrases propose both Instruments without implying Loop or a Gen
         components: [component('drum_breaks1.wav')],
       }),
     ),
-    ['category:drums'],
+    ['instrument:drums'],
   )
   const withoutDrums = createClassificationRecognizer(
     initialRecognitionVocabulary.filter(
-      (entry) => entry.target.key !== 'category:drums',
+      (entry) => entry.target.key !== 'instrument:drums',
     ),
   )
   assert.deepEqual(
@@ -203,11 +203,11 @@ test('Drum Break phrases propose both Instruments without implying Loop or a Gen
         components: [component('drum_break.wav')],
       }),
     ),
-    ['category:drum-breaks'],
+    ['instrument:drum-breaks'],
   )
   const edited = createClassificationRecognizer(
     initialRecognitionVocabulary.map((entry) =>
-      entry.target.key === 'category:drum-breaks'
+      entry.target.key === 'instrument:drum-breaks'
         ? { ...entry, name: 'Rhythmic Phrase', aliases: [] }
         : entry,
     ),
@@ -219,7 +219,7 @@ test('Drum Break phrases propose both Instruments without implying Loop or a Gen
         components: [component('rhythmic_phrase.wav')],
       }),
     ),
-    ['category:drum-breaks'],
+    ['instrument:drum-breaks'],
   )
 })
 
@@ -234,24 +234,24 @@ test('recognition preserves accents, symbols and letter-number boundaries while 
     custom,
   ])
   const cases: [string, string[]][] = [
-    ['TECH.house_BD.WAV', ['category:kick', 'genre:tech-house']],
+    ['TECH.house_BD.WAV', ['genre:tech-house', 'instrument:kick']],
     [
       'D&B_RnB_HipHop_UKG_vox.wav',
       [
-        'category:vocals',
         'genre:drum-and-bass',
         'genre:hip-hop',
         'genre:r-and-b',
         'genre:uk-garage',
+        'instrument:vocals',
       ],
     ],
     ['kick01_snarecrow_housing.wav', []],
     ['hiphop_rnb.wav', ['genre:hip-hop', 'genre:r-and-b']],
     ['E\u0301TE\u0301.wav', ['custom']],
     ['ete.wav', []],
-    ['kick.wav', ['category:kick']],
+    ['kick.wav', ['instrument:kick']],
     ['audio.kick', []],
-    ['bass-drums.wav', ['category:kick']],
+    ['bass-drums.wav', ['instrument:kick']],
   ]
   for (const [text, expected] of cases) {
     assert.deepEqual(
@@ -275,7 +275,7 @@ test('phrases never cross components and independent folder evidence is retained
         ],
       }),
     ),
-    ['category:kick', 'category:snare', 'genre:house'],
+    ['genre:house', 'instrument:kick', 'instrument:snare'],
   )
   assert.deepEqual(
     keys(
@@ -318,7 +318,7 @@ test('conflicting identities and overlapping phrases omit ambiguous matches but 
     kind: 'sample',
     components: [component('lo_fi_red_blue_green_kick.wav')],
   })
-  assert.deepEqual(keys(result), ['category:kick'])
+  assert.deepEqual(keys(result), ['instrument:kick'])
   assert.deepEqual(
     result.ambiguities.map(({ reason, targets }) => ({
       reason,
@@ -403,7 +403,7 @@ test('Sample type prioritizes filename then nearest folder and never falls back 
   const cases: [RecognitionComponent[], string[], boolean][] = [
     [
       [component('Loops', 'root', 2), component('kick_one_shot.wav')],
-      ['category:kick', 'one-shot'],
+      ['instrument:kick', 'one-shot'],
       false,
     ],
     [
@@ -412,7 +412,7 @@ test('Sample type prioritizes filename then nearest folder and never falls back 
         component('One Shots', 'folder', 1),
         component('kick.wav'),
       ],
-      ['category:kick', 'one-shot'],
+      ['instrument:kick', 'one-shot'],
       false,
     ],
     [
@@ -430,7 +430,7 @@ test('Sample type prioritizes filename then nearest folder and never falls back 
         component('One Shots', 'folder', 1),
         component('kick.wav'),
       ],
-      ['category:kick'],
+      ['instrument:kick'],
       true,
     ],
     [[component('OS_shot.wav')], [], false],

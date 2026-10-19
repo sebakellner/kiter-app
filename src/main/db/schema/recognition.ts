@@ -11,7 +11,6 @@ import {
 import { instruments } from './classification.ts'
 import { samples } from './samples.ts'
 import { packs } from './packs.ts'
-import { recognitionDimension } from './recognition-dimension.ts'
 
 export const genres = sqliteTable(
   'genres',
@@ -62,9 +61,11 @@ export const recognitionVocabulary = sqliteTable(
   'recognition_vocabulary',
   {
     key: text('key').primaryKey().notNull(),
-    dimension: recognitionDimension('dimension').notNull(),
+    dimension: text('dimension', {
+      enum: ['instrument', 'genre', 'sample-type'],
+    }).notNull(),
     name: text('name').notNull(),
-    instrumentId: text('category_id')
+    instrumentId: text('instrument_id')
       .unique()
       .references(() => instruments.id, { onDelete: 'set null' }),
     genreId: text('genre_id')
@@ -75,7 +76,7 @@ export const recognitionVocabulary = sqliteTable(
   (table) => [
     check(
       'vocabulary_dimension',
-      sql`${table.dimension} in ('category', 'genre', 'sample-type')`,
+      sql`${table.dimension} in ('instrument', 'genre', 'sample-type')`,
     ),
     check(
       'vocabulary_state',
@@ -83,7 +84,7 @@ export const recognitionVocabulary = sqliteTable(
     ),
     check(
       'vocabulary_target',
-      sql`(${table.instrumentId} is null or ${table.dimension} = 'category') and (${table.genreId} is null or ${table.dimension} = 'genre')`,
+      sql`(${table.instrumentId} is null or ${table.dimension} = 'instrument') and (${table.genreId} is null or ${table.dimension} = 'genre')`,
     ),
     check('vocabulary_name', sql`length(trim(${table.name})) > 0`),
   ],
@@ -99,7 +100,9 @@ export const recognitionAliases = sqliteTable(
     term: text('term').notNull(),
     termKey: text('term_key').notNull(),
     suppliedKey: text('supplied_key').unique(),
-    dimension: recognitionDimension('dimension').notNull(),
+    dimension: text('dimension', {
+      enum: ['instrument', 'genre', 'sample-type'],
+    }).notNull(),
     deleted: integer('deleted', { mode: 'boolean' }).notNull().default(false),
   },
   (table) => [
@@ -109,7 +112,7 @@ export const recognitionAliases = sqliteTable(
     ),
     check(
       'alias_dimension',
-      sql`${table.dimension} in ('category', 'genre', 'sample-type')`,
+      sql`${table.dimension} in ('instrument', 'genre', 'sample-type')`,
     ),
     check('alias_deleted', sql`${table.deleted} in (0, 1)`),
     uniqueIndex('aliases_by_dimension_term')

@@ -92,7 +92,7 @@ test('preparation pages reject stale evidence and reflect existing assignments w
     fresh.items.find((item) => item.name === 'Kick')?.needsCreation,
     false,
   )
-  writeRecognitionAlias(db, { targetKey: 'category:kick', term: 'Punch' })
+  writeRecognitionAlias(db, { targetKey: 'instrument:kick', term: 'Punch' })
   assert.throws(
     () =>
       prepareSampleClassification(db, {
@@ -116,7 +116,7 @@ test('VintageDrums is recognized with existing vocabulary and Drum adds folder e
   const { db } = createMemoryDatabase(t)
   // Model a previously initialized vocabulary that predates the Drum alias.
   db.delete(recognitionAliases)
-    .where(eq(recognitionAliases.suppliedKey, 'category:drums:drum'))
+    .where(eq(recognitionAliases.suppliedKey, 'instrument:drums:drum'))
     .run()
   const root = path.resolve('Touch.Loops.Vintage.Drum.Breaks')
   const [sample] = importFolder(db, root, [
@@ -131,11 +131,11 @@ test('VintageDrums is recognized with existing vocabulary and Drum adds folder e
     [...new Set(before.items.map((item) => item.name))],
     ['Drum Breaks', 'Drums', 'Loop'],
   )
-  writeRecognitionAlias(db, { targetKey: 'category:drums', term: 'Drum' })
+  writeRecognitionAlias(db, { targetKey: 'instrument:drums', term: 'Drum' })
   const after = prepareSampleClassification(db, { sampleId: sample.id })
   assert.equal(after.proposalCount, 3)
   assert.equal(after.ambiguityCount, 0)
-  const drums = after.items.filter((item) => item.key === 'category:drums')
+  const drums = after.items.filter((item) => item.key === 'instrument:drums')
   assert.equal(drums.length, 3)
   assert.ok(
     drums

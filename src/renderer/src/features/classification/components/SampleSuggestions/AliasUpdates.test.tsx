@@ -8,7 +8,7 @@ test('checking aliases does not incorporate them until the user explicitly choos
   const api = createTestApi()
   vi.stubGlobal('api', api)
   const offer = {
-    key: 'category:drums:drum',
+    key: 'instrument:drums:drum',
     targetName: 'Drums',
     term: 'Drum',
     dimension: 'instrument' as const,

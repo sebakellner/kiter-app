@@ -9,17 +9,16 @@ import {
 import { packs } from './packs.ts'
 import { samples } from './samples.ts'
 
-// Physical names are retained for compatibility; application code uses Instruments.
 export const instruments = sqliteTable(
-  'categories',
+  'instruments',
   {
     id: text('id').primaryKey().notNull(),
     name: text('name').notNull(),
     nameKey: text('name_key').notNull().unique(),
   },
   (table) => [
-    check('category_name', sql`length(trim(${table.name})) > 0`),
-    check('category_key', sql`length(${table.nameKey}) > 0`),
+    check('instrument_name', sql`length(trim(${table.name})) > 0`),
+    check('instrument_key', sql`length(${table.nameKey}) > 0`),
   ],
 )
 
@@ -38,34 +37,34 @@ export const authors = sqliteTable(
 )
 
 export const sampleInstruments = sqliteTable(
-  'sample_categories',
+  'sample_instruments',
   {
     sampleId: text('sample_id')
       .notNull()
       .references(() => samples.id, { onDelete: 'cascade' }),
-    instrumentId: text('category_id')
+    instrumentId: text('instrument_id')
       .notNull()
       .references(() => instruments.id, { onDelete: 'cascade' }),
   },
   (table) => [
     primaryKey({ columns: [table.sampleId, table.instrumentId] }),
-    index('samples_by_category').on(table.instrumentId, table.sampleId),
+    index('samples_by_instrument').on(table.instrumentId, table.sampleId),
   ],
 )
 
 export const packInstruments = sqliteTable(
-  'pack_categories',
+  'pack_instruments',
   {
     packId: text('pack_id')
       .notNull()
       .references(() => packs.id, { onDelete: 'cascade' }),
-    instrumentId: text('category_id')
+    instrumentId: text('instrument_id')
       .notNull()
       .references(() => instruments.id, { onDelete: 'cascade' }),
   },
   (table) => [
     primaryKey({ columns: [table.packId, table.instrumentId] }),
-    index('packs_by_category').on(table.instrumentId, table.packId),
+    index('packs_by_instrument').on(table.instrumentId, table.packId),
   ],
 )
 
