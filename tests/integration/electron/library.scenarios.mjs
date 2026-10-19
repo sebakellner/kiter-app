@@ -120,6 +120,25 @@ export async function verifyMainFrameAuthorization(ctx) {
       ['collections:get', { id: sample.id }],
       ['collections:destinations', { sampleId: sample.id }],
       [
+        'collections:place-sample',
+        {
+          collectionId: sample.id,
+          sampleId: sample.id,
+          targetSampleId: sample.id,
+          placement: 'before',
+          token: 'a'.repeat(64),
+        },
+      ],
+      [
+        'collections:move-sample',
+        {
+          collectionId: sample.id,
+          sampleId: sample.id,
+          direction: 'up',
+          token: 'a'.repeat(64),
+        },
+      ],
+      [
         'collections:set-membership',
         { collectionId: sample.id, sampleId: sample.id, assigned: true },
       ],

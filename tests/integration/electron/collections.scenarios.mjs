@@ -46,6 +46,53 @@ export async function verifyCollectionsIpc({ execute }) {
     ['destinations', { sampleId: created.data.id, limit: 101 }],
     ['destinations', { sampleId: created.data.id, search: null }],
     [
+      'placeSample',
+      {
+        collectionId: created.data.id,
+        sampleId: created.data.id,
+        targetSampleId: '/untrusted.wav',
+        placement: 'before',
+        token: 'a'.repeat(64),
+      },
+    ],
+    [
+      'placeSample',
+      {
+        collectionId: created.data.id,
+        sampleId: created.data.id,
+        targetSampleId: created.data.id,
+        placement: 'outside',
+        token: 'a'.repeat(64),
+      },
+    ],
+    [
+      'moveSample',
+      {
+        collectionId: created.data.id,
+        sampleId: created.data.id,
+        direction: 'up',
+        token: '',
+      },
+    ],
+    [
+      'moveSample',
+      {
+        collectionId: created.data.id,
+        sampleId: '/arbitrary/sample',
+        direction: 'up',
+        token: 'a'.repeat(64),
+      },
+    ],
+    [
+      'moveSample',
+      {
+        collectionId: created.data.id,
+        sampleId: created.data.id,
+        direction: 'left',
+        token: 'a'.repeat(64),
+      },
+    ],
+    [
       'setMembership',
       {
         collectionId: created.data.id,
