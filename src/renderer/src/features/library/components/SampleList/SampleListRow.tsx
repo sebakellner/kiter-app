@@ -18,6 +18,9 @@ type Props = {
   onFavoriteChanged: (state: FavoriteState) => void
   onInspect?: (opener: HTMLElement) => void
   inspectorOpen: boolean
+  onAddToCollection?: () => void
+  onRemoveFromCollection?: () => void
+  membershipPending: boolean
 }
 
 export function SampleListRow({
@@ -29,6 +32,9 @@ export function SampleListRow({
   onFavoriteChanged,
   onInspect,
   inspectorOpen,
+  onAddToCollection,
+  onRemoveFromCollection,
+  membershipPending,
 }: Props): React.JSX.Element {
   const menu = useContextMenu()
   return (
@@ -135,6 +141,26 @@ export function SampleListRow({
           },
           ...(onInspect
             ? [{ id: 'info', label: 'Info', onSelect: onInspect }]
+            : []),
+          ...(onAddToCollection
+            ? [
+                {
+                  id: 'add-to-collection',
+                  label: 'Add to Collection',
+                  disabled: membershipPending,
+                  onSelect: onAddToCollection,
+                },
+              ]
+            : []),
+          ...(onRemoveFromCollection
+            ? [
+                {
+                  id: 'remove-from-collection',
+                  label: 'Remove from Collection',
+                  disabled: membershipPending,
+                  onSelect: onRemoveFromCollection,
+                },
+              ]
             : []),
         ]}
       />

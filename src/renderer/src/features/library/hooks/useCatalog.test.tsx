@@ -335,3 +335,42 @@ test('restored search queries load immediately and retain criteria during page f
   ])
   expect(result.current.page?.offset).toBe(0)
 })
+
+test('Collection catalog requests retain their scope and reject obsolete pages when the destination changes', async () => {
+  const api = createTestApi()
+  const pending = deferred<IpcResult<LibraryPage>>()
+  api.library.list
+    .mockReturnValueOnce(pending.promise)
+    .mockResolvedValue({ ok: true, data: { ...empty, total: 2 } })
+  vi.stubGlobal('api', api)
+  const initialProps: { collectionId: string | undefined } = {
+    collectionId: 'first',
+  }
+  const { result, rerender } = renderHook(
+    ({ collectionId }: { collectionId: string | undefined }) =>
+      useCatalog(false, 0, 50, [], [], [], '', collectionId),
+    { initialProps },
+  )
+  expect(api.library.list).toHaveBeenLastCalledWith({
+    favoritesOnly: false,
+    offset: 50,
+    collectionId: 'first',
+  })
+  rerender({ collectionId: 'second' })
+  await waitFor(() => expect(result.current.loading).toBe(false))
+  expect(api.library.list).toHaveBeenLastCalledWith({
+    favoritesOnly: false,
+    offset: 0,
+    collectionId: 'second',
+  })
+  await act(async () =>
+    pending.resolve({ ok: true, data: { ...empty, total: 99, offset: 50 } }),
+  )
+  expect(result.current.page?.total).toBe(2)
+  rerender({ collectionId: undefined })
+  await waitFor(() => expect(result.current.loading).toBe(false))
+  expect(api.library.list).toHaveBeenLastCalledWith({
+    favoritesOnly: false,
+    offset: 0,
+  })
+})

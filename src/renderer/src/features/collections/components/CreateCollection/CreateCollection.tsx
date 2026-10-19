@@ -13,9 +13,11 @@ import './create-collection.css'
 export function CreateCollection({
   onClose,
   onCreated,
+  completionLabel = 'Create and open',
 }: {
   onClose: () => void
   onCreated: (collection: Collection) => void
+  completionLabel?: string
 }): React.JSX.Element {
   const titleId = useId()
   const nameId = useId()
@@ -205,7 +207,7 @@ export function CreateCollection({
               disabled={isSubmitting}
               onClick={() => void submit()}
             >
-              {activeReview === 'quit' ? 'Save and quit' : 'Create and open'}
+              {activeReview === 'quit' ? 'Save and quit' : completionLabel}
             </Button>
             <Button disabled={isSubmitting} onClick={discard}>
               {activeReview === 'quit' ? 'Discard and quit' : 'Discard changes'}

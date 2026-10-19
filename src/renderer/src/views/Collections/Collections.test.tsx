@@ -24,6 +24,9 @@ import { makeCollectionSummary } from '../../../../../tests/support/fixtures/col
 import { deferred } from '../../../../../tests/support/fixtures/deferred'
 import type { Collection } from '@shared/domain/collection'
 import type { IpcResult } from '@shared/ipc/result'
+import { LibrarySessionProvider } from '@renderer/features/library/components/LibrarySessionProvider'
+import { SampleInspectorProvider } from '@renderer/features/library/components/SampleInspector'
+import { makeAudioSample } from '../../../../../tests/support/fixtures/audio-sample'
 
 afterEach(() => {
   cleanup()
@@ -37,10 +40,15 @@ const onReady = (): void => {}
 function Layout(): React.JSX.Element {
   const { context, update } = useNavigationContext()
   return (
-    <>
-      <Link to="/home">Home</Link>
-      <Outlet context={{ context, update, onReady }} />
-    </>
+    <LibrarySessionProvider>
+      <SampleInspectorProvider
+        open={context.inspectorOpen}
+        setOpen={(inspectorOpen) => update({ inspectorOpen })}
+      >
+        <Link to="/home">Home</Link>
+        <Outlet context={{ context, update, onReady }} />
+      </SampleInspectorProvider>
+    </LibrarySessionProvider>
   )
 }
 
@@ -64,6 +72,18 @@ function setup(initialEntry = '/collections'): {
   })
   const api = createTestApi()
   vi.stubGlobal('api', api)
+  api.library.list.mockResolvedValue({
+    ok: true,
+    data: { items: [], total: 0, limit: 50, offset: 0 },
+  })
+  api.instruments.list.mockResolvedValue({
+    ok: true,
+    data: { items: [], total: 0, limit: 50, offset: 0 },
+  })
+  api.genres.list.mockResolvedValue({
+    ok: true,
+    data: { items: [], total: 0, limit: 50, offset: 0 },
+  })
   api.collections.list.mockResolvedValue({
     ok: true,
     data: { items: [], total: 0, limit: 50, offset: 0 },
@@ -129,7 +149,9 @@ test('Collection creation validates, preserves failed drafts, prevents duplicate
   await screen.findByRole('heading', { name: collection.name, level: 1 })
   expect(router.state.location.pathname).toBe(`/collections/${collection.id}`)
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-  expect(screen.getByText(/This Collection is empty/)).toBeInTheDocument()
+  expect(
+    await screen.findByText(/This Collection is empty/),
+  ).toBeInTheDocument()
   expect(api.collections.create).toHaveBeenCalledTimes(2)
 })
 
@@ -220,10 +242,28 @@ test('Collection list keeps cards on refresh failure and supports selection inde
   )
   expect(screen.getByRole('row')).toHaveTextContent(collection.name)
   api.collections.get.mockResolvedValue({ ok: true, data: collection })
+  api.library.list.mockResolvedValue({
+    ok: true,
+    data: {
+      items: [0, 1].map((index) => ({
+        ...makeAudioSample({
+          id: `00000000-0000-4000-8000-00000000000${index + 1}`,
+        }),
+        rootPath: '/fixtures',
+        sourceRevision: 1,
+        audioUrl: null,
+        unavailableReason: 'Audio unavailable.',
+      })),
+      total: 2,
+      limit: 50,
+      offset: 0,
+    },
+  })
   await user.click(
     within(row).getByRole('link', { name: 'Open Session Picks' }),
   )
   await screen.findByRole('heading', { name: collection.name, level: 1 })
+  await waitFor(() => expect(screen.getAllByRole('row')).toHaveLength(2))
   expect(screen.queryByText(/This Collection is empty/)).not.toBeInTheDocument()
 })
 

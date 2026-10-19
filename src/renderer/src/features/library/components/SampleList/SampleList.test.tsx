@@ -191,12 +191,14 @@ test('row right-click and More actions share a menu without selecting, previewin
   const user = userEvent.setup()
   const { api, preview } = setup()
   const onInspect = vi.fn()
+  const onAddToCollection = vi.fn()
   render(
     <SampleList
       samples={[kick, snare]}
       preview={preview}
       onFavoriteChanged={vi.fn()}
       onInspect={onInspect}
+      onAddToCollection={onAddToCollection}
     />,
   )
   const [first, second] = screen.getAllByRole('row')
@@ -218,6 +220,11 @@ test('row right-click and More actions share a menu without selecting, previewin
   await user.click(trigger)
   expect(screen.getByRole('menuitem', { name: 'Pause preview' })).toBeVisible()
   expect(second).toHaveAttribute('aria-selected', 'true')
+  await user.click(screen.getByRole('menuitem', { name: 'Add to Collection' }))
+  expect(onAddToCollection).toHaveBeenCalledWith(kick)
+  expect(second).toHaveAttribute('aria-selected', 'true')
+  expect(preview.togglePreview).not.toHaveBeenCalled()
+  await user.click(trigger)
   await user.click(screen.getByRole('menuitem', { name: 'Info' }))
   expect(onInspect).toHaveBeenCalledWith(kick, trigger)
   expect(first).toHaveAttribute('aria-selected', 'true')

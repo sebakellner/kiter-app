@@ -3,34 +3,51 @@ import { useLibrarySession } from '../hooks/useLibrarySession'
 import { useCatalog } from '../hooks/useCatalog'
 import { SampleList } from './SampleList'
 import { useSampleInspector } from './SampleInspector'
-import { useCallback, useLayoutEffect } from 'react'
+import { useCallback, useLayoutEffect, useState } from 'react'
 import type { CatalogViewContext } from '@renderer/routes/navigationContext'
 import { SampleFilters } from './SampleFilters/SampleFilters'
 import { effectiveCatalogSearch } from '@shared/features/library/search'
+import type { ListSample } from './SampleList/useSampleList'
+import { PendingMembershipGuard } from '@renderer/features/collections/components/PendingMembershipGuard'
+import { AddToCollection } from '@renderer/features/collections/components/AddToCollection/AddToCollection'
+import { useRemoveCollectionSample } from '@renderer/features/collections/hooks/useRemoveCollectionSample'
 
 export function CatalogList({
   favoritesOnly = false,
+  collectionId,
+  membershipRevision = 0,
+  onMembershipChanged,
   context,
   update,
   onReady,
 }: {
   favoritesOnly?: boolean
+  collectionId?: string
+  membershipRevision?: number
+  onMembershipChanged?: () => void
 } & CatalogViewContext): React.JSX.Element {
   const { revision, updateFavorite, preview } = useLibrarySession()
   const { setSample, openSample, open } = useSampleInspector()
+  const [adding, setAdding] = useState<ListSample | null>(null)
   const { page, loading, error, load, refresh } = useCatalog(
     favoritesOnly,
-    revision,
+    revision + membershipRevision,
     context.offset,
     context.instruments.map(({ id }) => id),
     context.genres.map(({ id }) => id),
     context.sampleTypes,
     context.search,
+    collectionId,
   )
   const select = useCallback(
     (selectedId: string | null) => update({ selectedId }),
     [update],
   )
+
+  const removal = useRemoveCollectionSample(collectionId, () => {
+    refresh()
+    onMembershipChanged?.()
+  })
 
   useLayoutEffect(() => {
     if (page && !loading && !error) {
@@ -57,6 +74,32 @@ export function CatalogList({
   ])
   return (
     <>
+      {adding && (
+        <AddToCollection
+          key={adding.id}
+          sample={{ id: adding.id, name: adding.relativePath }}
+          onClose={() => {
+            setAdding(null)
+            if (collectionId) {
+              refresh()
+              onMembershipChanged?.()
+            }
+          }}
+        />
+      )}
+      {removal.pending && (
+        <>
+          <PendingMembershipGuard />
+          <p role="status">Removing Sample from Collection…</p>
+        </>
+      )}
+      {removal.error && (
+        <p role="alert">
+          {removal.error}{' '}
+          <Button onClick={() => void removal.retry()}>Retry removal</Button>
+        </p>
+      )}
+      {removal.notice && <p role="status">{removal.notice}</p>}
       <SampleFilters
         instruments={context.instruments}
         genres={context.genres}
@@ -104,7 +147,9 @@ export function CatalogList({
                     ? 'No samples match these filters. Remove a filter or clear all to see more samples.'
                     : favoritesOnly
                       ? 'No favorites yet. Mark samples as favorites in Samples.'
-                      : 'Your library is empty. Open a folder to add audio samples. Original files stay in place.'}
+                      : collectionId
+                        ? 'This Collection is empty. Add Samples from the Sample menu in Samples or Favorites.'
+                        : 'Your library is empty. Open a folder to add audio samples. Original files stay in place.'}
               </p>
             ) : (
               <SampleList
@@ -115,6 +160,13 @@ export function CatalogList({
                 onInspect={openSample}
                 inspectorOpen={open}
                 selection={{ id: context.selectedId, onChange: select }}
+                onRemoveFromCollection={
+                  collectionId
+                    ? (sample) => void removal.remove(sample)
+                    : undefined
+                }
+                membershipPending={removal.pending}
+                onAddToCollection={setAdding}
               />
             )}
             <nav className="sample-pagination" aria-label="Sample pages">

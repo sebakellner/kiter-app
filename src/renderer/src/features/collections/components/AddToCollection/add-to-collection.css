@@ -1,0 +1,50 @@
+.collection-picker {
+  width: min(560px, calc(100vw - 32px));
+  display: grid;
+  gap: 12px;
+}
+
+.collection-picker h2 {
+  margin-bottom: 0;
+}
+
+.collection-picker form,
+.collection-picker-options,
+.collection-picker [aria-label='Collection results'] ul {
+  display: grid;
+  gap: 12px;
+}
+
+.collection-picker-help,
+.collection-picker small {
+  color: var(--color-text-secondary);
+}
+
+.collection-picker small {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.collection-picker-toolbar,
+.collection-picker-selected {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.collection-picker-options,
+.collection-picker-selected {
+  padding: 0;
+}
+
+.collection-picker-options {
+  max-height: 280px;
+  overflow: auto;
+}
+
+.collection-picker-options label {
+  display: flex;
+  gap: 8px;
+  align-items: start;
+}

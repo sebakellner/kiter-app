@@ -1,20 +1,24 @@
-import { useEffect } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Link, useLocation, useParams } from 'react-router-dom'
 import { Button } from '@renderer/components/ui/Button'
 import { useCollectionDetail } from '@renderer/features/collections/hooks/useCollectionDetail'
 import { useCatalogViewContext } from '@renderer/routes/navigationContext'
 import './collection-detail.css'
+import { CatalogList } from '@renderer/features/library/components/CatalogList'
 
 export function CollectionDetail(): React.JSX.Element {
   const { id = '' } = useParams()
+  const { key } = useLocation()
+  const [membershipRevision, setMembershipRevision] = useState(0)
   const { collection, loading, error, unavailable, refresh } =
     useCollectionDetail(id)
-  const { onReady } = useCatalogViewContext()
+  const view = useCatalogViewContext()
+  const { onReady } = view
   useEffect(() => {
-    if (!loading) {
+    if (!loading && !collection) {
       onReady()
     }
-  }, [loading, onReady])
+  }, [loading, collection, onReady])
   return (
     <section aria-labelledby="collection-title" aria-busy={loading}>
       <nav aria-label="Breadcrumb">
@@ -41,20 +45,22 @@ export function CollectionDetail(): React.JSX.Element {
             {collection.sampleCount}{' '}
             {collection.sampleCount === 1 ? 'Sample' : 'Samples'}
           </p>
-          {collection.sampleCount === 0 ? (
-            <p>
-              This Collection is empty. Adding Samples will be available in a
-              later update.
-            </p>
-          ) : (
-            <p>
-              Viewing and managing Collection Samples will be available in a
-              later update.
-            </p>
-          )}
-          <Button disabled={loading} onClick={refresh}>
+          <Button
+            disabled={loading}
+            onClick={() => {
+              refresh()
+              setMembershipRevision((current) => current + 1)
+            }}
+          >
             Refresh Collection
           </Button>
+          <CatalogList
+            key={`${id}:${key}`}
+            {...view}
+            collectionId={id}
+            membershipRevision={membershipRevision}
+            onMembershipChanged={refresh}
+          />
         </>
       )}
     </section>

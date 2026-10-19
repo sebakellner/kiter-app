@@ -12,6 +12,7 @@ export function useCatalog(
   genreIds: string[] = [],
   sampleTypes: SampleTypeFilter = [],
   search = '',
+  collectionId?: string,
 ): {
   page: LibraryPage | null
   loading: boolean
@@ -27,6 +28,7 @@ export function useCatalog(
     genreIds.slice().sort(),
     sampleTypes.slice().sort(),
     text,
+    collectionId ?? null,
   ])
   const [request, setRequest] = useState({
     offset: initialOffset,
@@ -53,17 +55,19 @@ export function useCatalog(
 
   useEffect(() => {
     let active = true
-    const [instruments, genres, types, query]: [
+    const [instruments, genres, types, query, collection]: [
       string[],
       string[],
       SampleTypeFilter,
       string,
+      string | null,
     ] = JSON.parse(filterKey)
     const filters = {
       ...(instruments.length ? { instrumentIds: instruments } : {}),
       ...(genres.length ? { genreIds: genres } : {}),
       ...(types.length ? { sampleTypes: types } : {}),
       ...(query ? { search: query } : {}),
+      ...(collection ? { collectionId: collection } : {}),
     }
     const offset = request.filterKey !== filterKey ? 0 : request.offset
     const run = async (): Promise<void> => {

@@ -14,6 +14,9 @@ type Props = {
   onInspect?: (sample: ListSample, opener: HTMLElement) => void
   inspectorOpen?: boolean
   selection?: { id: string | null; onChange: (id: string | null) => void }
+  onRemoveFromCollection?: (sample: ListSample) => void
+  membershipPending?: boolean
+  onAddToCollection?: (sample: ListSample) => void
 }
 
 export function SampleList({
@@ -24,6 +27,9 @@ export function SampleList({
   onInspect,
   inspectorOpen = false,
   selection,
+  onRemoveFromCollection,
+  membershipPending = false,
+  onAddToCollection,
 }: Props): React.JSX.Element {
   const { dragError, previewSample, getRowProps, selectSample } = useSampleList(
     samples,
@@ -50,6 +56,15 @@ export function SampleList({
             }
             onPreview={() => previewSample(sample)}
             onFavoriteChanged={onFavoriteChanged}
+            onAddToCollection={
+              onAddToCollection ? () => onAddToCollection(sample) : undefined
+            }
+            onRemoveFromCollection={
+              onRemoveFromCollection
+                ? () => onRemoveFromCollection(sample)
+                : undefined
+            }
+            membershipPending={membershipPending}
             inspectorOpen={inspectorOpen}
             onInspect={
               onInspect

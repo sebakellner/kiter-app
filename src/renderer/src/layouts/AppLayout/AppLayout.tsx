@@ -18,7 +18,10 @@ import type { CatalogViewContext } from '@renderer/routes/navigationContext'
 export function AppLayout(): React.JSX.Element {
   const { context, update } = useNavigationContext()
   const { pathname } = useLocation()
-  const catalog = pathname === '/samples' || pathname === '/favorites'
+  const catalog =
+    pathname === '/samples' ||
+    pathname === '/favorites' ||
+    pathname.startsWith('/collections/')
   const setOpen = useCallback(
     (inspectorOpen: boolean) => update({ inspectorOpen }),
     [update],
@@ -46,7 +49,10 @@ function AppLayoutContent({
   const restored = useRef(false)
   const frame = useRef<number | null>(null)
   const scrollTop = useRef(context.scrollTop)
-  const catalog = pathname === '/samples' || pathname === '/favorites'
+  const catalog =
+    pathname === '/samples' ||
+    pathname === '/favorites' ||
+    pathname.startsWith('/collections/')
 
   const onReady = useCallback(() => {
     if (restored.current || frame.current !== null) {
