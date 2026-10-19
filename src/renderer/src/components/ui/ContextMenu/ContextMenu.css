@@ -1,0 +1,13 @@
+.ui-context-menu {
+  min-width: 160px;
+  padding: 4px;
+}
+
+.ui-context-menu [role='menu'] {
+  display: grid;
+  gap: 2px;
+}
+
+.ui-context-menu [role='menuitem'] {
+  text-align: left;
+}
