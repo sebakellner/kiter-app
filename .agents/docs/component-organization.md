@@ -36,7 +36,8 @@ These are ownership conventions, not directories to scaffold in advance.
   `OpenFolderButton` belongs in the library feature.
 - Create primitives when they provide reusable styling or behavior; do not wrap
   every HTML element or scaffold an entire design system in advance.
-- Input, Select, Combobox, Popover, and Dialog are primary controls owned by `components/ui/`, even during
+- Input, Select, Combobox, Popover, Dialog, and ContextMenu are primary controls
+  owned by `components/ui/`, even during
   prototyping. Feature code supplies options, labels, values and callbacks; the
   controls own native semantics, focus, keyboard interaction and structural CSS.
   Use Input for native text/search fields, Checkbox for checkbox interactions,

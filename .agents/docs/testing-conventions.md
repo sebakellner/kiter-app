@@ -364,6 +364,13 @@ waits for Electron exit before removing it.
 - Use semantic locators and awaited user interactions. Keep page objects small
   and business assertions in the test. Use evaluation only for infrastructure
   control or native/media observations unavailable through ordinary locators.
+- Await observable workflow completion, not just the initiating click, before
+  changing filesystem fixtures. In particular, wait for an imported Sample's
+  enabled preview control before moving its source to simulate unavailability,
+  and let any visible waveform finish its lazy read before invalidating the file.
+  A click on Open folder does not await discovery/import or navigation. Prefer
+  controlled native-dialog gates for race regressions over sleeps, retries or
+  larger global timeouts.
 - Each journey gets fresh storage and a process. Run serially because the app
   owns a single-instance lock. Retries are disabled so flaky failures stay visible.
 - Attach a trace for each process phase and a screenshot on failure. Artifacts

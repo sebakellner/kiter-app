@@ -78,6 +78,22 @@ The current worker/client operations are narrower than the planned UI below:
   result. History reaching a deleted detail shows unavailable with recovery links.
   Batch IPC/reinclusion UI are not implied by existing worker operations.
 
+## Implemented Sample Context Menu
+
+- SampleListRow exposes the same actions through right-click and an explicit
+  More actions button. Opening preserves current selection, playback and Favorites;
+  it does not begin native audio dragging. Keyboard context gestures are supported.
+- The initial actions are Play/Pause preview and Info where inspection is
+  available. Preview uses the existing global controller without selecting the
+  Sample. Info selects and inspects the acted-on Sample with a stable focus-return
+  target. Unavailable audio disables preview but retains Info.
+- The primary UI ContextMenu/Popover own activation, focus, keyboard navigation,
+  point/anchor positioning and dismissal. Escape returns focus; clicking outside
+  or scrolling closes the menu without stealing focus. The menu unmounts with its
+  row when filtering/pagination/navigation removes that row.
+- Add to Collection, membership removal and other organization commands remain
+  separate pending slices. No nonfunctional menu actions are displayed.
+
 ## Implemented Single-Sample Instrument Editor
 
 Sample Info exposes Edit instruments alongside classification suggestions. It

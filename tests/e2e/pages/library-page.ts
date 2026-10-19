@@ -4,6 +4,8 @@ export class LibraryPage {
   constructor(readonly page: Page) {}
 
   async openFolder(): Promise<void> {
+    // This starts the workflow, including cancellation/failure cases. Callers must
+    // await their expected result before interacting with imported files.
     await this.page.getByRole('button', { name: 'Open folder' }).click()
   }
 
