@@ -193,7 +193,7 @@ prototype, not a combined multi-field inspector Save.
   authorize main-frame callers and validate requests. Preload validates saved
   responses; worker summary queries count memberships without transferring them.
   Existing internal Collection operations remain available independently.
-- Collection metadata editing/deletion, reordering, covers, sidebar shortcuts and
+- Collection metadata editing/deletion, covers, sidebar shortcuts and
   Home recency remain planned. Member contents and individual membership actions
   are implemented as described below. No schema migration or source-audio writes
   are needed.
@@ -231,7 +231,7 @@ prototype, not a combined multi-field inspector Save.
   global preview and original-file native dragging. `library:list` accepts an
   optional Collection UUID, verifies existence in the worker and intersects its
   memberships before counting/pagination. Saved membership position orders results,
-  including filtered results; no reorder UI is introduced. Main reuses its normal
+  including filtered results. Manual move actions are documented below. Main reuses its normal
   per-source audio authorization, so Collection membership grants no file access.
 - Remove from Collection is an immediate individual membership write, without a
   deletion confirmation. Failures retain the row and allow retry. Successful writes
@@ -241,7 +241,63 @@ prototype, not a combined multi-field inspector Save.
   the loaded/paused player remain unchanged. Collection routes retain independent
   session navigation context and never mount a second player.
 
-## Collection Membership and Ordering — Planned UI
+## Implemented Collection Drag Ordering
+
+- Each member row has a dedicated grip for drag ordering; there are no persistent
+  Move up/down buttons above the list. Starting a handle drag selects that Sample
+  without preview. A before/after insertion line and muted source row identify the
+  intended drop; hovering never changes saved order. A drop persists one placement.
+- Move up/Move down remain secondary Sample-context-menu actions, including for
+  keyboard users. They select the acted-on Sample without preview, disable their
+  first/last boundary and can cross pages. Drag ordering operates on the visible
+  page; it does not implement page-hover navigation, cross-Collection drops or an
+  alternate display sort. Dropping after a page's last row uses that actual member
+  as the anchor, not an implicit end-of-Collection destination.
+- Ordering requires the unfiltered saved sequence: nonempty local search (including
+  a single character), Instrument/Genre/type selections or Favorites scope disable
+  moves and explain that the criteria must be cleared. Loading, read errors and
+  unavailable current-order metadata also disable moves. Missing audio does not.
+- A Collection-scoped `library:list` page includes `collectionOrderToken`, a SHA-256
+  snapshot of the Collection UUID and every ordered Sample UUID/position. The worker
+  reads that snapshot in batches of at most 500 rows within the same transaction as
+  the page. Filtered pages carry the same full-sequence token, not a partial snapshot.
+  No full membership array is transferred to the renderer or persisted as a cache.
+- Handle drag uses only `application/x-kiter-collection-sample`, not file paths,
+  URLs or native audio payloads. The initiating Collection, page and read token are
+  retained for the drag; changed criteria/order/page cancel it. External files and
+  drags without a matching local session are ignored. Self-drop and release outside
+  a destination never write; Escape/drag end without an accepted drop cancel locally.
+  Name/waveform dragging remains the
+  original-file native DAW gesture, separate from the reorder grip.
+- Typed `collections:place-sample` validates Collection/source/target UUIDs, before
+  or after and the drag-start token. In one immediate transaction the worker checks
+  the exact snapshot and both memberships, then rotates the affected positions,
+  reading batches of at most 500 without transferring that range to the renderer. Gaps and
+  unrelated references remain intact; a late failure rolls the whole drop back.
+- Secondary `collections:move-sample` validates Collection/Sample UUIDs, up/down and a
+  64-character token. The worker rechecks the exact sequence under an immediate
+  transaction, finds the adjacent saved member and atomically swaps only the pair's
+  positions. Existing gaps remain valid. Boundary requests are explicit no-ops.
+  A failed swap rolls both memberships/positions back; stale membership or order
+  returns `STALE_REVIEW` without writing, even if the member count is unchanged.
+- Save is pessimistic: rows keep their last confirmed order until persistence and
+  a refreshed page succeed. Pending writes disable conflicting controls and route
+  changes, while the permanent player remains available. Exit waits for persistence;
+  failure keeps the app open. Errors reload current saved order and require a new
+  explicit move; no failed direction is automatically replayed against another order.
+- Results identify the moved Sample's current zero-based index and a new token.
+  The view follows a moved Sample across page boundaries by that index without
+  selecting another Sample or loading the whole Collection. Focus follows that row
+  after drops or menu moves, including across pages.
+  Focus is not reclaimed from the permanent player. Inspector, Favorites, other
+  Collections, source audio and loaded/paused preview remain independent.
+- This slice needs no schema migration. Full-sequence internal reorder remains a
+  separate worker capability; the renderer exposes bounded anchored placements and
+  adjacent move intents, never a replacement full-membership array.
+  Native name/waveform dragging still supplies the original file to the receiving
+  application, not an internal reorder gesture. Large-library latency is unqualified.
+
+## Remaining Collection Membership and Ordering UI
 
 - Add samples from individual menu, checked batch, Collection catalog picker, or
   internal dragging onto sidebar shortcut. Add references, not audio copies;
