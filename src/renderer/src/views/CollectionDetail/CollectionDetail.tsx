@@ -1,9 +1,9 @@
 import { useEffect } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { Button } from '@renderer/components/ui/Button'
-import { useCollectionDetail } from '@renderer/features/collections/useCollections'
+import { useCollectionDetail } from '@renderer/features/collections/hooks/useCollectionDetail'
 import { useCatalogViewContext } from '@renderer/routes/navigationContext'
-import '@renderer/features/collections/collections.css'
+import './collection-detail.css'
 
 export function CollectionDetail(): React.JSX.Element {
   const { id = '' } = useParams()

@@ -1,0 +1,10 @@
+.collection-create fieldset {
+  display: grid;
+  gap: 8px;
+  border: 0;
+}
+
+.collection-create textarea {
+  min-height: 80px;
+  resize: vertical;
+}

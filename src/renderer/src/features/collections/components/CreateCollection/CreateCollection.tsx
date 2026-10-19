@@ -7,8 +7,8 @@ import { unwrapIpcResult } from '@shared/ipc/result'
 import { Input } from '@renderer/components/ui/Input'
 import { Button } from '@renderer/components/ui/Button'
 import { Dialog } from '@renderer/components/ui/Dialog'
-import { collectionFormSchema, type CollectionFormValues } from '../schemas'
-import '../collections.css'
+import { collectionFormSchema, type CollectionFormValues } from '../../schemas'
+import './create-collection.css'
 
 export function CreateCollection({
   onClose,

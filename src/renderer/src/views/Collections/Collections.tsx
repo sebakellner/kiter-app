@@ -2,10 +2,10 @@ import { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { Button } from '@renderer/components/ui/Button'
 import { Card } from '@renderer/components/ui/Card'
-import { useCollections } from '@renderer/features/collections/useCollections'
-import { CreateCollection } from '@renderer/features/collections/CreateCollection/CreateCollection'
+import { useCollections } from '@renderer/features/collections/hooks/useCollections'
+import { CreateCollection } from '@renderer/features/collections/components/CreateCollection/CreateCollection'
 import { useCatalogViewContext } from '@renderer/routes/navigationContext'
-import '@renderer/features/collections/collections.css'
+import './collections.css'
 
 export function Collections(): React.JSX.Element {
   const { key } = useLocation()
