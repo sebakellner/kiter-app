@@ -7,9 +7,12 @@
   max-height: calc(100vh - 16px);
   overflow: auto;
   z-index: 1;
-  background: Canvas;
-  color: CanvasText;
-  border: 1px solid;
+  padding: 6px;
+  background: var(--color-background-soft);
+  color: var(--color-text);
+  border: 1px solid var(--color-control-border);
+  border-radius: var(--radius-surface);
+  box-shadow: var(--shadow-overlay);
 }
 
 .ui-popover::backdrop {

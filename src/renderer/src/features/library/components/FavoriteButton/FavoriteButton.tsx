@@ -49,6 +49,7 @@ export function FavoriteButton({ file, onChanged }: Props): React.JSX.Element {
   return (
     <div className="sample-favorite">
       <Button
+        variant="ghost"
         className="favorite-button"
         data-testid="favorite-toggle"
         draggable={false}

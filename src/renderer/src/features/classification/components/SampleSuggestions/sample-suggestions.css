@@ -1,0 +1,6 @@
+.sample-suggestions-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-block: 8px;
+}

@@ -1,4 +1,25 @@
 .ui-select {
-  font: inherit;
   max-width: 100%;
+  min-height: 32px;
+  padding: 5px 8px;
+  border: 1px solid var(--color-control-border);
+  border-radius: var(--radius-control);
+  background: var(--color-background);
+  color: var(--color-text);
+  font-size: var(--font-size-control);
+  line-height: 20px;
+  cursor: pointer;
+}
+
+.ui-select:enabled:hover {
+  border-color: var(--color-text-secondary);
+}
+
+.ui-select[aria-invalid='true'] {
+  border-color: var(--color-danger);
+}
+
+.ui-select:disabled {
+  opacity: 0.5;
+  cursor: default;
 }

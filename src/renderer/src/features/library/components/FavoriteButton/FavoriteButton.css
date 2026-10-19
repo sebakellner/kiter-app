@@ -1,9 +1,12 @@
-.library .favorite-button {
-  margin-bottom: 0;
+.favorite-button[aria-pressed='true'][data-variant='ghost'] {
+  border-color: var(--color-accent);
+  background: var(--color-selection);
+  color: var(--color-accent-hover);
 }
 
-.favorite-button[aria-pressed='true'] {
-  background: #f0dc4e;
+.favorite-button[aria-pressed='true'][data-variant='ghost']:enabled:hover {
+  background: var(--color-background-mute);
+  color: var(--color-accent-hover);
 }
 
 .sample-favorite {
@@ -12,5 +15,5 @@
 
 .sample-favorite .sample-error {
   display: block;
-  font-size: 12px;
+  font-size: var(--font-size-small);
 }

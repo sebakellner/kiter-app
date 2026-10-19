@@ -1,10 +1,13 @@
 .ui-card {
-  border: 1px solid currentColor;
-  padding: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-surface);
+  background: var(--color-background-soft);
+  padding: 16px;
   min-width: 0;
   overflow-wrap: anywhere;
 }
 
 .ui-card[aria-selected='true'] {
-  outline: 2px solid currentColor;
+  border-color: var(--color-accent);
+  background: var(--color-selection);
 }

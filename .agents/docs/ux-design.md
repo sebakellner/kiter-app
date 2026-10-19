@@ -8,8 +8,8 @@ Feature workflows live in the focused guides linked below.
 See [UI Patterns](ui-patterns.md) for reusable interaction conventions,
 [Domain Model](domain-model.md) for entity semantics, and
 [Architecture](architecture.md) for technical boundaries. Visual tokens,
-typography, spacing, and component appearance belong to the design system;
-its documentation location is still to be defined.
+typography, spacing, and component appearance belong to the
+[UI foundations](../../src/renderer/src/components/ui/README.md).
 
 ## Status and Reading Guide
 
@@ -32,8 +32,9 @@ for new visits, including pagination, the Samples Favorite filter, selection,
 inspector visibility, scroll, and focus after revalidating loaded results. The
 renderer retains 100 history snapshots; older entries fall back to the latest
 destination context. Visual
-design, the design system, and cross-platform prototype
-validation are still pending.
+design now has an initial shared dark control/surface foundation and active
+navigation treatment. Row density, inspector geometry, custom transport design,
+and cross-platform prototype validation remain pending.
 
 Use shared sections here and load only the feature guides relevant to a task.
 Routing is adopted for the first two destinations; musical analysis follows its

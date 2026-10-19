@@ -75,7 +75,7 @@ export function CatalogList({
       {context.search.trim() && !effectiveCatalogSearch(context.search) && (
         <p role="status">Type at least 2 characters to search.</p>
       )}
-      <Button onClick={refresh} disabled={loading}>
+      <Button variant="ghost" onClick={refresh} disabled={loading}>
         Refresh
       </Button>
       {loading && <p role="status">Loading samples...</p>}
@@ -117,7 +117,7 @@ export function CatalogList({
                 selection={{ id: context.selectedId, onChange: select }}
               />
             )}
-            <nav aria-label="Sample pages">
+            <nav className="sample-pagination" aria-label="Sample pages">
               <Button
                 disabled={loading || page.offset === 0}
                 onClick={() => load(Math.max(0, page.offset - page.limit))}

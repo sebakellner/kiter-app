@@ -10,10 +10,18 @@ export function AppHeader(): React.JSX.Element {
   return (
     <>
       <span className="app-shell-brand">Kiter</span>
-      <Button aria-label="Back" onClick={() => void navigate(-1)}>
+      <Button
+        variant="ghost"
+        aria-label="Back"
+        onClick={() => void navigate(-1)}
+      >
         Back
       </Button>
-      <Button aria-label="Forward" onClick={() => void navigate(1)}>
+      <Button
+        variant="ghost"
+        aria-label="Forward"
+        onClick={() => void navigate(1)}
+      >
         Forward
       </Button>
       <OpenFolderButton
