@@ -10,6 +10,11 @@ import {
 } from '@shared/ipc/library'
 import { requireIpcResult } from '@shared/ipc/result'
 import { isSampleCategoriesSnapshot } from '@shared/ipc/sampleCategories'
+import {
+  GENRE_CHANNELS,
+  isGenrePage,
+  isSampleGenresSnapshot,
+} from '@shared/ipc/genres'
 import { LIFECYCLE_CHANNELS } from '@shared/ipc/lifecycle'
 import {
   isAliasUpdatePage,
@@ -28,6 +33,23 @@ import {
 
 // Custom APIs for renderer
 const api: Api = {
+  genres: {
+    list: async (request = {}) =>
+      requireIpcResult(
+        await ipcRenderer.invoke(GENRE_CHANNELS.list, request),
+        isGenrePage,
+      ),
+    readSample: async (request) =>
+      requireIpcResult(
+        await ipcRenderer.invoke(GENRE_CHANNELS.readSample, request),
+        isSampleGenresSnapshot,
+      ),
+    saveSample: async (request) =>
+      requireIpcResult(
+        await ipcRenderer.invoke(GENRE_CHANNELS.saveSample, request),
+        isSampleGenresSnapshot,
+      ),
+  },
   lifecycle: {
     onCloseRequested: (listener) => {
       const handler = (): void => listener()

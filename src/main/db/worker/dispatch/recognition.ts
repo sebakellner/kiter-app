@@ -11,12 +11,26 @@ import {
   incorporateAlias,
 } from '../../operations/classification/alias-updates.ts'
 import { prepareSampleClassification } from '../../operations/classification/preparation.ts'
+import {
+  readSampleGenres,
+  saveSampleGenres,
+} from '../../operations/classification/sample-genres.ts'
 
 export function executeRecognition(
   db: AppDatabase,
   request: RecognitionRequest,
 ): RecognitionReply {
   switch (request.action) {
+    case 'read-sample-genres':
+      return {
+        action: request.action,
+        result: readSampleGenres(db, request.input),
+      }
+    case 'save-sample-genres':
+      return {
+        action: request.action,
+        result: saveSampleGenres(db, request.input),
+      }
     case 'apply-sample-classification':
       return {
         action: request.action,

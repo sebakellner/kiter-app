@@ -115,6 +115,32 @@ Save and quit, Discard and quit, or Stay, waiting for pending writes.
   of other fields, and multi-Sample editing remain later slices. Future metadata
   fields join the shared atomic inspector draft under UI Patterns.
 
+## Implemented Single-Sample Genre Editor
+
+Sample Info also exposes Edit genres. It reuses the Category editor's anchored
+modal popover, React Hook Form draft, Zod validation, bounded search, focus,
+Save/Cancel, dirty dismissal/exit protection, and preserved-draft reload behavior.
+Only one classification editor opens at a time; suggestion writes remain disabled
+until it closes. Categories and Genres are separate short metadata drafts in this
+prototype, not a combined multi-field inspector Save.
+
+- `genres:list` exposes the existing literal normalized Genre query with pages of
+  50, maximum 100. Search and pagination retain checked choices across pages.
+- `genres:read-sample` returns the Sample's direct Genres and read-state token;
+  `genres:save-sample` validates unique IDs and replaces only that Sample's Genre
+  assignments in one immediate worker transaction. Empty selection clears them.
+  The editor accepts at most 1,000 assignments and rejects larger scopes explicitly.
+- The token covers Sample identity and saved Genre identities/names. Changed
+  assignments or renamed/deleted saved Genres require fresh review; missing
+  selected Genres or late failures roll back every assignment change.
+- Category assignments, Sample type, credits, origin, Favorites, sources, and Pack
+  Genre assignments are preserved. There is no inheritance or implicit rejection.
+  Successful Save refreshes suggestions. Genre creation/rename/deletion UI and
+  multi-Sample assignment remain later slices.
+- `ClassificationEditor` and its hook own the shared renderer behavior, with
+  explicit Category/Genre bridge adapters. Form schemas stay in the feature's
+  `schemas.ts` and derive their selection rules from shared schemas.
+
 ## Collection Membership and Ordering
 
 - Add samples from individual menu, checked batch, Collection catalog picker, or

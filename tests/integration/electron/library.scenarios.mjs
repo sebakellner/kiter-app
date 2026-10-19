@@ -113,6 +113,12 @@ export async function verifyMainFrameAuthorization(ctx) {
       ['categories:create', { name: 'Unauthorized Category' }],
       ['categories:rename', { id: category.id, name: 'Unauthorized rename' }],
       ['categories:read-sample', { sampleId: sample.id }],
+      ['genres:list', {}],
+      ['genres:read-sample', { sampleId: sample.id }],
+      [
+        'genres:save-sample',
+        { sampleId: sample.id, token: 'a'.repeat(64), genreIds: [] },
+      ],
       [
         'categories:save-sample',
         { sampleId: sample.id, token: 'a'.repeat(64), categoryIds: [] },
