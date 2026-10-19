@@ -8,6 +8,7 @@ export type ViewContext = {
   categories: Category[]
   genres: Genre[]
   sampleTypes: SampleTypeFilter
+  search: string
   offset: number
   selectedId: string | null
   inspectorOpen: boolean
@@ -19,6 +20,7 @@ export const defaultContext: ViewContext = {
   categories: [],
   genres: [],
   sampleTypes: [],
+  search: '',
   offset: 0,
   selectedId: null,
   inspectorOpen: false,

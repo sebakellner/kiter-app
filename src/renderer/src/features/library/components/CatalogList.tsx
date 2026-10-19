@@ -6,6 +6,7 @@ import { useSampleInspector } from './SampleInspector'
 import { useCallback, useLayoutEffect } from 'react'
 import type { CatalogViewContext } from '@renderer/routes/navigationContext'
 import { SampleFilters } from './SampleFilters/SampleFilters'
+import { effectiveCatalogSearch } from '@shared/features/library/search'
 
 export function CatalogList({
   favoritesOnly = false,
@@ -24,6 +25,7 @@ export function CatalogList({
     context.categories.map(({ id }) => id),
     context.genres.map(({ id }) => id),
     context.sampleTypes,
+    context.search,
   )
   const select = useCallback(
     (selectedId: string | null) => update({ selectedId }),
@@ -59,8 +61,20 @@ export function CatalogList({
         categories={context.categories}
         genres={context.genres}
         sampleTypes={context.sampleTypes}
+        search={context.search}
+        onSearchChange={(search) =>
+          update(
+            effectiveCatalogSearch(search) ===
+              effectiveCatalogSearch(context.search)
+              ? { search }
+              : { search, offset: 0, scrollTop: 0 },
+          )
+        }
         onChange={(filters) => update({ ...filters, offset: 0, scrollTop: 0 })}
       />
+      {context.search.trim() && !effectiveCatalogSearch(context.search) && (
+        <p role="status">Type at least 2 characters to search.</p>
+      )}
       <Button onClick={refresh} disabled={loading}>
         Refresh
       </Button>
@@ -82,13 +96,15 @@ export function CatalogList({
             </p>
             {page.total === 0 ? (
               <p>
-                {context.categories.length > 0 ||
-                context.genres.length > 0 ||
-                context.sampleTypes.length > 0
-                  ? 'No samples match these filters. Remove a filter or clear all to see more samples.'
-                  : favoritesOnly
-                    ? 'No favorites yet. Mark samples as favorites in Samples.'
-                    : 'Your library is empty. Open a folder to add audio samples. Original files stay in place.'}
+                {effectiveCatalogSearch(context.search)
+                  ? 'No samples match this search. Clear the search or change your filters.'
+                  : context.categories.length > 0 ||
+                      context.genres.length > 0 ||
+                      context.sampleTypes.length > 0
+                    ? 'No samples match these filters. Remove a filter or clear all to see more samples.'
+                    : favoritesOnly
+                      ? 'No favorites yet. Mark samples as favorites in Samples.'
+                      : 'Your library is empty. Open a folder to add audio samples. Original files stay in place.'}
               </p>
             ) : (
               <SampleList

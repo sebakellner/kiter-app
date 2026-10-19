@@ -12,6 +12,7 @@ import type { Page } from '@shared/domain/pagination'
 import type { SampleTypeFilter } from '@shared/features/library/schemas'
 
 function Example(): React.JSX.Element {
+  const [search, setSearch] = useState('')
   const [value, setValue] = useState<{
     categories: Category[]
     genres: Genre[]
@@ -21,7 +22,14 @@ function Example(): React.JSX.Element {
     genres: [],
     sampleTypes: [],
   })
-  return <SampleFilters {...value} onChange={setValue} />
+  return (
+    <SampleFilters
+      {...value}
+      search={search}
+      onSearchChange={setSearch}
+      onChange={setValue}
+    />
+  )
 }
 
 test('filters retain independent choices and queries, remove chips and clear all groups', async () => {
@@ -61,6 +69,10 @@ test('filters retain independent choices and queries, remove chips and clear all
   const user = userEvent.setup()
   render(<Example />)
   const input = screen.getByRole('combobox', { name: 'Categories' })
+  const search = screen.getByRole('searchbox', { name: 'Search samples' })
+  expect(search).toHaveAttribute('placeholder', 'Search samples')
+  expect(search).toHaveAttribute('maxlength', '500')
+  await user.type(search, 'kick')
   expect(input).toHaveAttribute('placeholder', 'Categories')
   expect(screen.getByRole('combobox', { name: 'Genres' })).toHaveAttribute(
     'placeholder',
@@ -145,6 +157,15 @@ test('filters retain independent choices and queries, remove chips and clear all
       name: 'Remove Sample type filter: One-Shots',
     }),
   ).not.toBeInTheDocument()
+  expect(search).toHaveValue('kick')
+  await user.selectOptions(types, 'unknown')
+  await user.click(screen.getByRole('button', { name: 'Clear search' }))
+  expect(search).toHaveValue('')
+  expect(search).toHaveFocus()
+  expect(types).toHaveValue('unknown')
+  expect(
+    screen.getByRole('button', { name: 'Remove Sample type filter: Unknown' }),
+  ).toBeVisible()
 })
 
 test('Sample type selector shows its filter name by default and replaces a single choice without refetching vocabulary', async () => {

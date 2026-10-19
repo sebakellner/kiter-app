@@ -7,10 +7,16 @@
 }
 
 .sample-filters-controls,
+.sample-filters-search,
 .sample-filters-chips {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
+}
+
+.sample-filters-search {
+  margin-inline-start: auto;
+  max-width: 100%;
 }
 
 .sample-filters-chips {
