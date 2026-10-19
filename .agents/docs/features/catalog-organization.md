@@ -267,8 +267,12 @@ prototype, not a combined multi-field inspector Save.
   retained for the drag; changed criteria/order/page cancel it. External files and
   drags without a matching local session are ignored. Self-drop and release outside
   a destination never write; Escape/drag end without an accepted drop cancel locally.
-  Name/waveform dragging remains the
-  original-file native DAW gesture, separate from the reorder grip.
+  Name/waveform dragging remains the original-file native DAW gesture, separate
+  from the reorder grip. The waveform has its own draggable surface, including
+  when filters disable ordering; the Collection row itself is not draggable.
+  Library audio-drag handling has one owner per list through `useSampleAudioDrag`;
+  names and waveforms receive explicit handlers instead of relying on row-event
+  bubbling. Collection drag ordering remains a separate controller.
 - Typed `collections:place-sample` validates Collection/source/target UUIDs, before
   or after and the drag-start token. In one immediate transaction the worker checks
   the exact snapshot and both memberships, then rotates the affected positions,
@@ -285,6 +289,9 @@ prototype, not a combined multi-field inspector Save.
   changes, while the permanent player remains available. Exit waits for persistence;
   failure keeps the app open. Errors reload current saved order and require a new
   explicit move; no failed direction is automatically replayed against another order.
+  Order help, pending/result notices and persistent errors share the list's sticky
+  filter region, keeping recovery actions visible while rows scroll without moving
+  focus away from the active Sample or player.
 - Results identify the moved Sample's current zero-based index and a new token.
   The view follows a moved Sample across page boundaries by that index without
   selecting another Sample or loading the whole Collection. Focus follows that row
