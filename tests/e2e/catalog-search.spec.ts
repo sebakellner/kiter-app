@@ -1,8 +1,101 @@
 import { test, expect } from './fixtures'
 import { LibraryPage } from './pages/library-page'
+import type { Locator } from '@playwright/test'
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { createWav } from '../support/fixtures/wav.mjs'
+
+test('local search finds direct saved Instruments and Genres in Samples and Favorites across restart', async ({
+  kiter,
+}) => {
+  let library = new LibraryPage(kiter.page)
+  await kiter.selectFolder(kiter.samples)
+  await library.openFolder()
+  let inspector = kiter.page.getByRole('complementary', {
+    name: 'Sample info',
+  })
+  await library
+    .row('kick.wav')
+    .getByRole('button', { name: 'Info: kick.wav', exact: true })
+    .click()
+  await inspector
+    .getByRole('button', { name: 'Apply Kick', exact: true })
+    .click()
+  await expect(inspector).toContainText('Classifications saved.')
+  await library
+    .row('snare.wav')
+    .getByRole('button', { name: 'Info: snare.wav', exact: true })
+    .click()
+  await inspector
+    .getByRole('button', { name: 'Edit instruments', exact: true })
+    .click()
+  const instruments = kiter.page.getByRole('dialog', {
+    name: 'Edit instruments',
+    exact: true,
+  })
+  await instruments
+    .getByRole('searchbox', { name: 'Search instruments' })
+    .fill('Kick')
+  await instruments.getByRole('checkbox', { name: 'Kick', exact: true }).check()
+  await instruments.getByRole('button', { name: 'Save', exact: true }).click()
+  await expect(instruments).toHaveCount(0)
+  await inspector
+    .getByRole('button', { name: 'Edit genres', exact: true })
+    .click()
+  let genres = kiter.page.getByRole('dialog', {
+    name: 'Edit genres',
+    exact: true,
+  })
+  await genres.getByRole('searchbox', { name: 'Search genres' }).fill('House')
+  await genres.getByRole('checkbox', { name: 'House', exact: true }).check()
+  await genres.getByRole('button', { name: 'Save', exact: true }).click()
+  await expect(genres).toHaveCount(0)
+  await inspector.getByRole('button', { name: 'Close inspector' }).click()
+  await library.row('snare.wav').getByTestId('favorite-toggle').click()
+
+  const search = (): Locator =>
+    kiter.page.getByRole('searchbox', { name: 'Search samples' })
+  const names = (): Locator => kiter.page.getByTestId('sample-name')
+  await search().fill('snare KICK HOUSE')
+  await expect(names()).toHaveText(['snare.wav'])
+  await expect(search()).toBeFocused()
+  await kiter.page
+    .getByRole('combobox', { name: 'Sample type', exact: true })
+    .selectOption('loop')
+  await expect(names()).toHaveCount(0)
+  await kiter.page
+    .getByRole('combobox', { name: 'Sample type', exact: true })
+    .selectOption('unknown')
+  await expect(names()).toHaveText(['snare.wav'])
+  await kiter.page.getByRole('link', { name: 'Favorites', exact: true }).click()
+  await search().fill('house kick')
+  await expect(names()).toHaveText(['snare.wav'])
+  await expect(kiter.page.locator('audio')).not.toHaveAttribute('src')
+
+  await kiter.restart()
+  library = new LibraryPage(kiter.page)
+  inspector = kiter.page.getByRole('complementary', { name: 'Sample info' })
+  genres = kiter.page.getByRole('dialog', { name: 'Edit genres', exact: true })
+  await kiter.page.getByRole('link', { name: 'Samples', exact: true }).click()
+  await search().fill('house kick')
+  await expect(names()).toHaveText(['snare.wav'])
+  await library
+    .row('snare.wav')
+    .getByRole('button', { name: 'Info: snare.wav', exact: true })
+    .click()
+  await inspector
+    .getByRole('button', { name: 'Edit genres', exact: true })
+    .click()
+  await genres.getByRole('searchbox', { name: 'Search genres' }).fill('House')
+  await genres.getByRole('checkbox', { name: 'House', exact: true }).uncheck()
+  await genres.getByRole('button', { name: 'Save', exact: true }).click()
+  await expect(genres).toHaveCount(0)
+  await inspector.getByRole('button', { name: 'Close inspector' }).click()
+  await search().fill('snare house')
+  await expect(names()).toHaveCount(0)
+  await search().fill('snare kick')
+  await expect(names()).toHaveText(['snare.wav'])
+})
 
 test('local search matches names and relative paths, intersects filters and restores independent destination queries', async ({
   kiter,
