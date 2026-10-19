@@ -5,6 +5,8 @@ import {
   requireCollectionGetRequest,
   requireCollectionDestinationsRequest,
   requireCollectionMembershipRequest,
+  requireCollectionMoveRequest,
+  requireCollectionPlaceRequest,
 } from '../../shared/ipc/collections'
 import { requireCollectionPage } from '../../shared/domain/collection'
 import type { DbClient } from '../db'
@@ -12,6 +14,38 @@ import { requireMainFrameWindow } from './authorize'
 import { invokeResult } from './result'
 
 export function registerCollectionsIpc(database: DbClient): void {
+  ipcMain.handle(COLLECTION_CHANNELS.placeSample, (event, request: unknown) =>
+    invokeResult(
+      'collections.place-sample',
+      {
+        code: 'STORAGE_FAILED',
+        message:
+          'Unable to save the dropped Sample position. Refresh the Collection before dragging again.',
+      },
+      () => {
+        requireMainFrameWindow(event)
+        return database.placeCollectionSample(
+          requireCollectionPlaceRequest(request),
+        )
+      },
+    ),
+  )
+  ipcMain.handle(COLLECTION_CHANNELS.moveSample, (event, request: unknown) =>
+    invokeResult(
+      'collections.move-sample',
+      {
+        code: 'STORAGE_FAILED',
+        message:
+          'Unable to save the Collection order. Refresh the Collection before repeating the move.',
+      },
+      () => {
+        requireMainFrameWindow(event)
+        return database.moveCollectionSample(
+          requireCollectionMoveRequest(request),
+        )
+      },
+    ),
+  )
   ipcMain.handle(COLLECTION_CHANNELS.destinations, (event, request: unknown) =>
     invokeResult(
       'collections.destinations',

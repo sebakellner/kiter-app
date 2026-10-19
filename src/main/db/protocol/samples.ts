@@ -30,6 +30,7 @@ import {
   isCatalogSample,
   requireLibraryListRequest,
   type CatalogSample,
+  type CatalogPage,
   type LibraryListRequest,
 } from '../../../shared/ipc/library.ts'
 
@@ -49,7 +50,7 @@ export type SampleRequest =
     }
 
 export type SampleReply =
-  | { action: 'list-catalog-samples'; result: SamplePage<CatalogSample> }
+  | { action: 'list-catalog-samples'; result: CatalogPage }
   | { action: 'get-catalog-sample'; result: CatalogSample }
   | {
       action: 'get-sample' | 'update-sample' | 'reinclude-source'
@@ -146,7 +147,12 @@ export function isSampleReply(value: unknown): value is SampleReply {
   const result = value.result
   switch (value.action) {
     case 'list-catalog-samples':
-      return isPage(result, isCatalogSample)
+      return (
+        isPage(result, isCatalogSample) &&
+        isRecord(result) &&
+        (result.collectionOrderToken === undefined ||
+          isToken(result.collectionOrderToken))
+      )
     case 'get-catalog-sample':
       return isCatalogSample(result)
     case 'get-sample':
