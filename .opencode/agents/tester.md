@@ -1,6 +1,7 @@
 ---
+name: tester
 description: Writes and runs tests and diagnoses failures. Use after implementing a feature or fixing a bug.
-mode: subagent
+type: subagent
 model: opencode/deepseek-v4.1-flash-free
 temperature: 0.1
 permission:

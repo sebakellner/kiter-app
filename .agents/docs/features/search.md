@@ -46,20 +46,23 @@ libraries before delivery. Visual design/prototypes remain deferred.
 
 ## Filters and Local Search
 
-### Implemented Category Filter Slice
+### Implemented Category and Genre Filter Slice
 
-Samples and Favorites expose a shared sticky in-list Categories combobox and
+Samples and Favorites expose shared sticky in-list Categories and Genres comboboxes and
 removable active chips with Clear all. Selection applies immediately, retains
 input focus/query, and resets result pagination. Vocabulary options use bounded
 50-item pages with literal catalog matching; opening/focusing refreshes options.
 Loading/error/empty options and result states remain distinct, with retry.
 
-`library:list` accepts up to 100 unique Category UUIDs, validated with the library
-feature's shared Zod schema. The worker filters direct saved Sample assignments
-with OR before counting and paginating, then intersects Favorites where requested.
-An empty selection adds no constraint; missing/deleted Category IDs match nothing,
+`library:list` accepts up to 100 unique Category UUIDs and 100 unique Genre UUIDs,
+validated with the library feature's shared Zod schemas. The worker filters direct
+saved Sample assignments with OR within each group and AND between groups before
+counting and paginating, then intersects Favorites where requested.
+An empty selection adds no constraint; missing/deleted IDs match nothing,
 not another entry with the same name. Suggestions and Pack classifications do not
-match. Main's normal audio authorization still applies to returned results.
+match. Clear all removes both groups together. Removing a chip retains the other
+selections and returns focus to its group's input without clearing either query.
+Main's normal audio authorization still applies to returned results.
 
 Each destination/history snapshot retains the selected identities and display
 labels for this session only; reopening queries current results rather than
