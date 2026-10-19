@@ -1,6 +1,7 @@
 import path from 'node:path'
 import { and, count, eq, inArray, sql } from 'drizzle-orm'
 import { sampleCategories } from '../../schema/classification.ts'
+import { sampleGenres } from '../../schema/recognition.ts'
 import type { AppDatabase } from '../../runtime/connection.ts'
 import {
   samples,
@@ -56,6 +57,7 @@ export function listCatalogSamples(
     offset = 0,
     favoritesOnly,
     categoryIds,
+    genreIds,
   } = requireLibraryListRequest(input)
   return db.transaction(() => {
     const categoryMatch = categoryIds?.length
@@ -64,6 +66,9 @@ export function listCatalogSamples(
     const filter = and(
       favoritesOnly ? eq(samples.favorite, true) : undefined,
       categoryMatch,
+      genreIds?.length
+        ? sql`exists (select 1 from ${sampleGenres} where ${sampleGenres.sampleId} = ${samples.id} and ${inArray(sampleGenres.genreId, genreIds)})`
+        : undefined,
     )
     const total = db
       .select({ value: count() })
