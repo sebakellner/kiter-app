@@ -1,5 +1,9 @@
 import type { ComponentProps } from 'react'
 import { Button } from '@renderer/components/ui/Button'
+import {
+  ContextMenu,
+  useContextMenu,
+} from '@renderer/components/ui/ContextMenu'
 import type { FavoriteState } from '@shared/ipc'
 import { FavoriteButton } from '../FavoriteButton'
 import { Waveform } from '../Waveform'
@@ -26,9 +30,21 @@ export function SampleListRow({
   onInspect,
   inspectorOpen,
 }: Props): React.JSX.Element {
+  const menu = useContextMenu()
   return (
     <li
       {...rowProps}
+      onContextMenu={menu.onContextMenu}
+      onClick={(event) => {
+        menu.onClick()
+        rowProps.onClick?.(event)
+      }}
+      onKeyDown={(event) => {
+        menu.onKeyDown(event)
+        if (!event.defaultPrevented) {
+          rowProps.onKeyDown?.(event)
+        }
+      }}
       title={`${sample.path}\nDrag this sample into your DAW`}
       data-audio-url={sample.audioUrl}
       data-sample-id={sample.id}
@@ -82,6 +98,12 @@ export function SampleListRow({
           >
             {playing ? 'Pause' : 'Preview'}
           </Button>
+          <Button
+            {...menu.triggerProps}
+            aria-label={`More actions: ${sample.relativePath}`}
+          >
+            <span aria-hidden="true">⋯</span>
+          </Button>
         </div>
         {'rootPath' in sample && <p>{sample.rootPath ?? sample.path}</p>}
         {sample.audioUrl && (
@@ -100,6 +122,21 @@ export function SampleListRow({
           </p>
         )}
       </div>
+      <ContextMenu
+        {...menu.menuProps}
+        label={`Actions for ${sample.relativePath}`}
+        items={[
+          {
+            id: 'preview',
+            label: playing ? 'Pause preview' : 'Play preview',
+            disabled: !sample.audioUrl,
+            onSelect: onPreview,
+          },
+          ...(onInspect
+            ? [{ id: 'info', label: 'Info', onSelect: onInspect }]
+            : []),
+        ]}
+      />
     </li>
   )
 }
