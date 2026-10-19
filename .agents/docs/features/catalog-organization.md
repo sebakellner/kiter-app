@@ -83,7 +83,7 @@ The current worker/client operations are narrower than the planned UI below:
 - SampleListRow exposes the same actions through right-click and an explicit
   More actions button. Opening preserves current selection, playback and Favorites;
   it does not begin native audio dragging. Keyboard context gestures are supported.
-- The initial actions are Play/Pause preview and Info where inspection is
+- Actions include Play/Pause preview, Info where inspection is
   available. Preview uses the existing global controller without selecting the
   Sample. Info selects and inspects the acted-on Sample with a stable focus-return
   target. Unavailable audio disables preview but retains Info.
@@ -91,8 +91,9 @@ The current worker/client operations are narrower than the planned UI below:
   point/anchor positioning and dismissal. Escape returns focus; clicking outside
   or scrolling closes the menu without stealing focus. The menu unmounts with its
   row when filtering/pagination/navigation removes that row.
-- Add to Collection, membership removal and other organization commands remain
-  separate pending slices. No nonfunctional menu actions are displayed.
+- Add to Collection is available in Samples, Favorites and Collection member lists;
+  Remove from Collection appears only within a Collection. Membership behavior is
+  documented below. No nonfunctional menu actions are displayed.
 
 ## Implemented Single-Sample Instrument Editor
 
@@ -192,10 +193,53 @@ prototype, not a combined multi-field inspector Save.
   authorize main-frame callers and validate requests. Preload validates saved
   responses; worker summary queries count memberships without transferring them.
   Existing internal Collection operations remain available independently.
-- This slice does not expose membership contents/editing, Collection metadata
-  editing/deletion, reordering, covers, sidebar shortcuts or Home recency. Existing
-  nonempty Collections display an accurate count and a limitation message, not a
-  fabricated empty state. No schema migration or source-audio writes are needed.
+- Collection metadata editing/deletion, reordering, covers, sidebar shortcuts and
+  Home recency remain planned. Member contents and individual membership actions
+  are implemented as described below. No schema migration or source-audio writes
+  are needed.
+
+## Implemented Single-Sample Collection Membership
+
+- Add to Collection acts on the menu's Sample identity without selecting or
+  previewing it. Unavailable audio is still eligible: membership stores references,
+  not copies or source access. The picker uses the existing modal Dialog,
+  Input/Checkbox/Button primitives and React Hook Form with Zod selection rules.
+- `collections:destinations` validates a Sample ID, at most 120 characters of plain
+  search and pages of 50 (maximum 100). Main authorizes the caller and the worker
+  checks the cataloged Sample. Literal case/accent-insensitive name substrings
+  match before pagination. Names/UUIDs provide deterministic order and full UUIDs
+  distinguish homonyms. Each row reports actual count and current membership.
+- Select up to 100 Collections across searches/pages. A separate selected list
+  retains those identities and name snapshots through option failures/retries.
+  Create Collection replaces the picker temporarily and returns with the new
+  entity selected and prior choices intact, without navigating to detail or adding
+  the Sample. Canceling the picker never deletes a created Collection.
+- Add confirms the selected destinations. Typed `collections:set-membership`
+  addresses one Collection/Sample pair per serial request. Each worker transaction
+  revalidates both identities and reports `assigned` plus actual `changed` state.
+  Duplicate additions preserve their position. Independent destinations continue
+  after failures; results distinguish added, already included and failed entries.
+  Only failed destinations retry. Missing/invalid identities require choosing again,
+  never substitution by a matching name. Results remain until explicitly dismissed;
+  they are not durable shared-operation history.
+- Pending writes disable duplicate actions/dismissal and block route changes.
+  Native exit waits for the bounded additions/removal; failures retain their local
+  results instead of closing the app. Nested creation retains its existing draft
+  and exit protection. Completed references survive restart; a crash has no batch
+  rollback, and reopening observes actual saved memberships.
+- Collection detail reuses the catalog list, filters, selection/Info, Favorites,
+  global preview and original-file native dragging. `library:list` accepts an
+  optional Collection UUID, verifies existence in the worker and intersects its
+  memberships before counting/pagination. Saved membership position orders results,
+  including filtered results; no reorder UI is introduced. Main reuses its normal
+  per-source audio authorization, so Collection membership grants no file access.
+- Remove from Collection is an immediate individual membership write, without a
+  deletion confirmation. Failures retain the row and allow retry. Successful writes
+  refresh member pages and summary counts, recover invalid page offsets and
+  revalidate selection without choosing a replacement. An open inspector can remain
+  empty. Sample identity, source, Favorite, other Collections, classifications and
+  the loaded/paused player remain unchanged. Collection routes retain independent
+  session navigation context and never mount a second player.
 
 ## Collection Membership and Ordering — Planned UI
 
