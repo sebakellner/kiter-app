@@ -4,8 +4,10 @@ import type { InstrumentsApi } from './instruments.ts'
 import type { ClassificationApi } from './classification.ts'
 import type { GenresApi } from './genres.ts'
 import type { LifecycleApi } from './lifecycle.ts'
+import type { CollectionsApi } from './collections.ts'
 
 export interface Api {
+  collections: CollectionsApi
   genres: GenresApi
   lifecycle: LifecycleApi
   dialog: DialogApi

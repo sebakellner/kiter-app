@@ -8,6 +8,10 @@ export interface Collection {
   coverAssetId: string | null
 }
 
+export interface CollectionSummary extends Collection {
+  sampleCount: number
+}
+
 export interface CollectionMembership {
   collectionId: string
   sampleId: string
