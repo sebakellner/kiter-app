@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "f8965e30-4f88-4dd7-9309-1f38aa651d4d",
+  "id": "daa78b93-a27d-4ef4-85c1-cbd4ed5c8958",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "authors": {
@@ -50,54 +50,6 @@
         "author_key": {
           "name": "author_key",
           "value": "length(\"authors\".\"name_key\") > 0"
-        }
-      }
-    },
-    "categories": {
-      "name": "categories",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "name": {
-          "name": "name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "name_key": {
-          "name": "name_key",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "categories_name_key_unique": {
-          "name": "categories_name_key_unique",
-          "columns": [
-            "name_key"
-          ],
-          "isUnique": true
-        }
-      },
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {
-        "category_name": {
-          "name": "category_name",
-          "value": "length(trim(\"categories\".\"name\")) > 0"
-        },
-        "category_key": {
-          "name": "category_key",
-          "value": "length(\"categories\".\"name_key\") > 0"
         }
       }
     },
@@ -271,6 +223,54 @@
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
+    "genres": {
+      "name": "genres",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "name_key": {
+          "name": "name_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "genres_name_key_unique": {
+          "name": "genres_name_key_unique",
+          "columns": [
+            "name_key"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "genre_name": {
+          "name": "genre_name",
+          "value": "length(trim(\"genres\".\"name\")) > 0"
+        },
+        "genre_key": {
+          "name": "genre_key",
+          "value": "length(\"genres\".\"name_key\") > 0"
+        }
+      }
+    },
     "image_assets": {
       "name": "image_assets",
       "columns": {
@@ -364,6 +364,54 @@
         }
       }
     },
+    "instruments": {
+      "name": "instruments",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "name_key": {
+          "name": "name_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "instruments_name_key_unique": {
+          "name": "instruments_name_key_unique",
+          "columns": [
+            "name_key"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "instrument_name": {
+          "name": "instrument_name",
+          "value": "length(trim(\"instruments\".\"name\")) > 0"
+        },
+        "instrument_key": {
+          "name": "instrument_key",
+          "value": "length(\"instruments\".\"name_key\") > 0"
+        }
+      }
+    },
     "pack_authors": {
       "name": "pack_authors",
       "columns": {
@@ -432,8 +480,8 @@
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
-    "pack_categories": {
-      "name": "pack_categories",
+    "pack_genres": {
+      "name": "pack_genres",
       "columns": {
         "pack_id": {
           "name": "pack_id",
@@ -442,8 +490,8 @@
           "notNull": true,
           "autoincrement": false
         },
-        "category_id": {
-          "name": "category_id",
+        "genre_id": {
+          "name": "genre_id",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
@@ -451,19 +499,19 @@
         }
       },
       "indexes": {
-        "packs_by_category": {
-          "name": "packs_by_category",
+        "packs_by_genre": {
+          "name": "packs_by_genre",
           "columns": [
-            "category_id",
+            "genre_id",
             "pack_id"
           ],
           "isUnique": false
         }
       },
       "foreignKeys": {
-        "pack_categories_pack_id_packs_id_fk": {
-          "name": "pack_categories_pack_id_packs_id_fk",
-          "tableFrom": "pack_categories",
+        "pack_genres_pack_id_packs_id_fk": {
+          "name": "pack_genres_pack_id_packs_id_fk",
+          "tableFrom": "pack_genres",
           "tableTo": "packs",
           "columnsFrom": [
             "pack_id"
@@ -474,12 +522,12 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "pack_categories_category_id_categories_id_fk": {
-          "name": "pack_categories_category_id_categories_id_fk",
-          "tableFrom": "pack_categories",
-          "tableTo": "categories",
+        "pack_genres_genre_id_genres_id_fk": {
+          "name": "pack_genres_genre_id_genres_id_fk",
+          "tableFrom": "pack_genres",
+          "tableTo": "genres",
           "columnsFrom": [
-            "category_id"
+            "genre_id"
           ],
           "columnsTo": [
             "id"
@@ -489,12 +537,80 @@
         }
       },
       "compositePrimaryKeys": {
-        "pack_categories_pack_id_category_id_pk": {
+        "pack_genres_pack_id_genre_id_pk": {
           "columns": [
             "pack_id",
-            "category_id"
+            "genre_id"
           ],
-          "name": "pack_categories_pack_id_category_id_pk"
+          "name": "pack_genres_pack_id_genre_id_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "pack_instruments": {
+      "name": "pack_instruments",
+      "columns": {
+        "pack_id": {
+          "name": "pack_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "instrument_id": {
+          "name": "instrument_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "packs_by_instrument": {
+          "name": "packs_by_instrument",
+          "columns": [
+            "instrument_id",
+            "pack_id"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "pack_instruments_pack_id_packs_id_fk": {
+          "name": "pack_instruments_pack_id_packs_id_fk",
+          "tableFrom": "pack_instruments",
+          "tableTo": "packs",
+          "columnsFrom": [
+            "pack_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "pack_instruments_instrument_id_instruments_id_fk": {
+          "name": "pack_instruments_instrument_id_instruments_id_fk",
+          "tableFrom": "pack_instruments",
+          "tableTo": "instruments",
+          "columnsFrom": [
+            "instrument_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "pack_instruments_pack_id_instrument_id_pk": {
+          "columns": [
+            "pack_id",
+            "instrument_id"
+          ],
+          "name": "pack_instruments_pack_id_instrument_id_pk"
         }
       },
       "uniqueConstraints": {},
@@ -592,6 +708,229 @@
         }
       }
     },
+    "recognition_aliases": {
+      "name": "recognition_aliases",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "target_key": {
+          "name": "target_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "term": {
+          "name": "term",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "term_key": {
+          "name": "term_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "supplied_key": {
+          "name": "supplied_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "dimension": {
+          "name": "dimension",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "deleted": {
+          "name": "deleted",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
+        }
+      },
+      "indexes": {
+        "recognition_aliases_supplied_key_unique": {
+          "name": "recognition_aliases_supplied_key_unique",
+          "columns": [
+            "supplied_key"
+          ],
+          "isUnique": true
+        },
+        "aliases_by_dimension_term": {
+          "name": "aliases_by_dimension_term",
+          "columns": [
+            "dimension",
+            "term_key"
+          ],
+          "isUnique": true,
+          "where": "\"recognition_aliases\".\"deleted\" = 0"
+        },
+        "aliases_by_target": {
+          "name": "aliases_by_target",
+          "columns": [
+            "target_key",
+            "id"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "recognition_aliases_target_key_recognition_vocabulary_key_fk": {
+          "name": "recognition_aliases_target_key_recognition_vocabulary_key_fk",
+          "tableFrom": "recognition_aliases",
+          "tableTo": "recognition_vocabulary",
+          "columnsFrom": [
+            "target_key"
+          ],
+          "columnsTo": [
+            "key"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "alias_term": {
+          "name": "alias_term",
+          "value": "length(trim(\"recognition_aliases\".\"term\")) > 0 and length(\"recognition_aliases\".\"term_key\") > 0"
+        },
+        "alias_dimension": {
+          "name": "alias_dimension",
+          "value": "\"recognition_aliases\".\"dimension\" in ('instrument', 'genre', 'sample-type')"
+        },
+        "alias_deleted": {
+          "name": "alias_deleted",
+          "value": "\"recognition_aliases\".\"deleted\" in (0, 1)"
+        }
+      }
+    },
+    "recognition_vocabulary": {
+      "name": "recognition_vocabulary",
+      "columns": {
+        "key": {
+          "name": "key",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "dimension": {
+          "name": "dimension",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "instrument_id": {
+          "name": "instrument_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "genre_id": {
+          "name": "genre_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "state": {
+          "name": "state",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "recognition_vocabulary_instrument_id_unique": {
+          "name": "recognition_vocabulary_instrument_id_unique",
+          "columns": [
+            "instrument_id"
+          ],
+          "isUnique": true
+        },
+        "recognition_vocabulary_genre_id_unique": {
+          "name": "recognition_vocabulary_genre_id_unique",
+          "columns": [
+            "genre_id"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {
+        "recognition_vocabulary_instrument_id_instruments_id_fk": {
+          "name": "recognition_vocabulary_instrument_id_instruments_id_fk",
+          "tableFrom": "recognition_vocabulary",
+          "tableTo": "instruments",
+          "columnsFrom": [
+            "instrument_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "recognition_vocabulary_genre_id_genres_id_fk": {
+          "name": "recognition_vocabulary_genre_id_genres_id_fk",
+          "tableFrom": "recognition_vocabulary",
+          "tableTo": "genres",
+          "columnsFrom": [
+            "genre_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "vocabulary_dimension": {
+          "name": "vocabulary_dimension",
+          "value": "\"recognition_vocabulary\".\"dimension\" in ('instrument', 'genre', 'sample-type')"
+        },
+        "vocabulary_state": {
+          "name": "vocabulary_state",
+          "value": "\"recognition_vocabulary\".\"state\" in ('active', 'offered', 'deleted')"
+        },
+        "vocabulary_target": {
+          "name": "vocabulary_target",
+          "value": "(\"recognition_vocabulary\".\"instrument_id\" is null or \"recognition_vocabulary\".\"dimension\" = 'instrument') and (\"recognition_vocabulary\".\"genre_id\" is null or \"recognition_vocabulary\".\"dimension\" = 'genre')"
+        },
+        "vocabulary_name": {
+          "name": "vocabulary_name",
+          "value": "length(trim(\"recognition_vocabulary\".\"name\")) > 0"
+        }
+      }
+    },
     "sample_authors": {
       "name": "sample_authors",
       "columns": {
@@ -660,8 +999,8 @@
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
-    "sample_categories": {
-      "name": "sample_categories",
+    "sample_genres": {
+      "name": "sample_genres",
       "columns": {
         "sample_id": {
           "name": "sample_id",
@@ -670,8 +1009,8 @@
           "notNull": true,
           "autoincrement": false
         },
-        "category_id": {
-          "name": "category_id",
+        "genre_id": {
+          "name": "genre_id",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
@@ -679,19 +1018,19 @@
         }
       },
       "indexes": {
-        "samples_by_category": {
-          "name": "samples_by_category",
+        "samples_by_genre": {
+          "name": "samples_by_genre",
           "columns": [
-            "category_id",
+            "genre_id",
             "sample_id"
           ],
           "isUnique": false
         }
       },
       "foreignKeys": {
-        "sample_categories_sample_id_samples_id_fk": {
-          "name": "sample_categories_sample_id_samples_id_fk",
-          "tableFrom": "sample_categories",
+        "sample_genres_sample_id_samples_id_fk": {
+          "name": "sample_genres_sample_id_samples_id_fk",
+          "tableFrom": "sample_genres",
           "tableTo": "samples",
           "columnsFrom": [
             "sample_id"
@@ -702,12 +1041,12 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "sample_categories_category_id_categories_id_fk": {
-          "name": "sample_categories_category_id_categories_id_fk",
-          "tableFrom": "sample_categories",
-          "tableTo": "categories",
+        "sample_genres_genre_id_genres_id_fk": {
+          "name": "sample_genres_genre_id_genres_id_fk",
+          "tableFrom": "sample_genres",
+          "tableTo": "genres",
           "columnsFrom": [
-            "category_id"
+            "genre_id"
           ],
           "columnsTo": [
             "id"
@@ -717,12 +1056,80 @@
         }
       },
       "compositePrimaryKeys": {
-        "sample_categories_sample_id_category_id_pk": {
+        "sample_genres_sample_id_genre_id_pk": {
           "columns": [
             "sample_id",
-            "category_id"
+            "genre_id"
           ],
-          "name": "sample_categories_sample_id_category_id_pk"
+          "name": "sample_genres_sample_id_genre_id_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "sample_instruments": {
+      "name": "sample_instruments",
+      "columns": {
+        "sample_id": {
+          "name": "sample_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "instrument_id": {
+          "name": "instrument_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "samples_by_instrument": {
+          "name": "samples_by_instrument",
+          "columns": [
+            "instrument_id",
+            "sample_id"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "sample_instruments_sample_id_samples_id_fk": {
+          "name": "sample_instruments_sample_id_samples_id_fk",
+          "tableFrom": "sample_instruments",
+          "tableTo": "samples",
+          "columnsFrom": [
+            "sample_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "sample_instruments_instrument_id_instruments_id_fk": {
+          "name": "sample_instruments_instrument_id_instruments_id_fk",
+          "tableFrom": "sample_instruments",
+          "tableTo": "instruments",
+          "columnsFrom": [
+            "instrument_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "sample_instruments_sample_id_instrument_id_pk": {
+          "columns": [
+            "sample_id",
+            "instrument_id"
+          ],
+          "name": "sample_instruments_sample_id_instrument_id_pk"
         }
       },
       "uniqueConstraints": {},
@@ -858,6 +1265,13 @@
           "notNull": false,
           "autoincrement": false
         },
+        "sample_type": {
+          "name": "sample_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "favorite": {
           "name": "favorite",
           "type": "integer",
@@ -925,6 +1339,10 @@
         "sample_favorite": {
           "name": "sample_favorite",
           "value": "\"samples\".\"favorite\" IN (0, 1)"
+        },
+        "sample_type": {
+          "name": "sample_type",
+          "value": "\"samples\".\"sample_type\" IS NULL OR \"samples\".\"sample_type\" IN ('loop', 'one-shot')"
         },
         "sample_origin": {
           "name": "sample_origin",
