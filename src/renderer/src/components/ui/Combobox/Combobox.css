@@ -3,11 +3,6 @@
   max-width: 100%;
 }
 
-.ui-combobox input {
-  font: inherit;
-  max-width: 100%;
-}
-
 .ui-combobox-popup {
   max-height: 240px;
 }

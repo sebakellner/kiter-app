@@ -1,6 +1,7 @@
 import { useId, useRef, useState } from 'react'
 import type { ComponentPropsWithRef, JSX } from 'react'
 import { Popover } from '../Popover'
+import { Input } from '../Input'
 import './Combobox.css'
 
 export type ComboboxOption = {
@@ -117,7 +118,7 @@ export function Combobox({
       ref={root}
       className={className ? `ui-combobox ${className}` : 'ui-combobox'}
     >
-      <input
+      <Input
         {...props}
         type="text"
         role="combobox"

@@ -36,10 +36,11 @@ These are ownership conventions, not directories to scaffold in advance.
   `OpenFolderButton` belongs in the library feature.
 - Create primitives when they provide reusable styling or behavior; do not wrap
   every HTML element or scaffold an entire design system in advance.
-- Select, Combobox, and Popover are primary controls owned by `components/ui/`, even during
+- Input, Select, Combobox, and Popover are primary controls owned by `components/ui/`, even during
   prototyping. Feature code supplies options, labels, values and callbacks; the
   controls own native semantics, focus, keyboard interaction and structural CSS.
-  Use Select for fixed choices and Combobox for searchable choices. Keep domain
+  Use Input for native text/search fields, Checkbox for checkbox interactions,
+  Select for fixed choices and Combobox for searchable choices. Keep domain
   queries, pagination, Zod schemas and React Hook Form workflows in the feature.
   Their module documentation owns component-specific contracts.
 - Compose anchored surfaces through Popover rather than duplicating positioning,
