@@ -1,5 +1,6 @@
 import type {
   Collection,
+  CollectionSummary,
   CollectionCreateRequest,
   CollectionUpdateRequest,
   CollectionPage,
@@ -20,8 +21,16 @@ import {
   requirePresentationName,
 } from '../../../shared/domain/validation.ts'
 import { isToken, isNonnegativeInteger, isPage } from './validation.ts'
+import {
+  isCollection,
+  isCollectionPage,
+  isCollectionSummary,
+  requireCollectionCreateRequest,
+} from '../../../shared/ipc/collections.ts'
 
 export type CollectionRequest =
+  | { action: 'get-collection-summary'; id: string }
+  | { action: 'list-collection-summaries'; input: CollectionPageRequest }
   | { action: 'create-collection'; input: CollectionCreateRequest }
   | { action: 'update-collection'; input: CollectionUpdateRequest }
   | { action: 'get-collection' | 'review-collection-removal'; id: string }
@@ -36,6 +45,11 @@ export type CollectionRequest =
   | { action: 'remove-collection'; input: CollectionRemovalRequest }
 
 export type CollectionReply =
+  | { action: 'get-collection-summary'; result: CollectionSummary }
+  | {
+      action: 'list-collection-summaries'
+      result: CollectionPage<CollectionSummary>
+    }
   | {
       action: 'create-collection' | 'update-collection' | 'get-collection'
       result: Collection
@@ -62,23 +76,26 @@ export function isCollectionRequest(
   try {
     switch (value.action) {
       case 'create-collection':
+        requireCollectionCreateRequest(input)
+        return true
       case 'update-collection':
-        if (
-          !isRecord(input) ||
-          (value.action === 'update-collection' && !isEntityId(input.id))
-        ) {
+        if (!isRecord(input) || !isEntityId(input.id)) {
           return false
         }
         requirePresentationName(input.name)
         requireCollectionDescription(input.description)
         return true
       case 'get-collection':
+      case 'get-collection-summary':
       case 'review-collection-removal':
         return isEntityId(value.id)
       case 'list-collections':
+      case 'list-collection-summaries':
       case 'list-collection-samples':
         requireCollectionPage(input)
-        return value.action === 'list-collections' || isEntityId(value.id)
+        return (
+          value.action !== 'list-collection-samples' || isEntityId(value.id)
+        )
       case 'set-collection-membership':
         return (
           isRecord(input) &&
@@ -104,28 +121,16 @@ export function isCollectionRequest(
   }
 }
 
-function isCollection(value: unknown): boolean {
-  if (!isRecord(value)) {
-    return false
-  }
-  try {
-    return (
-      isEntityId(value.id) &&
-      value.name === requirePresentationName(value.name) &&
-      value.description === requireCollectionDescription(value.description) &&
-      (value.coverAssetId === null || isEntityId(value.coverAssetId))
-    )
-  } catch {
-    return false
-  }
-}
-
 export function isCollectionReply(value: unknown): value is CollectionReply {
   if (!isRecord(value)) {
     return false
   }
   const result = value.result
   switch (value.action) {
+    case 'get-collection-summary':
+      return isCollectionSummary(result)
+    case 'list-collection-summaries':
+      return isCollectionPage(result)
     case 'create-collection':
     case 'update-collection':
     case 'get-collection':

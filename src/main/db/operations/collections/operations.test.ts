@@ -28,6 +28,77 @@ import { isDbReply, isDbRequest } from '../../protocol/messages.ts'
 
 const operations = { ...collectionOperations, ...removal }
 
+test('Collection summaries count memberships without transferring Samples and preserve homonyms and bounded order', (t) => {
+  const { db } = createMemoryDatabase(t)
+  const first = operations.createCollection(db, { name: 'Same' })
+  const second = operations.createCollection(db, { name: 'Same' })
+  const ids = fixture(db)
+  for (const sampleId of ids) {
+    operations.setCollectionMembership(db, {
+      collectionId: first.id,
+      sampleId,
+      assigned: true,
+    })
+  }
+  assert.deepEqual(operations.getCollectionSummary(db, first.id), {
+    ...first,
+    sampleCount: 3,
+  })
+  assert.deepEqual(operations.getCollectionSummary(db, second.id), {
+    ...second,
+    sampleCount: 0,
+  })
+  const expected = [first, second].sort((a, b) => a.id.localeCompare(b.id))
+  const page = operations.listCollectionSummaries(db, { limit: 1 })
+  assert.equal(page.total, 2)
+  assert.deepEqual(
+    page.items.map(({ id }) => id),
+    [expected[0].id],
+  )
+  assert.deepEqual(
+    operations
+      .listCollectionSummaries(db, { limit: 1, offset: 1 })
+      .items.map(({ id }) => id),
+    [expected[1].id],
+  )
+  operations.setCollectionMembership(db, {
+    collectionId: first.id,
+    sampleId: ids[0],
+    assigned: false,
+  })
+  assert.equal(operations.getCollectionSummary(db, first.id).sampleCount, 2)
+  assert.throws(() => operations.getCollectionSummary(db, randomUUID()), {
+    code: 'NOT_FOUND',
+  })
+  assert.throws(() => operations.listCollectionSummaries(db, { limit: 101 }), {
+    code: 'INVALID_INPUT',
+  })
+  assert.equal(
+    isDbRequest({
+      requestId: 1,
+      action: 'get-collection-summary',
+      id: first.id,
+    }),
+    true,
+  )
+  assert.equal(
+    isDbRequest({
+      requestId: 1,
+      action: 'get-collection-summary',
+      id: 'missing',
+    }),
+    false,
+  )
+  assert.equal(
+    isDbReply({
+      requestId: 1,
+      action: 'get-collection-summary',
+      result: { ...first, sampleCount: -1 },
+    }),
+    false,
+  )
+})
+
 function fixture(
   db: ReturnType<typeof createMemoryDatabase>['db'],
   size = 3,

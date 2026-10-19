@@ -51,6 +51,7 @@ import { isClassificationRequest } from './protocol/classification'
 import { DomainValidationError } from '../../shared/domain/validation'
 import type {
   Collection,
+  CollectionSummary,
   CollectionCreateRequest,
   CollectionUpdateRequest,
   CollectionPage,
@@ -919,6 +920,30 @@ export class DbClient {
   async getCollection(id: string): Promise<Collection> {
     const reply = await this.collectionRequest({ action: 'get-collection', id })
     if (reply.action !== 'get-collection') {
+      throw new Error(UNEXPECTED_REPLY_MESSAGE)
+    }
+    return reply.result
+  }
+
+  async getCollectionSummary(id: string): Promise<CollectionSummary> {
+    const reply = await this.collectionRequest({
+      action: 'get-collection-summary',
+      id,
+    })
+    if (reply.action !== 'get-collection-summary') {
+      throw new Error(UNEXPECTED_REPLY_MESSAGE)
+    }
+    return reply.result
+  }
+
+  async listCollectionSummaries(
+    input: CollectionPageRequest = {},
+  ): Promise<CollectionPage<CollectionSummary>> {
+    const reply = await this.collectionRequest({
+      action: 'list-collection-summaries',
+      input,
+    })
+    if (reply.action !== 'list-collection-summaries') {
       throw new Error(UNEXPECTED_REPLY_MESSAGE)
     }
     return reply.result

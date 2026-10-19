@@ -1,0 +1,58 @@
+import { ipcMain } from 'electron'
+import {
+  COLLECTION_CHANNELS,
+  requireCollectionCreateRequest,
+  requireCollectionGetRequest,
+} from '../../shared/ipc/collections'
+import { requireCollectionPage } from '../../shared/domain/collection'
+import type { DbClient } from '../db'
+import { requireMainFrameWindow } from './authorize'
+import { invokeResult } from './result'
+
+export function registerCollectionsIpc(database: DbClient): void {
+  ipcMain.handle(COLLECTION_CHANNELS.create, (event, request: unknown) =>
+    invokeResult(
+      'collections.create',
+      {
+        code: 'STORAGE_FAILED',
+        message:
+          'Unable to create the Collection. Your draft was preserved; check database storage before retrying.',
+      },
+      () => {
+        requireMainFrameWindow(event)
+        return database.createCollection(
+          requireCollectionCreateRequest(request),
+        )
+      },
+    ),
+  )
+  ipcMain.handle(COLLECTION_CHANNELS.list, (event, request: unknown) =>
+    invokeResult(
+      'collections.list',
+      {
+        code: 'STORAGE_FAILED',
+        message: 'Unable to load Collections. Retry to check database storage.',
+      },
+      () => {
+        requireMainFrameWindow(event)
+        return database.listCollectionSummaries(requireCollectionPage(request))
+      },
+    ),
+  )
+  ipcMain.handle(COLLECTION_CHANNELS.get, (event, request: unknown) =>
+    invokeResult(
+      'collections.get',
+      {
+        code: 'STORAGE_FAILED',
+        message:
+          'Unable to load the Collection. Retry to check database storage.',
+      },
+      () => {
+        requireMainFrameWindow(event)
+        return database.getCollectionSummary(
+          requireCollectionGetRequest(request).id,
+        )
+      },
+    ),
+  )
+}
