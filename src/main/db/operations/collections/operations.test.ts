@@ -235,6 +235,7 @@ test('Memberships append idempotently, retain gaps, reorder atomically and prese
     sampleId: string,
     assigned = true,
     collectionId = collection.id,
+    changed = true,
   ): void => {
     assert.deepEqual(
       operations.setCollectionMembership(db, {
@@ -242,12 +243,12 @@ test('Memberships append idempotently, retain gaps, reorder atomically and prese
         sampleId,
         assigned,
       }),
-      { assigned },
+      { assigned, changed },
     )
   }
   set(ids[0], true, other.id)
   ids.forEach((id) => set(id))
-  set(ids[0])
+  set(ids[0], true, collection.id, false)
   const read = (): CollectionMembership[] =>
     operations.listCollectionSamples(db, collection.id).items
   assert.deepEqual(
@@ -255,7 +256,7 @@ test('Memberships append idempotently, retain gaps, reorder atomically and prese
     ids,
   )
   set(ids[1], false)
-  set(ids[1], false)
+  set(ids[1], false, collection.id, false)
   assert.deepEqual(
     read().map((row) => row.position),
     [0, 2],

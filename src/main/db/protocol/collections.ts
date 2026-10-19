@@ -10,6 +10,9 @@ import type {
   CollectionReorderRequest,
   CollectionRemovalReview,
   CollectionRemovalRequest,
+  CollectionDestination,
+  CollectionDestinationsRequest,
+  CollectionMembershipResult,
 } from '../../../shared/domain/collection.ts'
 import {
   requireCollectionDescription,
@@ -26,9 +29,16 @@ import {
   isCollectionPage,
   isCollectionSummary,
   requireCollectionCreateRequest,
+  requireCollectionDestinationsRequest,
+  isCollectionDestinationPage,
+  isCollectionMembershipResult,
 } from '../../../shared/ipc/collections.ts'
 
 export type CollectionRequest =
+  | {
+      action: 'list-collection-destinations'
+      input: CollectionDestinationsRequest
+    }
   | { action: 'get-collection-summary'; id: string }
   | { action: 'list-collection-summaries'; input: CollectionPageRequest }
   | { action: 'create-collection'; input: CollectionCreateRequest }
@@ -45,6 +55,10 @@ export type CollectionRequest =
   | { action: 'remove-collection'; input: CollectionRemovalRequest }
 
 export type CollectionReply =
+  | {
+      action: 'list-collection-destinations'
+      result: CollectionPage<CollectionDestination>
+    }
   | { action: 'get-collection-summary'; result: CollectionSummary }
   | {
       action: 'list-collection-summaries'
@@ -59,7 +73,7 @@ export type CollectionReply =
       action: 'list-collection-samples'
       result: CollectionPage<CollectionMembership>
     }
-  | { action: 'set-collection-membership'; result: { assigned: boolean } }
+  | { action: 'set-collection-membership'; result: CollectionMembershipResult }
   | {
       action: 'reorder-collection' | 'remove-collection'
       result: { id: string }
@@ -75,6 +89,9 @@ export function isCollectionRequest(
   const input = value.input
   try {
     switch (value.action) {
+      case 'list-collection-destinations':
+        requireCollectionDestinationsRequest(input)
+        return true
       case 'create-collection':
         requireCollectionCreateRequest(input)
         return true
@@ -127,6 +144,8 @@ export function isCollectionReply(value: unknown): value is CollectionReply {
   }
   const result = value.result
   switch (value.action) {
+    case 'list-collection-destinations':
+      return isCollectionDestinationPage(result)
     case 'get-collection-summary':
       return isCollectionSummary(result)
     case 'list-collection-summaries':
@@ -147,7 +166,7 @@ export function isCollectionReply(value: unknown): value is CollectionReply {
           isNonnegativeInteger(item.position),
       )
     case 'set-collection-membership':
-      return isRecord(result) && typeof result.assigned === 'boolean'
+      return isCollectionMembershipResult(result)
     case 'reorder-collection':
     case 'remove-collection':
       return isRecord(result) && isEntityId(result.id)

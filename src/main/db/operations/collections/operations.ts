@@ -11,6 +11,9 @@ import type {
   CollectionMembership,
   CollectionMembershipRequest,
   CollectionReorderRequest,
+  CollectionDestination,
+  CollectionDestinationsRequest,
+  CollectionMembershipResult,
 } from '../../../../shared/domain/collection.ts'
 import {
   requireCollectionDescription,
@@ -24,6 +27,10 @@ import {
 import { collections, collectionSamples } from '../../schema/collections.ts'
 import { samples } from '../../schema/samples.ts'
 import { DbError } from '../../errors.ts'
+import {
+  requireCollectionDestinationsRequest,
+  requireCollectionMembershipRequest,
+} from '../../../../shared/ipc/collections.ts'
 
 const summaryFields = {
   id: collections.id,
@@ -65,6 +72,53 @@ export function listCollectionSummaries(
     total: db.select({ count: count() }).from(collections).get()!.count,
     ...page,
   }))
+}
+
+export function listCollectionDestinations(
+  db: AppDatabase,
+  request: CollectionDestinationsRequest,
+): CollectionPage<CollectionDestination> {
+  const {
+    sampleId,
+    search = '',
+    limit = 50,
+    offset = 0,
+  } = requireCollectionDestinationsRequest(request)
+  return db.transaction(() => {
+    if (
+      !db
+        .select({ id: samples.id })
+        .from(samples)
+        .where(eq(samples.id, sampleId))
+        .get()
+    ) {
+      throw new DbError('NOT_FOUND', 'The Sample no longer exists.')
+    }
+    const filter = search
+      ? sql`instr(kiter_search_text(${collections.name}), ${search}) > 0`
+      : undefined
+    const rows = db
+      .select({
+        ...summaryFields,
+        assigned: sql<number>`exists (select 1 from ${collectionSamples} where ${collectionSamples.collectionId} = ${collections.id} and ${collectionSamples.sampleId} = ${sampleId})`,
+      })
+      .from(collections)
+      .where(filter)
+      .orderBy(collections.name, collections.id)
+      .limit(limit)
+      .offset(offset)
+      .all()
+    return {
+      items: rows.map((row) => ({ ...row, assigned: Boolean(row.assigned) })),
+      total: db
+        .select({ total: count() })
+        .from(collections)
+        .where(filter)
+        .get()!.total,
+      limit,
+      offset,
+    }
+  })
 }
 
 export function getCollection(db: AppDatabase, id: string): Collection {
@@ -158,12 +212,8 @@ export function listCollectionSamples(
 export function setCollectionMembership(
   db: AppDatabase,
   input: CollectionMembershipRequest,
-): { assigned: boolean } {
-  requireEntityId(input.collectionId)
-  requireEntityId(input.sampleId)
-  if (typeof input.assigned !== 'boolean') {
-    throw new DomainValidationError('Invalid membership state.')
-  }
+): CollectionMembershipResult {
+  input = requireCollectionMembershipRequest(input)
   return db.transaction(
     () => {
       getCollection(db, input.collectionId)
@@ -180,8 +230,9 @@ export function setCollectionMembership(
         eq(collectionSamples.collectionId, input.collectionId),
         eq(collectionSamples.sampleId, input.sampleId),
       )
+      const existing = db.select().from(collectionSamples).where(filter).get()
       if (input.assigned) {
-        if (!db.select().from(collectionSamples).where(filter).get()) {
+        if (!existing) {
           const last = db
             .select({ position: max(collectionSamples.position) })
             .from(collectionSamples)
@@ -204,7 +255,10 @@ export function setCollectionMembership(
       } else {
         db.delete(collectionSamples).where(filter).run()
       }
-      return { assigned: input.assigned }
+      return {
+        assigned: input.assigned,
+        changed: Boolean(existing) !== input.assigned,
+      }
     },
     { behavior: 'immediate' },
   )

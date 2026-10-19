@@ -61,6 +61,9 @@ import type {
   CollectionReorderRequest,
   CollectionRemovalReview,
   CollectionRemovalRequest,
+  CollectionDestination,
+  CollectionDestinationsRequest,
+  CollectionMembershipResult,
 } from '../../shared/domain/collection'
 import type { CollectionRequest } from './protocol/collections'
 import { isCollectionRequest } from './protocol/collections'
@@ -949,6 +952,19 @@ export class DbClient {
     return reply.result
   }
 
+  async listCollectionDestinations(
+    input: CollectionDestinationsRequest,
+  ): Promise<CollectionPage<CollectionDestination>> {
+    const reply = await this.collectionRequest({
+      action: 'list-collection-destinations',
+      input,
+    })
+    if (reply.action !== 'list-collection-destinations') {
+      throw new Error('Unexpected database reply.')
+    }
+    return reply.result
+  }
+
   async listCollections(
     input: CollectionPageRequest = {},
   ): Promise<CollectionPage<Collection>> {
@@ -979,7 +995,7 @@ export class DbClient {
 
   async setCollectionMembership(
     input: CollectionMembershipRequest,
-  ): Promise<{ assigned: boolean }> {
+  ): Promise<CollectionMembershipResult> {
     const reply = await this.collectionRequest({
       action: 'set-collection-membership',
       input,

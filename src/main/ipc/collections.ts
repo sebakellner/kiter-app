@@ -3,6 +3,8 @@ import {
   COLLECTION_CHANNELS,
   requireCollectionCreateRequest,
   requireCollectionGetRequest,
+  requireCollectionDestinationsRequest,
+  requireCollectionMembershipRequest,
 } from '../../shared/ipc/collections'
 import { requireCollectionPage } from '../../shared/domain/collection'
 import type { DbClient } from '../db'
@@ -10,6 +12,38 @@ import { requireMainFrameWindow } from './authorize'
 import { invokeResult } from './result'
 
 export function registerCollectionsIpc(database: DbClient): void {
+  ipcMain.handle(COLLECTION_CHANNELS.destinations, (event, request: unknown) =>
+    invokeResult(
+      'collections.destinations',
+      {
+        code: 'STORAGE_FAILED',
+        message:
+          'Unable to load Collection destinations. Retry to check database storage.',
+      },
+      () => {
+        requireMainFrameWindow(event)
+        return database.listCollectionDestinations(
+          requireCollectionDestinationsRequest(request),
+        )
+      },
+    ),
+  )
+  ipcMain.handle(COLLECTION_CHANNELS.setMembership, (event, request: unknown) =>
+    invokeResult(
+      'collections.set-membership',
+      {
+        code: 'STORAGE_FAILED',
+        message:
+          'Unable to change Collection membership. Retry to check database storage.',
+      },
+      () => {
+        requireMainFrameWindow(event)
+        return database.setCollectionMembership(
+          requireCollectionMembershipRequest(request),
+        )
+      },
+    ),
+  )
   ipcMain.handle(COLLECTION_CHANNELS.create, (event, request: unknown) =>
     invokeResult(
       'collections.create',

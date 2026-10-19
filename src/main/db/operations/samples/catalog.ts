@@ -16,6 +16,8 @@ import {
 import type { Page } from '../../../../shared/domain/pagination.ts'
 import { requireEntityId } from '../../../../shared/domain/validation.ts'
 import { DbError } from '../../errors.ts'
+import { collectionSamples } from '../../schema/collections.ts'
+import { getCollection } from '../collections/operations.ts'
 
 // Root associations are discovery evidence; current containment is checked in main.
 const rootPath = sql<string | null>`(SELECT min(${sourceRoots.canonicalPath})
@@ -70,8 +72,12 @@ function buildCatalogFilter({
   instrumentIds,
   genreIds,
   sampleTypes,
+  collectionId,
 }: LibraryListRequest): SQL | undefined {
   return and(
+    collectionId
+      ? sql`exists (select 1 from ${collectionSamples} where ${collectionSamples.sampleId} = ${samples.id} and ${collectionSamples.collectionId} = ${collectionId})`
+      : undefined,
     buildSearchFilter(search),
     favoritesOnly ? eq(samples.favorite, true) : undefined,
     sampleTypes?.length
@@ -101,10 +107,13 @@ export function listCatalogSamples(
   input: LibraryListRequest,
 ): Page<CatalogSample> {
   const request = requireLibraryListRequest(input)
-  const { limit = 50, offset = 0, search } = request
+  const { limit = 50, offset = 0, search, collectionId } = request
   const filter = buildCatalogFilter(request)
   const rank = buildSearchRank(search)
   return db.transaction(() => {
+    if (collectionId) {
+      getCollection(db, collectionId)
+    }
     const total = db
       .select({ value: count() })
       .from(samples)
@@ -117,9 +126,13 @@ export function listCatalogSamples(
       .innerJoin(sampleSources, eq(sampleSources.sampleId, samples.id))
       .where(filter)
       .orderBy(
-        ...(rank
-          ? [rank, searchName]
-          : [sql`lower(coalesce(${samples.displayName}, ${filename}))`]),
+        ...(collectionId
+          ? [
+              sql`(select ${collectionSamples.position} from ${collectionSamples} where ${collectionSamples.collectionId} = ${collectionId} and ${collectionSamples.sampleId} = ${samples.id})`,
+            ]
+          : rank
+            ? [rank, searchName]
+            : [sql`lower(coalesce(${samples.displayName}, ${filename}))`]),
         sampleSources.canonicalPath,
         samples.id,
       )

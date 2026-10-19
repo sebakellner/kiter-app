@@ -14,6 +14,11 @@ export function executeCollection(
   request: CollectionRequest,
 ): CollectionReply {
   switch (request.action) {
+    case 'list-collection-destinations':
+      return {
+        action: request.action,
+        result: collections.listCollectionDestinations(db, request.input),
+      }
     case 'get-collection-summary':
       return {
         action: request.action,
