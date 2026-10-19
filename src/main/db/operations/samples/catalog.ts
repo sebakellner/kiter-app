@@ -1,5 +1,5 @@
 import path from 'node:path'
-import { and, count, eq, inArray, sql } from 'drizzle-orm'
+import { and, count, eq, inArray, or, sql } from 'drizzle-orm'
 import { sampleCategories } from '../../schema/classification.ts'
 import { sampleGenres } from '../../schema/recognition.ts'
 import type { AppDatabase } from '../../runtime/connection.ts'
@@ -59,12 +59,30 @@ export function listCatalogSamples(
     categoryIds,
     genreIds,
     sampleTypes,
+    search,
   } = requireLibraryListRequest(input)
   return db.transaction(() => {
     const categoryMatch = categoryIds?.length
       ? sql`exists (select 1 from ${sampleCategories} where ${sampleCategories.sampleId} = ${samples.id} and ${inArray(sampleCategories.categoryId, categoryIds)})`
       : undefined
+    const searchName = sql`kiter_search_text(coalesce(${samples.displayName}, ${filename}))`
+    const searchFilename = sql`kiter_search_text(${filename})`
+    const searchPath = sql`kiter_search_text(kiter_relative_path(${sampleSources.canonicalPath}, ${rootPath}))`
+    const rank = search
+      ? sql`case
+          when ${searchName} = ${search} or ${searchFilename} = ${search} then 0
+          when instr(${searchName}, ${search}) = 1 or instr(${searchFilename}, ${search}) = 1 then 1
+          when instr(${searchName}, ${search}) > 0 or instr(${searchFilename}, ${search}) > 0 then 2
+          else 3 end`
+      : undefined
     const filter = and(
+      ...(search?.split(' ') ?? []).map((word) =>
+        or(
+          sql`instr(${searchName}, ${word}) > 0`,
+          sql`instr(${searchFilename}, ${word}) > 0`,
+          sql`instr(${searchPath}, ${word}) > 0`,
+        ),
+      ),
       favoritesOnly ? eq(samples.favorite, true) : undefined,
       sampleTypes?.length
         ? inArray(sql`coalesce(${samples.sampleType}, 'unknown')`, sampleTypes)
@@ -77,6 +95,7 @@ export function listCatalogSamples(
     const total = db
       .select({ value: count() })
       .from(samples)
+      .innerJoin(sampleSources, eq(sampleSources.sampleId, samples.id))
       .where(filter)
       .get()!.value
     const rows = db
@@ -85,7 +104,9 @@ export function listCatalogSamples(
       .innerJoin(sampleSources, eq(sampleSources.sampleId, samples.id))
       .where(filter)
       .orderBy(
-        sql`lower(coalesce(${samples.displayName}, ${filename}))`,
+        ...(rank
+          ? [rank, searchName]
+          : [sql`lower(coalesce(${samples.displayName}, ${filename}))`]),
         sampleSources.canonicalPath,
         samples.id,
       )

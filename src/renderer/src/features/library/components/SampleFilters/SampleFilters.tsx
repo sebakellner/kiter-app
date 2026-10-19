@@ -3,6 +3,8 @@ import type { Category } from '@shared/domain/classification'
 import type { Genre } from '@shared/domain/recognition'
 import { Button } from '@renderer/components/ui/Button'
 import { Select } from '@renderer/components/ui/Select'
+import { Input } from '@renderer/components/ui/Input'
+import { MAX_CATALOG_SEARCH_LENGTH } from '@shared/features/library/search'
 import type { SampleTypeFilter } from '@shared/features/library/schemas'
 import { ClassificationFilter } from './ClassificationFilter'
 import './sample-filters.css'
@@ -18,11 +20,15 @@ export function SampleFilters({
   categories,
   genres,
   sampleTypes,
+  search,
+  onSearchChange,
   onChange,
 }: {
   categories: Category[]
   genres: Genre[]
   sampleTypes: SampleTypeFilter
+  search: string
+  onSearchChange: (value: string) => void
   onChange: (filters: {
     categories: Category[]
     genres: Genre[]
@@ -32,6 +38,7 @@ export function SampleFilters({
   const categoryInput = useRef<HTMLInputElement>(null)
   const genreInput = useRef<HTMLInputElement>(null)
   const typeInput = useRef<HTMLSelectElement>(null)
+  const searchInput = useRef<HTMLInputElement>(null)
   return (
     <section className="sample-filters" aria-label="Sample filters">
       <div className="sample-filters-controls">
@@ -67,6 +74,27 @@ export function SampleFilters({
           <option value="loop">Loops</option>
           <option value="unknown">Unknown</option>
         </Select>
+        <div className="sample-filters-search">
+          <Input
+            ref={searchInput}
+            type="search"
+            aria-label="Search samples"
+            placeholder="Search samples"
+            maxLength={MAX_CATALOG_SEARCH_LENGTH}
+            value={search}
+            onChange={(event) => onSearchChange(event.currentTarget.value)}
+          />
+          {search.length > 0 && (
+            <Button
+              onClick={() => {
+                onSearchChange('')
+                searchInput.current?.focus()
+              }}
+            >
+              Clear search
+            </Button>
+          )}
+        </div>
       </div>
       {(categories.length > 0 ||
         genres.length > 0 ||

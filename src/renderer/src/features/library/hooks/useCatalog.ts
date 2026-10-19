@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { unwrapIpcResult } from '@shared/ipc/result'
 import type { LibraryPage } from '@shared/ipc/library'
 import type { SampleTypeFilter } from '@shared/features/library/schemas'
+import { effectiveCatalogSearch } from '@shared/features/library/search'
 
 export function useCatalog(
   favoritesOnly: boolean,
@@ -10,6 +11,7 @@ export function useCatalog(
   categoryIds: string[] = [],
   genreIds: string[] = [],
   sampleTypes: SampleTypeFilter = [],
+  search = '',
 ): {
   page: LibraryPage | null
   loading: boolean
@@ -18,16 +20,23 @@ export function useCatalog(
   refresh: () => void
 } {
   const [page, setPage] = useState<LibraryPage | null>(null)
+  const text = effectiveCatalogSearch(search)
+  const dispatchedSearch = useRef(text)
   const filterKey = JSON.stringify([
     categoryIds.slice().sort(),
     genreIds.slice().sort(),
     sampleTypes.slice().sort(),
+    text,
   ])
   const [request, setRequest] = useState({
     offset: initialOffset,
     version: 0,
     filterKey,
   })
+  // Returning to earlier criteria (for example Clear search) must also start at page one.
+  if (request.filterKey !== filterKey) {
+    setRequest({ offset: 0, version: request.version, filterKey })
+  }
   const [completion, setCompletion] = useState<{
     request: typeof request
     revision: number
@@ -44,15 +53,21 @@ export function useCatalog(
 
   useEffect(() => {
     let active = true
-    const [categories, genres, types]: [string[], string[], SampleTypeFilter] =
-      JSON.parse(filterKey)
+    const [categories, genres, types, query]: [
+      string[],
+      string[],
+      SampleTypeFilter,
+      string,
+    ] = JSON.parse(filterKey)
     const filters = {
       ...(categories.length ? { categoryIds: categories } : {}),
       ...(genres.length ? { genreIds: genres } : {}),
       ...(types.length ? { sampleTypes: types } : {}),
+      ...(query ? { search: query } : {}),
     }
     const offset = request.filterKey !== filterKey ? 0 : request.offset
-    void (async () => {
+    const run = async (): Promise<void> => {
+      dispatchedSearch.current = query
       try {
         let next = unwrapIpcResult(
           await window.api.library.list({
@@ -101,9 +116,17 @@ export function useCatalog(
           })
         }
       }
-    })()
+    }
+    const timer =
+      query && dispatchedSearch.current !== query
+        ? setTimeout(() => void run(), 250)
+        : undefined
+    if (timer === undefined) {
+      void run()
+    }
     return () => {
       active = false
+      clearTimeout(timer)
     }
   }, [favoritesOnly, revision, request, filterKey])
 

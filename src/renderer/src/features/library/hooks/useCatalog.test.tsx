@@ -225,3 +225,113 @@ test('changing Sample types resets pagination, rejects stale pages and retains a
     { ...filters, offset: 0 },
   ])
 })
+
+test('search waits 250ms after the last edit, ignores obsolete pages immediately and clears to page one', async () => {
+  vi.useFakeTimers()
+  try {
+    const api = createTestApi()
+    const pending = deferred<IpcResult<LibraryPage>>()
+    api.library.list
+      .mockResolvedValueOnce({ ok: true, data: { ...empty, total: 3 } })
+      .mockReturnValueOnce(pending.promise)
+      .mockResolvedValueOnce({ ok: true, data: { ...empty, total: 1 } })
+      .mockResolvedValueOnce({
+        ok: false,
+        error: { code: 'STORAGE_FAILED', message: 'Search unavailable.' },
+      })
+      .mockResolvedValueOnce({ ok: true, data: { ...empty, total: 1 } })
+      .mockResolvedValueOnce({ ok: true, data: { ...empty, total: 3 } })
+    vi.stubGlobal('api', api)
+    const { result, rerender, unmount } = renderHook(
+      ({ search }) =>
+        useCatalog(true, 0, 50, ['drums'], ['house'], ['loop'], search),
+      { initialProps: { search: '' } },
+    )
+    await act(async () => {})
+    expect(result.current.page?.total).toBe(3)
+    rerender({ search: 'k' })
+    expect(api.library.list).toHaveBeenCalledTimes(1)
+    rerender({ search: 'kick' })
+    expect(result.current.loading).toBe(true)
+    await act(async () => vi.advanceTimersByTime(249))
+    expect(api.library.list).toHaveBeenCalledTimes(1)
+    rerender({ search: 'kicker' })
+    await act(async () => vi.advanceTimersByTime(249))
+    expect(api.library.list).toHaveBeenCalledTimes(1)
+    await act(async () => vi.advanceTimersByTime(1))
+    const filters = {
+      favoritesOnly: true,
+      categoryIds: ['drums'],
+      genreIds: ['house'],
+      sampleTypes: ['loop'],
+      offset: 0,
+    }
+    expect(api.library.list).toHaveBeenLastCalledWith({
+      ...filters,
+      search: 'kicker',
+    })
+    rerender({ search: 'clap' })
+    await act(async () =>
+      pending.resolve({ ok: true, data: { ...empty, offset: 50, total: 99 } }),
+    )
+    expect(result.current.page?.total).toBe(3)
+    expect(api.library.list).toHaveBeenCalledTimes(2)
+    await act(async () => vi.advanceTimersByTime(250))
+    expect(result.current.page?.total).toBe(1)
+    expect(api.library.list).toHaveBeenLastCalledWith({
+      ...filters,
+      search: 'clap',
+    })
+    act(() => result.current.refresh())
+    await act(async () => {})
+    expect(result.current.error).toBe('Search unavailable.')
+    expect(result.current.page?.total).toBe(1)
+    act(() => result.current.refresh())
+    await act(async () => {})
+    expect(result.current.error).toBeNull()
+    expect(api.library.list).toHaveBeenLastCalledWith({
+      ...filters,
+      search: 'clap',
+    })
+    rerender({ search: '' })
+    await act(async () => {})
+    expect(api.library.list).toHaveBeenLastCalledWith(filters)
+    expect(result.current.page?.total).toBe(3)
+    rerender({ search: 'canceled' })
+    unmount()
+    await act(async () => vi.advanceTimersByTime(250))
+    expect(api.library.list).toHaveBeenCalledTimes(6)
+  } finally {
+    vi.useRealTimers()
+  }
+})
+
+test('restored search queries load immediately and retain criteria during page fallback', async () => {
+  const api = createTestApi()
+  api.library.list
+    .mockResolvedValueOnce({
+      ok: true,
+      data: { ...empty, offset: 50, total: 1 },
+    })
+    .mockResolvedValueOnce({ ok: true, data: { ...empty, total: 1 } })
+  vi.stubGlobal('api', api)
+  const { result } = renderHook(() =>
+    useCatalog(false, 0, 50, [], [], ['unknown'], 'KÍCK'),
+  )
+  await waitFor(() => expect(result.current.loading).toBe(false))
+  expect(api.library.list.mock.calls.map(([request]) => request)).toEqual([
+    {
+      favoritesOnly: false,
+      offset: 50,
+      sampleTypes: ['unknown'],
+      search: 'kick',
+    },
+    {
+      favoritesOnly: false,
+      offset: 0,
+      sampleTypes: ['unknown'],
+      search: 'kick',
+    },
+  ])
+  expect(result.current.page?.offset).toBe(0)
+})

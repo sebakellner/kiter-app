@@ -7,9 +7,10 @@ contracts. [Domain Model](../domain-model.md) owns entity meanings;
 
 ## Status
 
-The following baseline is agreed, not implemented library-wide queries or UI.
-Current renderer remains folder-scoped. Validate initial thresholds/limits on real
-libraries before delivery. Visual design/prototypes remain deferred.
+Samples and Favorites implement catalog-wide local search and the filter slices
+documented below. Global mixed-entity search, additional searchable relationships,
+and approximate matching remain planned. Validate initial thresholds/limits on
+real libraries before delivery. Visual design/prototypes remain deferred.
 
 ## Query Scope and Matching
 
@@ -45,6 +46,40 @@ libraries before delivery. Visual design/prototypes remain deferred.
   Favorites, recent use, or import recency. Same data/query gives reproducible order.
 
 ## Filters and Local Search
+
+### Implemented Local Text Search Slice
+
+Samples and Favorites share an in-list Search samples field. Matching covers the
+effective presentation name, original filename and the relative source path
+displayed in the catalog. It does not search absolute parent/root paths, notes,
+classification/credit names, Pack names, aliases or pending suggestions yet.
+
+- Plain text is bounded to 500 UTF-16 code units and 32 whitespace-separated
+  words, validated at the IPC and worker boundaries. Control characters other
+  than tab/newline whitespace are rejected. Punctuation, SQL wildcard symbols
+  and quotes are literal, not operators. Backslashes normalize to forward slashes.
+- Matching ignores case and Unicode combining accents using NFD normalization.
+  Every word must match a substring in at least one of the three fields; words
+  may match different fields. No typo approximation or inferred Sample type.
+- Text filtering starts at two normalized Unicode code points. Empty/one-character
+  text adds no text constraint and retains all other filters; one character shows
+  a minimum-length hint. Edits wait 250 ms after typing stops; clearing applies
+  immediately. Restored queries, pagination and refresh execute immediately.
+- Matching runs in SQLite in the DB worker before counting and pagination, with
+  deterministic connection-local normalization/relative-path functions. No schema
+  migration, persisted index or full-library transfer is introduced. Substring
+  search scans candidates; large-library performance is not established.
+- Rank whole-query exact name/filename matches first, then name/filename prefixes,
+  substrings, then other all-word/path matches. Ties use normalized effective name,
+  canonical path and UUID. Without text, retain the existing catalog ordering.
+- All existing filters intersect with search. Clear search removes only text and
+  returns focus to its input; Clear all removes filter groups without changing
+  text. The default type option still includes Unknown Samples.
+- Each destination/history entry retains its raw text for this session only.
+  Changed effective criteria restart at page one. Pending/stale responses cannot
+  replace newer criteria; failures retain the last valid page, text and filters
+  with Retry. Unavailable matching Samples remain in results, with normal main
+  audio authorization. Selection revalidates after loading, independently of playback.
 
 ### Implemented Category, Genre and Sample Type Filter Slice
 
@@ -85,7 +120,7 @@ Each destination/history snapshot retains selected Sample types and the classifi
 labels for this session only; reopening queries current results rather than
 caching Sample records. Filter changes revalidate selection and keep playback
 independent. Retained chip labels are session snapshots, not authoritative names
-after an external rename. Other filter groups and library-wide text search below
+after an external rename. Other filter groups and the remaining search scope below
 remain planned.
 
 ### Agreed Remaining Filter Scope

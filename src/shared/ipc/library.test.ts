@@ -146,3 +146,42 @@ test('Sample type filters validate fixed unique choices and preserve combined fi
     })
   }
 })
+
+test('catalog search validates bounded plain text, normalizes Unicode and ignores empty or one-character input', () => {
+  assert.equal(
+    requireLibraryListRequest({ search: '  PÉRCU\u0301SSION  kick\\808  ' })
+      .search,
+    'percussion kick/808',
+  )
+  for (const search of ['', '  ', 'á', ' a ']) {
+    assert.deepEqual(
+      requireLibraryListRequest({ search }),
+      requireLibraryListRequest({}),
+    )
+  }
+  assert.equal(
+    requireLibraryListRequest({ search: 'a'.repeat(500) }).search?.length,
+    500,
+  )
+  const unicodeRequest = requireLibraryListRequest({ search: '한'.repeat(500) })
+  assert.deepEqual(requireLibraryListRequest(unicodeRequest), unicodeRequest)
+  assert.equal(
+    requireLibraryListRequest({ search: 'hi '.repeat(32) }).search?.split(' ')
+      .length,
+    32,
+  )
+  for (const search of [
+    null,
+    5,
+    {},
+    [],
+    'a'.repeat(501),
+    'hi '.repeat(33),
+    'kick\u0000',
+    'kick\u001b',
+  ]) {
+    assert.throws(() => requireLibraryListRequest({ search }), {
+      name: 'DomainValidationError',
+    })
+  }
+})
