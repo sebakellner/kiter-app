@@ -14,7 +14,7 @@ test('explicit alias updates fix singular Drum evidence and survive reopen witho
   const disk = await createDiskDatabase(t)
   let db = disk.connection.db
   db.delete(recognitionAliases)
-    .where(eq(recognitionAliases.suppliedKey, 'category:drums:drum'))
+    .where(eq(recognitionAliases.suppliedKey, 'instrument:drums:drum'))
     .run()
   const root = path.resolve('Samples')
   const [sample] = importFolder(db, root, [
@@ -64,11 +64,11 @@ test('alias offers reject stale conflicts and never restore edited or reassigned
   const supplied = db
     .select()
     .from(recognitionAliases)
-    .where(eq(recognitionAliases.suppliedKey, 'category:drums:drum'))
+    .where(eq(recognitionAliases.suppliedKey, 'instrument:drums:drum'))
     .get()!
   writeRecognitionAlias(db, {
     id: supplied.id,
-    targetKey: 'category:kick',
+    targetKey: 'instrument:kick',
     term: 'Drum',
   })
   assert.equal(listAliasUpdates(db).total, 0)
@@ -76,7 +76,7 @@ test('alias offers reject stale conflicts and never restore edited or reassigned
     .where(eq(recognitionAliases.id, supplied.id))
     .run()
   const offer = listAliasUpdates(db).items[0]
-  writeRecognitionAlias(db, { targetKey: 'category:snare', term: 'Drum' })
+  writeRecognitionAlias(db, { targetKey: 'instrument:snare', term: 'Drum' })
   assert.throws(() => incorporateAlias(db, offer), { code: 'STALE_REVIEW' })
   const blocked = listAliasUpdates(db).items[0]
   assert.ok(blocked.blockedReason)

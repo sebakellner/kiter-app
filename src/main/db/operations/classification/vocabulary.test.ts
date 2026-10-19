@@ -36,7 +36,7 @@ test('fresh vocabulary seeds Genres but no Instruments, with stable mappings and
   assert.equal(
     vocabulary
       .listRecognitionVocabulary(db, { limit: 100 })
-      .items.find((item) => item.key === 'category:kick')?.entityId,
+      .items.find((item) => item.key === 'instrument:kick')?.entityId,
     kick.id,
   )
   assert.throws(() => instruments.createInstrument(db, { name: 'BD' }), {
@@ -59,14 +59,14 @@ test('aliases enforce dimension identity, explicit reassignment, rename conflict
   assert.throws(
     () =>
       vocabulary.writeRecognitionAlias(db, {
-        targetKey: 'category:snare',
+        targetKey: 'instrument:snare',
         term: 'bd',
       }),
     { code: 'NAME_CONFLICT' },
   )
   vocabulary.writeRecognitionAlias(db, {
     id: bd.id,
-    targetKey: 'category:snare',
+    targetKey: 'instrument:snare',
     term: 'BD',
   })
   assert.throws(
@@ -183,7 +183,7 @@ test('catalog recognizer uses edited names and aliases and reuses linked Instrum
   const kick = instruments.createInstrument(db, { name: 'Kick' })
   instruments.renameInstrument(db, { id: kick.id, name: 'Thump' })
   vocabulary.writeRecognitionAlias(db, {
-    targetKey: 'category:kick',
+    targetKey: 'instrument:kick',
     term: 'Boom',
   })
   const recognize = await loadCatalogRecognizer({
@@ -209,7 +209,7 @@ test('catalog recognizer uses edited names and aliases and reuses linked Instrum
     recognize(input('boom.wav')).proposals.map(
       (proposal) => proposal.target.key,
     ),
-    ['category:kick'],
+    ['instrument:kick'],
   )
   assert.equal(
     db
@@ -217,7 +217,7 @@ test('catalog recognizer uses edited names and aliases and reuses linked Instrum
       .from(recognitionVocabulary)
       .where(eq(recognitionVocabulary.instrumentId, kick.id))
       .get()?.key,
-    'category:kick',
+    'instrument:kick',
   )
 })
 
@@ -234,7 +234,7 @@ test('worker recognition protocol rejects malformed values and validates bounded
     { action: 'write-recognition-alias', input: { targetKey: '', term: 'BD' } },
     {
       action: 'write-recognition-alias',
-      input: { targetKey: 'category:kick', term: '\nBD' },
+      input: { targetKey: 'instrument:kick', term: '\nBD' },
     },
     { action: 'list-recognition-vocabulary', input: { limit: 101 } },
     {

@@ -29,7 +29,7 @@ test('explicit application atomically persists Instruments, Genres and type whil
   applySampleClassification(db, {
     sampleId: sample.id,
     token: preparation.token,
-    keys: ['category:kick', 'genre:house', 'loop'],
+    keys: ['instrument:kick', 'genre:house', 'loop'],
   })
   db = disk.reopen().db
   const saved = prepareSampleClassification(db, { sampleId: sample.id })
@@ -38,7 +38,7 @@ test('explicit application atomically persists Instruments, Genres and type whil
       .filter((item) => item.kind === 'assigned')
       .map((item) => item.key)
       .sort(),
-    ['category:kick', 'genre:house', 'loop'],
+    ['genre:house', 'instrument:kick', 'loop'],
   )
   assert.equal(
     db.select().from(samples).where(eq(samples.id, sample.id)).get()
@@ -65,7 +65,7 @@ test('invalid or stale suggestions perform no partial writes and late transactio
       applySampleClassification(db, {
         sampleId: sample.id,
         token: preparation.token,
-        keys: ['category:kick', 'invented'],
+        keys: ['instrument:kick', 'invented'],
       }),
     { code: 'STALE_REVIEW' },
   )
@@ -77,7 +77,7 @@ test('invalid or stale suggestions perform no partial writes and late transactio
     applySampleClassification(db, {
       sampleId: sample.id,
       token: preparation.token,
-      keys: ['category:kick', 'genre:house'],
+      keys: ['instrument:kick', 'genre:house'],
     }),
   )
   assert.equal(db.query.instruments.findFirst().sync(), undefined)
@@ -91,7 +91,7 @@ test('invalid or stale suggestions perform no partial writes and late transactio
       applySampleClassification(db, {
         sampleId: sample.id,
         token: preparation.token,
-        keys: ['category:kick'],
+        keys: ['instrument:kick'],
       }),
     { code: 'STALE_REVIEW' },
   )
@@ -101,11 +101,11 @@ test('existing libraries recognize and save Drums, Drum Breaks and explicit Loop
   const disk = await createDiskDatabase(t)
   let db = disk.connection.db
   db.delete(recognitionVocabulary)
-    .where(eq(recognitionVocabulary.key, 'category:drum-breaks'))
+    .where(eq(recognitionVocabulary.key, 'instrument:drum-breaks'))
     .run()
   // Existing libraries can lack the newer singular Drum alias.
   db.delete(recognitionAliases)
-    .where(eq(recognitionAliases.suppliedKey, 'category:drums:drum'))
+    .where(eq(recognitionAliases.suppliedKey, 'instrument:drums:drum'))
     .run()
   initializeRecognitionVocabulary(db, false)
   assert.equal(db.query.instruments.findFirst().sync(), undefined)
@@ -116,12 +116,12 @@ test('existing libraries recognize and save Drums, Drum Breaks and explicit Loop
   const preparation = prepareSampleClassification(db, { sampleId: sample.id })
   assert.deepEqual(
     [...new Set(preparation.items.map((item) => item.key))].sort(),
-    ['category:drum-breaks', 'category:drums', 'loop'],
+    ['instrument:drum-breaks', 'instrument:drums', 'loop'],
   )
   applySampleClassification(db, {
     sampleId: sample.id,
     token: preparation.token,
-    keys: ['category:drums', 'category:drum-breaks', 'loop'],
+    keys: ['instrument:drums', 'instrument:drum-breaks', 'loop'],
   })
   db = disk.reopen().db
   assert.deepEqual(

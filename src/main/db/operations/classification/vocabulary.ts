@@ -156,7 +156,7 @@ export function registerVocabularyEntity(
   } else {
     db.insert(vocabulary)
       .values({
-        key: `${dimension === 'instrument' ? 'category' : dimension}:${entity.id}`,
+        key: `${dimension}:${entity.id}`,
         dimension,
         name: entity.name,
         instrumentId: dimension === 'instrument' ? entity.id : null,

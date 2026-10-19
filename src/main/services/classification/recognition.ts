@@ -168,16 +168,16 @@ export function createClassificationRecognizer(
           // the supplied Drum Break(s) phrase activates the companion proposal.
           if (
             dimension === 'instrument' &&
-            match.target.key === 'category:drum-breaks' &&
+            match.target.key === 'instrument:drum-breaks' &&
             /^drum breaks?$/u.test(match.evidence.clue) &&
             entries.some(
               (entry) =>
                 entry.target.dimension === 'instrument' &&
-                entry.target.key === 'category:drums',
+                entry.target.key === 'instrument:drums',
             )
           ) {
             propose({
-              target: { dimension: 'instrument', key: 'category:drums' },
+              target: { dimension: 'instrument', key: 'instrument:drums' },
               evidence: { ...match.evidence, rule: 'alias' },
             })
           }

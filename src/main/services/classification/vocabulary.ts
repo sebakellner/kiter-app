@@ -30,7 +30,7 @@ export const initialRecognitionVocabulary: readonly RecognitionEntry[] = [
     ['impact', 'Impact', 'Impacts'],
     ['texture', 'Texture', 'Textures'],
   ].map(([key, name, ...aliases]): RecognitionEntry => ({
-    target: { dimension: 'instrument', key: `category:${key}` },
+    target: { dimension: 'instrument', key: `instrument:${key}` },
     name,
     aliases,
   })),

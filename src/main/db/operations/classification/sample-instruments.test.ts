@@ -93,7 +93,7 @@ test('stale, missing and failed saves retain every previous instrument assignmen
     { code: 'NOT_FOUND' },
   )
   native.exec(
-    "CREATE TRIGGER fail_manual_instrument BEFORE INSERT ON sample_categories BEGIN SELECT RAISE(ABORT, 'injected'); END",
+    "CREATE TRIGGER fail_manual_instrument BEFORE INSERT ON sample_instruments BEGIN SELECT RAISE(ABORT, 'injected'); END",
   )
   assert.throws(() =>
     saveSampleInstruments(db, {

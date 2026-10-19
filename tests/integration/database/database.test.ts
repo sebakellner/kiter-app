@@ -37,7 +37,7 @@ test('fresh initialization creates strict typed tables, migration history and on
       native.pragma('application_id', { simple: true }),
       DB_APPLICATION_ID,
     )
-    assert.equal(native.pragma('user_version', { simple: true }), 3)
+    assert.equal(native.pragma('user_version', { simple: true }), 1)
     assert.equal(native.pragma('foreign_keys', { simple: true }), 1)
     const tables = native
       .prepare<[], { name: string; strict: number }>('PRAGMA table_list')
@@ -92,7 +92,7 @@ test('fresh initialization creates strict typed tables, migration history and on
           'SELECT count(*) AS count FROM __drizzle_migrations',
         )
         .get()?.count,
-      3,
+      1,
     )
     assert.deepEqual(native.prepare('PRAGMA foreign_key_check').all(), [])
   } finally {
@@ -107,11 +107,11 @@ test('database constraints preserve classification, ordering, credits and image 
   const asset = randomUUID()
   try {
     native
-      .prepare('INSERT INTO categories VALUES (?, ?, ?)')
+      .prepare('INSERT INTO instruments VALUES (?, ?, ?)')
       .run(instrument, 'Drums', 'drums')
     assert.throws(() =>
       native
-        .prepare('INSERT INTO categories VALUES (?, ?, ?)')
+        .prepare('INSERT INTO instruments VALUES (?, ?, ?)')
         .run(randomUUID(), 'DRUMS', 'drums'),
     )
     native
@@ -241,7 +241,7 @@ test('Sample IDs, Favorites and zero preview volume survive reopening and overla
         'SELECT count(*) AS count FROM __drizzle_migrations',
       )
       .get()?.count,
-    3,
+    1,
   )
 })
 
@@ -401,11 +401,11 @@ async function extendedMigrations(dir: string, sql: string): Promise<string> {
     idx: journal.entries.length,
     version: '6',
     when: journal.entries.at(-1).when + 1,
-    tag: '0003_test',
+    tag: '0001_test',
     breakpoints: true,
   })
   await writeFile(journalFile, JSON.stringify(journal))
-  await writeFile(path.join(folder, '0003_test.sql'), sql)
+  await writeFile(path.join(folder, '0001_test.sql'), sql)
   return folder
 }
 
@@ -427,7 +427,7 @@ test('pending migrations apply once and preserve existing data; older applicatio
       try {
         assert.equal(
           upgraded.native.pragma('user_version', { simple: true }),
-          4,
+          2,
         )
         assert.deepEqual(readLocalProfile(upgraded.db), profile)
         assert.deepEqual(importFolder(upgraded.db, dir, [fileAt(dir)]), [
@@ -439,7 +439,7 @@ test('pending migrations apply once and preserve existing data; older applicatio
               'SELECT count(*) AS count FROM __drizzle_migrations',
             )
             .get()?.count,
-          4,
+          2,
         )
       } finally {
         upgraded.close()
@@ -451,7 +451,7 @@ test('pending migrations apply once and preserve existing data; older applicatio
   }
 })
 
-test('classification migration preserves an original library and offers Genres without silently seeding existing catalogs', async (t) => {
+test('vocabulary initialization reuses saved Instruments and offers missing Genres without silently seeding existing catalogs', async (t) => {
   const disk = await createDiskDatabase(t)
   disk.connection.close()
   const filename = path.join(disk.directory, 'original.sqlite')
@@ -481,7 +481,7 @@ test('classification migration preserves an original library and offers Genres w
       )
       .run(profileId)
     original
-      .prepare('INSERT INTO categories(id, name, name_key) VALUES (?, ?, ?)')
+      .prepare('INSERT INTO instruments(id, name, name_key) VALUES (?, ?, ?)')
       .run(instrumentId, 'Kick', 'kick')
     original
       .prepare('INSERT INTO samples(id, favorite) VALUES (?, 1)')
@@ -493,7 +493,7 @@ test('classification migration preserves an original library and offers Genres w
       .run(sampleId, path.join(disk.directory, 'kick.wav'))
     original
       .prepare(
-        'INSERT INTO sample_categories(sample_id, category_id) VALUES (?, ?)',
+        'INSERT INTO sample_instruments(sample_id, instrument_id) VALUES (?, ?)',
       )
       .run(sampleId, instrumentId)
     original.pragma(`application_id = ${DB_APPLICATION_ID}`)
@@ -503,14 +503,14 @@ test('classification migration preserves an original library and offers Genres w
   }
   const upgraded = open(filename)
   try {
-    assert.equal(upgraded.native.pragma('user_version', { simple: true }), 3)
+    assert.equal(upgraded.native.pragma('user_version', { simple: true }), 1)
     assert.deepEqual(
       upgraded.native.prepare('SELECT id, favorite FROM samples').get(),
       { id: sampleId, favorite: 1 },
     )
     assert.deepEqual(
-      upgraded.native.prepare('SELECT * FROM sample_categories').get(),
-      { sample_id: sampleId, category_id: instrumentId },
+      upgraded.native.prepare('SELECT * FROM sample_instruments').get(),
+      { sample_id: sampleId, instrument_id: instrumentId },
     )
     assert.equal(readLocalProfile(upgraded.db).preferences.previewVolume, 0)
     assert.equal(
@@ -529,10 +529,10 @@ test('classification migration preserves an original library and offers Genres w
     )
     assert.equal(
       upgraded.native
-        .prepare<[], { category_id: string }>(
-          "SELECT category_id FROM recognition_vocabulary WHERE key = 'category:kick'",
+        .prepare<[], { instrument_id: string }>(
+          "SELECT instrument_id FROM recognition_vocabulary WHERE key = 'instrument:kick'",
         )
-        .get()?.category_id,
+        .get()?.instrument_id,
       instrumentId,
     )
   } finally {
@@ -557,7 +557,7 @@ test('failed migrations and bootstrap roll back SQL, migration history and versi
     const reopened = open(filename)
     try {
       assert.deepEqual(readLocalProfile(reopened.db), profile)
-      assert.equal(reopened.native.pragma('user_version', { simple: true }), 3)
+      assert.equal(reopened.native.pragma('user_version', { simple: true }), 1)
       assert.equal(
         reopened.native
           .prepare("SELECT name FROM sqlite_schema WHERE name = 'rolled_back'")
@@ -568,7 +568,7 @@ test('failed migrations and bootstrap roll back SQL, migration history and versi
       reopened.close()
     }
     await writeFile(
-      path.join(folder, '0003_test.sql'),
+      path.join(folder, '0001_test.sql'),
       `CREATE TRIGGER reject_profile BEFORE INSERT ON user_profiles
       BEGIN SELECT RAISE(ABORT, 'Injected bootstrap failure'); END;`,
     )
