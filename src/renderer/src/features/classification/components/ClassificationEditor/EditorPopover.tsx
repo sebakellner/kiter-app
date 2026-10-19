@@ -84,7 +84,7 @@ export function EditorPopover({
       align="end"
       dismissOnOutside={false}
       onDismiss={requestDismiss}
-      className="sample-categories-popover"
+      className="sample-instruments-popover"
       aria-labelledby={titleId}
       onKeyDown={(event) => {
         if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {

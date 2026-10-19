@@ -16,7 +16,7 @@ function item(
 ): ClassificationPreparationItem {
   return {
     kind: 'proposal',
-    dimension: 'category',
+    dimension: 'instrument',
     key,
     name: key,
     entityId: null,

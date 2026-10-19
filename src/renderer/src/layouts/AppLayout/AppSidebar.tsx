@@ -21,8 +21,8 @@ export function AppSidebar(): React.JSX.Element {
         Collections
       </Button>
       <h2>Organization</h2>
-      <Button as={NavLink} to="/categories">
-        Categories
+      <Button as={NavLink} to="/instruments">
+        Instruments
       </Button>
       <Button as={NavLink} to="/authors">
         Authors

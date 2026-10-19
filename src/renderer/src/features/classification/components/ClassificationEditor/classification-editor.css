@@ -1,16 +1,16 @@
-.sample-categories-popover {
+.sample-instruments-popover {
   width: min(340px, calc(100vw - 32px));
   padding: 16px;
 }
 
-.sample-categories-popover ul {
+.sample-instruments-popover ul {
   list-style: none;
   padding: 0;
   max-height: 180px;
   overflow: auto;
 }
 
-.sample-categories-popover footer {
+.sample-instruments-popover footer {
   position: sticky;
   bottom: 0;
   background: Canvas;

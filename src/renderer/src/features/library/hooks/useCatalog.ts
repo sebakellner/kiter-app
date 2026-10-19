@@ -8,7 +8,7 @@ export function useCatalog(
   favoritesOnly: boolean,
   revision: number,
   initialOffset = 0,
-  categoryIds: string[] = [],
+  instrumentIds: string[] = [],
   genreIds: string[] = [],
   sampleTypes: SampleTypeFilter = [],
   search = '',
@@ -23,7 +23,7 @@ export function useCatalog(
   const text = effectiveCatalogSearch(search)
   const dispatchedSearch = useRef(text)
   const filterKey = JSON.stringify([
-    categoryIds.slice().sort(),
+    instrumentIds.slice().sort(),
     genreIds.slice().sort(),
     sampleTypes.slice().sort(),
     text,
@@ -53,14 +53,14 @@ export function useCatalog(
 
   useEffect(() => {
     let active = true
-    const [categories, genres, types, query]: [
+    const [instruments, genres, types, query]: [
       string[],
       string[],
       SampleTypeFilter,
       string,
     ] = JSON.parse(filterKey)
     const filters = {
-      ...(categories.length ? { categoryIds: categories } : {}),
+      ...(instruments.length ? { instrumentIds: instruments } : {}),
       ...(genres.length ? { genreIds: genres } : {}),
       ...(types.length ? { sampleTypes: types } : {}),
       ...(query ? { search: query } : {}),

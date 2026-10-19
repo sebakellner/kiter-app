@@ -1,7 +1,7 @@
 import { createHashRouter, Navigate } from 'react-router-dom'
 import { AppLayout } from '@renderer/layouts/AppLayout/AppLayout'
 import { Authors } from '@renderer/views/Authors/Authors'
-import { Categories } from '@renderer/views/Categories/Categories'
+import { Instruments } from '@renderer/views/Instruments/Instruments'
 import { Collections } from '@renderer/views/Collections/Collections'
 import { Favorites } from '@renderer/views/Favorites/Favorites'
 import { Home } from '@renderer/views/Home/Home'
@@ -18,7 +18,7 @@ export const router = createHashRouter([
       { path: 'favorites', element: <Favorites /> },
       { path: 'packs', element: <Packs /> },
       { path: 'collections', element: <Collections /> },
-      { path: 'categories', element: <Categories /> },
+      { path: 'instruments', element: <Instruments /> },
       { path: 'authors', element: <Authors /> },
       { path: '*', element: <Navigate to="/home" replace /> },
     ],

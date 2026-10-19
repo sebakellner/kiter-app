@@ -15,10 +15,10 @@ export function ClassificationEditor({
   anchor: HTMLElement
   onClose: () => void
   onSaved: () => void
-  dimension: 'category' | 'genre'
+  dimension: 'instrument' | 'genre'
 }): React.JSX.Element {
   const editor = useClassificationEditor(sampleId, onSaved, dimension)
-  const plural = dimension === 'category' ? 'categories' : 'genres'
+  const plural = dimension === 'instrument' ? 'instruments' : 'genres'
   const disabled = editor.loading || editor.pending
 
   return (
@@ -46,7 +46,7 @@ export function ClassificationEditor({
       )}
       {editor.pending && <p role="status">Saving or refreshing {plural}…</p>}
       {editor.validationError && (
-        <p id="category-selection-error" role="alert">
+        <p id="instrument-selection-error" role="alert">
           {editor.validationError}
         </p>
       )}
@@ -56,16 +56,16 @@ export function ClassificationEditor({
           <ul
             aria-label={`Selected ${plural}`}
             aria-describedby={
-              editor.validationError ? 'category-selection-error' : undefined
+              editor.validationError ? 'instrument-selection-error' : undefined
             }
           >
-            {editor.selected.map((category) => (
-              <li key={category.id}>
-                {category.name}{' '}
+            {editor.selected.map((instrument) => (
+              <li key={instrument.id}>
+                {instrument.name}{' '}
                 <Button
                   disabled={disabled}
-                  aria-label={`Remove ${category.name}`}
-                  onClick={() => editor.toggle(category)}
+                  aria-label={`Remove ${instrument.name}`}
+                  onClick={() => editor.toggle(instrument)}
                 >
                   ×
                 </Button>
@@ -96,23 +96,23 @@ export function ClassificationEditor({
           {!editor.searching && !editor.listError && editor.page && (
             <>
               <ul aria-label={`Available ${plural}`}>
-                {editor.page.items.map((category) => (
-                  <li key={category.id}>
+                {editor.page.items.map((instrument) => (
+                  <li key={instrument.id}>
                     <label>
                       <Checkbox
                         checked={editor.selected.some(
-                          ({ id }) => id === category.id,
+                          ({ id }) => id === instrument.id,
                         )}
                         disabled={
                           disabled ||
                           (!editor.selected.some(
-                            ({ id }) => id === category.id,
+                            ({ id }) => id === instrument.id,
                           ) &&
                             editor.selected.length >= 1000)
                         }
-                        onChange={() => editor.toggle(category)}
+                        onChange={() => editor.toggle(instrument)}
                       />
-                      {category.name}
+                      {instrument.name}
                     </label>
                   </li>
                 ))}
@@ -125,7 +125,7 @@ export function ClassificationEditor({
                 </p>
               )}
               <div
-                aria-label={`${dimension === 'category' ? 'Category' : 'Genre'} pages`}
+                aria-label={`${dimension === 'instrument' ? 'Instrument' : 'Genre'} pages`}
               >
                 <Button
                   disabled={disabled || editor.offset === 0}
@@ -156,7 +156,7 @@ export function ClassificationEditor({
             <details>
               <summary>Currently saved {plural}</summary>
               <p>
-                {editor.saved.categories.map(({ name }) => name).join(', ') ||
+                {editor.saved.instruments.map(({ name }) => name).join(', ') ||
                   'None'}
               </p>
             </details>

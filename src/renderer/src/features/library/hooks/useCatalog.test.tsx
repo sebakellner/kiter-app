@@ -133,7 +133,7 @@ test('changing Genres resets pagination, rejects stale results and retains both 
   await waitFor(() => expect(result.current.page?.total).toBe(2))
   expect(api.library.list).toHaveBeenLastCalledWith({
     favoritesOnly: true,
-    categoryIds: ['kick'],
+    instrumentIds: ['kick'],
     genreIds: ['techno'],
     offset: 0,
   })
@@ -152,7 +152,7 @@ test('changing Genres resets pagination, rejects stale results and retains both 
   expect(result.current.error).toBeNull()
   expect(api.library.list).toHaveBeenLastCalledWith({
     favoritesOnly: true,
-    categoryIds: ['kick'],
+    instrumentIds: ['kick'],
     genreIds: ['techno'],
     offset: 0,
   })
@@ -186,7 +186,7 @@ test('changing Sample types resets pagination, rejects stale pages and retains a
   )
   expect(api.library.list).toHaveBeenLastCalledWith({
     favoritesOnly: true,
-    categoryIds: ['kick'],
+    instrumentIds: ['kick'],
     genreIds: ['house'],
     sampleTypes: ['loop'],
     offset: 50,
@@ -195,7 +195,7 @@ test('changing Sample types resets pagination, rejects stale pages and retains a
   await waitFor(() => expect(result.current.page?.total).toBe(2))
   const filters = {
     favoritesOnly: true,
-    categoryIds: ['kick'],
+    instrumentIds: ['kick'],
     genreIds: ['house'],
     sampleTypes: ['one-shot', 'unknown'],
   }
@@ -261,7 +261,7 @@ test('search waits 250ms after the last edit, ignores obsolete pages immediately
     await act(async () => vi.advanceTimersByTime(1))
     const filters = {
       favoritesOnly: true,
-      categoryIds: ['drums'],
+      instrumentIds: ['drums'],
       genreIds: ['house'],
       sampleTypes: ['loop'],
       offset: 0,

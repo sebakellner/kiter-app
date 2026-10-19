@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import {
-  sampleCategoriesSaveSchema,
+  sampleInstrumentsSaveSchema,
   sampleGenresSaveSchema,
 } from '@shared/features/classification/schemas'
 export { sampleTypeSelectionSchema } from '@shared/features/classification/schemas'
@@ -8,12 +8,14 @@ import type { sampleTypeSelectionSchema } from '@shared/features/classification/
 
 export type SampleTypeSelection = z.infer<typeof sampleTypeSelectionSchema>
 
-export const sampleCategorySelectionSchema = sampleCategoriesSaveSchema.pick({
-  categoryIds: true,
-})
+export const sampleInstrumentSelectionSchema = sampleInstrumentsSaveSchema.pick(
+  {
+    instrumentIds: true,
+  },
+)
 
-export type SampleCategorySelection = z.infer<
-  typeof sampleCategorySelectionSchema
+export type SampleInstrumentSelection = z.infer<
+  typeof sampleInstrumentSelectionSchema
 >
 
 export const sampleGenreSelectionSchema = sampleGenresSaveSchema.pick({
@@ -21,10 +23,12 @@ export const sampleGenreSelectionSchema = sampleGenresSaveSchema.pick({
 })
 
 export const classificationSelectionSchemas = {
-  category: z.object({ ids: sampleCategorySelectionSchema.shape.categoryIds }),
+  instrument: z.object({
+    ids: sampleInstrumentSelectionSchema.shape.instrumentIds,
+  }),
   genre: z.object({ ids: sampleGenreSelectionSchema.shape.genreIds }),
 }
 
 export type ClassificationSelection = z.infer<
-  typeof classificationSelectionSchemas.category
+  typeof classificationSelectionSchemas.instrument
 >

@@ -1,11 +1,11 @@
 import { create } from 'zustand'
-import type { Category } from '@shared/domain/classification'
+import type { Instrument } from '@shared/domain/classification'
 import type { Genre } from '@shared/domain/recognition'
 import type { SampleTypeFilter } from '@shared/features/library/schemas'
 
 export type ViewContext = {
   favoritesOnly: boolean
-  categories: Category[]
+  instruments: Instrument[]
   genres: Genre[]
   sampleTypes: SampleTypeFilter
   search: string
@@ -17,7 +17,7 @@ export type ViewContext = {
 
 export const defaultContext: ViewContext = {
   favoritesOnly: false,
-  categories: [],
+  instruments: [],
   genres: [],
   sampleTypes: [],
   search: '',

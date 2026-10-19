@@ -26,8 +26,8 @@ function MultipleExample(): React.JSX.Element {
   return (
     <>
       <Combobox
-        aria-label="Categories"
-        listLabel="Available categories"
+        aria-label="Instruments"
+        listLabel="Available instruments"
         multiple
         options={options.filter((option) =>
           option.label.toLowerCase().includes(query),
@@ -50,7 +50,7 @@ test('multi-select keeps focus and query, skips disabled options and closes only
       <MultipleExample />
     </div>,
   )
-  const input = screen.getByRole('combobox', { name: 'Categories' })
+  const input = screen.getByRole('combobox', { name: 'Instruments' })
   await user.click(input)
   await user.keyboard('{ArrowDown}{Enter}{ArrowDown}{Enter}')
   expect(screen.getByRole('option', { name: 'Kick' })).toHaveAttribute(
@@ -87,8 +87,8 @@ test('single selection closes the list and loading or disabled results cannot be
   const user = userEvent.setup()
   const change = vi.fn()
   const props = {
-    'aria-label': 'Category',
-    listLabel: 'Available categories',
+    'aria-label': 'Instrument',
+    listLabel: 'Available instruments',
     options,
     value: null,
     onValueChange: change,
@@ -96,7 +96,7 @@ test('single selection closes the list and loading or disabled results cannot be
     onQueryChange: vi.fn(),
   }
   const { rerender } = render(<Combobox {...props} />)
-  const input = screen.getByRole('combobox', { name: 'Category' })
+  const input = screen.getByRole('combobox', { name: 'Instrument' })
   await user.click(input)
   await user.click(screen.getByRole('option', { name: 'Snare' }))
   expect(change).not.toHaveBeenCalled()
