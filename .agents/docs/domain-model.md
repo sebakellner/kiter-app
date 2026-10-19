@@ -33,8 +33,9 @@ catalog and from questions that still require agreement.
   all classification UI remain pending.
 - **Implemented internal Collection slice:** create/edit/read, bounded lists,
   idempotent append/removal of memberships, atomic full-sequence reorder, and
-  impact-checked deletion through the worker/client. No Collection IPC/UI or
-  cover publication/physical cleanup is exposed yet.
+  impact-checked deletion through the worker/client. Creation, summary list/detail
+  IPC and UI are implemented; membership/editing/deletion UI and Collection cover
+  publication/physical cleanup are not exposed yet.
 - **Implemented internal Pack slice:** reviewed registration/reimport from scanned
   roots, bounded Pack/member/candidate queries, presentation edits, manual origin
   corrections, and impact-checked removal through the worker/client. Import
@@ -46,7 +47,7 @@ catalog and from questions that still require agreement.
 - **Implemented internal profile/image slice:** profile name/Author-link editing,
   validated immutable cover/avatar publication, reviewed reference replacement,
   cleanup claims, and startup reconciliation. No profile/image IPC/UI exists yet.
-- **Not implemented:** Pack UI, Collection UI, classification/credit UI,
+- **Not implemented:** Pack UI, remaining Collection management UI, classification/credit UI,
   profile/image UI, and other lifecycle workflows below.
 - **Deferred design:** analysis/cache storage layout, cache persistence, waveform
   peaks, and analysis versioning. Managed covers are part of the first new

@@ -78,7 +78,11 @@ function AppLayoutContent({
   const resetRestoration = useEffectEvent(() => {
     restored.current = false
     scrollTop.current = context.scrollTop
-    if (!catalog) {
+    if (
+      !catalog &&
+      pathname !== '/collections' &&
+      !pathname.startsWith('/collections/')
+    ) {
       onReady()
     }
   })

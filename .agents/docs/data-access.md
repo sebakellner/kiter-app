@@ -329,7 +329,10 @@ replaces memberships with contiguous positions, avoiding transient unique-index
 collisions. Removal review hashes presentation and exact Sample IDs/positions in
 bounded batches; removal rechecks inside an immediate transaction. Final cover
 references become `cleanup_pending` only after checking all three reference
-owners. Collection IPC/UI remain pending; main performs recoverable image cleanup.
+owners. Creation and bounded summary list/detail reads are exposed through typed
+Collection IPC/preload and connected UI; membership, metadata editing and removal
+IPC/UI remain pending. Main performs recoverable image cleanup. See
+[Collection creation and browsing](features/catalog-organization.md#implemented-collection-creation-and-browsing).
 
 | Command                  | Required behavior                                                                                                                   |
 | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
@@ -443,7 +446,8 @@ The product's catalog is persisted through `DbClient`; there is no `Catalog`
 domain entity or catch-all catalog service. Current UI remains folder-scoped.
 Internal profile/volume operations are not exposed to settings UI or applied to
 the player. Instrument list/create/rename are available through preload; remaining
-classification, Collection and Pack operations are internal to `DbClient`.
+classification and Pack operations are internal to `DbClient`. Collections exposes
+creation and bounded summary reads; its other operations remain internal.
 Other entity tables await their complete operations and UI.
 
 ## Basic Rules

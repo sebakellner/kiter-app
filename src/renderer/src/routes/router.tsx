@@ -3,6 +3,7 @@ import { AppLayout } from '@renderer/layouts/AppLayout/AppLayout'
 import { Authors } from '@renderer/views/Authors/Authors'
 import { Instruments } from '@renderer/views/Instruments/Instruments'
 import { Collections } from '@renderer/views/Collections/Collections'
+import { CollectionDetail } from '@renderer/views/CollectionDetail/CollectionDetail'
 import { Favorites } from '@renderer/views/Favorites/Favorites'
 import { Home } from '@renderer/views/Home/Home'
 import { Packs } from '@renderer/views/Packs/Packs'
@@ -18,6 +19,7 @@ export const router = createHashRouter([
       { path: 'favorites', element: <Favorites /> },
       { path: 'packs', element: <Packs /> },
       { path: 'collections', element: <Collections /> },
+      { path: 'collections/:id', element: <CollectionDetail /> },
       { path: 'instruments', element: <Instruments /> },
       { path: 'authors', element: <Authors /> },
       { path: '*', element: <Navigate to="/home" replace /> },

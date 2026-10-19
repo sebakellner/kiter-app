@@ -18,6 +18,12 @@ import {
 } from '@shared/ipc/genres'
 import { LIFECYCLE_CHANNELS } from '@shared/ipc/lifecycle'
 import {
+  COLLECTION_CHANNELS,
+  isCollection,
+  isCollectionPage,
+  isCollectionSummary,
+} from '@shared/ipc/collections'
+import {
   isAliasUpdatePage,
   isAliasUpdateResult,
 } from '@shared/ipc/aliasUpdates'
@@ -34,6 +40,23 @@ import {
 
 // Custom APIs for renderer
 const api: Api = {
+  collections: {
+    create: async (request) =>
+      requireIpcResult(
+        await ipcRenderer.invoke(COLLECTION_CHANNELS.create, request),
+        isCollection,
+      ),
+    list: async (request = {}) =>
+      requireIpcResult(
+        await ipcRenderer.invoke(COLLECTION_CHANNELS.list, request),
+        isCollectionPage,
+      ),
+    get: async (request) =>
+      requireIpcResult(
+        await ipcRenderer.invoke(COLLECTION_CHANNELS.get, request),
+        isCollectionSummary,
+      ),
+  },
   genres: {
     list: async (request = {}) =>
       requireIpcResult(

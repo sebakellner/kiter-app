@@ -3,6 +3,7 @@ import { and, count, eq, gt, max, sql } from 'drizzle-orm'
 import type { AppDatabase } from '../../runtime/connection.ts'
 import type {
   Collection,
+  CollectionSummary,
   CollectionCreateRequest,
   CollectionUpdateRequest,
   CollectionPage,
@@ -23,6 +24,48 @@ import {
 import { collections, collectionSamples } from '../../schema/collections.ts'
 import { samples } from '../../schema/samples.ts'
 import { DbError } from '../../errors.ts'
+
+const summaryFields = {
+  id: collections.id,
+  name: collections.name,
+  description: collections.description,
+  coverAssetId: collections.coverAssetId,
+  sampleCount: sql<number>`(select count(*) from ${collectionSamples} where ${collectionSamples.collectionId} = ${collections.id})`,
+}
+
+export function getCollectionSummary(
+  db: AppDatabase,
+  id: string,
+): CollectionSummary {
+  requireEntityId(id)
+  const row = db
+    .select(summaryFields)
+    .from(collections)
+    .where(eq(collections.id, id))
+    .get()
+  if (!row) {
+    throw new DbError('NOT_FOUND', 'The Collection no longer exists.')
+  }
+  return row
+}
+
+export function listCollectionSummaries(
+  db: AppDatabase,
+  input: CollectionPageRequest = {},
+): CollectionPage<CollectionSummary> {
+  const page = requireCollectionPage(input)
+  return db.transaction(() => ({
+    items: db
+      .select(summaryFields)
+      .from(collections)
+      .orderBy(collections.name, collections.id)
+      .limit(page.limit)
+      .offset(page.offset)
+      .all(),
+    total: db.select({ count: count() }).from(collections).get()!.count,
+    ...page,
+  }))
+}
 
 export function getCollection(db: AppDatabase, id: string): Collection {
   requireEntityId(id)

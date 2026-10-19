@@ -1,0 +1,10 @@
+.ui-card {
+  border: 1px solid currentColor;
+  padding: 12px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.ui-card[aria-selected='true'] {
+  outline: 2px solid currentColor;
+}

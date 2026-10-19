@@ -115,9 +115,10 @@ driver, schema, failure behavior, and backup limitations.
 The renderer uses React Router with `createHashRouter` for compatibility with
 packaged file-based loading. `/home` is the default destination; `/samples`
 contains paginated library-wide browsing, with Favorites as a separate catalog
-destination. Unknown routes redirect to Home. Packs, Collections, Instruments,
-and Authors are registered as placeholder views
-for sidebar navigation; their domain workflows remain planned. Other destinations
+destination. Unknown routes redirect to Home. Collections has creation, a bounded
+list and stable-ID detail routes under `/collections`; its remaining management
+workflows are planned. Packs, Instruments and Authors remain placeholder views
+for sidebar navigation. Other destinations
 in UX Design are not registered yet.
 
 Define the route tree, layout nesting, and redirects in
