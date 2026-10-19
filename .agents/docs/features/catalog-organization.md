@@ -153,7 +153,7 @@ prototype, not a combined multi-field inspector Save.
   navigates to `/collections/:id`. List pagination, selection and scroll use the
   existing session-only navigation snapshots and are revalidated on return.
   Navigation does not mount another player or start/interrupt preview.
-- Create Collection opens a minimal native modal for name and optional
+- Create Collection composes the primary UI Dialog for name and optional
   description. React Hook Form and shared Zod rules reuse the domain's Unicode,
   control-character and length policies. Empty Collections and repeated names
   are valid. Enter retains text semantics; Cmd/Ctrl+Enter or Create submits.
@@ -161,8 +161,8 @@ prototype, not a combined multi-field inspector Save.
   editing, duplicate submission and dismissal. Errors keep the draft. Cancel,
   Escape and blocked navigation offer Create and open, Discard changes or Stay
   when dirty. Outside clicks do not dismiss. Cancel restores opener focus.
-  Escape is handled before native dialog dismissal, with automatic close requests
-  disabled so repeated Escape cannot hide a still-dirty, navigation-blocking form.
+  Dialog owns native modality, focus return and safe Escape dismissal requests;
+  the feature retains validation, dirty review, submission and exit protection.
   Window close/quit offers Save and quit, Discard and quit or Stay; a pending
   creation finishes before exit, and failures keep the draft and window open.
 - Detail shows saved name/description, ID and actual Sample count, with an empty

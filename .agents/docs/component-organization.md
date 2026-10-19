@@ -36,7 +36,7 @@ These are ownership conventions, not directories to scaffold in advance.
   `OpenFolderButton` belongs in the library feature.
 - Create primitives when they provide reusable styling or behavior; do not wrap
   every HTML element or scaffold an entire design system in advance.
-- Input, Select, Combobox, and Popover are primary controls owned by `components/ui/`, even during
+- Input, Select, Combobox, Popover, and Dialog are primary controls owned by `components/ui/`, even during
   prototyping. Feature code supplies options, labels, values and callbacks; the
   controls own native semantics, focus, keyboard interaction and structural CSS.
   Use Input for native text/search fields, Checkbox for checkbox interactions,
@@ -47,6 +47,9 @@ These are ownership conventions, not directories to scaffold in advance.
   observers, focus return and dismissal listeners in features. Features retain
   draft protection, confirmation, and application-exit workflows. Choose modal
   behavior explicitly when background interaction must be blocked.
+- Compose unanchored modal surfaces through Dialog. Features retain their form
+  semantics, validation, save/cancel actions, dirty review and application-exit
+  workflows; the primitive owns native modality, focus and dismissal requests.
 - Feature-level hooks or controllers coordinate bridge operations. Presentation
   components should not duplicate IPC, filesystem, or task-management logic.
 - Define renderer form schemas in `features/<feature>/schemas.ts`, separate from

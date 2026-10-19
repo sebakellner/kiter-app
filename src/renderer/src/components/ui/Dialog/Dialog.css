@@ -1,0 +1,9 @@
+.ui-dialog {
+  margin: auto;
+  width: min(440px, calc(100vw - 32px));
+  max-width: calc(100vw - 32px);
+  max-height: calc(100dvh - 32px);
+  overflow: auto;
+  background: Canvas;
+  color: CanvasText;
+}
