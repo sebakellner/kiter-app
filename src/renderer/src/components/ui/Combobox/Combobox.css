@@ -9,15 +9,7 @@
 }
 
 .ui-combobox-popup {
-  position: absolute;
-  inset-inline: 0;
-  top: 100%;
-  z-index: 1;
   max-height: 240px;
-  overflow: auto;
-  background: Canvas;
-  color: CanvasText;
-  border: 1px solid;
 }
 
 .ui-combobox-popup ul {

@@ -1,8 +1,18 @@
 import { useState } from 'react'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { expect, test, vi } from 'vitest'
+import { beforeEach, expect, test, vi } from 'vitest'
 import { Combobox } from './Combobox'
+
+beforeEach(() => {
+  vi.stubGlobal(
+    'ResizeObserver',
+    class {
+      observe = vi.fn()
+      disconnect = vi.fn()
+    },
+  )
+})
 
 const options = [
   { value: 'kick', label: 'Kick' },

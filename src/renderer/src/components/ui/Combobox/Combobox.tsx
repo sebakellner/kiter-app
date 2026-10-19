@@ -1,5 +1,6 @@
 import { useId, useRef, useState } from 'react'
 import type { ComponentPropsWithRef, JSX } from 'react'
+import { Popover } from '../Popover'
 import './Combobox.css'
 
 export type ComboboxOption = {
@@ -184,7 +185,16 @@ export function Combobox({
         }}
       />
       {expanded && (
-        <div className="ui-combobox-popup">
+        <Popover
+          open
+          anchor={root}
+          matchAnchorWidth
+          onDismiss={() => {
+            setOpen(false)
+            setActiveValue(null)
+          }}
+          className="ui-combobox-popup"
+        >
           <ul
             id={listId}
             role="listbox"
@@ -222,7 +232,7 @@ export function Combobox({
           {!loading && options.length === 0 && (
             <p role="status">{emptyMessage}</p>
           )}
-        </div>
+        </Popover>
       )}
     </div>
   )
