@@ -5,7 +5,7 @@ import { SampleList } from './SampleList'
 import { useSampleInspector } from './SampleInspector'
 import { useCallback, useLayoutEffect } from 'react'
 import type { CatalogViewContext } from '@renderer/routes/navigationContext'
-import { CategoryFilter } from './CategoryFilter/CategoryFilter'
+import { SampleFilters } from './SampleFilters/SampleFilters'
 
 export function CatalogList({
   favoritesOnly = false,
@@ -22,6 +22,7 @@ export function CatalogList({
     revision,
     context.offset,
     context.categories.map(({ id }) => id),
+    context.genres.map(({ id }) => id),
   )
   const select = useCallback(
     (selectedId: string | null) => update({ selectedId }),
@@ -53,11 +54,10 @@ export function CatalogList({
   ])
   return (
     <>
-      <CategoryFilter
-        value={context.categories}
-        onChange={(categories) =>
-          update({ categories, offset: 0, scrollTop: 0 })
-        }
+      <SampleFilters
+        categories={context.categories}
+        genres={context.genres}
+        onChange={(filters) => update({ ...filters, offset: 0, scrollTop: 0 })}
       />
       <Button onClick={refresh} disabled={loading}>
         Refresh
@@ -80,8 +80,8 @@ export function CatalogList({
             </p>
             {page.total === 0 ? (
               <p>
-                {context.categories.length > 0
-                  ? 'No samples match these categories. Remove a category filter or clear all to see more samples.'
+                {context.categories.length > 0 || context.genres.length > 0
+                  ? 'No samples match these filters. Remove a filter or clear all to see more samples.'
                   : favoritesOnly
                     ? 'No favorites yet. Mark samples as favorites in Samples.'
                     : 'Your library is empty. Open a folder to add audio samples. Original files stay in place.'}

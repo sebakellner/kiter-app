@@ -7,6 +7,7 @@ export function useCatalog(
   revision: number,
   initialOffset = 0,
   categoryIds: string[] = [],
+  genreIds: string[] = [],
 ): {
   page: LibraryPage | null
   loading: boolean
@@ -15,7 +16,10 @@ export function useCatalog(
   refresh: () => void
 } {
   const [page, setPage] = useState<LibraryPage | null>(null)
-  const filterKey = JSON.stringify(categoryIds.slice().sort())
+  const filterKey = JSON.stringify([
+    categoryIds.slice().sort(),
+    genreIds.slice().sort(),
+  ])
   const [request, setRequest] = useState({
     offset: initialOffset,
     version: 0,
@@ -37,14 +41,18 @@ export function useCatalog(
 
   useEffect(() => {
     let active = true
-    const ids: string[] = JSON.parse(filterKey)
+    const [categories, genres]: [string[], string[]] = JSON.parse(filterKey)
+    const filters = {
+      ...(categories.length ? { categoryIds: categories } : {}),
+      ...(genres.length ? { genreIds: genres } : {}),
+    }
     const offset = request.filterKey !== filterKey ? 0 : request.offset
     void (async () => {
       try {
         let next = unwrapIpcResult(
           await window.api.library.list({
             favoritesOnly,
-            ...(ids.length ? { categoryIds: ids } : {}),
+            ...filters,
             offset,
           }),
         )
@@ -53,7 +61,7 @@ export function useCatalog(
           next = unwrapIpcResult(
             await window.api.library.list({
               favoritesOnly,
-              ...(ids.length ? { categoryIds: ids } : {}),
+              ...filters,
               offset: Math.max(
                 0,
                 Math.floor((next.total - 1) / next.limit) * next.limit,
