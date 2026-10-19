@@ -1,5 +1,6 @@
 import type { RecognitionDimension } from '../domain/recognition.ts'
 import type { AliasUpdatesApi } from './aliasUpdates.ts'
+import type { SampleTypeApi } from './sampleType.ts'
 import type { IpcResult } from './result.ts'
 import { requirePage } from '../domain/pagination.ts'
 import {
@@ -14,6 +15,8 @@ export const CLASSIFICATION_CHANNELS = {
   listAliasUpdates: 'classification:list-alias-updates',
   incorporateAlias: 'classification:incorporate-alias',
   applySample: 'classification:apply-sample',
+  readSampleType: 'classification:read-sample-type',
+  saveSampleType: 'classification:save-sample-type',
 } as const
 
 export type ClassificationPreparationRequest = {
@@ -52,7 +55,7 @@ export type ClassificationPreparationPage = {
   offset: number
 }
 
-export interface ClassificationApi extends AliasUpdatesApi {
+export interface ClassificationApi extends AliasUpdatesApi, SampleTypeApi {
   applySample: (
     request: ClassificationApplyRequest,
   ) => Promise<IpcResult<{ sampleId: string }>>

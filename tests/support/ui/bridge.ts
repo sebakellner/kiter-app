@@ -13,6 +13,12 @@ export function createTestApi(): {
     >
   }
   classification: {
+    readSampleType: ReturnType<
+      typeof vi.fn<Api['classification']['readSampleType']>
+    >
+    saveSampleType: ReturnType<
+      typeof vi.fn<Api['classification']['saveSampleType']>
+    >
     applySample: ReturnType<typeof vi.fn<Api['classification']['applySample']>>
     listAliasUpdates: ReturnType<
       typeof vi.fn<Api['classification']['listAliasUpdates']>
@@ -52,6 +58,8 @@ export function createTestApi(): {
         .mockReturnValue(() => {}),
     },
     classification: {
+      readSampleType: vi.fn<Api['classification']['readSampleType']>(),
+      saveSampleType: vi.fn<Api['classification']['saveSampleType']>(),
       applySample: vi.fn<Api['classification']['applySample']>(),
       listAliasUpdates: vi.fn<Api['classification']['listAliasUpdates']>(),
       incorporateAlias: vi.fn<Api['classification']['incorporateAlias']>(),
