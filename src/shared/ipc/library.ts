@@ -43,6 +43,7 @@ export interface LibraryListRequest extends PageRequest {
   genreIds?: string[]
   sampleTypes?: SampleTypeFilter
   search?: string
+  collectionId?: string
 }
 export type LibraryPage = Page<CatalogAudioSample>
 
@@ -88,6 +89,9 @@ export function requireLibraryListRequest(value: unknown): LibraryListRequest {
     )
   }
   const text = effectiveCatalogSearch(search.data)
+  if (value.collectionId !== undefined && !isEntityId(value.collectionId)) {
+    throw new DomainValidationError('Invalid Collection identifier.')
+  }
   return {
     ...page,
     favoritesOnly: value.favoritesOnly ?? false,
@@ -95,6 +99,9 @@ export function requireLibraryListRequest(value: unknown): LibraryListRequest {
     ...(genres.data.length > 0 ? { genreIds: genres.data } : {}),
     ...(types.data.length > 0 ? { sampleTypes: types.data } : {}),
     ...(text ? { search: text } : {}),
+    ...(value.collectionId !== undefined
+      ? { collectionId: value.collectionId }
+      : {}),
   }
 }
 

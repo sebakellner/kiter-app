@@ -49,6 +49,8 @@ test('catalog IPC validates bounded pages and distinguishes unavailable audio fr
     { limit: 101 },
     { offset: -1 },
     { favoritesOnly: 'true' },
+    { collectionId: null },
+    { collectionId: '/arbitrary/collection' },
     { instrumentIds: null },
     { instrumentIds: ['/file.wav'] },
     { instrumentIds: Array.from({ length: 101 }, () => randomUUID()) },

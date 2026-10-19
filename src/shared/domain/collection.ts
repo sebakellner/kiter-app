@@ -37,6 +37,20 @@ export interface CollectionMembershipRequest {
   assigned: boolean
 }
 
+export interface CollectionMembershipResult {
+  assigned: boolean
+  changed: boolean
+}
+
+export interface CollectionDestination extends CollectionSummary {
+  assigned: boolean
+}
+
+export interface CollectionDestinationsRequest extends PageRequest {
+  sampleId: string
+  search?: string
+}
+
 export interface CollectionReorderRequest {
   collectionId: string
   sampleIds: string[]

@@ -4,6 +4,10 @@ import type {
   CollectionPage,
   CollectionPageRequest,
   CollectionSummary,
+  CollectionDestination,
+  CollectionDestinationsRequest,
+  CollectionMembershipRequest,
+  CollectionMembershipResult,
 } from '../domain/collection.ts'
 import { requireCollectionPage } from '../domain/collection.ts'
 import {
@@ -13,9 +17,12 @@ import {
   isRecord,
 } from '../domain/validation.ts'
 import { requireDescription } from '../domain/presentation.ts'
+import { normalizeCatalogSearch } from '../features/library/search.ts'
 import {
   collectionCreateSchema,
   collectionGetSchema,
+  collectionMembershipSchema,
+  collectionDestinationsSchema,
 } from '../features/collections/schemas.ts'
 import type { IpcResult } from './result.ts'
 
@@ -23,6 +30,8 @@ export const COLLECTION_CHANNELS = {
   create: 'collections:create',
   list: 'collections:list',
   get: 'collections:get',
+  destinations: 'collections:destinations',
+  setMembership: 'collections:set-membership',
 } as const
 
 export interface CollectionGetRequest {
@@ -35,6 +44,60 @@ export interface CollectionsApi {
     request?: CollectionPageRequest,
   ) => Promise<IpcResult<CollectionPage<CollectionSummary>>>
   get: (request: CollectionGetRequest) => Promise<IpcResult<CollectionSummary>>
+  destinations: (
+    request: CollectionDestinationsRequest,
+  ) => Promise<IpcResult<CollectionPage<CollectionDestination>>>
+  setMembership: (
+    request: CollectionMembershipRequest,
+  ) => Promise<IpcResult<CollectionMembershipResult>>
+}
+
+export function requireCollectionDestinationsRequest(
+  value: unknown,
+): CollectionDestinationsRequest {
+  const page = requireCollectionPage(value)
+  const parsed = collectionDestinationsSchema.safeParse(value, {
+    jitless: true,
+  })
+  if (!parsed.success) {
+    throw new DomainValidationError('Invalid Collection destination search.')
+  }
+  return {
+    ...page,
+    sampleId: parsed.data.sampleId,
+    search: normalizeCatalogSearch(parsed.data.search ?? ''),
+  }
+}
+
+export function requireCollectionMembershipRequest(
+  value: unknown,
+): CollectionMembershipRequest {
+  const parsed = collectionMembershipSchema.safeParse(value, { jitless: true })
+  if (!parsed.success) {
+    throw new DomainValidationError('Invalid Collection membership request.')
+  }
+  return parsed.data
+}
+
+export function isCollectionMembershipResult(
+  value: unknown,
+): value is CollectionMembershipResult {
+  return (
+    isRecord(value) &&
+    typeof value.assigned === 'boolean' &&
+    typeof value.changed === 'boolean'
+  )
+}
+
+export function isCollectionDestinationPage(
+  value: unknown,
+): value is CollectionPage<CollectionDestination> {
+  return (
+    isCollectionPage(value) &&
+    value.items.every(
+      (item) => 'assigned' in item && typeof item.assigned === 'boolean',
+    )
+  )
 }
 
 export function requireCollectionCreateRequest(

@@ -7,6 +7,10 @@ import {
   isCollectionSummary,
   requireCollectionCreateRequest,
   requireCollectionGetRequest,
+  requireCollectionDestinationsRequest,
+  requireCollectionMembershipRequest,
+  isCollectionDestinationPage,
+  isCollectionMembershipResult,
 } from './collections.ts'
 import { requireCollectionPage } from '../domain/collection.ts'
 
@@ -52,6 +56,80 @@ test('Collection IPC creation reuses Unicode name/description rules and rejects 
       code: 'INVALID_INPUT',
     })
   }
+})
+
+test('Collection destination and membership contracts validate identities, bounded literal search and actual outcomes', () => {
+  const { id } = makeCollectionSummary()
+  assert.deepEqual(
+    requireCollectionDestinationsRequest({
+      sampleId: id,
+      search: ' TÉXTURES ',
+    }),
+    { sampleId: id, search: 'textures', limit: 50, offset: 0 },
+  )
+  assert.deepEqual(
+    requireCollectionMembershipRequest({
+      collectionId: id,
+      sampleId: id,
+      assigned: false,
+    }),
+    { collectionId: id, sampleId: id, assigned: false },
+  )
+  for (const input of [
+    null,
+    {},
+    { sampleId: '/audio.wav' },
+    { sampleId: id, search: null },
+    { sampleId: id, search: 'a'.repeat(121) },
+    { sampleId: id, search: 'bad\nquery' },
+    { sampleId: id, limit: 101 },
+    { sampleId: id, offset: -1 },
+  ]) {
+    assert.throws(() => requireCollectionDestinationsRequest(input), {
+      code: 'INVALID_INPUT',
+    })
+  }
+  for (const input of [
+    null,
+    {},
+    { collectionId: id, sampleId: '/audio.wav', assigned: true },
+    { collectionId: id, sampleId: id, assigned: 'true' },
+  ]) {
+    assert.throws(() => requireCollectionMembershipRequest(input), {
+      code: 'INVALID_INPUT',
+    })
+  }
+  const page = {
+    items: [{ ...makeCollectionSummary(), assigned: true }],
+    total: 1,
+    offset: 0,
+    limit: 50,
+  }
+  assert.equal(isCollectionDestinationPage(page), true)
+  assert.equal(
+    isCollectionDestinationPage({ ...page, items: [makeCollectionSummary()] }),
+    false,
+  )
+  assert.equal(
+    isCollectionDestinationPage({
+      ...page,
+      items: [{ ...makeCollectionSummary(), assigned: 1 }],
+    }),
+    false,
+  )
+  assert.equal(
+    isCollectionMembershipResult({ assigned: true, changed: false }),
+    true,
+  )
+  assert.equal(
+    isCollectionMembershipResult({ assigned: false, changed: true }),
+    true,
+  )
+  assert.equal(isCollectionMembershipResult({ assigned: true }), false)
+  assert.equal(
+    isCollectionMembershipResult({ assigned: 'true', changed: false }),
+    false,
+  )
 })
 
 test('Collection IPC validates identities and bounded pagination without filesystem paths', () => {
