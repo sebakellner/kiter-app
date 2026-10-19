@@ -8,3 +8,11 @@ export const categoryFilterSchema = z
     (ids) => new Set(ids).size === ids.length,
     'Select each category only once.',
   )
+
+export const genreFilterSchema = z
+  .array(z.string().refine(isEntityId))
+  .max(100, 'Select at most 100 genres.')
+  .refine(
+    (ids) => new Set(ids).size === ids.length,
+    'Select each genre only once.',
+  )

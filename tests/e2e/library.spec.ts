@@ -4,6 +4,123 @@ import { writeFile, rename, realpath, readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { createWav } from '../support/fixtures/wav.mjs'
 
+test('Genre filters combine with Categories and Favorites, restore history and clear both groups', async ({
+  kiter,
+}) => {
+  const library = new LibraryPage(kiter.page)
+  await kiter.selectFolder(kiter.samples)
+  await library.openFolder()
+  for (const [name, genre] of [
+    ['kick', 'House'],
+    ['snare', 'Techno'],
+  ] as const) {
+    await library
+      .row(`${name}.wav`)
+      .getByRole('button', { name: `Info: ${name}.wav`, exact: true })
+      .click()
+    const inspector = kiter.page.getByRole('complementary', {
+      name: 'Sample info',
+    })
+    await inspector
+      .getByRole('button', {
+        name: `Apply ${name === 'kick' ? 'Kick' : 'Snare'}`,
+        exact: true,
+      })
+      .click()
+    await expect(inspector).toContainText('Classifications saved.')
+    await inspector
+      .getByRole('button', { name: 'Edit genres', exact: true })
+      .click()
+    const editor = kiter.page.getByRole('dialog', {
+      name: 'Edit genres',
+      exact: true,
+    })
+    await editor.getByRole('searchbox', { name: 'Search genres' }).fill(genre)
+    await editor.getByRole('checkbox', { name: genre, exact: true }).check()
+    await editor.getByRole('button', { name: 'Save', exact: true }).click()
+    await expect(editor).toHaveCount(0)
+    await inspector.getByRole('button', { name: 'Close inspector' }).click()
+  }
+  await library.row('kick.wav').getByTestId('favorite-toggle').click()
+  const genres = kiter.page.getByRole('combobox', {
+    name: 'Genres',
+    exact: true,
+  })
+  const categories = kiter.page.getByRole('combobox', {
+    name: 'Categories',
+    exact: true,
+  })
+  const names = kiter.page.getByTestId('sample-name')
+  await genres.click()
+  await kiter.page.getByRole('option', { name: 'House', exact: true }).click()
+  await expect(names).toHaveText(['kick.wav'])
+  await kiter.page.getByRole('option', { name: 'Techno', exact: true }).click()
+  await expect(names).toHaveText(['kick.wav', 'snare.wav'])
+  await expect(genres).toBeFocused()
+  await categories.click()
+  await kiter.page.getByRole('option', { name: 'Kick', exact: true }).click()
+  await expect(names).toHaveText(['kick.wav'])
+  await kiter.page.getByRole('checkbox', { name: 'Favorites only' }).check()
+  await expect(names).toHaveText(['kick.wav'])
+  await kiter.page.getByRole('link', { name: 'Favorites', exact: true }).click()
+  await expect(
+    kiter.page.getByRole('button', { name: 'Clear all', exact: true }),
+  ).toHaveCount(0)
+  await genres.click()
+  await kiter.page.getByRole('option', { name: 'Techno', exact: true }).click()
+  await expect(names).toHaveCount(0)
+  await expect(
+    kiter.page.getByText('No samples match these filters.', { exact: false }),
+  ).toBeVisible()
+  await kiter.page.getByRole('button', { name: 'Back', exact: true }).click()
+  await expect(names).toHaveText(['kick.wav'])
+  await expect(
+    kiter.page.getByRole('button', {
+      name: 'Remove category filter: Kick',
+      exact: true,
+    }),
+  ).toBeVisible()
+  await expect(
+    kiter.page.getByRole('button', {
+      name: 'Remove genre filter: House',
+      exact: true,
+    }),
+  ).toBeVisible()
+  await kiter.page
+    .getByRole('button', { name: 'Remove genre filter: House', exact: true })
+    .click()
+  await expect(genres).toBeFocused()
+  await expect(names).toHaveCount(0)
+  await genres.press('Escape')
+  await kiter.page
+    .getByRole('button', { name: 'Clear all', exact: true })
+    .click()
+  await expect(names).toHaveText(['kick.wav'])
+  await expect(
+    kiter.page.getByRole('button', {
+      name: /^Remove (category|genre) filter:/,
+    }),
+  ).toHaveCount(0)
+  await kiter.page.getByRole('button', { name: 'Forward', exact: true }).click()
+  await expect(
+    kiter.page.getByRole('button', {
+      name: 'Remove genre filter: Techno',
+      exact: true,
+    }),
+  ).toBeVisible()
+  await expect(names).toHaveCount(0)
+  await expect(kiter.page.locator('audio')).not.toHaveAttribute('src')
+  await kiter.restart()
+  await kiter.page.getByRole('link', { name: 'Samples', exact: true }).click()
+  await expect(kiter.page.getByTestId('sample-name')).toHaveText([
+    'kick.wav',
+    'snare.wav',
+  ])
+  await expect(
+    kiter.page.getByRole('button', { name: 'Clear all', exact: true }),
+  ).toHaveCount(0)
+})
+
 test('category filters combine saved assignments with Favorites and restore independently during navigation', async ({
   kiter,
 }) => {
@@ -55,7 +172,7 @@ test('category filters combine saved assignments with Favorites and restore inde
   await kiter.page.getByRole('option', { name: 'Snare', exact: true }).click()
   await expect(kiter.page.getByTestId('sample-name')).toHaveCount(0)
   await expect(
-    kiter.page.getByText('No samples match these categories.', {
+    kiter.page.getByText('No samples match these filters.', {
       exact: false,
     }),
   ).toBeVisible()
