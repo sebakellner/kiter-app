@@ -46,6 +46,30 @@ libraries before delivery. Visual design/prototypes remain deferred.
 
 ## Filters and Local Search
 
+### Implemented Category Filter Slice
+
+Samples and Favorites expose a shared sticky in-list Categories combobox and
+removable active chips with Clear all. Selection applies immediately, retains
+input focus/query, and resets result pagination. Vocabulary options use bounded
+50-item pages with literal catalog matching; opening/focusing refreshes options.
+Loading/error/empty options and result states remain distinct, with retry.
+
+`library:list` accepts up to 100 unique Category UUIDs, validated with the library
+feature's shared Zod schema. The worker filters direct saved Sample assignments
+with OR before counting and paginating, then intersects Favorites where requested.
+An empty selection adds no constraint; missing/deleted Category IDs match nothing,
+not another entry with the same name. Suggestions and Pack classifications do not
+match. Main's normal audio authorization still applies to returned results.
+
+Each destination/history snapshot retains the selected identities and display
+labels for this session only; reopening queries current results rather than
+caching Sample records. Filter changes revalidate selection and keep playback
+independent. Retained chip labels are session snapshots, not authoritative names
+after an external rename. Other filter groups and library-wide text search below
+remain planned.
+
+### Agreed Remaining Filter Scope
+
 - Mixed results filter by entity type. Samples-only results additionally offer
   Genre, Category, Author, Sample type, source roots, origin Pack/standalone,
   format, observed duration, and effective musical values below. Packs-only results

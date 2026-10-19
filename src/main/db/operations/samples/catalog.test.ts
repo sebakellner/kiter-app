@@ -7,6 +7,10 @@ import { importFolder } from '../sources/import.ts'
 import { setFavorite } from './favorites.ts'
 import { updateSample } from './operations.ts'
 import { listCatalogSamples, getCatalogSample } from './catalog.ts'
+import {
+  createCategory,
+  setCategoryAssignment,
+} from '../classification/operations.ts'
 
 test('catalog pages include all roots once, honor presentation names and filter Favorites', (t) => {
   const { db } = createMemoryDatabase(t)
@@ -38,4 +42,64 @@ test('catalog pages include all roots once, honor presentation names and filter 
   )
   assert.equal(getCatalogSample(db, kick.id).path, files[2].path)
   assert.throws(() => listCatalogSamples(db, { limit: 101 }))
+})
+
+test('category filters match direct assignments with OR before pagination and combine with Favorites', (t) => {
+  const { db } = createMemoryDatabase(t)
+  const root = path.resolve('category-filter')
+  const files = ['a.wav', 'b.wav', 'c.wav', 'd.wav'].map((name) =>
+    makeDiscoveredAudioFile(root, name),
+  )
+  const imported = importFolder(db, root, files)
+  const byName = (name: string): string =>
+    imported.find((sample) => sample.name === name)!.id
+  const kick = createCategory(db, { name: 'Kick' })
+  const snare = createCategory(db, { name: 'Snare' })
+  for (const [name, category] of [
+    ['b.wav', kick],
+    ['c.wav', kick],
+    ['c.wav', snare],
+    ['d.wav', snare],
+  ] as const) {
+    setCategoryAssignment(db, {
+      id: category.id,
+      target: { kind: 'sample', id: byName(name) },
+      assigned: true,
+    })
+  }
+  setFavorite(db, byName('c.wav'), true)
+  const first = listCatalogSamples(db, {
+    categoryIds: [kick.id, snare.id],
+    limit: 2,
+  })
+  assert.equal(first.total, 3)
+  assert.deepEqual(
+    first.items.map(({ name }) => name),
+    ['b.wav', 'c.wav'],
+  )
+  assert.deepEqual(
+    listCatalogSamples(db, {
+      categoryIds: [kick.id, snare.id],
+      limit: 2,
+      offset: 2,
+    }).items.map(({ name }) => name),
+    ['d.wav'],
+  )
+  assert.deepEqual(
+    listCatalogSamples(db, {
+      categoryIds: [kick.id],
+      favoritesOnly: true,
+    }).items.map(({ name }) => name),
+    ['c.wav'],
+  )
+  assert.equal(
+    listCatalogSamples(db, {
+      categoryIds: ['00000000-0000-4000-8000-000000000099'],
+    }).total,
+    0,
+  )
+  assert.equal(listCatalogSamples(db, { categoryIds: [] }).total, 4)
+  assert.throws(() =>
+    listCatalogSamples(db, { categoryIds: [kick.id, kick.id] }),
+  )
 })
