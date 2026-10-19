@@ -3,8 +3,7 @@
   top: 0;
   z-index: 1;
   padding-block: 8px;
-  background: Canvas;
-  color: CanvasText;
+  background: var(--color-background);
 }
 
 .sample-filters-controls,

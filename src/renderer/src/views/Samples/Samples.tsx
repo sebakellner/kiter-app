@@ -13,7 +13,6 @@ export function Samples(): React.JSX.Element {
   return (
     <section aria-labelledby="samples-title">
       <h1 id="samples-title">Samples</h1>
-      <p>Browse samples from all folders added to your library.</p>
 
       {dir && <p data-testid="library-directory">Folder: {dir}</p>}
       {loading && <p role="status">Opening folder and loading samples...</p>}
