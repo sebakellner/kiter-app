@@ -20,7 +20,11 @@ marking favorites never move or modify the original files.
 - **Browse your library:** Samples lists audio from all folders you have added,
   with paginated results and an optional favorites filter.
 - **Inspect samples:** select a row independently of playback and use **Info** to
-  see its available catalog information in a read-only panel.
+  see its available catalog information.
+- **Apply classification suggestions:** Sample Info suggests Categories, Genres,
+  and Sample type from cataloged paths and available Pack Genre evidence. Inspect
+  the evidence, then apply one suggestion or all actionable suggestions for that
+  Sample. Accepted classifications survive restarting Kiter.
 - **Pick up where you left off:** during the current session, navigation restores
   your page, favorites filter, selection, inspector, and scroll position.
 - **Drag into your DAW:** drag a sample's name or waveform to an application that
@@ -45,7 +49,8 @@ while navigation context starts fresh.
 ## Project Status
 
 Kiter is in active development. The current app focuses on library browsing,
-previewing, favorites, read-only sample information, and dragging samples into a DAW.
+previewing, favorites, sample information and classification suggestions, and
+dragging samples into a DAW.
 
 The project targets macOS and Windows. Development checks have been validated
 locally on macOS; Windows, packaged releases, and actual DAW drops still need
@@ -57,17 +62,19 @@ The following features are planned and are not yet available in the app:
 
 - **Packs and Collections:** keep imported sample packs recognizable and build
   your own ordered selections without duplicating audio.
-- **Categories and Author credits:** classify sounds and record who created them.
+- **Classification management and Author credits:** expand classification editing
+  and record who created sounds.
 - **Library-wide search:** find samples across your imported folders.
 - **Profile and settings:** personalize your local profile and preferences.
 - **Reviewed organization and export:** rename, relocate, or gather samples into
   a chosen folder, with a chance to review changes before they happen.
-- **Organization suggestions:** review proposed classifications and groupings
-  while keeping control over your library.
+- **Batch and import classification:** extend single-Sample suggestions to reviewed
+  multi-Sample/Pack workflows and import, including remembered rejections.
 
 ### Current Limitations
 
-- Library-wide search and catalog metadata editing are not available yet.
+- Library-wide search and general catalog metadata editing are not available yet;
+  single-Sample classification suggestions can be applied from Info.
 - Navigation context is session-only. Up to 100 history snapshots are retained;
   older entries fall back to the latest context for that destination.
 - Files moved or renamed outside Kiter are not automatically reconnected.

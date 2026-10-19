@@ -4,6 +4,114 @@ import { writeFile, rename, realpath, readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { createWav } from '../support/fixtures/wav.mjs'
 
+test('manual category popover protects drafts, corrects suggestions and persists after restart', async ({
+  kiter,
+}) => {
+  const library = new LibraryPage(kiter.page)
+  await kiter.selectFolder(kiter.samples)
+  await library.openFolder()
+  await library
+    .row('kick.wav')
+    .getByRole('button', { name: 'Info: kick.wav', exact: true })
+    .click()
+  const inspector = kiter.page.getByRole('complementary', {
+    name: 'Sample info',
+  })
+  await inspector
+    .getByRole('button', { name: 'Apply Kick', exact: true })
+    .click()
+  await expect(inspector).toContainText('Classifications saved.')
+  // Seed a second available category through the real bridge; assignment is UI-driven.
+  const created = await kiter.page.evaluate(() =>
+    window.api.categories.create({ name: 'Snare' }),
+  )
+  expect(created.ok).toBe(true)
+  const edit = inspector.getByRole('button', {
+    name: 'Edit categories',
+    exact: true,
+  })
+  await edit.click()
+  const popover = kiter.page.getByRole('dialog', { name: 'Edit categories' })
+  await expect(
+    popover.getByRole('searchbox', { name: 'Search categories' }),
+  ).toBeFocused()
+  await popover.getByRole('checkbox', { name: 'Kick', exact: true }).uncheck()
+  await popover.getByRole('searchbox', { name: 'Search categories' }).fill('sn')
+  await popover.getByRole('checkbox', { name: 'Snare', exact: true }).check()
+  await kiter.page.keyboard.press('Escape')
+  await expect(
+    popover.getByRole('button', { name: 'Stay', exact: true }),
+  ).toBeVisible()
+  await popover.getByRole('button', { name: 'Stay', exact: true }).click()
+  await expect(
+    popover.getByRole('checkbox', { name: 'Snare', exact: true }),
+  ).toBeChecked()
+  // Native close must offer the same draft protection rather than destroying the window.
+  await kiter.application.evaluate(({ BrowserWindow }) => {
+    BrowserWindow.getAllWindows()[0].close()
+  })
+  await expect(
+    popover.getByRole('button', { name: 'Save and quit', exact: true }),
+  ).toBeVisible()
+  await popover.getByRole('button', { name: 'Stay', exact: true }).click()
+  await popover.getByRole('button', { name: 'Save', exact: true }).click()
+  await expect(popover).toHaveCount(0)
+  await expect(edit).toBeFocused()
+  await expect(
+    inspector.getByRole('region', { name: 'category', exact: true }),
+  ).toContainText('Snare')
+  await expect(
+    inspector.getByRole('button', { name: 'Apply Kick', exact: true }),
+  ).toBeEnabled()
+  await expect(kiter.page.locator('audio')).not.toHaveAttribute('src')
+  await kiter.restart()
+  await kiter.page.getByRole('link', { name: 'Samples', exact: true }).click()
+  const restartedLibrary = new LibraryPage(kiter.page)
+  await restartedLibrary
+    .row('kick.wav')
+    .getByRole('button', { name: 'Info: kick.wav', exact: true })
+    .click()
+  const restartedInspector = kiter.page.getByRole('complementary', {
+    name: 'Sample info',
+  })
+  const restartedEdit = restartedInspector.getByRole('button', {
+    name: 'Edit categories',
+    exact: true,
+  })
+  const restartedPopover = kiter.page.getByRole('dialog', {
+    name: 'Edit categories',
+  })
+  await expect(
+    restartedInspector.getByRole('region', { name: 'category', exact: true }),
+  ).toContainText('Snare')
+  await restartedEdit.click()
+  await kiter.page.setViewportSize({ width: 900, height: 700 })
+  await restartedPopover
+    .getByRole('searchbox', { name: 'Search categories' })
+    .focus()
+  await kiter.page.keyboard.press('Tab')
+  await expect(
+    restartedPopover.getByRole('checkbox', { name: 'Kick', exact: true }),
+  ).toBeFocused()
+  await restartedPopover
+    .getByRole('button', { name: 'Remove Snare', exact: true })
+    .click()
+  await restartedPopover
+    .getByRole('button', { name: 'Save', exact: true })
+    .click()
+  await expect(restartedPopover).toHaveCount(0)
+  await restartedEdit.click()
+  await expect(
+    restartedPopover.getByRole('checkbox', { name: 'Snare', exact: true }),
+  ).not.toBeChecked()
+  await restartedPopover
+    .getByRole('button', { name: 'Cancel', exact: true })
+    .click()
+  expect(await readFile(path.join(kiter.samples, 'kick.wav'))).toEqual(
+    createWav(8),
+  )
+})
+
 test('Sample classification suggests automatically and persists explicit application without changing playback', async ({
   kiter,
 }) => {
@@ -175,14 +283,14 @@ test('restart clears navigation context while preserving catalog and Favorites',
   ).toHaveAttribute('aria-pressed', 'true')
 })
 
-test('quit destroys renderer windows before draining application services', async ({
+test('quit closes renderer windows before completing application shutdown', async ({
   kiter,
 }) => {
   const observationPath = path.join(kiter.empty, 'quit-windows.txt')
   await kiter.application.evaluate(({ app, BrowserWindow }, filePath) => {
     const { writeFileSync } = process.getBuiltinModule('node:fs')
     // Persist before exit; the debugger may disconnect before evaluate resolves.
-    app.once('before-quit', () => {
+    app.once('will-quit', () => {
       writeFileSync(filePath, String(BrowserWindow.getAllWindows().length))
     })
   }, observationPath)
@@ -376,6 +484,10 @@ test('compact inspector blocks covered regions, keeps the player available and c
   ).toBeEnabled()
   await kiter.page.keyboard.press('Tab')
   await expect(
+    inspector.getByRole('button', { name: 'Edit categories', exact: true }),
+  ).toBeFocused()
+  await kiter.page.keyboard.press('Tab')
+  await expect(
     inspector.getByRole('button', { name: 'Apply Snare', exact: true }),
   ).toBeFocused()
   await kiter.page.keyboard.press('Tab')
@@ -393,6 +505,10 @@ test('compact inspector blocks covered regions, keeps the player available and c
   await kiter.page.keyboard.press('Shift+Tab')
   await expect(
     inspector.getByRole('button', { name: 'Apply Snare', exact: true }),
+  ).toBeFocused()
+  await kiter.page.keyboard.press('Shift+Tab')
+  await expect(
+    inspector.getByRole('button', { name: 'Edit categories', exact: true }),
   ).toBeFocused()
   await kiter.page.keyboard.press('Shift+Tab')
   await expect(close).toBeFocused()

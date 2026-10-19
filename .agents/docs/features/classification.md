@@ -359,6 +359,9 @@ rejection-memory contracts elsewhere in this guide remain future workflows.
 - Renderer reads bounded evidence pages (maximum 2,000 rows) under one token,
   groups duplicate proposals, and disables writes during loading, saving or errors.
   Successful writes refresh saved classifications. Reopening queries current data.
+- Sample Info also exposes the [manual Category editor](catalog-organization.md#implemented-single-sample-category-editor).
+  While it is open, suggestion writes are disabled. Saving manual assignments
+  refreshes suggestions; removal is not rejection memory.
 
 ### Explicit Alias Updates
 

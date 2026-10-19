@@ -26,6 +26,12 @@ and [Common Guidelines](common-guidelines.md) for English-first wording.
 
 ## Forms and Inspector Drafts — Agreed, Planned
 
+- Implement form drafts with React Hook Form and Zod resolvers under
+  [Common Guidelines](common-guidelines.md#ui-forms-and-feedback). Reset defaults
+  after loading or successful saving. When refreshing stale saved state, preserve
+  intended edits while explicitly updating the saved baseline for dirty tracking.
+  Keep field errors near their controls and preserve drafts on validation failure.
+
 - Edit catalog presentation, not source files. Explicit Save/Cancel handles dirty
   drafts; never save on blur. Category assignments and Author credits share the
   text draft, independent on Samples/Packs. Save is atomic across that draft;

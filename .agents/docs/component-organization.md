@@ -38,6 +38,13 @@ These are ownership conventions, not directories to scaffold in advance.
   every HTML element or scaffold an entire design system in advance.
 - Feature-level hooks or controllers coordinate bridge operations. Presentation
   components should not duplicate IPC, filesystem, or task-management logic.
+- Define renderer form schemas in `features/<feature>/schemas.ts`, separate from
+  components and hooks, and export their inferred form types there. When rules
+  also validate IPC or worker inputs, keep the authoritative Zod schemas in
+  `src/shared/features/<feature>/schemas.ts`; renderer schemas compose or select
+  from them rather than duplicating validation. Shared schemas must remain
+  independent of React, Electron, and persistence infrastructure. Create schema
+  files only for features with actual validation needs.
 - Keep application composition in `App` and explicit layout components.
   Do not introduce a shared UI package solely to reorganize one desktop app.
 - App-level layouts compose feature APIs and generic presentation layouts.

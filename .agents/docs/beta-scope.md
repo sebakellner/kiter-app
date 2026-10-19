@@ -49,6 +49,22 @@ restart where specified; internal storage or IPC alone does not complete a row.
 
 ## Delivery Order and Dependencies
 
+### Prototype Progress
+
+- **Delivered — single-Sample classification suggestions:** opening Sample Info
+  loads Category, Genre, and Sample-type suggestions from cataloged paths and
+  available Pack Genre evidence. Apply one or Apply all persists the selected
+  suggestions, creating required vocabulary where needed. Evidence is available
+  for inspection; ignoring a suggestion writes nothing. See
+  [Direct Single-Sample Suggestions](features/classification.md#direct-single-sample-suggestions--adopted-simplified-workflow)
+  for the implemented scope and limits.
+- **Still planned — batch and import classification:** reviewed multi-Sample/Pack
+  decisions, rejection memory, and confirmed execution/recovery remain part of
+  the delivery plan. The single-Sample prototype completes an initial slice of
+  classification suggestions, not the full beta acceptance row.
+
+### Planned Delivery Sequence
+
 Deliver focused end-to-end slices in subsequent implementation PRs. This sequence
 organizes dependencies; it does not authorize releasing an intermediate slice as
 the complete agreed beta. Define each slice's exact executable contracts before

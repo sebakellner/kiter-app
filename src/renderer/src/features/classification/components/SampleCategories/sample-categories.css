@@ -1,0 +1,29 @@
+.sample-categories-popover {
+  position: fixed;
+  margin: 0;
+  width: min(340px, calc(100vw - 32px));
+  max-height: calc(100vh - 32px);
+  overflow: auto;
+  padding: 16px;
+}
+
+.sample-categories-popover::backdrop {
+  background: transparent;
+}
+
+.sample-categories-popover ul {
+  list-style: none;
+  padding: 0;
+  max-height: 180px;
+  overflow: auto;
+}
+
+.sample-categories-popover footer {
+  position: sticky;
+  bottom: 0;
+  background: Canvas;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 8px;
+}

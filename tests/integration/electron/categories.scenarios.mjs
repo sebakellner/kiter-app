@@ -56,6 +56,12 @@ export async function verifyCategoriesIpc({ execute }) {
     ['create', { name: 'a'.repeat(121) }],
     ['rename', { id: 'invalid', name: 'Drums' }],
     ['rename', { id, name: '' }],
+    ['readSample', { sampleId: '/arbitrary/path.wav' }],
+    ['saveSample', { sampleId: id, token: 'invalid', categoryIds: [] }],
+    [
+      'saveSample',
+      { sampleId: id, token: 'a'.repeat(64), categoryIds: [id, id] },
+    ],
   ]) {
     failure(await call(method, request), 'INVALID_INPUT')
   }

@@ -9,6 +9,8 @@ import {
   isLibraryPage,
 } from '@shared/ipc/library'
 import { requireIpcResult } from '@shared/ipc/result'
+import { isSampleCategoriesSnapshot } from '@shared/ipc/sampleCategories'
+import { LIFECYCLE_CHANNELS } from '@shared/ipc/lifecycle'
 import {
   isAliasUpdatePage,
   isAliasUpdateResult,
@@ -26,6 +28,14 @@ import {
 
 // Custom APIs for renderer
 const api: Api = {
+  lifecycle: {
+    onCloseRequested: (listener) => {
+      const handler = (): void => listener()
+      ipcRenderer.on(LIFECYCLE_CHANNELS.closeRequested, handler)
+      return () =>
+        ipcRenderer.removeListener(LIFECYCLE_CHANNELS.closeRequested, handler)
+    },
+  },
   classification: {
     applySample: async (request) =>
       requireIpcResult(
@@ -58,6 +68,16 @@ const api: Api = {
       ),
   },
   categories: {
+    readSample: async (request) =>
+      requireIpcResult(
+        await ipcRenderer.invoke(CATEGORY_CHANNELS.readSample, request),
+        isSampleCategoriesSnapshot,
+      ),
+    saveSample: async (request) =>
+      requireIpcResult(
+        await ipcRenderer.invoke(CATEGORY_CHANNELS.saveSample, request),
+        isSampleCategoriesSnapshot,
+      ),
     list: async (request = {}) =>
       requireIpcResult(
         await ipcRenderer.invoke(CATEGORY_CHANNELS.list, request),

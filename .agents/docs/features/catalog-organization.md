@@ -78,6 +78,43 @@ The current worker/client operations are narrower than the planned UI below:
   result. History reaching a deleted detail shows unavailable with recovery links.
   Batch IPC/reinclusion UI are not implied by existing worker operations.
 
+## Implemented Single-Sample Category Editor
+
+Sample Info exposes Edit categories alongside classification suggestions. It
+opens a compact, anchored editor with a search field, paginated existing
+Categories, multiple selection, removable selected items, and Save/Cancel.
+The editor uses a native modal dialog with a transparent backdrop as its
+popover container: the Sample remains visible, while underlying navigation,
+selection, suggestions, and player controls are temporarily unavailable.
+Outside clicks do not dismiss it. Escape and Cancel protect dirty edits with
+Save and close, Discard changes, and Stay; focus returns to Edit categories.
+Cmd/Ctrl+Enter saves. Native window close/application quit similarly offers
+Save and quit, Discard and quit, or Stay, waiting for pending writes.
+
+- Changes remain a local draft until one atomic Save. Empty selection clears
+  direct assignments, without deleting Categories, changing Pack assignments,
+  remembering rejections, or modifying audio or other Sample organization.
+- React Hook Form owns selected Category IDs and dirty tracking, with a Zod
+  resolver reusing the shared selection schema. Zod validates read/save requests
+  at the IPC and worker boundaries as well; DB state checks remain transactional.
+  The renderer's `features/classification/schemas.ts` derives the form schema
+  from `shared/features/classification/schemas.ts`, which owns the request rules.
+- `categories:read-sample` returns the Sample's current Categories and a read-state
+  token. `categories:save-sample` validates the Sample, unique Category identities,
+  and the current saved assignment/name snapshot in an immediate worker transaction.
+  Changed assignments or renamed/deleted saved Categories reject with STALE_REVIEW.
+  A missing selected Category rejects without partial replacement.
+- Errors preserve the draft. A failed or uncertain save requires Reload saved
+  categories before retry; this refreshes the token and shows current saved values
+  while preserving the intended selection for explicit comparison and correction.
+- Category search reuses literal normalized catalog matching, pages of 50, with
+  stale responses ignored. This first editor accepts at most 1,000 assignments
+  per Sample and fails explicitly above that limit; it does not truncate data.
+- Successful Save refreshes classification suggestions. Removing an assignment
+  may offer it again from unchanged evidence. Category creation, manual editing
+  of other fields, and multi-Sample editing remain later slices. Future metadata
+  fields join the shared atomic inspector draft under UI Patterns.
+
 ## Collection Membership and Ordering
 
 - Add samples from individual menu, checked batch, Collection catalog picker, or

@@ -8,8 +8,44 @@ import {
 import type { DbClient } from '../db'
 import { requireMainFrameWindow } from './authorize'
 import { invokeResult } from './result'
+import {
+  requireSampleCategoriesRequest,
+  requireSampleCategoriesSaveRequest,
+} from '../../shared/ipc/sampleCategories'
 
 export function registerCategoriesIpc(database: DbClient): void {
+  ipcMain.handle(CATEGORY_CHANNELS.readSample, (event, request: unknown) =>
+    invokeResult(
+      'categories.read-sample',
+      {
+        code: 'STORAGE_FAILED',
+        message:
+          'Unable to load saved categories. Retry to check database storage.',
+      },
+      () => {
+        requireMainFrameWindow(event)
+        return database.readSampleCategories(
+          requireSampleCategoriesRequest(request),
+        )
+      },
+    ),
+  )
+  ipcMain.handle(CATEGORY_CHANNELS.saveSample, (event, request: unknown) =>
+    invokeResult(
+      'categories.save-sample',
+      {
+        code: 'STORAGE_FAILED',
+        message:
+          'Unable to save categories. Your draft was preserved; reload saved categories before retrying.',
+      },
+      () => {
+        requireMainFrameWindow(event)
+        return database.saveSampleCategories(
+          requireSampleCategoriesSaveRequest(request),
+        )
+      },
+    ),
+  )
   ipcMain.handle(CATEGORY_CHANNELS.list, (event, request: unknown) =>
     invokeResult(
       'categories.list',

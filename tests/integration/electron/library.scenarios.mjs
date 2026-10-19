@@ -112,6 +112,11 @@ export async function verifyMainFrameAuthorization(ctx) {
       ['categories:list', {}],
       ['categories:create', { name: 'Unauthorized Category' }],
       ['categories:rename', { id: category.id, name: 'Unauthorized rename' }],
+      ['categories:read-sample', { sampleId: sample.id }],
+      [
+        'categories:save-sample',
+        { sampleId: sample.id, token: 'a'.repeat(64), categoryIds: [] },
+      ],
     ]
     const previousDialogCalls = ctx.dialogCalls()
     const outcomes = await child.executeJavaScript(`

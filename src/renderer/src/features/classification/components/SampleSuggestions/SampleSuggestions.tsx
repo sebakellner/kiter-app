@@ -1,6 +1,8 @@
 import { Badge } from '@renderer/components/ui/Badge'
 import { Button } from '@renderer/components/ui/Button'
 import { useSampleSuggestions } from './useSampleSuggestions'
+import { useState } from 'react'
+import { CategoryEditor } from '../SampleCategories/CategoryEditor'
 
 export function SampleSuggestions({
   sampleId,
@@ -16,10 +18,27 @@ export function SampleSuggestions({
     ({ item }) => item.kind === 'proposal' && !item.alreadyAssigned,
   )
   const ambiguous = groups.filter(({ item }) => item.kind === 'ambiguity')
+  const [categoryAnchor, setCategoryAnchor] = useState<HTMLElement | null>(null)
   const disabled = loading || pending || error !== null
   return (
     <section aria-label="Classification suggestions">
       <h3>Classification</h3>
+      <Button
+        disabled={pending}
+        aria-haspopup="dialog"
+        aria-expanded={categoryAnchor !== null}
+        onClick={(event) => setCategoryAnchor(event.currentTarget)}
+      >
+        Edit categories
+      </Button>
+      {categoryAnchor && (
+        <CategoryEditor
+          sampleId={sampleId}
+          anchor={categoryAnchor}
+          onClose={() => setCategoryAnchor(null)}
+          onSaved={refresh}
+        />
+      )}
       {loading && <p role="status">Loading suggestions...</p>}
       {pending && <p role="status">Saving classifications...</p>}
       {notice && <p role="status">{notice}</p>}
@@ -66,7 +85,7 @@ export function SampleSuggestions({
                         <small>Creates {item.name} when applied. </small>
                       )}
                       <Button
-                        disabled={disabled}
+                        disabled={disabled || categoryAnchor !== null}
                         aria-label={`Apply ${item.name}`}
                         onClick={() => void apply([item.key])}
                       >
@@ -82,7 +101,9 @@ export function SampleSuggestions({
       })}
       {suggestions.length > 1 && (
         <Button
-          disabled={disabled || suggestions.length > 100}
+          disabled={
+            disabled || categoryAnchor !== null || suggestions.length > 100
+          }
           onClick={() => void apply(suggestions.map(({ item }) => item.key))}
         >
           Apply all ({suggestions.length})

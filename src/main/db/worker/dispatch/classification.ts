@@ -4,12 +4,26 @@ import type {
 } from '../../protocol/classification.ts'
 import type { AppDatabase } from '../../runtime/connection.ts'
 import * as classification from '../../operations/classification/operations.ts'
+import {
+  readSampleCategories,
+  saveSampleCategories,
+} from '../../operations/classification/sample-categories.ts'
 
 export function executeClassification(
   db: AppDatabase,
   request: ClassificationRequest,
 ): ClassificationReply {
   switch (request.action) {
+    case 'read-sample-categories':
+      return {
+        action: request.action,
+        result: readSampleCategories(db, request.input),
+      }
+    case 'save-sample-categories':
+      return {
+        action: request.action,
+        result: saveSampleCategories(db, request.input),
+      }
     case 'create-author':
       return {
         action: request.action,
