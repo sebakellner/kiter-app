@@ -9,6 +9,7 @@ import { app, BrowserWindow, dialog } from 'electron'
 import { createWav } from '../../support/fixtures/wav.mjs'
 import { waitFor } from '../../support/electron/wait-for.mjs'
 import { verifyInstrumentsIpc } from './instruments.scenarios.mjs'
+import { verifyCollectionsIpc } from './collections.scenarios.mjs'
 import {
   verifyListing,
   verifyMainFrameAuthorization,
@@ -281,6 +282,7 @@ async function run() {
     }
     const scenarios = [
       ['Instruments IPC contracts and persistence', verifyInstrumentsIpc],
+      ['Collections IPC contracts and bounded reads', verifyCollectionsIpc],
       ['recursive listing and folder selection', verifyListing],
       ['main-frame IPC authorization', verifyMainFrameAuthorization],
       ['waveforms and native drag payloads', verifyWaveformsAndDragging],

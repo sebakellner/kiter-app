@@ -743,6 +743,35 @@ test(
       assert.deepEqual(
         await exchange(worker, {
           requestId: ++requestId,
+          action: 'get-collection-summary',
+          id,
+        }),
+        {
+          requestId,
+          action: 'get-collection-summary',
+          result: { ...updated.result, sampleCount: 2 },
+        },
+      )
+      assert.deepEqual(
+        await exchange(worker, {
+          requestId: ++requestId,
+          action: 'list-collection-summaries',
+          input: {},
+        }),
+        {
+          requestId,
+          action: 'list-collection-summaries',
+          result: {
+            items: [{ ...updated.result, sampleCount: 2 }],
+            total: 1,
+            limit: 50,
+            offset: 0,
+          },
+        },
+      )
+      assert.deepEqual(
+        await exchange(worker, {
+          requestId: ++requestId,
           action: 'list-collections',
           input: {},
         }),

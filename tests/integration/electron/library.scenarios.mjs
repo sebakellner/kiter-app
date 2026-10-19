@@ -101,6 +101,8 @@ export async function verifyMainFrameAuthorization(ctx) {
     const sample = ctx.sample(fixtures.validSample)
     const instrumentsBefore = await execute('window.api.instruments.list()')
     assert.equal(instrumentsBefore.ok, true)
+    const collectionsBefore = await execute('window.api.collections.list()')
+    assert.equal(collectionsBefore.ok, true)
     const instrument = instrumentsBefore.data.items[0]
     assert.ok(
       instrument,
@@ -113,6 +115,9 @@ export async function verifyMainFrameAuthorization(ctx) {
       ['library:set-favorite', { id: sample.id, favorite: true }],
       ['instruments:list', {}],
       ['instruments:create', { name: 'Unauthorized Instrument' }],
+      ['collections:list', {}],
+      ['collections:create', { name: 'Unauthorized Collection' }],
+      ['collections:get', { id: sample.id }],
       [
         'instruments:rename',
         { id: instrument.id, name: 'Unauthorized rename' },
@@ -163,6 +168,11 @@ export async function verifyMainFrameAuthorization(ctx) {
       await execute('window.api.instruments.list()'),
       instrumentsBefore,
       'Rejected frames must not create or rename Instruments',
+    )
+    assert.deepEqual(
+      await execute('window.api.collections.list()'),
+      collectionsBefore,
+      'Rejected frames must not create Collections',
     )
     await child.executeJavaScript(
       `require("electron").ipcRenderer.send("library:start-drag", ${JSON.stringify(sample.audioUrl)})`,
