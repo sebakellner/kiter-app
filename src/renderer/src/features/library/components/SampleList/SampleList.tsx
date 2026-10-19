@@ -38,9 +38,6 @@ export function SampleList({
 
   return (
     <>
-      <p className="sample-drag-hint">
-        Drag a sample into your DAW to import the original file.
-      </p>
       <ul className="sample-list" role="grid" aria-label="Audio files">
         {samples.map((sample, index) => (
           <SampleListRow
