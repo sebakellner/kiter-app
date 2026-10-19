@@ -122,6 +122,14 @@ editor's TypeScript service.
   visible loading, empty, pending, and error states.
 - Derive form fields and validation from agreed domain contracts, not mockups
   alone. Do not invent required values to make a submission succeed.
+- Use React Hook Form for renderer form values, validation, and dirty/submission
+  state, with Zod schemas through `@hookform/resolvers/zod`. Keep transient query
+  and operation state outside the form. Infer types from schemas; reuse shared
+  domain/IPC schemas when the rules cross process boundaries. Renderer validation
+  does not replace authoritative main/worker checks.
+- Keep schemas in dedicated files under their owning feature, following
+  [Component Organization](component-organization.md#ownership), rather than
+  declaring them inline in components, hooks, or IPC modules.
 - Close dialogs, reset forms, or report success only after the operation succeeds.
   Preserve recoverable user input and the last valid state on failure.
 
