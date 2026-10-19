@@ -1,7 +1,9 @@
 # Kiter UI foundations
 
 The current visual foundation is dark-only and uses the operating system's UI
-font. Shared colors, control/surface radii and small text sizes live in
+font. Surfaces use neutral blacks and grays, with an off-white accent for primary
+actions, focus and active states. Red remains reserved for errors. Shared colors,
+control/surface radii and small text sizes live in
 `../../assets/base.css`. Focus styling lives in `../../assets/main.css`.
 Component styles remain beside their owners; feature behavior does not belong
 in these primitives.
