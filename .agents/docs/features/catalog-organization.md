@@ -90,6 +90,8 @@ Outside clicks do not dismiss it. Escape and Cancel protect dirty edits with
 Save and close, Discard changes, and Stay; focus returns to Edit categories.
 Cmd/Ctrl+Enter saves. Native window close/application quit similarly offers
 Save and quit, Discard and quit, or Stay, waiting for pending writes.
+The primary UI Popover owns that surface's position, focus and dismissal;
+the feature's EditorPopover retains Save/Cancel, dirty review and exit protection.
 
 - Changes remain a local draft until one atomic Save. Empty selection clears
   direct assignments, without deleting Categories, changing Pack assignments,
