@@ -50,28 +50,39 @@ real libraries before delivery. Visual design/prototypes remain deferred.
 ### Implemented Local Text Search Slice
 
 Samples and Favorites share an in-list Search samples field. Matching covers the
-effective presentation name, original filename and the relative source path
-displayed in the catalog. It does not search absolute parent/root paths, notes,
-classification/credit names, Pack names, aliases or pending suggestions yet.
+effective presentation name, original filename, the relative source path
+displayed in the catalog, and directly assigned Instrument and Genre names.
+It does not search absolute parent/root paths, notes, Author names, Pack names,
+Pack classifications, aliases or pending suggestions yet.
 
 - Plain text is bounded to 500 UTF-16 code units and 32 whitespace-separated
   words, validated at the IPC and worker boundaries. Control characters other
   than tab/newline whitespace are rejected. Punctuation, SQL wildcard symbols
   and quotes are literal, not operators. Backslashes normalize to forward slashes.
 - Matching ignores case and Unicode combining accents using NFD normalization.
-  Every word must match a substring in at least one of the three fields; words
-  may match different fields. No typo approximation or inferred Sample type.
+  Every word must match a substring in at least one searchable field; words
+  may match different fields or different direct Instrument/Genre assignments on
+  the same Sample. No typo approximation or inferred Sample type.
 - Text filtering starts at two normalized Unicode code points. Empty/one-character
   text adds no text constraint and retains all other filters; one character shows
   a minimum-length hint. Edits wait 250 ms after typing stops; clearing applies
   immediately. Restored queries, pagination and refresh execute immediately.
 - Matching runs in SQLite in the DB worker before counting and pagination, with
-  deterministic connection-local normalization/relative-path functions. No schema
+  deterministic connection-local normalization/relative-path functions. Direct
+  classification matches use correlated existence queries, preserving one result
+  per Sample regardless of matching assignments or overlapping roots. The selected
+  display path and search path share `kiter_relative_path`, backed by Node's native
+  path utilities; a missing registered root falls back to the basename. Canonical
+  paths use the host OS's semantics, not automatic foreign-path detection. No schema
   migration, persisted index or full-library transfer is introduced. Substring
   search scans candidates; large-library performance is not established.
 - Rank whole-query exact name/filename matches first, then name/filename prefixes,
-  substrings, then other all-word/path matches. Ties use normalized effective name,
+  substrings, then other all-word/path/classification matches. Classification-only
+  matches share the path-match tier; they do not outrank name matches. Ties use normalized effective name,
   canonical path and UUID. Without text, retain the existing catalog ordering.
+  For multiword input these tiers compare the complete normalized phrase, not just
+  its first word. Split-word matches still qualify but share the final tier when
+  no name/filename contains the full phrase.
 - All existing filters intersect with search. Clear search removes only text and
   returns focus to its input; Clear all removes filter groups without changing
   text. The default type option still includes Unknown Samples.
@@ -80,6 +91,9 @@ classification/credit names, Pack names, aliases or pending suggestions yet.
   replace newer criteria; failures retain the last valid page, text and filters
   with Retry. Unavailable matching Samples remain in results, with normal main
   audio authorization. Selection revalidates after loading, independently of playback.
+- Queries read current saved classification names and assignments; renames and
+  assignment changes are reflected on the next query without a persisted search
+  index. A missing source does not hide an otherwise matching Sample.
 
 ### Implemented Instrument, Genre and Sample Type Filter Slice
 
