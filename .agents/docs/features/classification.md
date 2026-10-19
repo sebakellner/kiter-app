@@ -355,7 +355,7 @@ rejection-memory contracts elsewhere in this guide remain future workflows.
   Source audio, Sample identity, Favorites and existing organization are preserved.
 - Sample type is persisted with an additive nullable constrained column. Once
   assigned, differing automatic types are not offered by this short workflow;
-  explicit replacement requires a future change-type interaction.
+  explicit replacement is available through the manual Sample-type editor below.
 - Renderer reads bounded evidence pages (maximum 2,000 rows) under one token,
   groups duplicate proposals, and disables writes during loading, saving or errors.
   Successful writes refresh saved classifications. Reopening queries current data.
@@ -363,6 +363,29 @@ rejection-memory contracts elsewhere in this guide remain future workflows.
   It also exposes the [manual Genre editor](catalog-organization.md#implemented-single-sample-genre-editor).
   While either is open, suggestion writes are disabled. Saving manual assignments
   refreshes suggestions; removal is not rejection memory.
+
+### Implemented Manual Sample-Type Editor
+
+Sample Info exposes Edit Sample type alongside Edit categories and Edit genres.
+It opens the shared anchored editor popover with a single-value native select:
+Loop, One-Shot, or Unknown. React Hook Form owns the draft; Zod schemas in the
+renderer/shared classification feature schema files validate fixed values. Unknown
+is represented as `unknown` in the editor contract and persisted as SQL NULL.
+
+- Save explicitly replaces a confirmed type, including an accepted suggestion.
+  Cancel/Escape and application exit use the shared Save/Discard/Stay protection;
+  outside clicks do not dismiss. Cmd/Ctrl+Enter saves; closing restores focus.
+- `classification:read-sample-type` returns the saved value and a Sample/type-bound
+  token. `classification:save-sample-type` revalidates it and updates only the type
+  in one immediate worker transaction. Relevant changes reject with STALE_REVIEW;
+  missing Samples and storage failures preserve prior data and the recoverable draft.
+- Failed/uncertain writes require Reload saved type before another Save. Reload
+  preserves the intended choice and exposes the current saved value for comparison.
+- Saving refreshes suggestions. Differing automatic types remain omitted when a
+  confirmed type exists; clearing to Unknown permits suggestions again and does
+  not create rejection memory. Categories, Genres, Favorites, origin, source audio,
+  and other organization remain unchanged. This is a single-Sample short metadata
+  edit, outside batch execution and its future combined inspector draft.
 
 ### Explicit Alias Updates
 

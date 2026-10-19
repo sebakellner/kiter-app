@@ -329,6 +329,34 @@ OR/AND combination, direct assignments, local query scope, and duration input.
 [Duration Analysis](features/duration-analysis.md) owns measurement and scheduling.
 Apply shared selection/draft transitions here when results change.
 
+#### Adopted Prototype Layout — Planned
+
+- Place the filter toolbar inside the Sample list's content region, below its
+  title/context header and above the rows. Keep it with the fixed list controls
+  while results scroll, rather than placing these filters in the global header
+  or inspector. Samples and Favorites use the same arrangement.
+- Use compact labeled searchable comboboxes with anchored result popovers for
+  Categories and Genres. Allow multiple selected values, preserving the query
+  and input focus while choosing results. Give the combobox an accessible name,
+  expanded state, and keyboard navigation; expose selected options in its listbox.
+  Sample type uses a compact select-style multi-select with its three fixed
+  options (One-Shot, Loop, Unknown), without text search. Preserve multiple
+  selection and OR matching under Search's filter contract.
+  Deliver Categories first, then Genres and Sample type.
+  Categories remains the product label for sound classifications; the visual
+  reference's Instruments label does not introduce another entity or hierarchy.
+- Show removable active-value chips in a row below the dropdowns, together with
+  Clear all when filters are active. Chips represent selected filters, not a new
+  tag vocabulary or automatically recommended/popular values. Selection applies
+  immediately under Search's rules, without metadata-style Save/Cancel.
+- Add tonality/Key and BPM controls when their effective-value query workflows
+  are delivered. The reference does not authorize placeholder filters or new
+  Presets destinations. Pack navigation follows its own planned entity workflow.
+- Keep the toolbar within the available list width when the inspector opens.
+  Wrap controls and chips as necessary, preserving keyboard access, readable
+  labels, and clear removal actions. Exact spacing, colors, and compact geometry
+  remain prototype/design decisions.
+
 ### List and Card Presentation — Agreed
 
 - Samples, Favorites, and Sample lists within Packs and Collections use rows,
