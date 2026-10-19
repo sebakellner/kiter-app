@@ -1,10 +1,63 @@
 .collection-create fieldset {
   display: grid;
   gap: 8px;
+  padding: 0;
   border: 0;
 }
 
 .collection-create textarea {
   min-height: 80px;
   resize: vertical;
+  padding: 8px 10px;
+  border: 1px solid var(--color-control-border);
+  border-radius: var(--radius-control);
+  background: var(--color-background);
+  color: var(--color-text);
+  font-size: var(--font-size-control);
+}
+
+.collection-create textarea:enabled:hover {
+  border-color: var(--color-text-secondary);
+}
+
+.collection-create textarea[aria-invalid='true'] {
+  border-color: var(--color-danger);
+}
+
+.collection-create textarea:disabled {
+  opacity: 0.5;
+}
+
+.collection-create label {
+  font-size: var(--font-size-control);
+  font-weight: 500;
+}
+
+.collection-create label:not(:first-child) {
+  margin-top: 8px;
+}
+
+.collection-create footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 24px;
+}
+
+.collection-create [role='alert'] {
+  color: var(--color-danger);
+}
+
+.collection-create section[aria-label] {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--color-border);
+}
+
+.collection-create section[aria-label] p {
+  margin-bottom: 12px;
+}
+
+.collection-create section[aria-label] .ui-button {
+  margin: 0 8px 8px 0;
 }

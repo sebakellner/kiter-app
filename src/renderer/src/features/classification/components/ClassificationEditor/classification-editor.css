@@ -13,9 +13,16 @@
 .sample-instruments-popover footer {
   position: sticky;
   bottom: 0;
-  background: Canvas;
+  background: var(--color-background-soft);
   display: flex;
   justify-content: flex-end;
   gap: 8px;
   padding-top: 8px;
+}
+
+.sample-classification-pages {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-block: 8px;
 }

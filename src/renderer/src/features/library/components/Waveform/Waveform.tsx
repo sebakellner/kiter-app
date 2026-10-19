@@ -62,7 +62,7 @@ export const Waveform = memo(function Waveform({
       return
     }
     context.clearRect(0, 0, element.width, element.height)
-    context.fillStyle = '#7c93ee'
+    context.fillStyle = getComputedStyle(element).color
     const width = element.width / data.peaks.length
     for (let index = 0; index < data.peaks.length; index++) {
       const height = Math.max(1, data.peaks[index] * (element.height - 4))

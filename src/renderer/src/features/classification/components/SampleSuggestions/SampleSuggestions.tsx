@@ -5,6 +5,7 @@ import { useState } from 'react'
 import { InstrumentEditor } from '../SampleInstruments/InstrumentEditor'
 import { ClassificationEditor } from '../ClassificationEditor/ClassificationEditor'
 import { SampleTypeEditor } from '../SampleTypeEditor/SampleTypeEditor'
+import './sample-suggestions.css'
 
 export function SampleSuggestions({
   sampleId,
@@ -31,30 +32,34 @@ export function SampleSuggestions({
   return (
     <section aria-label="Classification suggestions">
       <h3>Classification</h3>
-      <Button
-        disabled={pending || genreAnchor !== null || typeAnchor !== null}
-        aria-haspopup="dialog"
-        aria-expanded={instrumentAnchor !== null}
-        onClick={(event) => setInstrumentAnchor(event.currentTarget)}
-      >
-        Edit instruments
-      </Button>
-      <Button
-        disabled={pending || instrumentAnchor !== null || typeAnchor !== null}
-        aria-haspopup="dialog"
-        aria-expanded={genreAnchor !== null}
-        onClick={(event) => setGenreAnchor(event.currentTarget)}
-      >
-        Edit genres
-      </Button>
-      <Button
-        disabled={pending || instrumentAnchor !== null || genreAnchor !== null}
-        aria-haspopup="dialog"
-        aria-expanded={typeAnchor !== null}
-        onClick={(event) => setTypeAnchor(event.currentTarget)}
-      >
-        Edit Sample type
-      </Button>
+      <div className="sample-suggestions-actions">
+        <Button
+          disabled={pending || genreAnchor !== null || typeAnchor !== null}
+          aria-haspopup="dialog"
+          aria-expanded={instrumentAnchor !== null}
+          onClick={(event) => setInstrumentAnchor(event.currentTarget)}
+        >
+          Edit instruments
+        </Button>
+        <Button
+          disabled={pending || instrumentAnchor !== null || typeAnchor !== null}
+          aria-haspopup="dialog"
+          aria-expanded={genreAnchor !== null}
+          onClick={(event) => setGenreAnchor(event.currentTarget)}
+        >
+          Edit genres
+        </Button>
+        <Button
+          disabled={
+            pending || instrumentAnchor !== null || genreAnchor !== null
+          }
+          aria-haspopup="dialog"
+          aria-expanded={typeAnchor !== null}
+          onClick={(event) => setTypeAnchor(event.currentTarget)}
+        >
+          Edit Sample type
+        </Button>
+      </div>
       {typeAnchor && (
         <SampleTypeEditor
           sampleId={sampleId}

@@ -11,7 +11,12 @@ export function OpenFolderButton({
   loading = false,
 }: Props): JSX.Element {
   return (
-    <Button data-testid="open-folder" onClick={onClick} disabled={loading}>
+    <Button
+      variant="primary"
+      data-testid="open-folder"
+      onClick={onClick}
+      disabled={loading}
+    >
       {loading ? 'Loading folder...' : 'Open folder'}
     </Button>
   )

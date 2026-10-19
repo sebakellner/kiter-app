@@ -38,8 +38,10 @@ function CollectionList(): React.JSX.Element {
       <h1 id="collections-title" tabIndex={-1}>
         Collections
       </h1>
-      <Button onClick={() => setCreating(true)}>Create Collection</Button>
-      <Button disabled={loading} onClick={refresh}>
+      <Button variant="primary" onClick={() => setCreating(true)}>
+        Create Collection
+      </Button>
+      <Button variant="ghost" disabled={loading} onClick={refresh}>
         Refresh Collections
       </Button>
       {loading && <p role="status">Loading Collections…</p>}
@@ -144,7 +146,7 @@ function CollectionList(): React.JSX.Element {
           <p role="status">
             {page.total} {page.total === 1 ? 'Collection' : 'Collections'}
           </p>
-          <nav aria-label="Collection pages">
+          <nav className="collections-pagination" aria-label="Collection pages">
             <Button
               disabled={loading || page.offset === 0}
               onClick={() => load(Math.max(0, page.offset - page.limit))}

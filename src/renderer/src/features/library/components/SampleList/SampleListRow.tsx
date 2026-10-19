@@ -52,6 +52,7 @@ export function SampleListRow({
           <FavoriteButton file={sample} onChanged={onFavoriteChanged} />
           {onInspect && (
             <Button
+              variant="ghost"
               draggable={false}
               aria-label={`Info: ${sample.relativePath}`}
               aria-controls="sample-inspector"

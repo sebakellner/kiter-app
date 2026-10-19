@@ -7,3 +7,17 @@
 .collection-cover-placeholder {
   min-height: 40px;
 }
+
+.collections-grid [role='gridcell'] {
+  display: grid;
+  justify-items: start;
+  gap: 8px;
+}
+
+.collections-pagination {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}

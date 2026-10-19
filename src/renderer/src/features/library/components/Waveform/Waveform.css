@@ -8,6 +8,7 @@
 .sample-waveform canvas {
   width: calc(100% - 80px);
   height: 64px;
+  color: var(--color-accent);
 }
 
 .sample-duration {
@@ -16,5 +17,5 @@
 }
 
 .waveform-status {
-  color: var(--ev-c-text-2);
+  color: var(--color-text-secondary);
 }

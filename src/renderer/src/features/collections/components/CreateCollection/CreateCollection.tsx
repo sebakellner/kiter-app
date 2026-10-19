@@ -200,7 +200,11 @@ export function CreateCollection({
                 ? 'Create this Collection before quitting?'
                 : 'Create this Collection before closing?'}
             </p>
-            <Button disabled={isSubmitting} onClick={() => void submit()}>
+            <Button
+              variant="primary"
+              disabled={isSubmitting}
+              onClick={() => void submit()}
+            >
               {activeReview === 'quit' ? 'Save and quit' : 'Create and open'}
             </Button>
             <Button disabled={isSubmitting} onClick={discard}>
@@ -224,7 +228,7 @@ export function CreateCollection({
             <Button disabled={isSubmitting} onClick={dismiss}>
               Cancel
             </Button>
-            <Button type="submit" disabled={isSubmitting}>
+            <Button variant="primary" type="submit" disabled={isSubmitting}>
               Create
             </Button>
           </footer>

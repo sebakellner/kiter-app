@@ -120,7 +120,11 @@ export function EditorPopover({
                 ? `Save ${subject} changes before quitting?`
                 : `Save ${subject} changes before closing?`}
             </p>
-            <Button disabled={!canSave || pending} onClick={() => void save()}>
+            <Button
+              variant="primary"
+              disabled={!canSave || pending}
+              onClick={() => void save()}
+            >
               {exiting ? 'Save and quit' : 'Save and close'}
             </Button>
             <Button disabled={pending} onClick={finish}>
@@ -143,6 +147,7 @@ export function EditorPopover({
               Cancel
             </Button>
             <Button
+              variant="primary"
               disabled={!canSave || !dirty || pending}
               onClick={() => void save()}
             >

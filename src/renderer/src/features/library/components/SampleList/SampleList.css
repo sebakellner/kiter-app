@@ -1,7 +1,7 @@
 .sample-list li {
   overflow-wrap: anywhere;
   padding: 12px 0;
-  border-bottom: 1px solid var(--ev-c-gray-3);
+  border-bottom: 1px solid var(--color-border);
   cursor: grab;
 }
 
@@ -10,17 +10,17 @@
 }
 
 .sample-list [aria-selected='true'] {
-  background: var(--ev-c-gray-3);
-  box-shadow: inset 3px 0 currentColor;
+  background: var(--color-selection);
+  box-shadow: inset 3px 0 var(--color-accent);
 }
 
 .sample-list [role='row']:focus-visible {
-  outline: 2px solid currentColor;
+  outline: 2px solid var(--color-accent);
   outline-offset: -2px;
 }
 
 .sample-drag-hint {
-  color: var(--ev-c-text-2);
+  color: var(--color-text-secondary);
 }
 
 .sample-heading {
@@ -29,7 +29,7 @@
   gap: 16px;
 }
 
-.sample-name {
+.sample-heading .sample-name {
   flex: 1;
   min-width: 0;
   border: 0;
@@ -39,14 +39,21 @@
   font: inherit;
   text-align: left;
   cursor: grab;
+  justify-content: flex-start;
+  font-size: inherit;
 }
 
-.sample-name:disabled {
+.sample-heading .sample-name:disabled {
   cursor: default;
 }
 
+.sample-heading .sample-name:enabled:hover {
+  background: transparent;
+  color: var(--color-accent-hover);
+}
+
 .sample-name:focus-visible {
-  outline: 2px solid currentColor;
+  outline: 2px solid var(--color-accent);
 }
 
 .preview-button {
@@ -55,5 +62,11 @@
 }
 
 .preview-button[aria-pressed='true'] {
-  background: #7c93ee;
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: var(--color-on-accent);
+}
+
+.preview-button[aria-pressed='true']:enabled:hover {
+  background: var(--color-accent-hover);
 }

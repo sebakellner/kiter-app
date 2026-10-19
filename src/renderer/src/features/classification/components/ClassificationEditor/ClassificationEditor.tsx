@@ -125,6 +125,7 @@ export function ClassificationEditor({
                 </p>
               )}
               <div
+                className="sample-classification-pages"
                 aria-label={`${dimension === 'instrument' ? 'Instrument' : 'Genre'} pages`}
               >
                 <Button
