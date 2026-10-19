@@ -2,8 +2,10 @@ import type { DialogApi } from './dialog.ts'
 import type { LibraryApi } from './library.ts'
 import type { CategoriesApi } from './categories.ts'
 import type { ClassificationApi } from './classification.ts'
+import type { LifecycleApi } from './lifecycle.ts'
 
 export interface Api {
+  lifecycle: LifecycleApi
   dialog: DialogApi
   library: LibraryApi
   categories: CategoriesApi

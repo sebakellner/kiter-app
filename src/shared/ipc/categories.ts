@@ -15,11 +15,18 @@ import {
   requireEntityId,
 } from '../domain/validation.ts'
 import type { IpcResult } from './result.ts'
+import type {
+  SampleCategoriesRequest,
+  SampleCategoriesSaveRequest,
+  SampleCategoriesSnapshot,
+} from './sampleCategories.ts'
 
 export const CATEGORY_CHANNELS = {
   list: 'categories:list',
   create: 'categories:create',
   rename: 'categories:rename',
+  readSample: 'categories:read-sample',
+  saveSample: 'categories:save-sample',
 } as const
 
 export type CategoryListRequest = ClassificationPageRequest
@@ -34,6 +41,12 @@ export interface CategoryRenameRequest extends CategoryCreateRequest {
 }
 
 export interface CategoriesApi {
+  readSample: (
+    request: SampleCategoriesRequest,
+  ) => Promise<IpcResult<SampleCategoriesSnapshot>>
+  saveSample: (
+    request: SampleCategoriesSaveRequest,
+  ) => Promise<IpcResult<SampleCategoriesSnapshot>>
   list: (request?: CategoryListRequest) => Promise<IpcResult<CategoryPage>>
   create: (request: CategoryCreateRequest) => Promise<IpcResult<Category>>
   rename: (request: CategoryRenameRequest) => Promise<IpcResult<Category>>

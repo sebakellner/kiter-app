@@ -2,6 +2,11 @@ import { vi } from 'vitest'
 import type { Api } from '../../../src/shared/ipc/index.ts'
 
 export function createTestApi(): {
+  lifecycle: {
+    onCloseRequested: ReturnType<
+      typeof vi.fn<Api['lifecycle']['onCloseRequested']>
+    >
+  }
   classification: {
     applySample: ReturnType<typeof vi.fn<Api['classification']['applySample']>>
     listAliasUpdates: ReturnType<
@@ -16,6 +21,8 @@ export function createTestApi(): {
   }
   dialog: { openFolder: ReturnType<typeof vi.fn<Api['dialog']['openFolder']>> }
   categories: {
+    readSample: ReturnType<typeof vi.fn<Api['categories']['readSample']>>
+    saveSample: ReturnType<typeof vi.fn<Api['categories']['saveSample']>>
     list: ReturnType<typeof vi.fn<Api['categories']['list']>>
     create: ReturnType<typeof vi.fn<Api['categories']['create']>>
     rename: ReturnType<typeof vi.fn<Api['categories']['rename']>>
@@ -29,6 +36,11 @@ export function createTestApi(): {
   }
 } {
   return {
+    lifecycle: {
+      onCloseRequested: vi
+        .fn<Api['lifecycle']['onCloseRequested']>()
+        .mockReturnValue(() => {}),
+    },
     classification: {
       applySample: vi.fn<Api['classification']['applySample']>(),
       listAliasUpdates: vi.fn<Api['classification']['listAliasUpdates']>(),
@@ -37,6 +49,8 @@ export function createTestApi(): {
     },
     dialog: { openFolder: vi.fn<Api['dialog']['openFolder']>() },
     categories: {
+      readSample: vi.fn<Api['categories']['readSample']>(),
+      saveSample: vi.fn<Api['categories']['saveSample']>(),
       list: vi.fn<Api['categories']['list']>(),
       create: vi.fn<Api['categories']['create']>(),
       rename: vi.fn<Api['categories']['rename']>(),
