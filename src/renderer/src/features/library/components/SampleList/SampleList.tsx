@@ -7,6 +7,7 @@ import { useSampleList } from './useSampleList'
 import type { ListSample } from './useSampleList'
 import type { CollectionDragController } from '@renderer/features/collections/hooks/useCollectionDrag'
 import type { CollectionMoveRequest } from '@shared/domain/collection'
+import { useSampleAudioDrag } from '../../hooks/useSampleAudioDrag'
 
 type Props = {
   samples: ListSample[]
@@ -43,7 +44,8 @@ export function SampleList({
   onAddToCollection,
   order,
 }: Props): React.JSX.Element {
-  const { dragError, previewSample, getRowProps, selectSample } = useSampleList(
+  const audioDrag = useSampleAudioDrag()
+  const { previewSample, getRowProps, selectSample } = useSampleList(
     samples,
     preview,
     onSelectionChanged,
@@ -62,9 +64,12 @@ export function SampleList({
             key={sample.id}
             sample={sample}
             rowProps={getRowProps(index)}
+            audioDragProps={audioDrag.getDragProps(sample)}
             playing={preview.selected?.id === sample.id && preview.playing}
             dragError={
-              dragError?.audioUrl === sample.audioUrl ? dragError.message : null
+              audioDrag.error?.audioUrl === sample.audioUrl
+                ? audioDrag.error.message
+                : null
             }
             onPreview={() => previewSample(sample)}
             onFavoriteChanged={onFavoriteChanged}

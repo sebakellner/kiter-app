@@ -50,6 +50,14 @@
   cursor: default;
 }
 
+.sample-waveform-drag {
+  cursor: grab;
+}
+
+.sample-waveform-drag:active {
+  cursor: grabbing;
+}
+
 .sample-list [aria-selected='true'] {
   background: var(--color-selection);
   box-shadow: inset 3px 0 var(--color-accent);

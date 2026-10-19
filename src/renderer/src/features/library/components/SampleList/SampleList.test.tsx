@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { expect, test, vi } from 'vitest'
 import { useState } from 'react'
@@ -11,7 +11,11 @@ import {
   COLLECTION_REORDER_MIME,
 } from '@renderer/features/collections/hooks/useCollectionDrag'
 
-vi.mock('../Waveform', () => ({ Waveform: () => null }))
+vi.mock('../Waveform', () => ({
+  Waveform: ({ name }: { name: string }) => (
+    <span role="img" aria-label={`Waveform of ${name}`} />
+  ),
+}))
 
 function transfer(): {
   types: string[]
@@ -103,6 +107,7 @@ test('row selection is independent of preview, favorite and native dragging', as
     />,
   )
   const [first, second] = screen.getAllByRole('row')
+  expect(api.library.onDragError).toHaveBeenCalledOnce()
   expect(first).toHaveAttribute('aria-selected', 'false')
   await user.click(second)
   expect(second).toHaveAttribute('aria-selected', 'true')
@@ -116,9 +121,18 @@ test('row selection is independent of preview, favorite and native dragging', as
 
   fireEvent.dragStart(within(first).getByTestId('sample-name'))
   expect(api.library.startDrag).toHaveBeenCalledWith(kick.audioUrl)
+  expect(api.library.startDrag).toHaveBeenCalledTimes(1)
+  expect(second).toHaveAttribute('aria-selected', 'true')
+  fireEvent.dragStart(
+    within(first).getByRole('img', { name: 'Waveform of kick.wav' }),
+  )
+  expect(api.library.startDrag).toHaveBeenCalledTimes(2)
+  expect(second).toHaveAttribute('aria-selected', 'true')
+  fireEvent.dragStart(first)
+  expect(api.library.startDrag).toHaveBeenCalledTimes(3)
   expect(second).toHaveAttribute('aria-selected', 'true')
   fireEvent.dragStart(within(first).getByTestId('preview-toggle'))
-  expect(api.library.startDrag).toHaveBeenCalledTimes(1)
+  expect(api.library.startDrag).toHaveBeenCalledTimes(3)
 
   await user.click(within(first).getByTestId('sample-name'))
   expect(preview.togglePreview).toHaveBeenLastCalledWith(kick)
@@ -151,6 +165,52 @@ test('arrows select without playing, Enter previews and Space controls the loade
   expect(first).toHaveFocus()
   expect(first).toHaveAttribute('aria-selected', 'true')
   expect(second).toHaveAttribute('aria-selected', 'false')
+})
+
+test('one list subscription reports native errors only on their source row and is released on unmount', () => {
+  const { api, preview } = setup()
+  const unsubscribe = vi.fn()
+  api.library.onDragError.mockReturnValue(unsubscribe)
+  const onFavoriteChanged = vi.fn()
+  const { rerender, unmount } = render(
+    <SampleList
+      samples={[kick, snare]}
+      preview={preview}
+      onFavoriteChanged={onFavoriteChanged}
+    />,
+  )
+  const [first, second] = screen.getAllByRole('row')
+  act(() => {
+    api.library.onDragError.mock.calls[0][0]({
+      audioUrl: snare.audioUrl,
+      message: 'The source is unavailable.',
+    })
+  })
+  expect(within(first).queryByRole('alert')).not.toBeInTheDocument()
+  expect(within(second).getByRole('alert')).toHaveTextContent(
+    'The source is unavailable.',
+  )
+  fireEvent.dragStart(within(first).getByTestId('sample-name'))
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+
+  rerender(
+    <SampleList
+      samples={[kick]}
+      preview={preview}
+      onFavoriteChanged={onFavoriteChanged}
+    />,
+  )
+  act(() => {
+    api.library.onDragError.mock.calls[0][0]({
+      audioUrl: snare.audioUrl,
+      message: 'The source is unavailable.',
+    })
+  })
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  expect(api.library.onDragError).toHaveBeenCalledOnce()
+  expect(preview.togglePreview).not.toHaveBeenCalled()
+  unmount()
+  expect(unsubscribe).toHaveBeenCalledOnce()
 })
 
 test('clears hidden selection without selecting a replacement and keeps unavailable rows selectable', async () => {
@@ -400,4 +460,11 @@ test('Collection handles reorder with internal drag data and a drop marker witho
   expect(onPlace).not.toHaveBeenCalled()
   fireEvent.dragStart(within(first).getByTestId('sample-name'))
   expect(api.library.startDrag).toHaveBeenCalledWith(kick.audioUrl)
+  expect(api.library.startDrag).toHaveBeenCalledTimes(1)
+  fireEvent.dragStart(
+    within(first).getByRole('img', { name: 'Waveform of kick.wav' }),
+  )
+  expect(api.library.startDrag).toHaveBeenCalledTimes(2)
+  expect(onPlace).not.toHaveBeenCalled()
+  expect(preview.togglePreview).not.toHaveBeenCalled()
 })

@@ -1,7 +1,4 @@
 .sample-filters {
-  position: sticky;
-  top: 0;
-  z-index: 1;
   padding-block: 8px;
   background: var(--color-background);
 }

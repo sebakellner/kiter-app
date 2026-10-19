@@ -9,6 +9,10 @@
   color: var(--color-text-secondary);
 }
 
+.collection-order-feedback [role='alert'] {
+  color: var(--color-danger);
+}
+
 .collection-order-drag-announcement {
   position: absolute;
   width: 1px;

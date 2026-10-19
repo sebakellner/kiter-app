@@ -20,6 +20,7 @@ import { useRemoveCollectionSample } from '@renderer/features/collections/hooks/
 import { useMoveCollectionSample } from '@renderer/features/collections/hooks/useMoveCollectionSample'
 import { useCollectionDrag } from '@renderer/features/collections/hooks/useCollectionDrag'
 import { CollectionOrderFeedback } from '@renderer/features/collections/components/CollectionOrderFeedback/CollectionOrderFeedback'
+import './CatalogList.css'
 
 export function CatalogList({
   favoritesOnly = false,
@@ -188,34 +189,38 @@ export function CatalogList({
         </p>
       )}
       {removal.notice && <p role="status">{removal.notice}</p>}
-      <SampleFilters
-        disabled={order.pending}
-        instruments={context.instruments}
-        genres={context.genres}
-        sampleTypes={context.sampleTypes}
-        search={context.search}
-        onSearchChange={(search) =>
-          update(
-            effectiveCatalogSearch(search) ===
-              effectiveCatalogSearch(context.search)
-              ? { search }
-              : { search, offset: 0, scrollTop: 0 },
-          )
-        }
-        onChange={(filters) => update({ ...filters, offset: 0, scrollTop: 0 })}
-      />
-      {collectionId && (
-        <CollectionOrderFeedback
-          panel={feedback}
-          manual={manualOrder}
-          pending={order.pending}
-          dragging={Boolean(drag.draggingId)}
-          error={order.error}
-          notice={order.notice}
-          dragNotice={drag.notice}
-          onRefresh={refresh}
+      <div className="catalog-list-controls">
+        <SampleFilters
+          disabled={order.pending}
+          instruments={context.instruments}
+          genres={context.genres}
+          sampleTypes={context.sampleTypes}
+          search={context.search}
+          onSearchChange={(search) =>
+            update(
+              effectiveCatalogSearch(search) ===
+                effectiveCatalogSearch(context.search)
+                ? { search }
+                : { search, offset: 0, scrollTop: 0 },
+            )
+          }
+          onChange={(filters) =>
+            update({ ...filters, offset: 0, scrollTop: 0 })
+          }
         />
-      )}
+        {collectionId && (
+          <CollectionOrderFeedback
+            panel={feedback}
+            manual={manualOrder}
+            pending={order.pending}
+            dragging={Boolean(drag.draggingId)}
+            error={order.error}
+            notice={order.notice}
+            dragNotice={drag.notice}
+            onRefresh={refresh}
+          />
+        )}
+      </div>
       {context.search.trim() && !effectiveCatalogSearch(context.search) && (
         <p role="status">Type at least 2 characters to search.</p>
       )}

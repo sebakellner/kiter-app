@@ -10,10 +10,12 @@ import { Waveform } from '../Waveform'
 import type { ListSample } from './useSampleList'
 import type { CollectionDragController } from '@renderer/features/collections/hooks/useCollectionDrag'
 import type { CollectionMoveRequest } from '@shared/domain/collection'
+import type { SampleAudioDragProps } from '../../hooks/useSampleAudioDrag'
 
 type Props = {
   sample: ListSample
   rowProps: ComponentProps<'li'>
+  audioDragProps: SampleAudioDragProps
   playing: boolean
   dragError: string | null
   onPreview: () => void
@@ -35,6 +37,7 @@ type Props = {
 export function SampleListRow({
   sample,
   rowProps,
+  audioDragProps,
   playing,
   dragError,
   onPreview,
@@ -50,7 +53,8 @@ export function SampleListRow({
   return (
     <li
       {...rowProps}
-      draggable={order ? false : rowProps.draggable}
+      {...audioDragProps}
+      draggable={order ? false : audioDragProps.draggable}
       onDragOver={order ? (event) => order.drag.over(event, sample) : undefined}
       onDragLeave={
         order ? (event) => order.drag.leave(event, sample) : undefined
@@ -101,10 +105,10 @@ export function SampleListRow({
             </Button>
           )}
           <Button
+            {...audioDragProps}
             className="sample-name"
             data-testid="sample-name"
             disabled={!sample.audioUrl}
-            draggable={sample.audioUrl !== null}
             aria-label={`Preview ${sample.relativePath}`}
             onClick={onPreview}
           >
@@ -157,11 +161,13 @@ export function SampleListRow({
         </div>
         {'rootPath' in sample && <p>{sample.rootPath ?? sample.path}</p>}
         {sample.audioUrl && (
-          <Waveform
-            key={sample.audioUrl}
-            audioUrl={sample.audioUrl}
-            name={sample.relativePath}
-          />
+          <div className="sample-waveform-drag" {...audioDragProps}>
+            <Waveform
+              key={sample.audioUrl}
+              audioUrl={sample.audioUrl}
+              name={sample.relativePath}
+            />
+          </div>
         )}
         {'unavailableReason' in sample && sample.unavailableReason && (
           <p role="status">{sample.unavailableReason}</p>

@@ -1,9 +1,115 @@
-import { writeFile, readFile, rename } from 'node:fs/promises'
+import { writeFile, readFile, realpath, rename } from 'node:fs/promises'
 import path from 'node:path'
 import { test, expect } from './fixtures'
 import { LibraryPage } from './pages/library-page'
 import { createWav } from '../support/fixtures/wav.mjs'
 import type { Page } from '@playwright/test'
+
+test('Collection names and waveforms start authorized native dragging without reordering, including with active filters', async ({
+  kiter,
+}) => {
+  const page = kiter.page
+  const library = new LibraryPage(page)
+  await kiter.selectFolder(kiter.samples)
+  await library.openFolder()
+  await expect(page.getByTestId('sample-name')).toHaveCount(2)
+  await page.evaluate(async () => {
+    const catalog = await window.api.library.list()
+    const collection = await window.api.collections.create({
+      name: 'Native drag',
+    })
+    if (!catalog.ok || !collection.ok) {
+      throw new Error('Unable to create the native drag fixture.')
+    }
+    for (const sample of catalog.data.items) {
+      const membership = await window.api.collections.setMembership({
+        collectionId: collection.data.id,
+        sampleId: sample.id,
+        assigned: true,
+      })
+      if (!membership.ok) {
+        throw new Error('Unable to add the native drag fixture member.')
+      }
+    }
+  })
+  await page.getByRole('link', { name: 'Collections', exact: true }).click()
+  await page
+    .getByRole('link', { name: 'Open Native drag', exact: true })
+    .click()
+  await expect(page.getByTestId('sample-name')).toHaveText([
+    'kick.wav',
+    'snare.wav',
+  ])
+
+  // Replace only the OS handoff; real mouse gestures still traverse renderer,
+  // preload and main authorization. This does not prove reception by a DAW.
+  const nativeDrags = await kiter.application.evaluateHandle(
+    ({ BrowserWindow }) => {
+      const files: string[] = []
+      BrowserWindow.getAllWindows()[0].webContents.startDrag = ({ file }) => {
+        files.push(file)
+      }
+      return files
+    },
+  )
+  try {
+    const file = await realpath(path.join(kiter.samples, 'kick.wav'))
+    const expectedDrags: string[] = []
+    for (const filtered of [false, true]) {
+      if (filtered) {
+        await page
+          .getByRole('searchbox', { name: 'Search samples' })
+          .fill('kick')
+        await expect(page.getByTestId('sample-name')).toHaveText(['kick.wav'])
+        await expect(
+          page.getByRole('button', { name: 'Reorder kick.wav', exact: true }),
+        ).toBeDisabled()
+      }
+      const waveform = library
+        .row('kick.wav')
+        .getByRole('img', { name: 'Waveform of kick.wav', exact: true })
+      const name = library.row('kick.wav').getByTestId('sample-name')
+      for (const surface of [name, waveform]) {
+        await expect(surface).toBeVisible()
+        await surface.scrollIntoViewIfNeeded()
+        const rect = await surface.boundingBox()
+        if (!rect) {
+          throw new Error('The audio drag surface is unavailable.')
+        }
+        const x = rect.x + rect.width / 3
+        const y = rect.y + rect.height / 2
+        await page.mouse.move(x, y)
+        await page.mouse.down()
+        try {
+          await page.mouse.move(x + 80, y, { steps: 10 })
+          // The OS handoff is replaced, so release outside the source to avoid
+          // turning the canceled browser drag into a click on the name.
+          await page.mouse.move(x, 20, { steps: 5 })
+        } finally {
+          await page.mouse.up()
+        }
+        expectedDrags.push(file)
+        await expect.poll(() => nativeDrags.jsonValue()).toEqual(expectedDrags)
+      }
+    }
+    await page
+      .getByRole('button', { name: 'Clear search', exact: true })
+      .click()
+    await expect(page.getByTestId('sample-name')).toHaveText([
+      'kick.wav',
+      'snare.wav',
+    ])
+    await expect(page.locator('audio')).not.toHaveAttribute('src')
+    await dragSample(library, 'snare.wav', 'kick.wav', 'before')
+    await expect(page.getByTestId('sample-name')).toHaveText([
+      'snare.wav',
+      'kick.wav',
+    ])
+    expect(await nativeDrags.jsonValue()).toEqual(expectedDrags)
+  } finally {
+    await nativeDrags.dispose()
+  }
+})
 
 async function dragSample(
   library: LibraryPage,
@@ -245,6 +351,9 @@ test('Collection drops reject concurrent changes and keyboard move actions still
   kiter,
 }) => {
   const page = kiter.page
+  await kiter.application.evaluate(({ BrowserWindow }) =>
+    BrowserWindow.getAllWindows()[0].setSize(1024, 680),
+  )
   for (let index = 0; index < 52; index++) {
     await writeFile(
       path.join(kiter.empty, `sample-${String(index).padStart(2, '0')}.wav`),
@@ -312,6 +421,10 @@ test('Collection drops reject concurrent changes and keyboard move actions still
   await expect(page.getByRole('alert')).toContainText(
     'The Collection order changed.',
   )
+  await expect(page.getByRole('alert')).toBeInViewport({ ratio: 1 })
+  await expect(
+    page.getByRole('button', { name: 'Refresh order', exact: true }),
+  ).toBeInViewport({ ratio: 1 })
   await expect(page.getByTestId('sample-name')).toHaveText([
     'sample-01.wav',
     'sample-00.wav',
@@ -324,6 +437,7 @@ test('Collection drops reject concurrent changes and keyboard move actions still
     page.getByRole('button', { name: 'Previous page', exact: true }),
   ).toBeDisabled()
   await expect(moving).toHaveAttribute('aria-selected', 'true')
+  await expect(moving).toBeFocused()
   await keyboardMove(page, library, 'sample-49.wav', 'down')
   await expect(page.getByTestId('sample-name')).toHaveText([
     'sample-49.wav',

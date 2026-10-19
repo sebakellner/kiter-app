@@ -1,13 +1,12 @@
 import { useEffect, useState } from 'react'
 import type { ComponentProps } from 'react'
-import type { AudioDragError, AudioSample } from '@shared/ipc'
+import type { AudioSample } from '@shared/ipc'
 import type { CatalogAudioSample } from '@shared/ipc/library'
 import type { PreviewController } from '../../hooks/usePreview'
 
 export type ListSample = AudioSample | CatalogAudioSample
 
 type SampleListController = {
-  dragError: AudioDragError | null
   previewSample: (sample: ListSample) => void
   getRowProps: (index: number) => ComponentProps<'li'>
   selectSample: (sample: ListSample) => void
@@ -22,7 +21,6 @@ export function useSampleList(
   const [localId, setLocalId] = useState<string | null>(null)
   const activeId = selection ? selection.id : localId
   const setActiveId = selection ? selection.onChange : setLocalId
-  const [dragError, setDragError] = useState<AudioDragError | null>(null)
 
   useEffect(() => {
     if (
@@ -32,8 +30,6 @@ export function useSampleList(
       setActiveId(null)
     }
   }, [activeId, samples, setActiveId])
-
-  useEffect(() => window.api.library.onDragError(setDragError), [])
 
   const activeSample = samples.find((sample) => sample.id === activeId) ?? null
   useEffect(() => {
@@ -100,19 +96,10 @@ export function useSampleList(
           }
         }
       },
-      draggable: sample.audioUrl !== null,
-      onDragStart: (event) => {
-        event.preventDefault()
-        setDragError(null)
-        if (sample.audioUrl) {
-          window.api.library.startDrag(sample.audioUrl)
-        }
-      },
     }
   }
 
   return {
-    dragError,
     previewSample,
     getRowProps,
     selectSample: (sample) => setActiveId(sample.id),
