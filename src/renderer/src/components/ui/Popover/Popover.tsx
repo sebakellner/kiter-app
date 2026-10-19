@@ -7,6 +7,7 @@ export type PopoverDismissReason = 'escape' | 'outside'
 export type PopoverProps = Omit<HTMLAttributes<HTMLElement>, 'onCancel'> & {
   open: boolean
   anchor: HTMLElement | RefObject<HTMLElement | null>
+  position?: { x: number; y: number }
   onDismiss: (reason: PopoverDismissReason) => void
   modal?: boolean
   align?: 'start' | 'end'
@@ -21,6 +22,7 @@ const layers: HTMLElement[] = []
 export function Popover({
   open,
   anchor,
+  position: point,
   onDismiss,
   modal = false,
   align = 'start',
@@ -62,13 +64,16 @@ export function Popover({
       if (matchAnchorWidth) {
         element.style.width = `${rect.width}px`
       }
-      const left =
-        align === 'end' ? rect.right - element.offsetWidth : rect.left
-      const below = rect.bottom + 4
+      const left = point
+        ? point.x
+        : align === 'end'
+          ? rect.right - element.offsetWidth
+          : rect.left
+      const below = point ? point.y : rect.bottom + 4
       const top =
         below + element.offsetHeight <= window.innerHeight - 8
           ? below
-          : rect.top - element.offsetHeight - 4
+          : (point ? point.y : rect.top - 4) - element.offsetHeight
       element.style.left = `${Math.max(8, Math.min(left, window.innerWidth - element.offsetWidth - 8))}px`
       element.style.top = `${Math.max(8, Math.min(top, window.innerHeight - element.offsetHeight - 8))}px`
     }
@@ -130,6 +135,7 @@ export function Popover({
   }, [
     open,
     anchor,
+    point,
     modal,
     align,
     matchAnchorWidth,
