@@ -75,42 +75,40 @@ export function ClassificationFilter({
 
   return (
     <div>
-      <label>
-        {label}
-        <Combobox
-          ref={input}
-          onFocus={() => setVersion((current) => current + 1)}
-          aria-label={label}
-          listLabel={`Available filter ${kind}`}
-          multiple
-          options={
-            error
-              ? []
-              : (result?.page.items ?? []).map((category) => ({
-                  value: category.id,
-                  label: category.name,
-                  disabled:
-                    value.length >= 100 &&
-                    !value.some(({ id }) => id === category.id),
-                }))
-          }
-          value={value.map(({ id }) => id)}
-          onValueChange={change}
-          query={query}
-          onQueryChange={(text) => {
-            setQuery(text)
-            setOffset(0)
-          }}
-          loading={loading}
-          emptyMessage={
-            error
-              ? `${label} could not be loaded.`
-              : query
-                ? `No matching ${kind}.`
-                : `No ${kind} in your library yet.`
-          }
-        />
-      </label>
+      <Combobox
+        ref={input}
+        onFocus={() => setVersion((current) => current + 1)}
+        aria-label={label}
+        placeholder={label}
+        listLabel={`Available filter ${kind}`}
+        multiple
+        options={
+          error
+            ? []
+            : (result?.page.items ?? []).map((category) => ({
+                value: category.id,
+                label: category.name,
+                disabled:
+                  value.length >= 100 &&
+                  !value.some(({ id }) => id === category.id),
+              }))
+        }
+        value={value.map(({ id }) => id)}
+        onValueChange={change}
+        query={query}
+        onQueryChange={(text) => {
+          setQuery(text)
+          setOffset(0)
+        }}
+        loading={loading}
+        emptyMessage={
+          error
+            ? `${label} could not be loaded.`
+            : query
+              ? `No matching ${kind}.`
+              : `No ${kind} in your library yet.`
+        }
+      />
       {error && (
         <p role="alert">
           {error}{' '}

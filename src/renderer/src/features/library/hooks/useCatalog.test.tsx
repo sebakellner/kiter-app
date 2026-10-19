@@ -5,6 +5,7 @@ import { createTestApi } from '../../../../../../tests/support/ui/bridge'
 import { deferred } from '../../../../../../tests/support/fixtures/deferred'
 import type { IpcResult } from '@shared/ipc'
 import type { LibraryPage } from '@shared/ipc/library'
+import type { SampleTypeFilter } from '@shared/features/library/schemas'
 
 const empty: LibraryPage = { items: [], total: 0, limit: 50, offset: 0 }
 
@@ -155,4 +156,72 @@ test('changing Genres resets pagination, rejects stale results and retains both 
     genreIds: ['techno'],
     offset: 0,
   })
+})
+
+test('changing Sample types resets pagination, rejects stale pages and retains all filters on fallback and retry', async () => {
+  const api = createTestApi()
+  const pending = deferred<IpcResult<LibraryPage>>()
+  api.library.list
+    .mockReturnValueOnce(pending.promise)
+    .mockResolvedValueOnce({ ok: true, data: { ...empty, total: 2 } })
+    .mockResolvedValueOnce({
+      ok: true,
+      data: { ...empty, offset: 50, total: 2 },
+    })
+    .mockResolvedValueOnce({ ok: true, data: { ...empty, total: 2 } })
+    .mockResolvedValueOnce({
+      ok: false,
+      error: { code: 'STORAGE_FAILED', message: 'Catalog unavailable.' },
+    })
+    .mockResolvedValueOnce({
+      ok: true,
+      data: { ...empty, offset: 50, total: 2 },
+    })
+    .mockResolvedValueOnce({ ok: true, data: { ...empty, total: 2 } })
+  vi.stubGlobal('api', api)
+  const initialProps: { types: SampleTypeFilter } = { types: ['loop'] }
+  const { result, rerender } = renderHook(
+    ({ types }) => useCatalog(true, 0, 50, ['kick'], ['house'], types),
+    { initialProps },
+  )
+  expect(api.library.list).toHaveBeenLastCalledWith({
+    favoritesOnly: true,
+    categoryIds: ['kick'],
+    genreIds: ['house'],
+    sampleTypes: ['loop'],
+    offset: 50,
+  })
+  rerender({ types: ['unknown', 'one-shot'] })
+  await waitFor(() => expect(result.current.page?.total).toBe(2))
+  const filters = {
+    favoritesOnly: true,
+    categoryIds: ['kick'],
+    genreIds: ['house'],
+    sampleTypes: ['one-shot', 'unknown'],
+  }
+  expect(api.library.list).toHaveBeenLastCalledWith({ ...filters, offset: 0 })
+  await act(async () =>
+    pending.resolve({ ok: true, data: { ...empty, offset: 50, total: 99 } }),
+  )
+  expect(result.current.page?.total).toBe(2)
+  rerender({ types: ['one-shot', 'unknown'] })
+  expect(api.library.list).toHaveBeenCalledTimes(2)
+  act(() => result.current.load(50))
+  await waitFor(() => expect(result.current.loading).toBe(false))
+  expect(result.current.page?.offset).toBe(0)
+  act(() => result.current.refresh())
+  await waitFor(() => expect(result.current.error).toBe('Catalog unavailable.'))
+  expect(result.current.page?.total).toBe(2)
+  act(() => result.current.refresh())
+  await waitFor(() => expect(result.current.loading).toBe(false))
+  expect(result.current.error).toBeNull()
+  expect(
+    api.library.list.mock.calls.slice(2).map(([request]) => request),
+  ).toEqual([
+    { ...filters, offset: 50 },
+    { ...filters, offset: 0 },
+    { ...filters, offset: 50 },
+    { ...filters, offset: 50 },
+    { ...filters, offset: 0 },
+  ])
 })

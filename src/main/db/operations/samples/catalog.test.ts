@@ -17,6 +17,10 @@ import {
   removeGenre,
   reviewGenreRemoval,
 } from '../classification/genres.ts'
+import {
+  readSampleType,
+  saveSampleType,
+} from '../classification/sample-type.ts'
 
 test('catalog pages include all roots once, honor presentation names and filter Favorites', (t) => {
   const { db } = createMemoryDatabase(t)
@@ -191,4 +195,118 @@ test('genre filters use direct assignments with OR, intersect Categories and Fav
     token: reviewGenreRemoval(db, house.id).token,
   })
   assert.equal(listCatalogSamples(db, { genreIds: [house.id] }).total, 0)
+})
+
+test('Sample type filters use saved values with OR, include NULL as Unknown and intersect all other groups before pagination', (t) => {
+  const { db } = createMemoryDatabase(t)
+  const root = path.resolve('sample-type-filter')
+  const imported = importFolder(
+    db,
+    root,
+    ['a_loop.wav', 'b.wav', 'c.wav', 'd.wav', 'e.wav'].map((name) =>
+      makeDiscoveredAudioFile(root, name),
+    ),
+  )
+  const byName = (name: string): string =>
+    imported.find((sample) => sample.name === name)!.id
+  for (const [name, sampleType] of [
+    ['b.wav', 'loop'],
+    ['c.wav', 'one-shot'],
+    ['d.wav', 'loop'],
+    ['e.wav', 'one-shot'],
+  ] as const) {
+    saveSampleType(db, {
+      ...readSampleType(db, { sampleId: byName(name) }),
+      sampleType,
+    })
+  }
+  const kick = createCategory(db, { name: 'Kick' })
+  const house = listGenres(db, { search: 'house' }).items.find(
+    ({ name }) => name === 'House',
+  )!
+  for (const name of ['b.wav', 'c.wav', 'd.wav']) {
+    setCategoryAssignment(db, {
+      id: kick.id,
+      target: { kind: 'sample', id: byName(name) },
+      assigned: true,
+    })
+  }
+  for (const name of ['c.wav', 'd.wav', 'e.wav']) {
+    setGenreAssignment(db, {
+      id: house.id,
+      target: { kind: 'sample', id: byName(name) },
+      assigned: true,
+    })
+  }
+  setFavorite(db, byName('c.wav'), true)
+  const first = listCatalogSamples(db, {
+    sampleTypes: ['loop', 'one-shot'],
+    limit: 2,
+  })
+  assert.equal(first.total, 4)
+  assert.deepEqual(
+    first.items.map(({ name }) => name),
+    ['b.wav', 'c.wav'],
+  )
+  assert.deepEqual(
+    listCatalogSamples(db, {
+      sampleTypes: ['loop', 'one-shot'],
+      limit: 2,
+      offset: 2,
+    }).items.map(({ name }) => name),
+    ['d.wav', 'e.wav'],
+  )
+  assert.deepEqual(
+    listCatalogSamples(db, { sampleTypes: ['loop'] }).items.map(
+      ({ name }) => name,
+    ),
+    ['b.wav', 'd.wav'],
+  )
+  assert.deepEqual(
+    listCatalogSamples(db, { sampleTypes: ['one-shot'] }).items.map(
+      ({ name }) => name,
+    ),
+    ['c.wav', 'e.wav'],
+  )
+  // A path-based Loop clue does not replace the saved unknown value.
+  assert.deepEqual(
+    listCatalogSamples(db, { sampleTypes: ['unknown'] }).items.map(
+      ({ name }) => name,
+    ),
+    ['a_loop.wav'],
+  )
+  assert.equal(
+    listCatalogSamples(db, { sampleTypes: ['unknown', 'one-shot'] }).total,
+    3,
+  )
+  assert.equal(
+    listCatalogSamples(db, { sampleTypes: ['loop', 'one-shot', 'unknown'] })
+      .total,
+    5,
+  )
+  assert.equal(listCatalogSamples(db, { sampleTypes: [] }).total, 5)
+  const filters = { categoryIds: [kick.id], genreIds: [house.id] }
+  assert.deepEqual(
+    listCatalogSamples(db, { ...filters, sampleTypes: ['loop'] }).items.map(
+      ({ name }) => name,
+    ),
+    ['d.wav'],
+  )
+  assert.deepEqual(
+    listCatalogSamples(db, {
+      ...filters,
+      sampleTypes: ['one-shot'],
+      favoritesOnly: true,
+    }).items.map(({ name }) => name),
+    ['c.wav'],
+  )
+  assert.equal(
+    listCatalogSamples(db, {
+      ...filters,
+      sampleTypes: ['loop'],
+      favoritesOnly: true,
+    }).total,
+    0,
+  )
+  assert.throws(() => listCatalogSamples(db, { sampleTypes: ['loop', 'loop'] }))
 })

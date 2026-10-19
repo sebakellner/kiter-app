@@ -58,6 +58,7 @@ export function listCatalogSamples(
     favoritesOnly,
     categoryIds,
     genreIds,
+    sampleTypes,
   } = requireLibraryListRequest(input)
   return db.transaction(() => {
     const categoryMatch = categoryIds?.length
@@ -65,6 +66,9 @@ export function listCatalogSamples(
       : undefined
     const filter = and(
       favoritesOnly ? eq(samples.favorite, true) : undefined,
+      sampleTypes?.length
+        ? inArray(sql`coalesce(${samples.sampleType}, 'unknown')`, sampleTypes)
+        : undefined,
       categoryMatch,
       genreIds?.length
         ? sql`exists (select 1 from ${sampleGenres} where ${sampleGenres.sampleId} = ${samples.id} and ${inArray(sampleGenres.genreId, genreIds)})`

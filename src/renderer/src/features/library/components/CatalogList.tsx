@@ -23,6 +23,7 @@ export function CatalogList({
     context.offset,
     context.categories.map(({ id }) => id),
     context.genres.map(({ id }) => id),
+    context.sampleTypes,
   )
   const select = useCallback(
     (selectedId: string | null) => update({ selectedId }),
@@ -57,6 +58,7 @@ export function CatalogList({
       <SampleFilters
         categories={context.categories}
         genres={context.genres}
+        sampleTypes={context.sampleTypes}
         onChange={(filters) => update({ ...filters, offset: 0, scrollTop: 0 })}
       />
       <Button onClick={refresh} disabled={loading}>
@@ -80,7 +82,9 @@ export function CatalogList({
             </p>
             {page.total === 0 ? (
               <p>
-                {context.categories.length > 0 || context.genres.length > 0
+                {context.categories.length > 0 ||
+                context.genres.length > 0 ||
+                context.sampleTypes.length > 0
                   ? 'No samples match these filters. Remove a filter or clear all to see more samples.'
                   : favoritesOnly
                     ? 'No favorites yet. Mark samples as favorites in Samples.'
