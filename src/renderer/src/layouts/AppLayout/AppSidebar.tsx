@@ -29,7 +29,7 @@ export function AppSidebar(): React.JSX.Element {
       </Button>
       <h2>Your collections</h2>
       <div className="app-shell-collections">
-        <p>Collections are coming soon.</p>
+        <p>Open Collections to create and browse your selections.</p>
       </div>
     </nav>
   )
