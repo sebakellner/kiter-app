@@ -68,7 +68,11 @@ export function CatalogList({
           {error} <Button onClick={refresh}>Retry</Button>
         </p>
       )}
-      <div aria-busy={loading} data-testid="catalog-results">
+      <div
+        aria-busy={loading}
+        data-testid="catalog-results"
+        data-total={page?.total}
+      >
         {page && (
           <>
             <p>
