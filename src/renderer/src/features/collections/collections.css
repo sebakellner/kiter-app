@@ -4,17 +4,6 @@
   gap: 12px;
 }
 
-.collection-card {
-  border: 1px solid currentColor;
-  padding: 12px;
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-
-.collection-card[aria-selected='true'] {
-  outline: 2px solid currentColor;
-}
-
 .collection-cover-placeholder {
   min-height: 40px;
 }

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { Button } from '@renderer/components/ui/Button'
+import { Card } from '@renderer/components/ui/Card'
 import { useCollections } from '@renderer/features/collections/useCollections'
 import { CreateCollection } from '@renderer/features/collections/CreateCollection/CreateCollection'
 import { useCatalogViewContext } from '@renderer/routes/navigationContext'
@@ -63,10 +64,9 @@ function CollectionList(): React.JSX.Element {
               className="collections-grid"
             >
               {page.items.map((collection, index) => (
-                <div
+                <Card
                   role="row"
                   key={collection.id}
-                  className="collection-card"
                   aria-selected={context.selectedId === collection.id}
                   aria-label={`${collection.name}, Collection ${collection.id}`}
                   tabIndex={
@@ -137,7 +137,7 @@ function CollectionList(): React.JSX.Element {
                       Open
                     </Button>
                   </div>
-                </div>
+                </Card>
               ))}
             </div>
           )}
