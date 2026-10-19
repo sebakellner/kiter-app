@@ -72,7 +72,7 @@ test('Sample type filters combine saved values with other groups, restore naviga
   await types.selectOption('one-shot')
   await expect(names).toHaveText(['kick.wav'])
   await kiter.page
-    .getByRole('combobox', { name: 'Categories', exact: true })
+    .getByRole('combobox', { name: 'Instruments', exact: true })
     .click()
   await kiter.page.getByRole('option', { name: 'Kick', exact: true }).click()
   await kiter.page
@@ -98,7 +98,7 @@ test('Sample type filters combine saved values with other groups, restore naviga
   await expect(types).toHaveValue('all')
   await expect(
     kiter.page.getByRole('button', {
-      name: 'Remove category filter: Kick',
+      name: 'Remove instrument filter: Kick',
       exact: true,
     }),
   ).toBeVisible()
@@ -143,7 +143,7 @@ test('Sample type filters combine saved values with other groups, restore naviga
   )
 })
 
-test('Genre filters combine with Categories and Favorites, restore history and clear both groups', async ({
+test('Genre filters combine with Instruments and Favorites, restore history and clear both groups', async ({
   kiter,
 }) => {
   const library = new LibraryPage(kiter.page)
@@ -185,8 +185,8 @@ test('Genre filters combine with Categories and Favorites, restore history and c
     name: 'Genres',
     exact: true,
   })
-  const categories = kiter.page.getByRole('combobox', {
-    name: 'Categories',
+  const instruments = kiter.page.getByRole('combobox', {
+    name: 'Instruments',
     exact: true,
   })
   const names = kiter.page.getByTestId('sample-name')
@@ -196,7 +196,7 @@ test('Genre filters combine with Categories and Favorites, restore history and c
   await kiter.page.getByRole('option', { name: 'Techno', exact: true }).click()
   await expect(names).toHaveText(['kick.wav', 'snare.wav'])
   await expect(genres).toBeFocused()
-  await categories.click()
+  await instruments.click()
   await kiter.page.getByRole('option', { name: 'Kick', exact: true }).click()
   await expect(names).toHaveText(['kick.wav'])
   await kiter.page.getByRole('checkbox', { name: 'Favorites only' }).check()
@@ -215,7 +215,7 @@ test('Genre filters combine with Categories and Favorites, restore history and c
   await expect(names).toHaveText(['kick.wav'])
   await expect(
     kiter.page.getByRole('button', {
-      name: 'Remove category filter: Kick',
+      name: 'Remove instrument filter: Kick',
       exact: true,
     }),
   ).toBeVisible()
@@ -237,7 +237,7 @@ test('Genre filters combine with Categories and Favorites, restore history and c
   await expect(names).toHaveText(['kick.wav'])
   await expect(
     kiter.page.getByRole('button', {
-      name: /^Remove (category|genre) filter:/,
+      name: /^Remove (instrument|genre) filter:/,
     }),
   ).toHaveCount(0)
   await kiter.page.getByRole('button', { name: 'Forward', exact: true }).click()
@@ -260,7 +260,7 @@ test('Genre filters combine with Categories and Favorites, restore history and c
   ).toHaveCount(0)
 })
 
-test('category filters combine saved assignments with Favorites and restore independently during navigation', async ({
+test('instrument filters combine saved assignments with Favorites and restore independently during navigation', async ({
   kiter,
 }) => {
   const library = new LibraryPage(kiter.page)
@@ -287,11 +287,11 @@ test('category filters combine saved assignments with Favorites and restore inde
     .getByRole('complementary', { name: 'Sample info' })
     .getByRole('button', { name: 'Close inspector' })
     .click()
-  // Refresh vocabulary options after creating Categories through accepted suggestions.
+  // Refresh vocabulary options after creating Instruments through accepted suggestions.
   await kiter.page.getByRole('link', { name: 'Home', exact: true }).click()
   await kiter.page.getByRole('link', { name: 'Samples', exact: true }).click()
   const input = kiter.page.getByRole('combobox', {
-    name: 'Categories',
+    name: 'Instruments',
     exact: true,
   })
   await input.click()
@@ -318,13 +318,13 @@ test('category filters combine saved assignments with Favorites and restore inde
   await kiter.page.getByRole('link', { name: 'Samples', exact: true }).click()
   await expect(
     kiter.page.getByRole('button', {
-      name: 'Remove category filter: Kick',
+      name: 'Remove instrument filter: Kick',
       exact: true,
     }),
   ).toBeVisible()
   await expect(
     kiter.page.getByRole('button', {
-      name: 'Remove category filter: Snare',
+      name: 'Remove instrument filter: Snare',
       exact: true,
     }),
   ).toBeVisible()
@@ -412,7 +412,7 @@ test('Sample type changes override saved suggestions and Unknown allows fresh pr
   )
 })
 
-test('manual genres preserve categories and Favorites across restart, protect drafts and allow clearing', async ({
+test('manual genres preserve instruments and Favorites across restart, protect drafts and allow clearing', async ({
   kiter,
 }) => {
   let library = new LibraryPage(kiter.page)
@@ -454,7 +454,7 @@ test('manual genres preserve categories and Favorites across restart, protect dr
     inspector.getByRole('region', { name: 'genre', exact: true }),
   ).toContainText('House')
   await expect(
-    inspector.getByRole('region', { name: 'category', exact: true }),
+    inspector.getByRole('region', { name: 'instrument', exact: true }),
   ).toContainText('Kick')
   await expect(kiter.page.locator('audio')).not.toHaveAttribute('src')
   await kiter.restart()
@@ -487,11 +487,11 @@ test('manual genres preserve categories and Favorites across restart, protect dr
     inspector.getByRole('region', { name: 'genre', exact: true }),
   ).toHaveCount(0)
   await expect(
-    inspector.getByRole('region', { name: 'category', exact: true }),
+    inspector.getByRole('region', { name: 'instrument', exact: true }),
   ).toContainText('Kick')
 })
 
-test('manual category popover protects drafts, corrects suggestions and persists after restart', async ({
+test('manual instrument popover protects drafts, corrects suggestions and persists after restart', async ({
   kiter,
 }) => {
   const library = new LibraryPage(kiter.page)
@@ -508,22 +508,24 @@ test('manual category popover protects drafts, corrects suggestions and persists
     .getByRole('button', { name: 'Apply Kick', exact: true })
     .click()
   await expect(inspector).toContainText('Classifications saved.')
-  // Seed a second available category through the real bridge; assignment is UI-driven.
+  // Seed a second available instrument through the real bridge; assignment is UI-driven.
   const created = await kiter.page.evaluate(() =>
-    window.api.categories.create({ name: 'Snare' }),
+    window.api.instruments.create({ name: 'Snare' }),
   )
   expect(created.ok).toBe(true)
   const edit = inspector.getByRole('button', {
-    name: 'Edit categories',
+    name: 'Edit instruments',
     exact: true,
   })
   await edit.click()
-  const popover = kiter.page.getByRole('dialog', { name: 'Edit categories' })
+  const popover = kiter.page.getByRole('dialog', { name: 'Edit instruments' })
   await expect(
-    popover.getByRole('searchbox', { name: 'Search categories' }),
+    popover.getByRole('searchbox', { name: 'Search instruments' }),
   ).toBeFocused()
   await popover.getByRole('checkbox', { name: 'Kick', exact: true }).uncheck()
-  await popover.getByRole('searchbox', { name: 'Search categories' }).fill('sn')
+  await popover
+    .getByRole('searchbox', { name: 'Search instruments' })
+    .fill('sn')
   await popover.getByRole('checkbox', { name: 'Snare', exact: true }).check()
   await kiter.page.keyboard.press('Escape')
   await expect(
@@ -545,7 +547,7 @@ test('manual category popover protects drafts, corrects suggestions and persists
   await expect(popover).toHaveCount(0)
   await expect(edit).toBeFocused()
   await expect(
-    inspector.getByRole('region', { name: 'category', exact: true }),
+    inspector.getByRole('region', { name: 'instrument', exact: true }),
   ).toContainText('Snare')
   await expect(
     inspector.getByRole('button', { name: 'Apply Kick', exact: true }),
@@ -562,19 +564,19 @@ test('manual category popover protects drafts, corrects suggestions and persists
     name: 'Sample info',
   })
   const restartedEdit = restartedInspector.getByRole('button', {
-    name: 'Edit categories',
+    name: 'Edit instruments',
     exact: true,
   })
   const restartedPopover = kiter.page.getByRole('dialog', {
-    name: 'Edit categories',
+    name: 'Edit instruments',
   })
   await expect(
-    restartedInspector.getByRole('region', { name: 'category', exact: true }),
+    restartedInspector.getByRole('region', { name: 'instrument', exact: true }),
   ).toContainText('Snare')
   await restartedEdit.click()
   await kiter.page.setViewportSize({ width: 900, height: 700 })
   await restartedPopover
-    .getByRole('searchbox', { name: 'Search categories' })
+    .getByRole('searchbox', { name: 'Search instruments' })
     .focus()
   await kiter.page.keyboard.press('Tab')
   await expect(
@@ -620,7 +622,7 @@ test('Sample classification suggests automatically and persists explicit applica
     inspector.getByRole('list', { name: 'Classification evidence' }),
   ).toContainText('Kick')
   await expect(
-    inspector.getByRole('heading', { name: 'Categories', exact: true }),
+    inspector.getByRole('heading', { name: 'Instruments', exact: true }),
   ).toBeVisible()
   await expect(inspector).toContainText('Creates Kick when applied.')
   await expect(inspector).toContainText('Cataloged location:')
@@ -638,15 +640,15 @@ test('Sample classification suggests automatically and persists explicit applica
     .getByRole('button', { name: 'Info: kick.wav', exact: true })
     .click()
   await expect(
-    inspector.getByRole('region', { name: 'category', exact: true }),
+    inspector.getByRole('region', { name: 'instrument', exact: true }),
   ).toContainText('Kick')
   await expect(kiter.page.locator('audio')).not.toHaveAttribute('src')
-  const categories = await kiter.page.evaluate(() =>
-    window.api.categories.list(),
+  const instruments = await kiter.page.evaluate(() =>
+    window.api.instruments.list(),
   )
-  expect(categories.ok).toBe(true)
-  if (categories.ok) {
-    expect(categories.data.total).toBe(1)
+  expect(instruments.ok).toBe(true)
+  if (instruments.ok) {
+    expect(instruments.data.total).toBe(1)
   }
   const invalid = await kiter.page.evaluate(() =>
     window.api.classification.prepareSample({
@@ -971,7 +973,7 @@ test('compact inspector blocks covered regions, keeps the player available and c
   ).toBeEnabled()
   await kiter.page.keyboard.press('Tab')
   await expect(
-    inspector.getByRole('button', { name: 'Edit categories', exact: true }),
+    inspector.getByRole('button', { name: 'Edit instruments', exact: true }),
   ).toBeFocused()
   await kiter.page.keyboard.press('Tab')
   await expect(
@@ -1011,7 +1013,7 @@ test('compact inspector blocks covered regions, keeps the player available and c
   ).toBeFocused()
   await kiter.page.keyboard.press('Shift+Tab')
   await expect(
-    inspector.getByRole('button', { name: 'Edit categories', exact: true }),
+    inspector.getByRole('button', { name: 'Edit instruments', exact: true }),
   ).toBeFocused()
   await kiter.page.keyboard.press('Shift+Tab')
   await expect(close).toBeFocused()
@@ -1052,7 +1054,7 @@ test('sidebar destinations support history navigation', async ({ kiter }) => {
     'Favorites',
     'Packs',
     'Collections',
-    'Categories',
+    'Instruments',
     'Authors',
   ]) {
     const link = navigation.getByRole('link', {
@@ -1069,7 +1071,7 @@ test('sidebar destinations support history navigation', async ({ kiter }) => {
 
   await kiter.page.getByRole('button', { name: 'Back', exact: true }).click()
   await expect(
-    kiter.page.getByRole('heading', { name: 'Categories', exact: true }),
+    kiter.page.getByRole('heading', { name: 'Instruments', exact: true }),
   ).toBeVisible()
   await kiter.page.getByRole('button', { name: 'Forward', exact: true }).click()
   await expect(

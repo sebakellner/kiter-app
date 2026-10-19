@@ -31,12 +31,12 @@ export function createTestApi(): {
     >
   }
   dialog: { openFolder: ReturnType<typeof vi.fn<Api['dialog']['openFolder']>> }
-  categories: {
-    readSample: ReturnType<typeof vi.fn<Api['categories']['readSample']>>
-    saveSample: ReturnType<typeof vi.fn<Api['categories']['saveSample']>>
-    list: ReturnType<typeof vi.fn<Api['categories']['list']>>
-    create: ReturnType<typeof vi.fn<Api['categories']['create']>>
-    rename: ReturnType<typeof vi.fn<Api['categories']['rename']>>
+  instruments: {
+    readSample: ReturnType<typeof vi.fn<Api['instruments']['readSample']>>
+    saveSample: ReturnType<typeof vi.fn<Api['instruments']['saveSample']>>
+    list: ReturnType<typeof vi.fn<Api['instruments']['list']>>
+    create: ReturnType<typeof vi.fn<Api['instruments']['create']>>
+    rename: ReturnType<typeof vi.fn<Api['instruments']['rename']>>
   }
   library: {
     list: ReturnType<typeof vi.fn<Api['library']['list']>>
@@ -66,12 +66,12 @@ export function createTestApi(): {
       prepareSample: vi.fn<Api['classification']['prepareSample']>(),
     },
     dialog: { openFolder: vi.fn<Api['dialog']['openFolder']>() },
-    categories: {
-      readSample: vi.fn<Api['categories']['readSample']>(),
-      saveSample: vi.fn<Api['categories']['saveSample']>(),
-      list: vi.fn<Api['categories']['list']>(),
-      create: vi.fn<Api['categories']['create']>(),
-      rename: vi.fn<Api['categories']['rename']>(),
+    instruments: {
+      readSample: vi.fn<Api['instruments']['readSample']>(),
+      saveSample: vi.fn<Api['instruments']['saveSample']>(),
+      list: vi.fn<Api['instruments']['list']>(),
+      create: vi.fn<Api['instruments']['create']>(),
+      rename: vi.fn<Api['instruments']['rename']>(),
     },
     library: {
       list: vi.fn<Api['library']['list']>(),

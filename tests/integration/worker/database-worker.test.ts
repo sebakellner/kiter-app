@@ -836,17 +836,17 @@ test(
       if (author.action !== 'create-author') {
         assert.fail('Expected an Author')
       }
-      const category = await exchange(worker, {
+      const instrument = await exchange(worker, {
         requestId: ++requestId,
-        action: 'create-category',
+        action: 'create-instrument',
         input: { name: 'Drums' },
       })
-      if (category.action !== 'create-category') {
-        assert.fail('Expected a Category')
+      if (instrument.action !== 'create-instrument') {
+        assert.fail('Expected a Instrument')
       }
       const conflict = await exchange(worker, {
         requestId: ++requestId,
-        action: 'create-category',
+        action: 'create-instrument',
         input: { name: 'DRUMS' },
       })
       if (conflict.action !== 'error') {
@@ -856,7 +856,7 @@ test(
       assert.ok(!conflict.failure.message.includes(dir))
       for (const [action, id, name] of [
         ['rename-author', author.result.id, 'Artist'],
-        ['rename-category', category.result.id, 'Percussion'],
+        ['rename-instrument', instrument.result.id, 'Percussion'],
       ] as const) {
         const renamed = await exchange(worker, {
           requestId: ++requestId,
@@ -867,7 +867,7 @@ test(
       }
       for (const [action, id, name] of [
         ['get-author', author.result.id, 'Artist'],
-        ['get-category', category.result.id, 'Percussion'],
+        ['get-instrument', instrument.result.id, 'Percussion'],
       ] as const) {
         assert.deepEqual(
           await exchange(worker, { requestId: ++requestId, action, id }),
@@ -898,7 +898,7 @@ test(
       const target = { kind: 'sample' as const, id: imported.result[0].id }
       for (const [action, id] of [
         ['set-author-assignment', author.result.id],
-        ['set-category-assignment', category.result.id],
+        ['set-instrument-assignment', instrument.result.id],
       ] as const) {
         assert.deepEqual(
           await exchange(worker, {
@@ -911,7 +911,7 @@ test(
       }
       for (const [action, id] of [
         ['list-author-uses', author.result.id],
-        ['list-category-uses', category.result.id],
+        ['list-instrument-uses', instrument.result.id],
       ] as const) {
         assert.deepEqual(
           await exchange(worker, {
@@ -933,7 +933,7 @@ test(
       }
       for (const [action, id, name] of [
         ['list-target-authors', author.result.id, 'Artist'],
-        ['list-target-categories', category.result.id, 'Percussion'],
+        ['list-target-instruments', instrument.result.id, 'Percussion'],
       ] as const) {
         assert.deepEqual(
           await exchange(worker, {
@@ -958,23 +958,26 @@ test(
         assert.fail('Expected an Author removal review')
       }
       assert.equal(authorReview.result.sampleCount, 1)
-      const categoryReview = await exchange(worker, {
+      const instrumentReview = await exchange(worker, {
         requestId: ++requestId,
-        action: 'review-category-removal',
-        id: category.result.id,
+        action: 'review-instrument-removal',
+        id: instrument.result.id,
       })
-      if (categoryReview.action !== 'review-category-removal') {
-        assert.fail('Expected a Category removal review')
+      if (instrumentReview.action !== 'review-instrument-removal') {
+        assert.fail('Expected a Instrument removal review')
       }
       await exchange(worker, {
         requestId: ++requestId,
-        action: 'set-category-assignment',
-        input: { id: category.result.id, target, assigned: false },
+        action: 'set-instrument-assignment',
+        input: { id: instrument.result.id, target, assigned: false },
       })
       const stale = await exchange(worker, {
         requestId: ++requestId,
-        action: 'remove-category',
-        input: { id: category.result.id, token: categoryReview.result.token },
+        action: 'remove-instrument',
+        input: {
+          id: instrument.result.id,
+          token: instrumentReview.result.token,
+        },
       })
       if (stale.action !== 'error') {
         assert.fail('Expected stale removal review')
@@ -987,7 +990,7 @@ test(
       assert.deepEqual((await once(worker, 'message'))[0], { action: 'ready' })
       for (const [action, entity] of [
         ['list-authors', { id: author.result.id, name: 'Artist' }],
-        ['list-categories', { id: category.result.id, name: 'Percussion' }],
+        ['list-instruments', { id: instrument.result.id, name: 'Percussion' }],
       ] as const) {
         assert.deepEqual(
           await exchange(worker, {
@@ -1016,22 +1019,22 @@ test(
       )
       const current = await exchange(worker, {
         requestId: ++requestId,
-        action: 'review-category-removal',
-        id: category.result.id,
+        action: 'review-instrument-removal',
+        id: instrument.result.id,
       })
-      if (current.action !== 'review-category-removal') {
+      if (current.action !== 'review-instrument-removal') {
         assert.fail('Expected an updated removal review')
       }
       assert.deepEqual(
         await exchange(worker, {
           requestId: ++requestId,
-          action: 'remove-category',
-          input: { id: category.result.id, token: current.result.token },
+          action: 'remove-instrument',
+          input: { id: instrument.result.id, token: current.result.token },
         }),
         {
           requestId,
-          action: 'remove-category',
-          result: { id: category.result.id },
+          action: 'remove-instrument',
+          result: { id: instrument.result.id },
         },
       )
       const closed = once(worker, 'exit')

@@ -102,13 +102,13 @@ test('fresh initialization creates strict typed tables, migration history and on
 
 test('database constraints preserve classification, ordering, credits and image boundaries', () => {
   const { native, close } = open()
-  const category = randomUUID()
+  const instrument = randomUUID()
   const author = randomUUID()
   const asset = randomUUID()
   try {
     native
       .prepare('INSERT INTO categories VALUES (?, ?, ?)')
-      .run(category, 'Drums', 'drums')
+      .run(instrument, 'Drums', 'drums')
     assert.throws(() =>
       native
         .prepare('INSERT INTO categories VALUES (?, ?, ?)')
@@ -458,7 +458,7 @@ test('classification migration preserves an original library and offers Genres w
   const original = new Database(filename)
   const [migration] = readMigrationFiles({ migrationsFolder })
   const profileId = randomUUID(),
-    categoryId = randomUUID(),
+    instrumentId = randomUUID(),
     sampleId = randomUUID()
   try {
     for (const statement of migration.sql) {
@@ -482,7 +482,7 @@ test('classification migration preserves an original library and offers Genres w
       .run(profileId)
     original
       .prepare('INSERT INTO categories(id, name, name_key) VALUES (?, ?, ?)')
-      .run(categoryId, 'Kick', 'kick')
+      .run(instrumentId, 'Kick', 'kick')
     original
       .prepare('INSERT INTO samples(id, favorite) VALUES (?, 1)')
       .run(sampleId)
@@ -495,7 +495,7 @@ test('classification migration preserves an original library and offers Genres w
       .prepare(
         'INSERT INTO sample_categories(sample_id, category_id) VALUES (?, ?)',
       )
-      .run(sampleId, categoryId)
+      .run(sampleId, instrumentId)
     original.pragma(`application_id = ${DB_APPLICATION_ID}`)
     original.pragma('user_version = 1')
   } finally {
@@ -510,7 +510,7 @@ test('classification migration preserves an original library and offers Genres w
     )
     assert.deepEqual(
       upgraded.native.prepare('SELECT * FROM sample_categories').get(),
-      { sample_id: sampleId, category_id: categoryId },
+      { sample_id: sampleId, category_id: instrumentId },
     )
     assert.equal(readLocalProfile(upgraded.db).preferences.previewVolume, 0)
     assert.equal(
@@ -533,7 +533,7 @@ test('classification migration preserves an original library and offers Genres w
           "SELECT category_id FROM recognition_vocabulary WHERE key = 'category:kick'",
         )
         .get()?.category_id,
-      categoryId,
+      instrumentId,
     )
   } finally {
     upgraded.close()

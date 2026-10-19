@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict'
 
-export async function verifyCategoriesIpc({ execute }) {
+export async function verifyInstrumentsIpc({ execute }) {
   const call = (method, request) =>
-    execute(`window.api.categories.${method}(${JSON.stringify(request) ?? ''})`)
+    execute(
+      `window.api.instruments.${method}(${JSON.stringify(request) ?? ''})`,
+    )
   const failure = (result, code) => {
     assert.equal(result.ok, false)
     assert.deepEqual(Object.keys(result).sort(), ['error', 'ok'])
@@ -57,10 +59,10 @@ export async function verifyCategoriesIpc({ execute }) {
     ['rename', { id: 'invalid', name: 'Drums' }],
     ['rename', { id, name: '' }],
     ['readSample', { sampleId: '/arbitrary/path.wav' }],
-    ['saveSample', { sampleId: id, token: 'invalid', categoryIds: [] }],
+    ['saveSample', { sampleId: id, token: 'invalid', instrumentIds: [] }],
     [
       'saveSample',
-      { sampleId: id, token: 'a'.repeat(64), categoryIds: [id, id] },
+      { sampleId: id, token: 'a'.repeat(64), instrumentIds: [id, id] },
     ],
   ]) {
     failure(await call(method, request), 'INVALID_INPUT')
