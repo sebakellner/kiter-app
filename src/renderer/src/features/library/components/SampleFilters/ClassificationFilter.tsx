@@ -1,15 +1,18 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { Category } from '@shared/domain/classification'
-import type { CategoryPage } from '@shared/ipc/categories'
+import type { Page } from '@shared/domain/pagination'
 import { unwrapIpcResult } from '@shared/ipc/result'
 import { Combobox } from '@renderer/components/ui/Combobox'
 import { Button } from '@renderer/components/ui/Button'
-import './category-filter.css'
 
-export function CategoryFilter({
+export function ClassificationFilter({
+  kind,
+  input,
   value,
   onChange,
 }: {
+  kind: 'categories' | 'genres'
+  input: React.RefObject<HTMLInputElement | null>
   value: Category[]
   onChange: (value: Category[]) => void
 }): React.JSX.Element {
@@ -18,20 +21,20 @@ export function CategoryFilter({
   const [version, setVersion] = useState(0)
   const [result, setResult] = useState<{
     key: string
-    page: CategoryPage
+    page: Page<Category>
   } | null>(null)
   const [failure, setFailure] = useState<{
     key: string
     message: string
   } | null>(null)
-  const input = useRef<HTMLInputElement>(null)
+  const label = kind === 'categories' ? 'Categories' : 'Genres'
   const key = JSON.stringify([query, offset, version])
   const loading = result?.key !== key && failure?.key !== key
   const error = failure?.key === key ? failure.message : null
 
   useEffect(() => {
     let active = true
-    void window.api.categories
+    void window.api[kind]
       .list({ search: query, offset, limit: 50 })
       .then(unwrapIpcResult)
       .then((page) => {
@@ -46,14 +49,14 @@ export function CategoryFilter({
             message:
               reason instanceof Error
                 ? reason.message
-                : 'Unable to load categories.',
+                : `Unable to load ${kind}.`,
           })
         }
       })
     return () => {
       active = false
     }
-  }, [query, offset, version, key])
+  }, [query, offset, version, key, kind])
 
   function change(ids: string[]): void {
     const available = new Map(
@@ -70,20 +73,15 @@ export function CategoryFilter({
     )
   }
 
-  function remove(id?: string): void {
-    onChange(id ? value.filter((category) => category.id !== id) : [])
-    input.current?.focus()
-  }
-
   return (
-    <section className="category-filter" aria-label="Sample filters">
+    <div>
       <label>
-        Categories
+        {label}
         <Combobox
           ref={input}
           onFocus={() => setVersion((current) => current + 1)}
-          aria-label="Categories"
-          listLabel="Available filter categories"
+          aria-label={label}
+          listLabel={`Available filter ${kind}`}
           multiple
           options={
             error
@@ -106,10 +104,10 @@ export function CategoryFilter({
           loading={loading}
           emptyMessage={
             error
-              ? 'Categories could not be loaded.'
+              ? `${label} could not be loaded.`
               : query
-                ? 'No matching categories.'
-                : 'No categories in your library yet.'
+                ? `No matching ${kind}.`
+                : `No ${kind} in your library yet.`
           }
         />
       </label>
@@ -117,43 +115,26 @@ export function CategoryFilter({
         <p role="alert">
           {error}{' '}
           <Button onClick={() => setVersion((current) => current + 1)}>
-            Retry categories
+            Retry {kind}
           </Button>
         </p>
       )}
       {result && (result.page.total > 50 || offset > 0) && (
-        <nav aria-label="Filter category pages">
+        <nav aria-label={`Filter ${kind} pages`}>
           <Button
             disabled={loading || offset === 0}
             onClick={() => setOffset(Math.max(0, offset - 50))}
           >
-            Previous categories
+            Previous {kind}
           </Button>
           <Button
             disabled={loading || offset + 50 >= result.page.total}
             onClick={() => setOffset(offset + 50)}
           >
-            Next categories
+            Next {kind}
           </Button>
         </nav>
       )}
-      {value.length > 0 && (
-        <div
-          className="category-filter-chips"
-          aria-label="Active category filters"
-        >
-          {value.map((category) => (
-            <Button
-              key={category.id}
-              aria-label={`Remove category filter: ${category.name}`}
-              onClick={() => remove(category.id)}
-            >
-              {category.name} ×
-            </Button>
-          ))}
-          <Button onClick={() => remove()}>Clear all</Button>
-        </div>
-      )}
-    </section>
+    </div>
   )
 }

@@ -11,6 +11,12 @@ import {
   createCategory,
   setCategoryAssignment,
 } from '../classification/operations.ts'
+import {
+  listGenres,
+  setGenreAssignment,
+  removeGenre,
+  reviewGenreRemoval,
+} from '../classification/genres.ts'
 
 test('catalog pages include all roots once, honor presentation names and filter Favorites', (t) => {
   const { db } = createMemoryDatabase(t)
@@ -102,4 +108,87 @@ test('category filters match direct assignments with OR before pagination and co
   assert.throws(() =>
     listCatalogSamples(db, { categoryIds: [kick.id, kick.id] }),
   )
+})
+
+test('genre filters use direct assignments with OR, intersect Categories and Favorites, and count before pagination', (t) => {
+  const { db } = createMemoryDatabase(t)
+  const root = path.resolve('genre-filter')
+  const imported = importFolder(
+    db,
+    root,
+    ['house.wav', 'b.wav', 'c.wav', 'd.wav'].map((name) =>
+      makeDiscoveredAudioFile(root, name),
+    ),
+  )
+  const byName = (name: string): string =>
+    imported.find((sample) => sample.name === name)!.id
+  const house = listGenres(db, { search: 'house' }).items.find(
+    ({ name }) => name === 'House',
+  )!
+  const techno = listGenres(db, { search: 'techno' }).items.find(
+    ({ name }) => name === 'Techno',
+  )!
+  const kick = createCategory(db, { name: 'Kick' })
+  for (const [name, genre] of [
+    ['b.wav', house],
+    ['c.wav', house],
+    ['c.wav', techno],
+    ['d.wav', techno],
+  ] as const) {
+    setGenreAssignment(db, {
+      id: genre.id,
+      target: { kind: 'sample', id: byName(name) },
+      assigned: true,
+    })
+  }
+  for (const name of ['c.wav', 'd.wav']) {
+    setCategoryAssignment(db, {
+      id: kick.id,
+      target: { kind: 'sample', id: byName(name) },
+      assigned: true,
+    })
+  }
+  setFavorite(db, byName('c.wav'), true)
+  const genreIds = [house.id, techno.id]
+  const first = listCatalogSamples(db, { genreIds, limit: 2 })
+  assert.equal(first.total, 3)
+  assert.deepEqual(
+    first.items.map(({ name }) => name),
+    ['b.wav', 'c.wav'],
+  )
+  assert.deepEqual(
+    listCatalogSamples(db, { genreIds, limit: 2, offset: 2 }).items.map(
+      ({ name }) => name,
+    ),
+    ['d.wav'],
+  )
+  assert.deepEqual(
+    listCatalogSamples(db, { genreIds, categoryIds: [kick.id] }).items.map(
+      ({ name }) => name,
+    ),
+    ['c.wav', 'd.wav'],
+  )
+  assert.deepEqual(
+    listCatalogSamples(db, {
+      genreIds,
+      categoryIds: [kick.id],
+      favoritesOnly: true,
+    }).items.map(({ name }) => name),
+    ['c.wav'],
+  )
+  assert.equal(
+    listCatalogSamples(db, {
+      genreIds: ['00000000-0000-4000-8000-000000000099'],
+    }).total,
+    0,
+  )
+  assert.equal(listCatalogSamples(db, { genreIds: [] }).total, 4)
+  assert.throws(() =>
+    listCatalogSamples(db, { genreIds: [house.id, house.id] }),
+  )
+  removeGenre(db, {
+    id: house.id,
+    token: reviewGenreRemoval(db, house.id).token,
+  })
+  assert.equal(listCatalogSamples(db, { genreIds: [house.id] }).total, 0)
 })

@@ -1,4 +1,5 @@
 ---
+name: eval-expert
 description: Designs and runs evaluations of model or prompt quality (datasets, metrics, regressions). Use when changing prompts, models, or AI logic.
 mode: subagent
 model: github-copilot/gpt-6.1-sol

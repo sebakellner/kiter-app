@@ -1,6 +1,7 @@
 ---
+name: reviewer
 description: Reviews recent changes for bugs, security issues, and maintainability. Use after implementing something and before considering the task done.
-mode: subagent
+type: subagent
 model: github-copilot/claude-sonnet-5
 temperature: 0.1
 permission:

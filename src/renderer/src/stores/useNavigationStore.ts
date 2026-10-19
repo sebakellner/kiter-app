@@ -1,9 +1,11 @@
 import { create } from 'zustand'
 import type { Category } from '@shared/domain/classification'
+import type { Genre } from '@shared/domain/recognition'
 
 export type ViewContext = {
   favoritesOnly: boolean
   categories: Category[]
+  genres: Genre[]
   offset: number
   selectedId: string | null
   inspectorOpen: boolean
@@ -13,6 +15,7 @@ export type ViewContext = {
 export const defaultContext: ViewContext = {
   favoritesOnly: false,
   categories: [],
+  genres: [],
   offset: 0,
   selectedId: null,
   inspectorOpen: false,

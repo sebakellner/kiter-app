@@ -1,6 +1,7 @@
 ---
+name: planner
 description: Analyzes a task and proposes a step-by-step implementation plan before any code is written. Use for changes touching multiple files or involving design decisions.
-mode: subagent
+type: subagent
 model: github-copilot/gpt-6.1-sol
 temperature: 0.2
 permission:

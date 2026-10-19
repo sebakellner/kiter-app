@@ -1,4 +1,4 @@
-.category-filter {
+.sample-filters {
   position: sticky;
   top: 0;
   z-index: 1;
@@ -7,9 +7,13 @@
   color: CanvasText;
 }
 
-.category-filter-chips {
+.sample-filters-controls,
+.sample-filters-chips {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
+}
+
+.sample-filters-chips {
   margin-top: 8px;
 }

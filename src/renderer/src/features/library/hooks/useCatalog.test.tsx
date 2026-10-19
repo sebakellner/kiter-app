@@ -102,3 +102,57 @@ test('retry preserves the restored offset after an initial load failure', async 
   expect(result.current.error).toBeNull()
   expect(result.current.loading).toBe(false)
 })
+
+test('changing Genres resets pagination, rejects stale results and retains both filter groups on fallback and retry', async () => {
+  const api = createTestApi()
+  const pending = deferred<IpcResult<LibraryPage>>()
+  api.library.list
+    .mockReturnValueOnce(pending.promise)
+    .mockResolvedValueOnce({ ok: true, data: { ...empty, total: 2 } })
+    .mockResolvedValueOnce({
+      ok: true,
+      data: { ...empty, offset: 50, total: 2 },
+    })
+    .mockResolvedValueOnce({ ok: true, data: { ...empty, total: 2 } })
+    .mockResolvedValueOnce({
+      ok: false,
+      error: { code: 'STORAGE_FAILED', message: 'Catalog unavailable.' },
+    })
+    .mockResolvedValueOnce({
+      ok: true,
+      data: { ...empty, offset: 50, total: 2 },
+    })
+    .mockResolvedValueOnce({ ok: true, data: { ...empty, total: 2 } })
+  vi.stubGlobal('api', api)
+  const { result, rerender } = renderHook(
+    ({ genres }) => useCatalog(true, 0, 50, ['kick'], genres),
+    { initialProps: { genres: ['house'] } },
+  )
+  rerender({ genres: ['techno'] })
+  await waitFor(() => expect(result.current.page?.total).toBe(2))
+  expect(api.library.list).toHaveBeenLastCalledWith({
+    favoritesOnly: true,
+    categoryIds: ['kick'],
+    genreIds: ['techno'],
+    offset: 0,
+  })
+  await act(async () =>
+    pending.resolve({ ok: true, data: { ...empty, offset: 50, total: 99 } }),
+  )
+  expect(result.current.page?.total).toBe(2)
+  act(() => result.current.load(50))
+  await waitFor(() => expect(result.current.loading).toBe(false))
+  expect(result.current.page?.offset).toBe(0)
+  act(() => result.current.refresh())
+  await waitFor(() => expect(result.current.error).toBe('Catalog unavailable.'))
+  expect(result.current.page?.total).toBe(2)
+  act(() => result.current.refresh())
+  await waitFor(() => expect(result.current.loading).toBe(false))
+  expect(result.current.error).toBeNull()
+  expect(api.library.list).toHaveBeenLastCalledWith({
+    favoritesOnly: true,
+    categoryIds: ['kick'],
+    genreIds: ['techno'],
+    offset: 0,
+  })
+})

@@ -1,6 +1,6 @@
 ---
 description: Explores the codebase in read-only mode to answer where something lives or how it works. Use before manually searching across many files.
-mode: subagent
+type: subagent
 model: github-copilot/claude-haiku-5.5
 temperature: 0.1
 permission:
