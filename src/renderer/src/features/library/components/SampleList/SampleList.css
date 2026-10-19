@@ -9,6 +9,47 @@
   cursor: grabbing;
 }
 
+.sample-list li[data-collection-order] {
+  position: relative;
+  cursor: default;
+}
+
+.sample-list li[data-order-dragging='true'] {
+  opacity: 0.55;
+}
+
+.sample-list li[data-order-drop]::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--color-accent);
+  pointer-events: none;
+}
+
+.sample-list li[data-order-drop='before']::before {
+  top: -2px;
+}
+
+.sample-list li[data-order-drop='after']::before {
+  bottom: -2px;
+}
+
+.sample-heading .sample-order-handle {
+  cursor: grab;
+  flex-shrink: 0;
+  padding: 4px 8px;
+}
+
+.sample-heading .sample-order-handle:active {
+  cursor: grabbing;
+}
+
+.sample-heading .sample-order-handle:disabled {
+  cursor: default;
+}
+
 .sample-list [aria-selected='true'] {
   background: var(--color-selection);
   box-shadow: inset 3px 0 var(--color-accent);

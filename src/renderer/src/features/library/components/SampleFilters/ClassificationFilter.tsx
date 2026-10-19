@@ -10,11 +10,13 @@ export function ClassificationFilter({
   input,
   value,
   onChange,
+  disabled = false,
 }: {
   kind: 'instruments' | 'genres'
   input: React.RefObject<HTMLInputElement | null>
   value: Instrument[]
   onChange: (value: Instrument[]) => void
+  disabled?: boolean
 }): React.JSX.Element {
   const [query, setQuery] = useState('')
   const [offset, setOffset] = useState(0)
@@ -77,6 +79,7 @@ export function ClassificationFilter({
     <div>
       <Combobox
         ref={input}
+        disabled={disabled}
         onFocus={() => setVersion((current) => current + 1)}
         aria-label={label}
         placeholder={label}
@@ -112,7 +115,10 @@ export function ClassificationFilter({
       {error && (
         <p role="alert">
           {error}{' '}
-          <Button onClick={() => setVersion((current) => current + 1)}>
+          <Button
+            disabled={disabled}
+            onClick={() => setVersion((current) => current + 1)}
+          >
             Retry {kind}
           </Button>
         </p>
@@ -120,13 +126,13 @@ export function ClassificationFilter({
       {result && (result.page.total > 50 || offset > 0) && (
         <nav aria-label={`Filter ${kind} pages`}>
           <Button
-            disabled={loading || offset === 0}
+            disabled={disabled || loading || offset === 0}
             onClick={() => setOffset(Math.max(0, offset - 50))}
           >
             Previous {kind}
           </Button>
           <Button
-            disabled={loading || offset + 50 >= result.page.total}
+            disabled={disabled || loading || offset + 50 >= result.page.total}
             onClick={() => setOffset(offset + 50)}
           >
             Next {kind}

@@ -5,6 +5,8 @@ import type { PreviewController } from '../../hooks/usePreview'
 import { SampleListRow } from './SampleListRow'
 import { useSampleList } from './useSampleList'
 import type { ListSample } from './useSampleList'
+import type { CollectionDragController } from '@renderer/features/collections/hooks/useCollectionDrag'
+import type { CollectionMoveRequest } from '@shared/domain/collection'
 
 type Props = {
   samples: ListSample[]
@@ -17,6 +19,15 @@ type Props = {
   onRemoveFromCollection?: (sample: ListSample) => void
   membershipPending?: boolean
   onAddToCollection?: (sample: ListSample) => void
+  order?: {
+    drag: CollectionDragController
+    offset: number
+    total: number
+    onMove: (
+      sample: ListSample,
+      direction: CollectionMoveRequest['direction'],
+    ) => void
+  }
 }
 
 export function SampleList({
@@ -30,6 +41,7 @@ export function SampleList({
   onRemoveFromCollection,
   membershipPending = false,
   onAddToCollection,
+  order,
 }: Props): React.JSX.Element {
   const { dragError, previewSample, getRowProps, selectSample } = useSampleList(
     samples,
@@ -65,6 +77,19 @@ export function SampleList({
                 : undefined
             }
             membershipPending={membershipPending}
+            order={
+              order
+                ? {
+                    drag: order.drag,
+                    canMoveUp: order.drag.enabled && order.offset + index > 0,
+                    canMoveDown:
+                      order.drag.enabled &&
+                      order.offset + index < order.total - 1,
+                    select: () => selectSample(sample),
+                    move: (direction) => order.onMove(sample, direction),
+                  }
+                : undefined
+            }
             inspectorOpen={inspectorOpen}
             onInspect={
               onInspect

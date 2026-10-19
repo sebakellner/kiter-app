@@ -31,15 +31,15 @@ export function useShellNavigation(): void {
           : (current + (event.shiftKey ? -1 : 1) + regions.length) %
             regions.length
       const region = regions[next]
+      const available = (selector: string): HTMLElement | undefined =>
+        Array.from(region.querySelectorAll<HTMLElement>(selector)).find(
+          (element) => !element.closest('[inert]'),
+        )
       const target =
-        region.querySelector<HTMLElement>(
-          '[role="row"][aria-selected="true"]',
-        ) ??
-        region.querySelector<HTMLElement>('[role="row"][tabindex="0"]') ??
-        region.querySelector<HTMLElement>('a[aria-current="page"]') ??
-        region.querySelector<HTMLElement>(
-          'button:not(:disabled), a[href], audio',
-        ) ??
+        available('[role="row"][aria-selected="true"]') ??
+        available('[role="row"][tabindex="0"]') ??
+        available('a[aria-current="page"]') ??
+        available('button:not(:disabled), a[href], audio') ??
         region
       event.preventDefault()
       target.focus()

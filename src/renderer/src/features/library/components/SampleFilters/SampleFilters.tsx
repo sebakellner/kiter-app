@@ -23,11 +23,13 @@ export function SampleFilters({
   search,
   onSearchChange,
   onChange,
+  disabled = false,
 }: {
   instruments: Instrument[]
   genres: Genre[]
   sampleTypes: SampleTypeFilter
   search: string
+  disabled?: boolean
   onSearchChange: (value: string) => void
   onChange: (filters: {
     instruments: Instrument[]
@@ -44,6 +46,7 @@ export function SampleFilters({
       <div className="sample-filters-controls">
         <ClassificationFilter
           kind="instruments"
+          disabled={disabled}
           input={instrumentInput}
           value={instruments}
           onChange={(value) =>
@@ -52,6 +55,7 @@ export function SampleFilters({
         />
         <ClassificationFilter
           kind="genres"
+          disabled={disabled}
           input={genreInput}
           value={genres}
           onChange={(value) =>
@@ -59,6 +63,7 @@ export function SampleFilters({
           }
         />
         <Select
+          disabled={disabled}
           aria-label="Sample type"
           ref={typeInput}
           value={sampleTypes[0] ?? 'all'}
@@ -76,6 +81,7 @@ export function SampleFilters({
         </Select>
         <div className="sample-filters-search">
           <Input
+            disabled={disabled}
             ref={searchInput}
             type="search"
             aria-label="Search samples"
@@ -86,6 +92,7 @@ export function SampleFilters({
           />
           {search.length > 0 && (
             <Button
+              disabled={disabled}
               onClick={() => {
                 onSearchChange('')
                 searchInput.current?.focus()
@@ -106,6 +113,7 @@ export function SampleFilters({
           {instruments.map((instrument) => (
             <Button
               key={instrument.id}
+              disabled={disabled}
               aria-label={`Remove instrument filter: ${instrument.name}`}
               onClick={() => {
                 onChange({
@@ -124,6 +132,7 @@ export function SampleFilters({
           {genres.map((genre) => (
             <Button
               key={genre.id}
+              disabled={disabled}
               aria-label={`Remove genre filter: ${genre.name}`}
               onClick={() => {
                 onChange({
@@ -140,6 +149,7 @@ export function SampleFilters({
           {sampleTypes.map((type) => (
             <Button
               key={type}
+              disabled={disabled}
               aria-label={`Remove Sample type filter: ${sampleTypeLabels[type]}`}
               onClick={() => {
                 onChange({
@@ -154,6 +164,7 @@ export function SampleFilters({
             </Button>
           ))}
           <Button
+            disabled={disabled}
             onClick={() => {
               onChange({ instruments: [], genres: [], sampleTypes: [] })
               instrumentInput.current?.focus()

@@ -6,8 +6,51 @@ import { SampleList } from './SampleList'
 import type { PreviewController } from '../../hooks/usePreview'
 import { makeAudioSample } from '../../../../../../../tests/support/fixtures/audio-sample'
 import { createTestApi } from '../../../../../../../tests/support/ui/bridge'
+import {
+  useCollectionDrag,
+  COLLECTION_REORDER_MIME,
+} from '@renderer/features/collections/hooks/useCollectionDrag'
 
 vi.mock('../Waveform', () => ({ Waveform: () => null }))
+
+function transfer(): {
+  types: string[]
+  effectAllowed: string
+  dropEffect: string
+  getData: (type: string) => string
+  setData: (type: string, value: string) => void
+  setDragImage: ReturnType<typeof vi.fn>
+} {
+  const values = new Map<string, string>()
+  return {
+    get types() {
+      return [...values.keys()]
+    },
+    effectAllowed: 'none',
+    dropEffect: 'none',
+    getData: (type) => values.get(type) ?? '',
+    setData: (type, value) => {
+      values.set(type, value)
+    },
+    setDragImage: vi.fn(),
+  }
+}
+
+function dragEvent(
+  target: Element,
+  type: 'dragover' | 'drop',
+  dataTransfer: ReturnType<typeof transfer>,
+  clientY: number,
+): void {
+  // jsdom has no DragEvent constructor; MouseEvent preserves the hit-test coordinates.
+  const event = new MouseEvent(type, {
+    bubbles: true,
+    cancelable: true,
+    clientY,
+  })
+  Object.defineProperty(event, 'dataTransfer', { value: dataTransfer })
+  fireEvent(target, event)
+}
 
 const kick = makeAudioSample()
 const snare = makeAudioSample({
@@ -277,4 +320,84 @@ test('unavailable Sample menus disable audio but keep Info usable and close when
     />,
   )
   expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+})
+
+test('Collection handles reorder with internal drag data and a drop marker without exporting audio; cancellation and external drops do nothing', async () => {
+  const { api, preview } = setup()
+  const onPlace = vi.fn()
+  const onMove = vi.fn()
+  function Ordered({
+    token = 'a'.repeat(64),
+  }: {
+    token?: string
+  }): React.JSX.Element {
+    const [id, onChange] = useState<string | null>(null)
+    const drag = useCollectionDrag({
+      collectionId: 'collection',
+      token,
+      enabled: true,
+      offset: 0,
+      onSelect: (sample) => onChange(sample.id),
+      onPlace,
+    })
+    return (
+      <SampleList
+        samples={[kick, snare]}
+        preview={preview}
+        onFavoriteChanged={vi.fn()}
+        selection={{ id, onChange }}
+        order={{ drag, offset: 0, total: 2, onMove }}
+      />
+    )
+  }
+  const { rerender } = render(<Ordered />)
+  const [first, second] = screen.getAllByRole('row')
+  vi.spyOn(second, 'getBoundingClientRect').mockReturnValue({
+    x: 0,
+    y: 0,
+    top: 0,
+    left: 0,
+    right: 300,
+    bottom: 100,
+    width: 300,
+    height: 100,
+    toJSON: () => ({}),
+  })
+  const handle = within(first).getByRole('button', { name: 'Reorder kick.wav' })
+  const dataTransfer = transfer()
+  fireEvent.dragStart(handle, { dataTransfer })
+  expect(first).toHaveAttribute('aria-selected', 'true')
+  expect(dataTransfer.types).toEqual([COLLECTION_REORDER_MIME])
+  expect(api.library.startDrag).not.toHaveBeenCalled()
+  dragEvent(second, 'dragover', dataTransfer, 25)
+  expect(second).toHaveAttribute('data-order-drop', 'before')
+  expect(onPlace).not.toHaveBeenCalled()
+  dragEvent(second, 'drop', dataTransfer, 25)
+  expect(onPlace).toHaveBeenCalledWith(
+    { id: kick.id, relativePath: kick.relativePath },
+    snare.id,
+    'before',
+    'a'.repeat(64),
+  )
+  expect(second).not.toHaveAttribute('data-order-drop')
+  expect(preview.togglePreview).not.toHaveBeenCalled()
+  onPlace.mockClear()
+  fireEvent.dragStart(handle, { dataTransfer })
+  dragEvent(second, 'dragover', dataTransfer, 75)
+  fireEvent.dragEnd(handle, { dataTransfer })
+  expect(second).not.toHaveAttribute('data-order-drop')
+  expect(onPlace).not.toHaveBeenCalled()
+  const external = transfer()
+  external.setData('Files', '/untrusted.wav')
+  dragEvent(second, 'drop', external, 75)
+  expect(onPlace).not.toHaveBeenCalled()
+  fireEvent.dragStart(handle, { dataTransfer })
+  dragEvent(first, 'drop', dataTransfer, 75)
+  expect(onPlace).not.toHaveBeenCalled()
+  fireEvent.dragStart(handle, { dataTransfer })
+  rerender(<Ordered token={'b'.repeat(64)} />)
+  dragEvent(second, 'drop', dataTransfer, 75)
+  expect(onPlace).not.toHaveBeenCalled()
+  fireEvent.dragStart(within(first).getByTestId('sample-name'))
+  expect(api.library.startDrag).toHaveBeenCalledWith(kick.audioUrl)
 })
