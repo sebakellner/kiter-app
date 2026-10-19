@@ -1,6 +1,19 @@
 import { z } from 'zod'
 import { isEntityId } from '../../domain/validation.ts'
 import { sampleTypeSelectionSchema } from '../classification/schemas.ts'
+import { MAX_CATALOG_SEARCH_LENGTH, normalizeCatalogSearch } from './search.ts'
+
+export const catalogSearchSchema = z
+  .string()
+  .max(MAX_CATALOG_SEARCH_LENGTH, 'Use at most 500 characters to search.')
+  .refine(
+    (value) => !/\p{Cc}/u.test(value.replace(/[\t\n\r]/gu, '')),
+    'Search cannot contain control characters.',
+  )
+  .refine(
+    (value) => normalizeCatalogSearch(value).split(' ').length <= 32,
+    'Use at most 32 search words.',
+  )
 
 export const categoryFilterSchema = z
   .array(z.string().refine(isEntityId))

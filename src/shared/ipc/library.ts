@@ -1,10 +1,12 @@
 import type { AudioFile } from '../domain/source.ts'
 import {
   categoryFilterSchema,
+  catalogSearchSchema,
   genreFilterSchema,
   sampleTypeFilterSchema,
   type SampleTypeFilter,
 } from '../features/library/schemas.ts'
+import { effectiveCatalogSearch } from '../features/library/search.ts'
 import {
   DomainValidationError,
   isEntityId,
@@ -40,6 +42,7 @@ export interface LibraryListRequest extends PageRequest {
   categoryIds?: string[]
   genreIds?: string[]
   sampleTypes?: SampleTypeFilter
+  search?: string
 }
 export type LibraryPage = Page<CatalogAudioSample>
 
@@ -76,12 +79,22 @@ export function requireLibraryListRequest(value: unknown): LibraryListRequest {
       'Invalid Sample type filter. Select unique Loop, One-Shot or Unknown values.',
     )
   }
+  const search = catalogSearchSchema.safeParse(
+    value.search === undefined ? '' : value.search,
+  )
+  if (!search.success) {
+    throw new DomainValidationError(
+      'Invalid search. Use at most 500 characters and 32 words, without control characters.',
+    )
+  }
+  const text = effectiveCatalogSearch(search.data)
   return {
     ...page,
     favoritesOnly: value.favoritesOnly ?? false,
     ...(categories.data.length > 0 ? { categoryIds: categories.data } : {}),
     ...(genres.data.length > 0 ? { genreIds: genres.data } : {}),
     ...(types.data.length > 0 ? { sampleTypes: types.data } : {}),
+    ...(text ? { search: text } : {}),
   }
 }
 
