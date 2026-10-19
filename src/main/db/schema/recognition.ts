@@ -8,9 +8,10 @@ import {
   text,
   uniqueIndex,
 } from 'drizzle-orm/sqlite-core'
-import { categories } from './classification.ts'
+import { instruments } from './classification.ts'
 import { samples } from './samples.ts'
 import { packs } from './packs.ts'
+import { recognitionDimension } from './recognition-dimension.ts'
 
 export const genres = sqliteTable(
   'genres',
@@ -61,13 +62,11 @@ export const recognitionVocabulary = sqliteTable(
   'recognition_vocabulary',
   {
     key: text('key').primaryKey().notNull(),
-    dimension: text('dimension', {
-      enum: ['category', 'genre', 'sample-type'],
-    }).notNull(),
+    dimension: recognitionDimension('dimension').notNull(),
     name: text('name').notNull(),
-    categoryId: text('category_id')
+    instrumentId: text('category_id')
       .unique()
-      .references(() => categories.id, { onDelete: 'set null' }),
+      .references(() => instruments.id, { onDelete: 'set null' }),
     genreId: text('genre_id')
       .unique()
       .references(() => genres.id, { onDelete: 'set null' }),
@@ -84,7 +83,7 @@ export const recognitionVocabulary = sqliteTable(
     ),
     check(
       'vocabulary_target',
-      sql`(${table.categoryId} is null or ${table.dimension} = 'category') and (${table.genreId} is null or ${table.dimension} = 'genre')`,
+      sql`(${table.instrumentId} is null or ${table.dimension} = 'category') and (${table.genreId} is null or ${table.dimension} = 'genre')`,
     ),
     check('vocabulary_name', sql`length(trim(${table.name})) > 0`),
   ],
@@ -100,9 +99,7 @@ export const recognitionAliases = sqliteTable(
     term: text('term').notNull(),
     termKey: text('term_key').notNull(),
     suppliedKey: text('supplied_key').unique(),
-    dimension: text('dimension', {
-      enum: ['category', 'genre', 'sample-type'],
-    }).notNull(),
+    dimension: recognitionDimension('dimension').notNull(),
     deleted: integer('deleted', { mode: 'boolean' }).notNull().default(false),
   },
   (table) => [

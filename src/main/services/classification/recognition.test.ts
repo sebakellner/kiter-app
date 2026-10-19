@@ -134,7 +134,7 @@ test('Vintage Drum Breaks recognizes Drums and Loop from explicit folder clues',
 test('initial vocabulary has stable distinct keys and the approved dimensions', () => {
   assert.equal(
     initialRecognitionVocabulary.filter(
-      ({ target }) => target.dimension === 'category',
+      ({ target }) => target.dimension === 'instrument',
     ).length,
     26,
   )
@@ -156,7 +156,7 @@ test('initial vocabulary has stable distinct keys and the approved dimensions', 
   )
 })
 
-test('Drum Break phrases propose both Categories without implying Loop or a Genre', () => {
+test('Drum Break phrases propose both Instruments without implying Loop or a Genre', () => {
   for (const text of [
     'drum_break.wav',
     'VintageDrumBreaks.wav',
@@ -225,7 +225,7 @@ test('Drum Break phrases propose both Categories without implying Loop or a Genr
 
 test('recognition preserves accents, symbols and letter-number boundaries while normalizing separators and NFC', () => {
   const custom: RecognitionEntry = {
-    target: { dimension: 'category', key: 'custom' },
+    target: { dimension: 'instrument', key: 'custom' },
     name: 'Été',
     aliases: [],
   }
@@ -290,15 +290,23 @@ test('phrases never cross components and independent folder evidence is retained
 
 test('conflicting identities and overlapping phrases omit ambiguous matches but preserve independent matches', () => {
   const entries: RecognitionEntry[] = [
-    { target: { dimension: 'category', key: 'a' }, name: 'Lo-Fi', aliases: [] },
-    { target: { dimension: 'category', key: 'b' }, name: 'Lo Fi', aliases: [] },
     {
-      target: { dimension: 'category', key: 'c' },
+      target: { dimension: 'instrument', key: 'a' },
+      name: 'Lo-Fi',
+      aliases: [],
+    },
+    {
+      target: { dimension: 'instrument', key: 'b' },
+      name: 'Lo Fi',
+      aliases: [],
+    },
+    {
+      target: { dimension: 'instrument', key: 'c' },
       name: 'Red Blue',
       aliases: [],
     },
     {
-      target: { dimension: 'category', key: 'd' },
+      target: { dimension: 'instrument', key: 'd' },
       name: 'Blue Green',
       aliases: [],
     },
@@ -326,7 +334,7 @@ test('conflicting identities and overlapping phrases omit ambiguous matches but 
 test('aliases are dimension-specific and effective vocabulary edits replace supplied terms', () => {
   const matcher = createClassificationRecognizer([
     {
-      target: { dimension: 'category', key: 'renamed' },
+      target: { dimension: 'instrument', key: 'renamed' },
       name: 'Thump',
       aliases: ['BD'],
     },
@@ -439,7 +447,7 @@ test('Sample type prioritizes filename then nearest folder and never falls back 
 
 test('results are deterministic and mutations cannot change compiled vocabulary or later results', () => {
   const entry: RecognitionEntry = {
-    target: { dimension: 'category', key: 'kick' },
+    target: { dimension: 'instrument', key: 'kick' },
     name: 'Kick',
     aliases: [],
   }

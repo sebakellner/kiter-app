@@ -92,7 +92,7 @@ export function isSampleRequest(value: unknown): value is SampleRequest {
           isRecord(input) &&
           isEntityId(input.id) &&
           typeof input.kind === 'string' &&
-          ['collection', 'category', 'genre', 'author', 'root'].includes(
+          ['collection', 'instrument', 'genre', 'author', 'root'].includes(
             input.kind,
           )
         )
@@ -213,7 +213,7 @@ export function isSampleReply(value: unknown): value is SampleReply {
             typeof source.lastErrorCode === 'string' &&
             source.lastErrorCode.length > 0)) &&
         isCount(result.collectionCount) &&
-        isCount(result.categoryCount) &&
+        isCount(result.instrumentCount) &&
         isCount(result.genreCount) &&
         isCount(result.authorCount) &&
         isCount(result.rootCount) &&

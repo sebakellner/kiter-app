@@ -1,6 +1,6 @@
 import type {
   Author,
-  Category,
+  Instrument,
   ClassificationAssignmentRequest,
   ClassificationPage,
   ClassificationPageRequest,
@@ -18,83 +18,83 @@ import {
 import { isEntityId, isRecord } from '../../../shared/domain/validation.ts'
 import { isToken, isPage } from './validation.ts'
 import type {
-  SampleCategoriesRequest,
-  SampleCategoriesSaveRequest,
-  SampleCategoriesSnapshot,
-} from '../../../shared/ipc/sampleCategories.ts'
+  SampleInstrumentsRequest,
+  SampleInstrumentsSaveRequest,
+  SampleInstrumentsSnapshot,
+} from '../../../shared/ipc/sampleInstruments.ts'
 import {
-  requireSampleCategoriesRequest,
-  requireSampleCategoriesSaveRequest,
-  isSampleCategoriesSnapshot,
-} from '../../../shared/ipc/sampleCategories.ts'
+  requireSampleInstrumentsRequest,
+  requireSampleInstrumentsSaveRequest,
+  isSampleInstrumentsSnapshot,
+} from '../../../shared/ipc/sampleInstruments.ts'
 
 export type ClassificationRequest =
-  | { action: 'read-sample-categories'; input: SampleCategoriesRequest }
-  | { action: 'save-sample-categories'; input: SampleCategoriesSaveRequest }
-  | { action: 'create-author' | 'create-category'; input: { name: string } }
+  | { action: 'read-sample-instruments'; input: SampleInstrumentsRequest }
+  | { action: 'save-sample-instruments'; input: SampleInstrumentsSaveRequest }
+  | { action: 'create-author' | 'create-instrument'; input: { name: string } }
   | {
-      action: 'rename-author' | 'rename-category'
+      action: 'rename-author' | 'rename-instrument'
       input: { id: string; name: string }
     }
   | {
       action:
         | 'get-author'
-        | 'get-category'
+        | 'get-instrument'
         | 'review-author-removal'
-        | 'review-category-removal'
+        | 'review-instrument-removal'
       id: string
     }
   | {
-      action: 'list-authors' | 'list-categories'
+      action: 'list-authors' | 'list-instruments'
       input: ClassificationPageRequest
     }
   | {
-      action: 'set-author-assignment' | 'set-category-assignment'
+      action: 'set-author-assignment' | 'set-instrument-assignment'
       input: ClassificationAssignmentRequest
     }
   | {
-      action: 'list-target-authors' | 'list-target-categories'
+      action: 'list-target-authors' | 'list-target-instruments'
       target: ClassificationTarget
       input: ClassificationPageRequest
     }
   | {
-      action: 'list-author-uses' | 'list-category-uses'
+      action: 'list-author-uses' | 'list-instrument-uses'
       input: ClassificationUsesRequest
     }
   | {
-      action: 'remove-author' | 'remove-category'
+      action: 'remove-author' | 'remove-instrument'
       input: ClassificationRemovalRequest
     }
 
 export type ClassificationReply =
   | {
-      action: 'read-sample-categories' | 'save-sample-categories'
-      result: SampleCategoriesSnapshot
+      action: 'read-sample-instruments' | 'save-sample-instruments'
+      result: SampleInstrumentsSnapshot
     }
   | { action: 'create-author' | 'rename-author' | 'get-author'; result: Author }
   | {
-      action: 'create-category' | 'rename-category' | 'get-category'
-      result: Category
+      action: 'create-instrument' | 'rename-instrument' | 'get-instrument'
+      result: Instrument
     }
   | {
       action: 'list-authors' | 'list-target-authors'
       result: ClassificationPage<Author>
     }
   | {
-      action: 'list-categories' | 'list-target-categories'
-      result: ClassificationPage<Category>
+      action: 'list-instruments' | 'list-target-instruments'
+      result: ClassificationPage<Instrument>
     }
   | {
-      action: 'list-author-uses' | 'list-category-uses'
+      action: 'list-author-uses' | 'list-instrument-uses'
       result: ClassificationPage<ClassificationUse>
     }
   | {
-      action: 'review-author-removal' | 'review-category-removal'
+      action: 'review-author-removal' | 'review-instrument-removal'
       result: ClassificationRemovalReview
     }
-  | { action: 'remove-author' | 'remove-category'; result: { id: string } }
+  | { action: 'remove-author' | 'remove-instrument'; result: { id: string } }
   | {
-      action: 'set-author-assignment' | 'set-category-assignment'
+      action: 'set-author-assignment' | 'set-instrument-assignment'
       result: { assigned: boolean }
     }
 
@@ -124,37 +124,37 @@ export function isClassificationRequest(
   }
   const input = value.input
   switch (value.action) {
-    case 'read-sample-categories':
-    case 'save-sample-categories':
+    case 'read-sample-instruments':
+    case 'save-sample-instruments':
       try {
-        if (value.action === 'read-sample-categories') {
-          requireSampleCategoriesRequest(input)
+        if (value.action === 'read-sample-instruments') {
+          requireSampleInstrumentsRequest(input)
         } else {
-          requireSampleCategoriesSaveRequest(input)
+          requireSampleInstrumentsSaveRequest(input)
         }
         return true
       } catch {
         return false
       }
     case 'create-author':
-    case 'create-category':
+    case 'create-instrument':
       return isRecord(input) && isName(input.name)
     case 'rename-author':
-    case 'rename-category':
+    case 'rename-instrument':
       return isRecord(input) && isEntityId(input.id) && isName(input.name)
     case 'get-author':
-    case 'get-category':
+    case 'get-instrument':
     case 'review-author-removal':
-    case 'review-category-removal':
+    case 'review-instrument-removal':
       return isEntityId(value.id)
     case 'list-authors':
-    case 'list-categories':
+    case 'list-instruments':
       return isPageRequest(input)
     case 'list-target-authors':
-    case 'list-target-categories':
+    case 'list-target-instruments':
       return isClassificationTarget(value.target) && isPageRequest(input)
     case 'set-author-assignment':
-    case 'set-category-assignment':
+    case 'set-instrument-assignment':
       return (
         isRecord(input) &&
         isEntityId(input.id) &&
@@ -162,7 +162,7 @@ export function isClassificationRequest(
         typeof input.assigned === 'boolean'
       )
     case 'list-author-uses':
-    case 'list-category-uses':
+    case 'list-instrument-uses':
       return (
         isRecord(input) &&
         isEntityId(input.id) &&
@@ -170,14 +170,14 @@ export function isClassificationRequest(
         isPageRequest(input)
       )
     case 'remove-author':
-    case 'remove-category':
+    case 'remove-instrument':
       return isRecord(input) && isEntityId(input.id) && isToken(input.token)
     default:
       return false
   }
 }
 
-function isEntity(value: unknown): value is Author | Category {
+function isEntity(value: unknown): value is Author | Instrument {
   return (
     isRecord(value) &&
     isEntityId(value.id) &&
@@ -203,32 +203,32 @@ export function isClassificationReply(
   }
   const result = value.result
   switch (value.action) {
-    case 'read-sample-categories':
-    case 'save-sample-categories':
-      return isSampleCategoriesSnapshot(result)
+    case 'read-sample-instruments':
+    case 'save-sample-instruments':
+      return isSampleInstrumentsSnapshot(result)
     case 'create-author':
-    case 'create-category':
+    case 'create-instrument':
     case 'rename-author':
-    case 'rename-category':
+    case 'rename-instrument':
     case 'get-author':
-    case 'get-category':
+    case 'get-instrument':
       return isEntity(result)
     case 'list-authors':
-    case 'list-categories':
+    case 'list-instruments':
     case 'list-target-authors':
-    case 'list-target-categories':
+    case 'list-target-instruments':
       return isPage(result, isEntity)
     case 'list-author-uses':
-    case 'list-category-uses':
+    case 'list-instrument-uses':
       return isPage(result, isUse)
     case 'set-author-assignment':
-    case 'set-category-assignment':
+    case 'set-instrument-assignment':
       return isRecord(result) && typeof result.assigned === 'boolean'
     case 'remove-author':
-    case 'remove-category':
+    case 'remove-instrument':
       return isRecord(result) && isEntityId(result.id)
     case 'review-author-removal':
-    case 'review-category-removal':
+    case 'review-instrument-removal':
       return (
         isRecord(result) &&
         isEntity(result.entity) &&
