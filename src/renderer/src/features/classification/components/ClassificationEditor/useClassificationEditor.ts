@@ -1,18 +1,41 @@
 import { useEffect, useRef, useState } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { sampleCategorySelectionSchema } from '../../schemas'
-import type { SampleCategorySelection } from '../../schemas'
+import { classificationSelectionSchemas } from '../../schemas'
+import type { ClassificationSelection } from '../../schemas'
 import type { Category } from '@shared/domain/classification'
 import type { CategoryPage } from '@shared/ipc/categories'
-import type { SampleCategoriesSnapshot } from '@shared/ipc/sampleCategories'
 import { unwrapIpcResult } from '@shared/ipc/result'
 
-export function useCategoryEditor(
+type AssignmentSnapshot = {
+  sampleId: string
+  token: string
+  categories: Category[]
+}
+
+async function readAssignments(
+  sampleId: string,
+  dimension: 'category' | 'genre',
+): Promise<AssignmentSnapshot> {
+  if (dimension === 'category') {
+    return unwrapIpcResult(await window.api.categories.readSample({ sampleId }))
+  }
+  const snapshot = unwrapIpcResult(
+    await window.api.genres.readSample({ sampleId }),
+  )
+  return {
+    sampleId: snapshot.sampleId,
+    token: snapshot.token,
+    categories: snapshot.genres,
+  }
+}
+
+export function useClassificationEditor(
   sampleId: string,
   onSaved: () => void,
+  dimension: 'category' | 'genre',
 ): {
-  saved: SampleCategoriesSnapshot | null
+  saved: AssignmentSnapshot | null
   selected: Category[]
   search: string
   offset: number
@@ -32,15 +55,16 @@ export function useCategoryEditor(
   move: (value: number) => void
   retryList: () => void
 } {
-  const [saved, setSaved] = useState<SampleCategoriesSnapshot | null>(null)
+  const [saved, setSaved] = useState<AssignmentSnapshot | null>(null)
+  const plural = dimension === 'category' ? 'categories' : 'genres'
   const { control, getValues, setValue, reset, handleSubmit, formState } =
-    useForm<SampleCategorySelection>({
-      resolver: zodResolver(sampleCategorySelectionSchema),
-      defaultValues: { categoryIds: [] },
+    useForm<ClassificationSelection>({
+      resolver: zodResolver(classificationSelectionSchemas[dimension]),
+      defaultValues: { ids: [] },
       mode: 'onBlur',
       reValidateMode: 'onChange',
     })
-  const categoryIds = useWatch({ control, name: 'categoryIds' })
+  const categoryIds = useWatch({ control, name: 'ids' })
   const [knownCategories, setKnownCategories] = useState(
     new Map<string, Category>(),
   )
@@ -71,9 +95,7 @@ export function useCategoryEditor(
 
   useEffect(() => {
     let current = true
-    void window.api.categories
-      .readSample({ sampleId })
-      .then(unwrapIpcResult)
+    void readAssignments(sampleId, dimension)
       .then((snapshot) => {
         if (current) {
           setSaved(snapshot)
@@ -82,7 +104,7 @@ export function useCategoryEditor(
               snapshot.categories.map((category) => [category.id, category]),
             ),
           )
-          reset({ categoryIds: snapshot.categories.map(({ id }) => id).sort() })
+          reset({ ids: snapshot.categories.map(({ id }) => id).sort() })
           setLoading(false)
         }
       })
@@ -91,7 +113,7 @@ export function useCategoryEditor(
           setError(
             reason instanceof Error
               ? reason.message
-              : 'Unable to load saved categories.',
+              : `Unable to load saved ${plural}.`,
           )
           setLoading(false)
         }
@@ -99,11 +121,11 @@ export function useCategoryEditor(
     return () => {
       current = false
     }
-  }, [sampleId, reset])
+  }, [sampleId, reset, dimension, plural])
 
   useEffect(() => {
     let current = true
-    void window.api.categories
+    void window.api[plural]
       .list({ search, offset, limit: 50 })
       .then(unwrapIpcResult)
       .then((result) => {
@@ -117,7 +139,7 @@ export function useCategoryEditor(
           setListError(
             reason instanceof Error
               ? reason.message
-              : 'Unable to list categories.',
+              : `Unable to list ${plural}.`,
           )
           setSearching(false)
         }
@@ -125,7 +147,7 @@ export function useCategoryEditor(
     return () => {
       current = false
     }
-  }, [search, offset, version])
+  }, [search, offset, version, plural])
 
   async function reload(): Promise<void> {
     if (saving.current) {
@@ -133,12 +155,10 @@ export function useCategoryEditor(
     }
     setPending(true)
     try {
-      const snapshot = unwrapIpcResult(
-        await window.api.categories.readSample({ sampleId }),
-      )
+      const snapshot = await readAssignments(sampleId, dimension)
       if (active.current) {
         // Keep the user's intended selection visible for explicit reconciliation.
-        const draftIds = getValues('categoryIds')
+        const draftIds = getValues('ids')
         setKnownCategories(
           (current) =>
             new Map([
@@ -151,10 +171,10 @@ export function useCategoryEditor(
               ),
             ]),
         )
-        reset({ categoryIds: snapshot.categories.map(({ id }) => id).sort() })
+        reset({ ids: snapshot.categories.map(({ id }) => id).sort() })
         setSaved(snapshot)
         if (saved) {
-          setValue('categoryIds', draftIds, {
+          setValue('ids', draftIds, {
             shouldDirty: true,
             shouldValidate: true,
           })
@@ -168,7 +188,7 @@ export function useCategoryEditor(
         setError(
           reason instanceof Error
             ? reason.message
-            : 'Unable to reload saved categories.',
+            : `Unable to reload saved ${plural}.`,
         )
       }
     } finally {
@@ -191,18 +211,34 @@ export function useCategoryEditor(
       setPending(true)
       setError(null)
       try {
-        const snapshot = unwrapIpcResult(
-          await window.api.categories.saveSample({
-            sampleId,
-            token: saved.token,
-            categoryIds: values.categoryIds,
-          }),
-        )
+        const snapshot =
+          dimension === 'category'
+            ? unwrapIpcResult(
+                await window.api.categories.saveSample({
+                  sampleId,
+                  token: saved.token,
+                  categoryIds: values.ids,
+                }),
+              )
+            : await (async (): Promise<AssignmentSnapshot> => {
+                const result = unwrapIpcResult(
+                  await window.api.genres.saveSample({
+                    sampleId,
+                    token: saved.token,
+                    genreIds: values.ids,
+                  }),
+                )
+                return {
+                  sampleId: result.sampleId,
+                  token: result.token,
+                  categories: result.genres,
+                }
+              })()
         if (!active.current) {
           return
         }
         setSaved(snapshot)
-        reset({ categoryIds: snapshot.categories.map(({ id }) => id).sort() })
+        reset({ ids: snapshot.categories.map(({ id }) => id).sort() })
         onSaved()
         succeeded = true
       } catch (reason) {
@@ -210,7 +246,7 @@ export function useCategoryEditor(
           setError(
             reason instanceof Error
               ? reason.message
-              : 'Unable to save categories. Reload saved categories before retrying.',
+              : `Unable to save ${plural}. Reload saved ${plural} before retrying.`,
           )
           setNeedsReload(true)
         }
@@ -238,12 +274,11 @@ export function useCategoryEditor(
     needsReload,
     dirty,
     validationError:
-      formState.errors.categoryIds?.message ??
-      formState.errors.categoryIds?.root?.message,
+      formState.errors.ids?.message ?? formState.errors.ids?.root?.message,
     save,
     reload,
     toggle(category: Category) {
-      const ids = getValues('categoryIds')
+      const ids = getValues('ids')
       setKnownCategories(
         (current) =>
           new Map([
@@ -255,7 +290,7 @@ export function useCategoryEditor(
           ]),
       )
       setValue(
-        'categoryIds',
+        'ids',
         (ids.includes(category.id)
           ? ids.filter((id) => id !== category.id)
           : [...ids, category.id]

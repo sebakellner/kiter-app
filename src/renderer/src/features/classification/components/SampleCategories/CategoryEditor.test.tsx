@@ -2,6 +2,7 @@ import { cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, expect, test, vi } from 'vitest'
 import { CategoryEditor } from './CategoryEditor'
+import { ClassificationEditor } from '../ClassificationEditor/ClassificationEditor'
 import { createTestApi } from '../../../../../../../tests/support/ui/bridge'
 
 const kick = { id: '00000000-0000-4000-8000-000000000001', name: 'Kick' }
@@ -14,7 +15,7 @@ afterEach(() => {
   Reflect.deleteProperty(HTMLDialogElement.prototype, 'close')
 })
 
-function setup(): {
+function setup(dimension: 'category' | 'genre' = 'category'): {
   api: ReturnType<typeof createTestApi>
   onClose: ReturnType<typeof vi.fn>
   onSaved: ReturnType<typeof vi.fn>
@@ -49,18 +50,74 @@ function setup(): {
     ok: true,
     data: { items: [kick, snare], total: 2, limit: 50, offset: 0 },
   })
+  api.genres.readSample.mockResolvedValue({
+    ok: true,
+    data: { sampleId: 'sample', token: 'a'.repeat(64), genres: [kick] },
+  })
+  api.genres.list.mockResolvedValue({
+    ok: true,
+    data: { items: [kick, snare], total: 2, limit: 50, offset: 0 },
+  })
   const onClose = vi.fn()
   const onSaved = vi.fn()
   render(
-    <CategoryEditor
-      sampleId="sample"
-      anchor={document.body}
-      onClose={onClose}
-      onSaved={onSaved}
-    />,
+    dimension === 'category' ? (
+      <CategoryEditor
+        sampleId="sample"
+        anchor={document.body}
+        onClose={onClose}
+        onSaved={onSaved}
+      />
+    ) : (
+      <ClassificationEditor
+        dimension="genre"
+        sampleId="sample"
+        anchor={document.body}
+        onClose={onClose}
+        onSaved={onSaved}
+      />
+    ),
   )
   return { api, onClose, onSaved, user: userEvent.setup() }
 }
+
+test('genre selection uses its own save contract and preserves a stale draft through reload', async () => {
+  const { api, onClose, onSaved, user } = setup('genre')
+  api.genres.saveSample
+    .mockResolvedValueOnce({
+      ok: false,
+      error: { code: 'STALE_REVIEW', message: 'Saved genres changed.' },
+    })
+    .mockResolvedValueOnce({
+      ok: true,
+      data: { sampleId: 'sample', token: 'c'.repeat(64), genres: [snare] },
+    })
+  await user.click(await screen.findByRole('checkbox', { name: 'Kick' }))
+  await user.click(screen.getByRole('checkbox', { name: 'Snare' }))
+  await user.click(screen.getByRole('button', { name: 'Cancel' }))
+  await user.click(screen.getByRole('button', { name: 'Stay' }))
+  await user.click(screen.getByRole('button', { name: 'Save' }))
+  expect(await screen.findByRole('alert')).toHaveTextContent(
+    'Saved genres changed.',
+  )
+  expect(onClose).not.toHaveBeenCalled()
+  expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled()
+  api.genres.readSample.mockResolvedValueOnce({
+    ok: true,
+    data: { sampleId: 'sample', token: 'b'.repeat(64), genres: [] },
+  })
+  await user.click(screen.getByRole('button', { name: 'Reload saved genres' }))
+  expect(screen.getByRole('checkbox', { name: 'Snare' })).toBeChecked()
+  await user.click(screen.getByRole('button', { name: 'Save' }))
+  expect(api.genres.saveSample).toHaveBeenLastCalledWith({
+    sampleId: 'sample',
+    token: 'b'.repeat(64),
+    genreIds: [snare.id],
+  })
+  expect(onSaved).toHaveBeenCalledOnce()
+  expect(onClose).toHaveBeenCalledOnce()
+  expect(api.categories.saveSample).not.toHaveBeenCalled()
+})
 
 test('category changes remain a draft until an atomic save succeeds', async () => {
   const { api, onClose, onSaved, user } = setup()
