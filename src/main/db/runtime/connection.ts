@@ -10,6 +10,7 @@ import { validateCatalog } from './validate.ts'
 import { createProtectiveBackup, type BackupStorage } from './backup.ts'
 import * as schema from '../schema/index.ts'
 import { initializeRecognitionVocabulary } from '../operations/classification/vocabulary.ts'
+import { registerSearchFunctions } from './search-functions.ts'
 
 export type AppDatabase = BetterSQLite3Database<typeof schema>
 
@@ -25,6 +26,7 @@ export function openDatabase(
   const native = new Database(filename, { timeout: 5000 })
   const db = drizzle(native, { schema })
   try {
+    registerSearchFunctions(native)
     native.pragma('foreign_keys = ON')
     applyMigrations(
       native,
