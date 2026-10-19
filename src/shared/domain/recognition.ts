@@ -1,6 +1,6 @@
 import { requireClassificationName } from './classification.ts'
 
-export type RecognitionDimension = 'category' | 'genre' | 'sample-type'
+export type RecognitionDimension = 'instrument' | 'genre' | 'sample-type'
 
 export type VocabularyEntry = {
   key: string

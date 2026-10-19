@@ -15,12 +15,12 @@ export const catalogSearchSchema = z
     'Use at most 32 search words.',
   )
 
-export const categoryFilterSchema = z
+export const instrumentFilterSchema = z
   .array(z.string().refine(isEntityId))
-  .max(100, 'Select at most 100 categories.')
+  .max(100, 'Select at most 100 instruments.')
   .refine(
     (ids) => new Set(ids).size === ids.length,
-    'Select each category only once.',
+    'Select each instrument only once.',
   )
 
 export const genreFilterSchema = z

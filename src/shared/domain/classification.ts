@@ -8,7 +8,7 @@ import {
 import { requirePage } from './pagination.ts'
 import type { Page, PageRequest } from './pagination.ts'
 
-export interface Category {
+export interface Instrument {
   id: string
   name: string
 }
@@ -50,7 +50,7 @@ export interface ClassificationUsesRequest {
 }
 
 export interface ClassificationRemovalReview {
-  entity: Author | Category
+  entity: Author | Instrument
   sampleCount: number
   packCount: number
   linkedProfile: { id: string; name: string } | null

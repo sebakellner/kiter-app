@@ -49,30 +49,30 @@ test('catalog IPC validates bounded pages and distinguishes unavailable audio fr
     { limit: 101 },
     { offset: -1 },
     { favoritesOnly: 'true' },
-    { categoryIds: null },
-    { categoryIds: ['/file.wav'] },
-    { categoryIds: Array.from({ length: 101 }, () => randomUUID()) },
+    { instrumentIds: null },
+    { instrumentIds: ['/file.wav'] },
+    { instrumentIds: Array.from({ length: 101 }, () => randomUUID()) },
     { genreIds: null },
     { genreIds: ['/file.wav'] },
     { genreIds: Array.from({ length: 101 }, () => randomUUID()) },
   ]) {
     assert.throws(() => requireLibraryListRequest(input))
   }
-  const categoryId = randomUUID()
+  const instrumentId = randomUUID()
   const genreId = randomUUID()
   assert.throws(() =>
     requireLibraryListRequest({ genreIds: [genreId, genreId] }),
   )
   assert.deepEqual(
     requireLibraryListRequest({
-      categoryIds: [categoryId],
+      instrumentIds: [instrumentId],
       genreIds: [genreId],
     }),
     {
       limit: 50,
       offset: 0,
       favoritesOnly: false,
-      categoryIds: [categoryId],
+      instrumentIds: [instrumentId],
       genreIds: [genreId],
     },
   )
@@ -81,11 +81,11 @@ test('catalog IPC validates bounded pages and distinguishes unavailable audio fr
     requireLibraryListRequest({}),
   )
   assert.throws(() =>
-    requireLibraryListRequest({ categoryIds: [categoryId, categoryId] }),
+    requireLibraryListRequest({ instrumentIds: [instrumentId, instrumentId] }),
   )
   assert.deepEqual(
-    requireLibraryListRequest({ categoryIds: [categoryId] }).categoryIds,
-    [categoryId],
+    requireLibraryListRequest({ instrumentIds: [instrumentId] }).instrumentIds,
+    [instrumentId],
   )
   const item = {
     id: randomUUID(),
@@ -115,10 +115,10 @@ test('catalog IPC validates bounded pages and distinguishes unavailable audio fr
 })
 
 test('Sample type filters validate fixed unique choices and preserve combined filters', () => {
-  const categoryId = randomUUID()
+  const instrumentId = randomUUID()
   const genreId = randomUUID()
   const request = {
-    categoryIds: [categoryId],
+    instrumentIds: [instrumentId],
     genreIds: [genreId],
     sampleTypes: ['loop', 'one-shot', 'unknown'],
     favoritesOnly: true,

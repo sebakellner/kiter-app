@@ -26,7 +26,7 @@ export type SamplePageRequest = PageRequest
 export type SamplePage<T> = Page<T>
 
 export type SampleReferenceKind =
-  'collection' | 'category' | 'genre' | 'author' | 'root'
+  'collection' | 'instrument' | 'genre' | 'author' | 'root'
 
 export interface SampleReference {
   id: string
@@ -43,7 +43,7 @@ export interface SampleRemovalReview {
   entity: Sample
   source: SampleSource
   collectionCount: number
-  categoryCount: number
+  instrumentCount: number
   genreCount: number
   authorCount: number
   rootCount: number

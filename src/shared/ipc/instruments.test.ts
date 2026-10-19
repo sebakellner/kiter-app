@@ -1,48 +1,48 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import {
-  isCategory,
-  isCategoryPage,
-  requireCategoryCreateRequest,
-  requireCategoryListRequest,
-  requireCategoryRenameRequest,
-} from './categories.ts'
+  isInstrument,
+  isInstrumentPage,
+  requireInstrumentCreateRequest,
+  requireInstrumentListRequest,
+  requireInstrumentRenameRequest,
+} from './instruments.ts'
 import { DomainValidationError } from '../domain/validation.ts'
 import { IpcError, requireIpcResult } from './result.ts'
 
 const id = '00000000-0000-4000-8000-000000000001'
-const category = { id, name: 'Percusión' }
+const instrument = { id, name: 'Percusión' }
 
-test('Category requests reuse Unicode name and bounded literal-search rules', () => {
+test('Instrument requests reuse Unicode name and bounded literal-search rules', () => {
   assert.deepEqual(
-    requireCategoryCreateRequest({ name: ' Percusio\u0301n ' }),
+    requireInstrumentCreateRequest({ name: ' Percusio\u0301n ' }),
     {
       name: 'Percusión',
     },
   )
-  assert.deepEqual(requireCategoryRenameRequest({ id, name: ' DRUMS ' }), {
+  assert.deepEqual(requireInstrumentRenameRequest({ id, name: ' DRUMS ' }), {
     id,
     name: 'DRUMS',
   })
-  assert.deepEqual(requireCategoryListRequest({}), {
+  assert.deepEqual(requireInstrumentListRequest({}), {
     search: '',
     limit: 50,
     offset: 0,
   })
   assert.deepEqual(
-    requireCategoryListRequest({
+    requireInstrumentListRequest({
       search: ' E\u0301_% ',
       limit: 100,
       offset: 2,
     }),
     { search: 'é_%', limit: 100, offset: 2 },
   )
-  assert.deepEqual(requireCategoryCreateRequest({ name: '🎵'.repeat(120) }), {
+  assert.deepEqual(requireInstrumentCreateRequest({ name: '🎵'.repeat(120) }), {
     name: '🎵'.repeat(120),
   })
 })
 
-test('Category requests reject malformed names, identifiers and pages', () => {
+test('Instrument requests reject malformed names, identifiers and pages', () => {
   for (const value of [
     undefined,
     null,
@@ -55,17 +55,17 @@ test('Category requests reject malformed names, identifiers and pages', () => {
     { name: 'a'.repeat(121) },
   ]) {
     assert.throws(
-      () => requireCategoryCreateRequest(value),
+      () => requireInstrumentCreateRequest(value),
       DomainValidationError,
     )
     assert.throws(
-      () => requireCategoryRenameRequest(value),
+      () => requireInstrumentRenameRequest(value),
       DomainValidationError,
     )
   }
   for (const badId of [undefined, null, '', 'invalid', 1]) {
     assert.throws(
-      () => requireCategoryRenameRequest({ id: badId, name: 'Drums' }),
+      () => requireInstrumentRenameRequest({ id: badId, name: 'Drums' }),
       DomainValidationError,
     )
   }
@@ -84,39 +84,42 @@ test('Category requests reject malformed names, identifiers and pages', () => {
     { search: 'a'.repeat(121) },
   ]) {
     assert.throws(
-      () => requireCategoryListRequest(value),
+      () => requireInstrumentListRequest(value),
       DomainValidationError,
     )
   }
 })
 
-test('Category response validation rejects malformed or non-normalized data', () => {
-  assert.equal(isCategory(category), true)
+test('Instrument response validation rejects malformed or non-normalized data', () => {
+  assert.equal(isInstrument(instrument), true)
   for (const value of [
     null,
-    { ...category, id: 'invalid' },
-    { ...category, name: ' Percusión ' },
-    { ...category, name: 'Percusio\u0301n' },
-    { ...category, name: '' },
-    { ...category, name: 1 },
+    { ...instrument, id: 'invalid' },
+    { ...instrument, name: ' Percusión ' },
+    { ...instrument, name: 'Percusio\u0301n' },
+    { ...instrument, name: '' },
+    { ...instrument, name: 1 },
   ]) {
-    assert.equal(isCategory(value), false)
+    assert.equal(isInstrument(value), false)
     assert.throws(
-      () => requireIpcResult({ ok: true, data: value }, isCategory),
+      () => requireIpcResult({ ok: true, data: value }, isInstrument),
       (error: unknown) =>
         error instanceof IpcError && error.code === 'PROTOCOL_ERROR',
     )
   }
 })
 
-test('Category page responses require complete and consistent pagination metadata', () => {
-  const page = { items: [category], total: 1, limit: 50, offset: 0 }
-  assert.deepEqual(requireIpcResult({ ok: true, data: page }, isCategoryPage), {
-    ok: true,
-    data: page,
-  })
+test('Instrument page responses require complete and consistent pagination metadata', () => {
+  const page = { items: [instrument], total: 1, limit: 50, offset: 0 }
+  assert.deepEqual(
+    requireIpcResult({ ok: true, data: page }, isInstrumentPage),
+    {
+      ok: true,
+      data: page,
+    },
+  )
   assert.equal(
-    isCategoryPage({ items: [], total: 0, limit: 50, offset: 10 }),
+    isInstrumentPage({ items: [], total: 0, limit: 50, offset: 10 }),
     true,
   )
   for (const value of [
@@ -132,8 +135,8 @@ test('Category page responses require complete and consistent pagination metadat
     { ...page, limit: 0 },
     { ...page, offset: 1 },
     { ...page, offset: -1 },
-    { ...page, items: [category, category], total: 2, limit: 1 },
+    { ...page, items: [instrument, instrument], total: 2, limit: 1 },
   ]) {
-    assert.equal(isCategoryPage(value), false)
+    assert.equal(isInstrumentPage(value), false)
   }
 })

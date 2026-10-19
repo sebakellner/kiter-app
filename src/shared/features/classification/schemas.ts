@@ -1,24 +1,25 @@
 import { z } from 'zod'
 import { isEntityId } from '../../domain/validation.ts'
 
-export const sampleCategoriesRequestSchema = z.object({
+export const sampleInstrumentsRequestSchema = z.object({
   sampleId: z.string().refine(isEntityId, 'Invalid Sample identifier.'),
 })
 
-export const sampleCategoriesSaveSchema = sampleCategoriesRequestSchema.extend({
-  token: z
-    .string()
-    .regex(/^[a-f0-9]{64}$/u, 'Reload saved categories before saving.'),
-  categoryIds: z
-    .array(z.string().refine(isEntityId, 'Invalid Category identifier.'))
-    .max(1000, 'Select at most 1,000 categories.')
-    .refine(
-      (ids) => new Set(ids).size === ids.length,
-      'Select each category only once.',
-    ),
-})
+export const sampleInstrumentsSaveSchema =
+  sampleInstrumentsRequestSchema.extend({
+    token: z
+      .string()
+      .regex(/^[a-f0-9]{64}$/u, 'Reload saved instruments before saving.'),
+    instrumentIds: z
+      .array(z.string().refine(isEntityId, 'Invalid Instrument identifier.'))
+      .max(1000, 'Select at most 1,000 instruments.')
+      .refine(
+        (ids) => new Set(ids).size === ids.length,
+        'Select each instrument only once.',
+      ),
+  })
 
-export const sampleGenresRequestSchema = sampleCategoriesRequestSchema
+export const sampleGenresRequestSchema = sampleInstrumentsRequestSchema
 
 export const sampleGenresSaveSchema = sampleGenresRequestSchema.extend({
   token: z
@@ -37,7 +38,7 @@ export const sampleTypeSelectionSchema = z.object({
   sampleType: z.enum(['loop', 'one-shot', 'unknown']),
 })
 
-export const sampleTypeRequestSchema = sampleCategoriesRequestSchema
+export const sampleTypeRequestSchema = sampleInstrumentsRequestSchema
 
 export const sampleTypeSaveSchema = sampleTypeRequestSchema.extend({
   token: z

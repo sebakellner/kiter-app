@@ -139,7 +139,7 @@ function isItem(value: unknown): value is ClassificationPreparationItem {
     (value.kind === 'proposal' ||
       value.kind === 'ambiguity' ||
       value.kind === 'assigned') &&
-    (value.dimension === 'category' ||
+    (value.dimension === 'instrument' ||
       value.dimension === 'genre' ||
       value.dimension === 'sample-type') &&
     typeof value.key === 'string' &&
