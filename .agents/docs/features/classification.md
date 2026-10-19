@@ -73,9 +73,10 @@ and equivalent separators should not produce redundant records.
 
 ## Alias and Recognition Identity
 
-The application/API dimension is `instrument`. Existing opaque vocabulary keys
-retain their `category:` prefix, including custom entity keys and supplied alias
-identities. Renaming the domain never regenerates those keys, aliases or UUIDs.
+The application and stored dimension is `instrument`. Vocabulary keys use the
+`instrument:` prefix, including custom entity keys and supplied alias identities.
+These identities remain stable within the current development baseline and its
+future supported upgrades. Pre-baseline prototype catalogs are not imported.
 
 - Supplied vocabulary and aliases have stable catalog keys; Genres and aliases
   have identities independent of names. Track renamed, deleted, and newly offered

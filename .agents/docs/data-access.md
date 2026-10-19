@@ -136,6 +136,15 @@ validation. Apply schema changes through committed migrations.
 
 ## Migrations
 
+The unreleased prototype history has been consolidated into one current
+`0000_library-foundation` baseline with all 22 tables. Earlier development
+catalogs and backups are not supported upgrade/restore inputs. Archive the
+repository-local profile explicitly with `pnpm dev:reset` before using this
+baseline; the next development launch creates a fresh catalog. Archives and
+earlier default-profile databases remain untouched. Never implement automatic
+reset or a silent compatibility fallback. Once a version is distributed, evolve
+its committed history with new migrations rather than rebasing it.
+
 [drizzle.config.ts](../../drizzle.config.ts) points to the TypeScript schema and
 [drizzle](../../drizzle) output. SQL, snapshots, and the journal are committed
 together. Drizzle Kit is development tooling, not a runtime dependency.
@@ -259,10 +268,10 @@ have different responsibilities.
 | `packs`                                          | Imported package, presentation data, cover and unique source-root association.       |
 | `collections`                                    | User-created grouping with optional description and cover.                           |
 | `collection_samples`                             | Duplicate-free Sample references with unique ordered positions.                      |
-| `categories`                                     | Instrument vocabulary (legacy physical table name), unique normalized name keys.     |
+| `instruments`                                    | Shared Instrument vocabulary, unique normalized name keys.                           |
 | `genres` / `sample_genres` / `pack_genres`       | Musical-style vocabulary and independent direct Sample/Pack assignments.             |
 | `recognition_vocabulary` / `recognition_aliases` | Stable recognition mappings, offered/retired terms and editable aliases.             |
-| `sample_categories` / `pack_categories`          | Independent direct classifications.                                                  |
+| `sample_instruments` / `pack_instruments`        | Independent direct Instrument classifications.                                       |
 | `authors` / `pack_authors` / `sample_authors`    | Explicit independent credits; homonyms allowed, no roles.                            |
 | `excluded_sources`                               | Library-wide canonical-location exclusions.                                          |
 | `image_assets`                                   | Shared managed cover/avatar metadata and cleanup state.                              |
@@ -270,21 +279,13 @@ have different responsibilities.
 No account User, Library, Favorite, or Pack-membership table is needed.
 Do not add Kits, Tags, named favorite lists, or speculative analysis tables.
 
-### Instrument Storage Compatibility
+### Instrument Storage
 
-Instrument replaces Category in domain types, renderer state/routes, IPC and
-worker contracts. This is a terminology change, not a new entity or taxonomy.
-Drizzle's `instruments`, `sampleInstruments`, `packInstruments` and `instrumentId`
-properties map to the existing `categories`, `sample_categories`,
-`pack_categories` and `category_id` SQL identifiers. Existing constraints/indexes,
-migration history, UUIDs and assignments remain unchanged; no migration is needed.
-
-Recognition columns use a typed storage adapter: application dimension
-`instrument` reads/writes the existing stored `category` value. Opaque vocabulary
-keys retain `category:` prefixes so initialization cannot mistake existing or
-deleted entries for new defaults. Supplied alias keys, custom aliases, edits and
-reassignments remain intact. Do not rename these storage values/keys by text
-replacement. Restored catalogs use the same adapter on normal database open.
+Instrument terminology is used directly in domain types, renderer state/routes,
+IPC, worker contracts and SQL. `instruments`, `sample_instruments`,
+`pack_instruments` and `instrument_id` need no legacy-name mapping. Recognition
+stores the `instrument` dimension and uses `instrument:` vocabulary/alias keys.
+There is no Category adapter or compatibility migration for pre-baseline data.
 
 ### Service-Level Invariants
 
