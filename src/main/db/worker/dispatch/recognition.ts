@@ -1,4 +1,8 @@
 import type { AppDatabase } from '../../runtime/connection.ts'
+import {
+  readSampleType,
+  saveSampleType,
+} from '../../operations/classification/sample-type.ts'
 import type {
   RecognitionRequest,
   RecognitionReply,
@@ -21,6 +25,16 @@ export function executeRecognition(
   request: RecognitionRequest,
 ): RecognitionReply {
   switch (request.action) {
+    case 'read-sample-type':
+      return {
+        action: request.action,
+        result: readSampleType(db, request.input),
+      }
+    case 'save-sample-type':
+      return {
+        action: request.action,
+        result: saveSampleType(db, request.input),
+      }
     case 'read-sample-genres':
       return {
         action: request.action,

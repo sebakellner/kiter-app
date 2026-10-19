@@ -10,6 +10,7 @@ import {
 } from '@shared/ipc/library'
 import { requireIpcResult } from '@shared/ipc/result'
 import { isSampleCategoriesSnapshot } from '@shared/ipc/sampleCategories'
+import { isSampleTypeSnapshot } from '@shared/ipc/sampleType'
 import {
   GENRE_CHANNELS,
   isGenrePage,
@@ -59,6 +60,22 @@ const api: Api = {
     },
   },
   classification: {
+    readSampleType: async (request) =>
+      requireIpcResult(
+        await ipcRenderer.invoke(
+          CLASSIFICATION_CHANNELS.readSampleType,
+          request,
+        ),
+        isSampleTypeSnapshot,
+      ),
+    saveSampleType: async (request) =>
+      requireIpcResult(
+        await ipcRenderer.invoke(
+          CLASSIFICATION_CHANNELS.saveSampleType,
+          request,
+        ),
+        isSampleTypeSnapshot,
+      ),
     applySample: async (request) =>
       requireIpcResult(
         await ipcRenderer.invoke(CLASSIFICATION_CHANNELS.applySample, request),

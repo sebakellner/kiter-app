@@ -1,5 +1,15 @@
 import { isEntityId, isRecord } from '../../../shared/domain/validation.ts'
 import {
+  requireSampleTypeRequest,
+  requireSampleTypeSaveRequest,
+  isSampleTypeSnapshot,
+} from '../../../shared/ipc/sampleType.ts'
+import type {
+  SampleTypeRequest,
+  SampleTypeSaveRequest,
+  SampleTypeSnapshot,
+} from '../../../shared/ipc/sampleType.ts'
+import {
   requireSampleGenresRequest,
   requireSampleGenresSaveRequest,
   isSampleGenresSnapshot,
@@ -55,6 +65,8 @@ import type {
 } from '../../../shared/ipc/classification.ts'
 
 export type RecognitionRequest =
+  | { action: 'read-sample-type'; input: SampleTypeRequest }
+  | { action: 'save-sample-type'; input: SampleTypeSaveRequest }
   | { action: 'read-sample-genres'; input: SampleGenresRequest }
   | { action: 'save-sample-genres'; input: SampleGenresSaveRequest }
   | { action: 'apply-sample-classification'; input: ClassificationApplyRequest }
@@ -85,6 +97,10 @@ export type RecognitionRequest =
   | { action: 'remove-recognition-alias'; id: string }
 
 export type RecognitionReply =
+  | {
+      action: 'read-sample-type' | 'save-sample-type'
+      result: SampleTypeSnapshot
+    }
   | {
       action: 'read-sample-genres' | 'save-sample-genres'
       result: SampleGenresSnapshot
@@ -117,6 +133,12 @@ export function isRecognitionRequest(
   const input = value.input
   try {
     switch (value.action) {
+      case 'read-sample-type':
+        requireSampleTypeRequest(input)
+        return true
+      case 'save-sample-type':
+        requireSampleTypeSaveRequest(input)
+        return true
       case 'read-sample-genres':
         requireSampleGenresRequest(input)
         return true
@@ -226,6 +248,9 @@ export function isRecognitionReply(value: unknown): value is RecognitionReply {
   }
   const result = value.result
   switch (value.action) {
+    case 'read-sample-type':
+    case 'save-sample-type':
+      return isSampleTypeSnapshot(result)
     case 'read-sample-genres':
     case 'save-sample-genres':
       return isSampleGenresSnapshot(result)

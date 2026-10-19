@@ -9,8 +9,44 @@ import { requireMainFrameWindow } from './authorize'
 import { invokeResult } from './result'
 import { requirePage } from '../../shared/domain/pagination'
 import { requireAliasUpdateRequest } from '../../shared/ipc/aliasUpdates'
+import {
+  requireSampleTypeRequest,
+  requireSampleTypeSaveRequest,
+} from '../../shared/ipc/sampleType'
 
 export function registerClassificationIpc(database: DbClient): void {
+  ipcMain.handle(
+    CLASSIFICATION_CHANNELS.readSampleType,
+    (event, request: unknown) =>
+      invokeResult(
+        'classification.read-sample-type',
+        {
+          code: 'STORAGE_FAILED',
+          message:
+            'Unable to load saved Sample type. Retry to read the catalog again.',
+        },
+        () => {
+          requireMainFrameWindow(event)
+          return database.readSampleType(requireSampleTypeRequest(request))
+        },
+      ),
+  )
+  ipcMain.handle(
+    CLASSIFICATION_CHANNELS.saveSampleType,
+    (event, request: unknown) =>
+      invokeResult(
+        'classification.save-sample-type',
+        {
+          code: 'STORAGE_FAILED',
+          message:
+            'Unable to save Sample type. Your draft was preserved; reload saved type before retrying.',
+        },
+        () => {
+          requireMainFrameWindow(event)
+          return database.saveSampleType(requireSampleTypeSaveRequest(request))
+        },
+      ),
+  )
   ipcMain.handle(
     CLASSIFICATION_CHANNELS.applySample,
     (event, request: unknown) =>
