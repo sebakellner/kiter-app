@@ -4,6 +4,84 @@ import { writeFile, rename, realpath, readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { createWav } from '../support/fixtures/wav.mjs'
 
+test('category filters combine saved assignments with Favorites and restore independently during navigation', async ({
+  kiter,
+}) => {
+  const library = new LibraryPage(kiter.page)
+  await kiter.selectFolder(kiter.samples)
+  await library.openFolder()
+  for (const name of ['kick', 'snare']) {
+    await library
+      .row(`${name}.wav`)
+      .getByRole('button', { name: `Info: ${name}.wav`, exact: true })
+      .click()
+    const inspector = kiter.page.getByRole('complementary', {
+      name: 'Sample info',
+    })
+    await inspector
+      .getByRole('button', {
+        name: `Apply ${name === 'kick' ? 'Kick' : 'Snare'}`,
+        exact: true,
+      })
+      .click()
+    await expect(inspector).toContainText('Classifications saved.')
+  }
+  await library.row('kick.wav').getByTestId('favorite-toggle').click()
+  await kiter.page
+    .getByRole('complementary', { name: 'Sample info' })
+    .getByRole('button', { name: 'Close inspector' })
+    .click()
+  // Refresh vocabulary options after creating Categories through accepted suggestions.
+  await kiter.page.getByRole('link', { name: 'Home', exact: true }).click()
+  await kiter.page.getByRole('link', { name: 'Samples', exact: true }).click()
+  const input = kiter.page.getByRole('combobox', {
+    name: 'Categories',
+    exact: true,
+  })
+  await input.click()
+  await kiter.page.getByRole('option', { name: 'Kick', exact: true }).click()
+  await expect(kiter.page.getByTestId('sample-name')).toHaveText(['kick.wav'])
+  await expect(input).toBeFocused()
+  await kiter.page.getByRole('option', { name: 'Snare', exact: true }).click()
+  await expect(kiter.page.getByTestId('sample-name')).toHaveText([
+    'kick.wav',
+    'snare.wav',
+  ])
+  await kiter.page.getByRole('link', { name: 'Favorites', exact: true }).click()
+  await expect(
+    kiter.page.getByRole('button', { name: 'Clear all', exact: true }),
+  ).toHaveCount(0)
+  await input.click()
+  await kiter.page.getByRole('option', { name: 'Snare', exact: true }).click()
+  await expect(kiter.page.getByTestId('sample-name')).toHaveCount(0)
+  await expect(
+    kiter.page.getByText('No samples match these categories.', {
+      exact: false,
+    }),
+  ).toBeVisible()
+  await kiter.page.getByRole('link', { name: 'Samples', exact: true }).click()
+  await expect(
+    kiter.page.getByRole('button', {
+      name: 'Remove category filter: Kick',
+      exact: true,
+    }),
+  ).toBeVisible()
+  await expect(
+    kiter.page.getByRole('button', {
+      name: 'Remove category filter: Snare',
+      exact: true,
+    }),
+  ).toBeVisible()
+  await kiter.page
+    .getByRole('button', { name: 'Clear all', exact: true })
+    .click()
+  await expect(kiter.page.getByTestId('sample-name')).toHaveText([
+    'kick.wav',
+    'snare.wav',
+  ])
+  await expect(kiter.page.locator('audio')).not.toHaveAttribute('src')
+})
+
 test('Sample type changes override saved suggestions and Unknown allows fresh proposals after restart', async ({
   kiter,
 }) => {

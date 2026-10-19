@@ -49,9 +49,20 @@ test('catalog IPC validates bounded pages and distinguishes unavailable audio fr
     { limit: 101 },
     { offset: -1 },
     { favoritesOnly: 'true' },
+    { categoryIds: null },
+    { categoryIds: ['/file.wav'] },
+    { categoryIds: Array.from({ length: 101 }, () => randomUUID()) },
   ]) {
     assert.throws(() => requireLibraryListRequest(input))
   }
+  const categoryId = randomUUID()
+  assert.throws(() =>
+    requireLibraryListRequest({ categoryIds: [categoryId, categoryId] }),
+  )
+  assert.deepEqual(
+    requireLibraryListRequest({ categoryIds: [categoryId] }).categoryIds,
+    [categoryId],
+  )
   const item = {
     id: randomUUID(),
     favorite: true,
