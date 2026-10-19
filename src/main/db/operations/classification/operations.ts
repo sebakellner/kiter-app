@@ -14,7 +14,7 @@ import {
 } from '../../../../shared/domain/classification.ts'
 import type {
   Author,
-  Category,
+  Instrument,
   ClassificationPage,
   ClassificationPageRequest,
   ClassificationAssignmentRequest,
@@ -30,11 +30,11 @@ import {
 } from '../../../../shared/domain/validation.ts'
 import {
   authors,
-  categories,
+  instruments,
   sampleAuthors,
   packAuthors,
-  sampleCategories,
-  packCategories,
+  sampleInstruments,
+  packInstruments,
 } from '../../schema/classification.ts'
 import { samples, sampleSources } from '../../schema/samples.ts'
 import { packs } from '../../schema/packs.ts'
@@ -89,15 +89,15 @@ export function getAuthor(db: AppDatabase, id: string): Author {
   return row
 }
 
-export function getCategory(db: AppDatabase, id: string): Category {
+export function getInstrument(db: AppDatabase, id: string): Instrument {
   requireEntityId(id)
   const row = db
-    .select({ id: categories.id, name: categories.name })
-    .from(categories)
-    .where(eq(categories.id, id))
+    .select({ id: instruments.id, name: instruments.name })
+    .from(instruments)
+    .where(eq(instruments.id, id))
     .get()
   if (!row) {
-    throw new DbError('NOT_FOUND', 'The Category no longer exists.')
+    throw new DbError('NOT_FOUND', 'The Instrument no longer exists.')
   }
   return row
 }
@@ -129,76 +129,76 @@ export function renameAuthor(
   return row
 }
 
-function requireUniqueCategory(
+function requireUniqueInstrument(
   db: AppDatabase,
   nameKey: string,
   ownId?: string,
 ): void {
   const existing = db
-    .select({ id: categories.id })
-    .from(categories)
-    .where(eq(categories.nameKey, nameKey))
+    .select({ id: instruments.id })
+    .from(instruments)
+    .where(eq(instruments.nameKey, nameKey))
     .get()
   if (existing && existing.id !== ownId) {
     throw new DbError(
       'NAME_CONFLICT',
-      'A Category with this name already exists.',
+      'An Instrument with this name already exists.',
     )
   }
 }
 
-export function createCategory(
+export function createInstrument(
   db: AppDatabase,
   input: { name: string },
-): Category {
+): Instrument {
   const name = requireClassificationName(input.name)
   const nameKey = normalizeName(name)
   return db.transaction(
     () => {
-      requireUniqueCategory(db, nameKey)
+      requireUniqueInstrument(db, nameKey)
       const offered = db
         .select()
         .from(recognitionVocabulary)
-        .where(eq(recognitionVocabulary.dimension, 'category'))
+        .where(eq(recognitionVocabulary.dimension, 'instrument'))
         .all()
         .find(
           (row) =>
-            row.categoryId === null &&
+            row.instrumentId === null &&
             row.state !== 'deleted' &&
             normalizeName(row.name) === nameKey,
         )
-      requireRecognitionNameAvailable(db, 'category', name, offered?.key)
+      requireRecognitionNameAvailable(db, 'instrument', name, offered?.key)
       const entity = { id: randomUUID(), name }
-      db.insert(categories)
+      db.insert(instruments)
         .values({ ...entity, nameKey })
         .run()
-      registerVocabularyEntity(db, 'category', entity)
+      registerVocabularyEntity(db, 'instrument', entity)
       return entity
     },
     { behavior: 'immediate' },
   )
 }
 
-export function renameCategory(
+export function renameInstrument(
   db: AppDatabase,
   input: { id: string; name: string },
-): Category {
+): Instrument {
   requireEntityId(input.id)
   const name = requireClassificationName(input.name)
   const nameKey = normalizeName(name)
   return db.transaction(
     () => {
-      getCategory(db, input.id)
-      requireUniqueCategory(db, nameKey, input.id)
+      getInstrument(db, input.id)
+      requireUniqueInstrument(db, nameKey, input.id)
       const vocabulary = db
         .select()
         .from(recognitionVocabulary)
-        .where(eq(recognitionVocabulary.categoryId, input.id))
+        .where(eq(recognitionVocabulary.instrumentId, input.id))
         .get()
-      requireRecognitionNameAvailable(db, 'category', name, vocabulary?.key)
-      db.update(categories)
+      requireRecognitionNameAvailable(db, 'instrument', name, vocabulary?.key)
+      db.update(instruments)
         .set({ name, nameKey })
-        .where(eq(categories.id, input.id))
+        .where(eq(instruments.id, input.id))
         .run()
       if (vocabulary) {
         db.update(recognitionVocabulary)
@@ -234,22 +234,22 @@ export function listAuthors(
   }))
 }
 
-export function listCategories(
+export function listInstruments(
   db: AppDatabase,
   input: ClassificationPageRequest = {},
-): ClassificationPage<Category> {
+): ClassificationPage<Instrument> {
   const page = requireClassificationPage(input)
-  const filter = sql`instr(${categories.nameKey}, ${page.search}) > 0`
+  const filter = sql`instr(${instruments.nameKey}, ${page.search}) > 0`
   return db.transaction(() => ({
     items: db
-      .select({ id: categories.id, name: categories.name })
-      .from(categories)
+      .select({ id: instruments.id, name: instruments.name })
+      .from(instruments)
       .where(filter)
-      .orderBy(asc(categories.nameKey), asc(categories.id))
+      .orderBy(asc(instruments.nameKey), asc(instruments.id))
       .limit(page.limit)
       .offset(page.offset)
       .all(),
-    total: db.select({ count: count() }).from(categories).where(filter).get()!
+    total: db.select({ count: count() }).from(instruments).where(filter).get()!
       .count,
     limit: page.limit,
     offset: page.offset,
@@ -308,7 +308,7 @@ export function setAuthorAssignment(
   )
 }
 
-export function setCategoryAssignment(
+export function setInstrumentAssignment(
   db: AppDatabase,
   input: ClassificationAssignmentRequest,
 ): { assigned: boolean } {
@@ -319,36 +319,36 @@ export function setCategoryAssignment(
   }
   return db.transaction(
     () => {
-      getCategory(db, input.id)
+      getInstrument(db, input.id)
       requireExistingTarget(db, input.target)
       if (input.target.kind === 'sample') {
         if (input.assigned) {
-          db.insert(sampleCategories)
-            .values({ sampleId: input.target.id, categoryId: input.id })
+          db.insert(sampleInstruments)
+            .values({ sampleId: input.target.id, instrumentId: input.id })
             .onConflictDoNothing()
             .run()
         } else {
-          db.delete(sampleCategories)
+          db.delete(sampleInstruments)
             .where(
               and(
-                eq(sampleCategories.sampleId, input.target.id),
-                eq(sampleCategories.categoryId, input.id),
+                eq(sampleInstruments.sampleId, input.target.id),
+                eq(sampleInstruments.instrumentId, input.id),
               ),
             )
             .run()
         }
       } else {
         if (input.assigned) {
-          db.insert(packCategories)
-            .values({ packId: input.target.id, categoryId: input.id })
+          db.insert(packInstruments)
+            .values({ packId: input.target.id, instrumentId: input.id })
             .onConflictDoNothing()
             .run()
         } else {
-          db.delete(packCategories)
+          db.delete(packInstruments)
             .where(
               and(
-                eq(packCategories.packId, input.target.id),
-                eq(packCategories.categoryId, input.id),
+                eq(packInstruments.packId, input.target.id),
+                eq(packInstruments.instrumentId, input.id),
               ),
             )
             .run()
@@ -394,34 +394,37 @@ export function listTargetAuthors(
   })
 }
 
-export function listTargetCategories(
+export function listTargetInstruments(
   db: AppDatabase,
   target: ClassificationTarget,
   input: ClassificationPageRequest = {},
-): ClassificationPage<Category> {
+): ClassificationPage<Instrument> {
   requireTarget(target)
   const page = requireClassificationPage(input)
   return db.transaction(() => {
     requireExistingTarget(db, target)
     const assigned =
       target.kind === 'sample'
-        ? sql`exists (select 1 from ${sampleCategories} where ${sampleCategories.categoryId} = ${categories.id} and ${sampleCategories.sampleId} = ${target.id})`
-        : sql`exists (select 1 from ${packCategories} where ${packCategories.categoryId} = ${categories.id} and ${packCategories.packId} = ${target.id})`
+        ? sql`exists (select 1 from ${sampleInstruments} where ${sampleInstruments.instrumentId} = ${instruments.id} and ${sampleInstruments.sampleId} = ${target.id})`
+        : sql`exists (select 1 from ${packInstruments} where ${packInstruments.instrumentId} = ${instruments.id} and ${packInstruments.packId} = ${target.id})`
     const filter = and(
       assigned,
-      sql`instr(${categories.nameKey}, ${page.search}) > 0`,
+      sql`instr(${instruments.nameKey}, ${page.search}) > 0`,
     )
     return {
       items: db
-        .select({ id: categories.id, name: categories.name })
-        .from(categories)
+        .select({ id: instruments.id, name: instruments.name })
+        .from(instruments)
         .where(filter)
-        .orderBy(categories.nameKey, categories.id)
+        .orderBy(instruments.nameKey, instruments.id)
         .limit(page.limit)
         .offset(page.offset)
         .all(),
-      total: db.select({ count: count() }).from(categories).where(filter).get()!
-        .count,
+      total: db
+        .select({ count: count() })
+        .from(instruments)
+        .where(filter)
+        .get()!.count,
       limit: page.limit,
       offset: page.offset,
     }
@@ -431,7 +434,7 @@ export function listTargetCategories(
 function listUses(
   db: AppDatabase,
   input: ClassificationUsesRequest,
-  kind: 'author' | 'category',
+  kind: 'author' | 'instrument',
 ): ClassificationPage<ClassificationUse> {
   requireEntityId(input.id)
   const page = requireClassificationPage(input)
@@ -442,13 +445,13 @@ function listUses(
     if (kind === 'author') {
       getAuthor(db, input.id)
     } else {
-      getCategory(db, input.id)
+      getInstrument(db, input.id)
     }
     if (input.kind === 'pack') {
       const filter =
         kind === 'author'
           ? sql`exists (select 1 from ${packAuthors} where ${packAuthors.packId} = ${packs.id} and ${packAuthors.authorId} = ${input.id})`
-          : sql`exists (select 1 from ${packCategories} where ${packCategories.packId} = ${packs.id} and ${packCategories.categoryId} = ${input.id})`
+          : sql`exists (select 1 from ${packInstruments} where ${packInstruments.packId} = ${packs.id} and ${packInstruments.instrumentId} = ${input.id})`
       return {
         items: db
           .select({ id: packs.id, name: packs.name })
@@ -467,7 +470,7 @@ function listUses(
     const filter =
       kind === 'author'
         ? sql`exists (select 1 from ${sampleAuthors} where ${sampleAuthors.sampleId} = ${samples.id} and ${sampleAuthors.authorId} = ${input.id})`
-        : sql`exists (select 1 from ${sampleCategories} where ${sampleCategories.sampleId} = ${samples.id} and ${sampleCategories.categoryId} = ${input.id})`
+        : sql`exists (select 1 from ${sampleInstruments} where ${sampleInstruments.sampleId} = ${samples.id} and ${sampleInstruments.instrumentId} = ${input.id})`
     const rows = db
       .select({
         id: samples.id,
@@ -501,25 +504,25 @@ export function listAuthorUses(
   return listUses(db, input, 'author')
 }
 
-export function listCategoryUses(
+export function listInstrumentUses(
   db: AppDatabase,
   input: ClassificationUsesRequest,
 ): ClassificationPage<ClassificationUse> {
-  return listUses(db, input, 'category')
+  return listUses(db, input, 'instrument')
 }
 
 function reviewRemoval(
   db: AppDatabase,
   id: string,
-  kind: 'author' | 'category',
+  kind: 'author' | 'instrument',
 ): ClassificationRemovalReview {
-  const entity = kind === 'author' ? getAuthor(db, id) : getCategory(db, id)
+  const entity = kind === 'author' ? getAuthor(db, id) : getInstrument(db, id)
   const hash = createReviewHash(kind, entity)
-  if (kind === 'category') {
+  if (kind === 'instrument') {
     const target = db
       .select()
       .from(recognitionVocabulary)
-      .where(eq(recognitionVocabulary.categoryId, id))
+      .where(eq(recognitionVocabulary.instrumentId, id))
       .get()
     if (target) {
       hash.update(
@@ -582,29 +585,29 @@ function reviewRemoval(
   } else {
     sampleCount = hashUses('sample', (after) =>
       db
-        .select({ id: sampleCategories.sampleId })
-        .from(sampleCategories)
+        .select({ id: sampleInstruments.sampleId })
+        .from(sampleInstruments)
         .where(
           and(
-            eq(sampleCategories.categoryId, id),
-            gt(sampleCategories.sampleId, after),
+            eq(sampleInstruments.instrumentId, id),
+            gt(sampleInstruments.sampleId, after),
           ),
         )
-        .orderBy(sampleCategories.sampleId)
+        .orderBy(sampleInstruments.sampleId)
         .limit(500)
         .all(),
     )
     packCount = hashUses('pack', (after) =>
       db
-        .select({ id: packCategories.packId })
-        .from(packCategories)
+        .select({ id: packInstruments.packId })
+        .from(packInstruments)
         .where(
           and(
-            eq(packCategories.categoryId, id),
-            gt(packCategories.packId, after),
+            eq(packInstruments.instrumentId, id),
+            gt(packInstruments.packId, after),
           ),
         )
-        .orderBy(packCategories.packId)
+        .orderBy(packInstruments.packId)
         .limit(500)
         .all(),
     )
@@ -634,11 +637,11 @@ export function reviewAuthorRemoval(
   return db.transaction(() => reviewRemoval(db, id, 'author'))
 }
 
-export function reviewCategoryRemoval(
+export function reviewInstrumentRemoval(
   db: AppDatabase,
   id: string,
 ): ClassificationRemovalReview {
-  return db.transaction(() => reviewRemoval(db, id, 'category'))
+  return db.transaction(() => reviewRemoval(db, id, 'instrument'))
 }
 
 export function removeAuthor(
@@ -662,7 +665,7 @@ export function removeAuthor(
   )
 }
 
-export function removeCategory(
+export function removeInstrument(
   db: AppDatabase,
   input: ClassificationRemovalRequest,
 ): { id: string } {
@@ -670,14 +673,14 @@ export function removeCategory(
   requireReviewToken(input.token)
   return db.transaction(
     () => {
-      if (reviewRemoval(db, input.id, 'category').token !== input.token) {
+      if (reviewRemoval(db, input.id, 'instrument').token !== input.token) {
         throw new DbError(
           'STALE_REVIEW',
-          'Category uses changed. Review them again before removing.',
+          'Instrument uses changed. Review them again before removing.',
         )
       }
-      retireVocabularyEntity(db, 'category', input.id)
-      db.delete(categories).where(eq(categories.id, input.id)).run()
+      retireVocabularyEntity(db, 'instrument', input.id)
+      db.delete(instruments).where(eq(instruments.id, input.id)).run()
       return { id: input.id }
     },
     { behavior: 'immediate' },

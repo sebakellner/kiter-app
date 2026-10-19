@@ -8,11 +8,11 @@ import {
 } from '../../../../../tests/support/database/connection.ts'
 import { makeDiscoveredAudioFile } from '../../../../../tests/support/fixtures/source.ts'
 import { importFolder } from '../sources/import.ts'
-import { createCategory, setCategoryAssignment } from './operations.ts'
+import { createInstrument, setInstrumentAssignment } from './operations.ts'
 import { listGenres, setGenreAssignment, renameGenre } from './genres.ts'
 import { readSampleGenres, saveSampleGenres } from './sample-genres.ts'
 import { samples, sampleSources } from '../../schema/samples.ts'
-import { sampleCategories } from '../../schema/classification.ts'
+import { sampleInstruments } from '../../schema/classification.ts'
 import { sampleGenres } from '../../schema/recognition.ts'
 
 test('manual Genre replacement and clearing persist across reopen and rescan without changing other organization', async (t) => {
@@ -25,9 +25,9 @@ test('manual Genre replacement and clearing persist across reopen and rescan wit
     ({ name }) => name === 'House',
   )!
   const techno = listGenres(db, { search: 'Techno' }).items[0]
-  const category = createCategory(db, { name: 'Kick' })
-  setCategoryAssignment(db, {
-    id: category.id,
+  const instrument = createInstrument(db, { name: 'Kick' })
+  setInstrumentAssignment(db, {
+    id: instrument.id,
     target: { kind: 'sample', id: sample.id },
     assigned: true,
   })
@@ -58,8 +58,8 @@ test('manual Genre replacement and clearing persist across reopen and rescan wit
   assert.deepEqual(readSampleGenres(db, { sampleId: sample.id }).genres, [
     techno,
   ])
-  assert.deepEqual(db.select().from(sampleCategories).all(), [
-    { sampleId: sample.id, categoryId: category.id },
+  assert.deepEqual(db.select().from(sampleInstruments).all(), [
+    { sampleId: sample.id, instrumentId: instrument.id },
   ])
   saveSampleGenres(db, {
     sampleId: sample.id,

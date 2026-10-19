@@ -10,10 +10,10 @@ import type {
   SampleGenresSnapshot,
 } from '../../shared/ipc/genres'
 import type {
-  SampleCategoriesRequest,
-  SampleCategoriesSaveRequest,
-  SampleCategoriesSnapshot,
-} from '../../shared/ipc/sampleCategories'
+  SampleInstrumentsRequest,
+  SampleInstrumentsSaveRequest,
+  SampleInstrumentsSnapshot,
+} from '../../shared/ipc/sampleInstruments'
 import { WorkerTransport } from './client/worker-transport'
 import type { LibrarySample, FavoriteState } from '../../shared/ipc'
 import type {
@@ -36,7 +36,7 @@ import { requireEntityId } from '../../shared/domain/validation'
 import type { DbReply } from './protocol/messages'
 import type {
   Author,
-  Category,
+  Instrument,
   ClassificationAssignmentRequest,
   ClassificationPage,
   ClassificationPageRequest,
@@ -177,27 +177,27 @@ export class DbClient {
     }
     return reply.result
   }
-  async readSampleCategories(
-    input: SampleCategoriesRequest,
-  ): Promise<SampleCategoriesSnapshot> {
+  async readSampleInstruments(
+    input: SampleInstrumentsRequest,
+  ): Promise<SampleInstrumentsSnapshot> {
     const reply = await this.classificationRequest({
-      action: 'read-sample-categories',
+      action: 'read-sample-instruments',
       input,
     })
-    if (reply.action !== 'read-sample-categories') {
+    if (reply.action !== 'read-sample-instruments') {
       throw new Error(UNEXPECTED_REPLY_MESSAGE)
     }
     return reply.result
   }
 
-  async saveSampleCategories(
-    input: SampleCategoriesSaveRequest,
-  ): Promise<SampleCategoriesSnapshot> {
+  async saveSampleInstruments(
+    input: SampleInstrumentsSaveRequest,
+  ): Promise<SampleInstrumentsSnapshot> {
     const reply = await this.classificationRequest({
-      action: 'save-sample-categories',
+      action: 'save-sample-instruments',
       input,
     })
-    if (reply.action !== 'save-sample-categories') {
+    if (reply.action !== 'save-sample-instruments') {
       throw new Error(UNEXPECTED_REPLY_MESSAGE)
     }
     return reply.result
@@ -671,12 +671,12 @@ export class DbClient {
     return reply.result
   }
 
-  async createCategory(input: { name: string }): Promise<Category> {
+  async createInstrument(input: { name: string }): Promise<Instrument> {
     const reply = await this.classificationRequest({
-      action: 'create-category',
+      action: 'create-instrument',
       input,
     })
-    if (reply.action !== 'create-category') {
+    if (reply.action !== 'create-instrument') {
       throw new Error(UNEXPECTED_REPLY_MESSAGE)
     }
     return reply.result
@@ -693,12 +693,15 @@ export class DbClient {
     return reply.result
   }
 
-  async renameCategory(input: { id: string; name: string }): Promise<Category> {
+  async renameInstrument(input: {
+    id: string
+    name: string
+  }): Promise<Instrument> {
     const reply = await this.classificationRequest({
-      action: 'rename-category',
+      action: 'rename-instrument',
       input,
     })
-    if (reply.action !== 'rename-category') {
+    if (reply.action !== 'rename-instrument') {
       throw new Error(UNEXPECTED_REPLY_MESSAGE)
     }
     return reply.result
@@ -712,12 +715,12 @@ export class DbClient {
     return reply.result
   }
 
-  async getCategory(id: string): Promise<Category> {
+  async getInstrument(id: string): Promise<Instrument> {
     const reply = await this.classificationRequest({
-      action: 'get-category',
+      action: 'get-instrument',
       id,
     })
-    if (reply.action !== 'get-category') {
+    if (reply.action !== 'get-instrument') {
       throw new Error(UNEXPECTED_REPLY_MESSAGE)
     }
     return reply.result
@@ -736,14 +739,14 @@ export class DbClient {
     return reply.result
   }
 
-  async listCategories(
+  async listInstruments(
     input: ClassificationPageRequest = {},
-  ): Promise<ClassificationPage<Category>> {
+  ): Promise<ClassificationPage<Instrument>> {
     const reply = await this.classificationRequest({
-      action: 'list-categories',
+      action: 'list-instruments',
       input,
     })
-    if (reply.action !== 'list-categories') {
+    if (reply.action !== 'list-instruments') {
       throw new Error(UNEXPECTED_REPLY_MESSAGE)
     }
     return reply.result
@@ -762,14 +765,14 @@ export class DbClient {
     return reply.result
   }
 
-  async setCategoryAssignment(
+  async setInstrumentAssignment(
     input: ClassificationAssignmentRequest,
   ): Promise<{ assigned: boolean }> {
     const reply = await this.classificationRequest({
-      action: 'set-category-assignment',
+      action: 'set-instrument-assignment',
       input,
     })
-    if (reply.action !== 'set-category-assignment') {
+    if (reply.action !== 'set-instrument-assignment') {
       throw new Error(UNEXPECTED_REPLY_MESSAGE)
     }
     return reply.result
@@ -790,16 +793,16 @@ export class DbClient {
     return reply.result
   }
 
-  async listTargetCategories(
+  async listTargetInstruments(
     target: ClassificationTarget,
     input: ClassificationPageRequest = {},
-  ): Promise<ClassificationPage<Category>> {
+  ): Promise<ClassificationPage<Instrument>> {
     const reply = await this.classificationRequest({
-      action: 'list-target-categories',
+      action: 'list-target-instruments',
       target,
       input,
     })
-    if (reply.action !== 'list-target-categories') {
+    if (reply.action !== 'list-target-instruments') {
       throw new Error(UNEXPECTED_REPLY_MESSAGE)
     }
     return reply.result
@@ -818,14 +821,14 @@ export class DbClient {
     return reply.result
   }
 
-  async listCategoryUses(
+  async listInstrumentUses(
     input: ClassificationUsesRequest,
   ): Promise<ClassificationPage<ClassificationUse>> {
     const reply = await this.classificationRequest({
-      action: 'list-category-uses',
+      action: 'list-instrument-uses',
       input,
     })
-    if (reply.action !== 'list-category-uses') {
+    if (reply.action !== 'list-instrument-uses') {
       throw new Error(UNEXPECTED_REPLY_MESSAGE)
     }
     return reply.result
@@ -842,14 +845,14 @@ export class DbClient {
     return reply.result
   }
 
-  async reviewCategoryRemoval(
+  async reviewInstrumentRemoval(
     id: string,
   ): Promise<ClassificationRemovalReview> {
     const reply = await this.classificationRequest({
-      action: 'review-category-removal',
+      action: 'review-instrument-removal',
       id,
     })
-    if (reply.action !== 'review-category-removal') {
+    if (reply.action !== 'review-instrument-removal') {
       throw new Error(UNEXPECTED_REPLY_MESSAGE)
     }
     return reply.result
@@ -868,14 +871,14 @@ export class DbClient {
     return reply.result
   }
 
-  async removeCategory(
+  async removeInstrument(
     input: ClassificationRemovalRequest,
   ): Promise<{ id: string }> {
     const reply = await this.classificationRequest({
-      action: 'remove-category',
+      action: 'remove-instrument',
       input,
     })
-    if (reply.action !== 'remove-category') {
+    if (reply.action !== 'remove-instrument') {
       throw new Error(UNEXPECTED_REPLY_MESSAGE)
     }
     return reply.result

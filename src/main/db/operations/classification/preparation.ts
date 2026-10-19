@@ -8,7 +8,7 @@ import {
   sourceRootSamples,
 } from '../../schema/samples.ts'
 import { sourceRoots } from '../../schema/sources.ts'
-import { sampleCategories } from '../../schema/classification.ts'
+import { sampleInstruments } from '../../schema/classification.ts'
 import {
   sampleGenres,
   packGenres,
@@ -117,11 +117,11 @@ export function prepareSampleClassification(
         }
       }
     }
-    const assignedCategories = db
+    const assignedInstruments = db
       .select()
-      .from(sampleCategories)
-      .where(eq(sampleCategories.sampleId, input.sampleId))
-      .orderBy(sampleCategories.categoryId)
+      .from(sampleInstruments)
+      .where(eq(sampleInstruments.sampleId, input.sampleId))
+      .orderBy(sampleInstruments.instrumentId)
       .all()
     const assignedGenres = db
       .select()
@@ -175,7 +175,7 @@ export function prepareSampleClassification(
           roots,
           vocabulary,
           aliases,
-          assignedCategories,
+          assignedInstruments,
           assignedGenres,
           originGenres,
           result,
@@ -197,10 +197,10 @@ export function prepareSampleClassification(
       'key' | 'name' | 'entityId' | 'alreadyAssigned' | 'needsCreation'
     > {
       const entry = vocabulary.find((entry) => entry.key === key)!
-      const entityId = entry.categoryId ?? entry.genreId
+      const entityId = entry.instrumentId ?? entry.genreId
       const alreadyAssigned =
-        entry.dimension === 'category'
-          ? assignedCategories.some((row) => row.categoryId === entityId)
+        entry.dimension === 'instrument'
+          ? assignedInstruments.some((row) => row.instrumentId === entityId)
           : entry.dimension === 'genre'
             ? assignedGenres.some((row) => row.genreId === entityId)
             : entry.key === savedType

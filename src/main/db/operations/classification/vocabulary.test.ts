@@ -13,7 +13,7 @@ import { importFolder } from '../sources/import.ts'
 import { setFavorite } from '../samples/favorites.ts'
 import { reviewSampleRemoval, removeSample } from '../samples/operations.ts'
 import { reviewPackRemoval, removePack } from '../packs/removal.ts'
-import * as categories from './operations.ts'
+import * as instruments from './operations.ts'
 import * as genres from './genres.ts'
 import * as vocabulary from './vocabulary.ts'
 import { recognitionVocabulary, packs, samples } from '../../schema/index.ts'
@@ -21,10 +21,10 @@ import { loadCatalogRecognizer } from '../../../services/classification/catalog.
 import { isDbRequest, isDbReply } from '../../protocol/messages.ts'
 import type { RecognitionInput } from '../../../services/classification/recognition.types.ts'
 
-test('fresh vocabulary seeds Genres but no Categories, with stable mappings and no duplicate aliases', (t) => {
+test('fresh vocabulary seeds Genres but no Instruments, with stable mappings and no duplicate aliases', (t) => {
   const { db } = createMemoryDatabase(t)
   assert.equal(genres.listGenres(db).total, 26)
-  assert.equal(categories.listCategories(db).total, 0)
+  assert.equal(instruments.listInstruments(db).total, 0)
   const entries = vocabulary.listRecognitionVocabulary(db, { limit: 100 })
   assert.equal(entries.total, 54)
   assert.equal(
@@ -32,18 +32,18 @@ test('fresh vocabulary seeds Genres but no Categories, with stable mappings and 
       .length,
     26,
   )
-  const kick = categories.createCategory(db, { name: 'Kick' })
+  const kick = instruments.createInstrument(db, { name: 'Kick' })
   assert.equal(
     vocabulary
       .listRecognitionVocabulary(db, { limit: 100 })
       .items.find((item) => item.key === 'category:kick')?.entityId,
     kick.id,
   )
-  assert.throws(() => categories.createCategory(db, { name: 'BD' }), {
+  assert.throws(() => instruments.createInstrument(db, { name: 'BD' }), {
     code: 'NAME_CONFLICT',
   })
-  categories.createCategory(db, { name: 'Lo-Fi' })
-  assert.throws(() => categories.createCategory(db, { name: 'Lo Fi' }), {
+  instruments.createInstrument(db, { name: 'Lo-Fi' })
+  assert.throws(() => instruments.createInstrument(db, { name: 'Lo Fi' }), {
     code: 'NAME_CONFLICT',
   })
 })
@@ -51,8 +51,8 @@ test('fresh vocabulary seeds Genres but no Categories, with stable mappings and 
 test('aliases enforce dimension identity, explicit reassignment, rename conflicts and durable deletions', async (t) => {
   const disk = await createDiskDatabase(t)
   let db = disk.connection.db
-  const kick = categories.createCategory(db, { name: 'Kick' })
-  const snare = categories.createCategory(db, { name: 'Snare' })
+  const kick = instruments.createInstrument(db, { name: 'Kick' })
+  const snare = instruments.createInstrument(db, { name: 'Snare' })
   const bd = vocabulary
     .listRecognitionAliases(db, { limit: 100 })
     .items.find((alias) => alias.term === 'BD')!
@@ -70,10 +70,10 @@ test('aliases enforce dimension identity, explicit reassignment, rename conflict
     term: 'BD',
   })
   assert.throws(
-    () => categories.renameCategory(db, { id: kick.id, name: 'BD' }),
+    () => instruments.renameInstrument(db, { id: kick.id, name: 'BD' }),
     { code: 'NAME_CONFLICT' },
   )
-  assert.deepEqual(categories.getCategory(db, kick.id), kick)
+  assert.deepEqual(instruments.getInstrument(db, kick.id), kick)
   const house = genres
     .listGenres(db, { search: 'house' })
     .items.find((item) => item.name === 'House')!
@@ -88,11 +88,14 @@ test('aliases enforce dimension identity, explicit reassignment, rename conflict
     () => genres.removeGenre(db, { id: house.id, token: review.token }),
     { code: 'STALE_REVIEW' },
   )
-  const snareReview = categories.reviewCategoryRemoval(db, snare.id)
+  const snareReview = instruments.reviewInstrumentRemoval(db, snare.id)
   vocabulary.removeRecognitionAlias(db, bd.id)
   assert.throws(
     () =>
-      categories.removeCategory(db, { id: snare.id, token: snareReview.token }),
+      instruments.removeInstrument(db, {
+        id: snare.id,
+        token: snareReview.token,
+      }),
     { code: 'STALE_REVIEW' },
   )
   const aliasesBefore = vocabulary.listRecognitionAliases(db, { limit: 100 })
@@ -175,10 +178,10 @@ test('Genre assignments are independent, idempotent, persistent and removal pres
   assert.equal(genres.listGenres(db, {}, packTarget).total, 0)
 })
 
-test('catalog recognizer uses edited names and aliases and reuses linked Category identities', async (t) => {
+test('catalog recognizer uses edited names and aliases and reuses linked Instrument identities', async (t) => {
   const { db } = createMemoryDatabase(t)
-  const kick = categories.createCategory(db, { name: 'Kick' })
-  categories.renameCategory(db, { id: kick.id, name: 'Thump' })
+  const kick = instruments.createInstrument(db, { name: 'Kick' })
+  instruments.renameInstrument(db, { id: kick.id, name: 'Thump' })
   vocabulary.writeRecognitionAlias(db, {
     targetKey: 'category:kick',
     term: 'Boom',
@@ -212,7 +215,7 @@ test('catalog recognizer uses edited names and aliases and reuses linked Categor
     db
       .select()
       .from(recognitionVocabulary)
-      .where(eq(recognitionVocabulary.categoryId, kick.id))
+      .where(eq(recognitionVocabulary.instrumentId, kick.id))
       .get()?.key,
     'category:kick',
   )
