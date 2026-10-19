@@ -43,11 +43,14 @@
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.2",
     "@electron-toolkit/utils": "^4.0.0",
+    "@hookform/resolvers": "^5.9.2",
     "better-sqlite3": "^13.0.3",
     "drizzle-orm": "^0.45.4",
     "electron-updater": "^6.3.9",
+    "react-hook-form": "^7.90.0",
     "react-router-dom": "^7.18.4",
     "sharp": "^0.35.5",
+    "zod": "^4.6.7",
     "zustand": "^5.0.15"
   },
   "devDependencies": {
