@@ -42,6 +42,25 @@ export async function verifyCollectionsIpc({ execute }) {
     ['list', { limit: 101 }],
     ['list', { offset: -1 }],
     ['get', { id: '/arbitrary/collection' }],
+    ['destinations', { sampleId: '/arbitrary/sample' }],
+    ['destinations', { sampleId: created.data.id, limit: 101 }],
+    ['destinations', { sampleId: created.data.id, search: null }],
+    [
+      'setMembership',
+      {
+        collectionId: created.data.id,
+        sampleId: '/arbitrary/sample',
+        assigned: true,
+      },
+    ],
+    [
+      'setMembership',
+      {
+        collectionId: created.data.id,
+        sampleId: created.data.id,
+        assigned: 'true',
+      },
+    ],
   ]) {
     const failure = await call(method, request)
     assert.equal(failure.ok, false)

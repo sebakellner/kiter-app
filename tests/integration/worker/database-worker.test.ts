@@ -674,7 +674,7 @@ test(
           {
             requestId,
             action: 'set-collection-membership',
-            result: { assigned: true },
+            result: { assigned: true, changed: true },
           },
         )
       }

@@ -32,7 +32,11 @@ test('Sample right-click and More actions share preview and Info without changin
 
   const trigger = kick.getByRole('button', { name: 'More actions: kick.wav' })
   await trigger.click()
-  await expect(menu.getByRole('menuitem')).toHaveText(['Play preview', 'Info'])
+  await expect(menu.getByRole('menuitem')).toHaveText([
+    'Play preview',
+    'Info',
+    'Add to Collection',
+  ])
   await menu.getByRole('menuitem', { name: 'Play preview' }).click()
   await expect(menu).toHaveCount(0)
   await expect
@@ -97,7 +101,9 @@ test('Sample menus support keyboard navigation, replace another row menu and dis
   const trigger = kick.getByRole('button', { name: 'More actions: kick.wav' })
   await trigger.focus()
   await page.keyboard.press('ArrowUp')
-  await expect(menu.getByRole('menuitem', { name: 'Info' })).toBeFocused()
+  await expect(
+    menu.getByRole('menuitem', { name: 'Add to Collection' }),
+  ).toBeFocused()
   await page.keyboard.press('Tab')
   await expect(menu).toHaveCount(0)
   await expect(trigger).not.toBeFocused()

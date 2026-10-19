@@ -118,6 +118,11 @@ export async function verifyMainFrameAuthorization(ctx) {
       ['collections:list', {}],
       ['collections:create', { name: 'Unauthorized Collection' }],
       ['collections:get', { id: sample.id }],
+      ['collections:destinations', { sampleId: sample.id }],
+      [
+        'collections:set-membership',
+        { collectionId: sample.id, sampleId: sample.id, assigned: true },
+      ],
       [
         'instruments:rename',
         { id: instrument.id, name: 'Unauthorized rename' },
