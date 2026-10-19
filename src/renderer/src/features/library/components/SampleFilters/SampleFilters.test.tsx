@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { expect, test, vi } from 'vitest'
-import type { Category } from '@shared/domain/classification'
+import type { Instrument } from '@shared/domain/classification'
 import type { Genre } from '@shared/domain/recognition'
 import { SampleFilters } from './SampleFilters'
 import { createTestApi } from '../../../../../../../tests/support/ui/bridge'
@@ -14,11 +14,11 @@ import type { SampleTypeFilter } from '@shared/features/library/schemas'
 function Example(): React.JSX.Element {
   const [search, setSearch] = useState('')
   const [value, setValue] = useState<{
-    categories: Category[]
+    instruments: Instrument[]
     genres: Genre[]
     sampleTypes: SampleTypeFilter
   }>({
-    categories: [],
+    instruments: [],
     genres: [],
     sampleTypes: [],
   })
@@ -42,7 +42,7 @@ test('filters retain independent choices and queries, remove chips and clear all
       disconnect = vi.fn()
     },
   )
-  api.categories.list.mockResolvedValue({
+  api.instruments.list.mockResolvedValue({
     ok: true,
     data: {
       items: [
@@ -68,18 +68,18 @@ test('filters retain independent choices and queries, remove chips and clear all
   })
   const user = userEvent.setup()
   render(<Example />)
-  const input = screen.getByRole('combobox', { name: 'Categories' })
+  const input = screen.getByRole('combobox', { name: 'Instruments' })
   const search = screen.getByRole('searchbox', { name: 'Search samples' })
   expect(search).toHaveAttribute('placeholder', 'Search samples')
   expect(search).toHaveAttribute('maxlength', '500')
   await user.type(search, 'kick')
-  expect(input).toHaveAttribute('placeholder', 'Categories')
+  expect(input).toHaveAttribute('placeholder', 'Instruments')
   expect(screen.getByRole('combobox', { name: 'Genres' })).toHaveAttribute(
     'placeholder',
     'Genres',
   )
   expect(
-    screen.queryByText('Categories', { selector: 'label' }),
+    screen.queryByText('Instruments', { selector: 'label' }),
   ).not.toBeInTheDocument()
   expect(
     screen.queryByText('Genres', { selector: 'label' }),
@@ -92,15 +92,15 @@ test('filters retain independent choices and queries, remove chips and clear all
   await user.click(screen.getByRole('option', { name: 'Snare' }))
   expect(input).toHaveFocus()
   expect(
-    screen.getByRole('button', { name: 'Remove category filter: Kick' }),
+    screen.getByRole('button', { name: 'Remove instrument filter: Kick' }),
   ).toBeVisible()
   await user.type(input, 'ki')
   expect(input).toHaveValue('ki')
   await user.click(
-    screen.getByRole('button', { name: 'Remove category filter: Kick' }),
+    screen.getByRole('button', { name: 'Remove instrument filter: Kick' }),
   )
   expect(
-    screen.queryByRole('button', { name: 'Remove category filter: Kick' }),
+    screen.queryByRole('button', { name: 'Remove instrument filter: Kick' }),
   ).not.toBeInTheDocument()
   expect(input).toHaveFocus()
   const genres = screen.getByRole('combobox', { name: 'Genres' })
@@ -139,11 +139,11 @@ test('filters retain independent choices and queries, remove chips and clear all
   expect(types).toHaveFocus()
   await user.selectOptions(types, 'one-shot')
   expect(
-    screen.getByRole('button', { name: 'Remove category filter: Snare' }),
+    screen.getByRole('button', { name: 'Remove instrument filter: Snare' }),
   ).toBeVisible()
   await user.click(screen.getByRole('button', { name: 'Clear all' }))
   expect(
-    screen.queryByRole('button', { name: 'Remove category filter: Snare' }),
+    screen.queryByRole('button', { name: 'Remove instrument filter: Snare' }),
   ).not.toBeInTheDocument()
   expect(input).toHaveValue('ki')
   expect(
@@ -170,7 +170,7 @@ test('filters retain independent choices and queries, remove chips and clear all
 
 test('Sample type selector shows its filter name by default and replaces a single choice without refetching vocabulary', async () => {
   const api = createTestApi()
-  api.categories.list.mockResolvedValue({
+  api.instruments.list.mockResolvedValue({
     ok: true,
     data: { items: [], total: 0, limit: 50, offset: 0 },
   })
@@ -202,7 +202,7 @@ test('Sample type selector shows its filter name by default and replaces a singl
   expect(
     screen.queryByRole('button', { name: 'Clear all' }),
   ).not.toBeInTheDocument()
-  expect(api.categories.list).toHaveBeenCalledTimes(1)
+  expect(api.instruments.list).toHaveBeenCalledTimes(1)
   expect(api.genres.list).toHaveBeenCalledTimes(1)
 })
 
@@ -218,7 +218,7 @@ test('Genre options reject stale searches and preserve selected chips through fa
   )
   const pending = deferred<IpcResult<Page<Genre>>>()
   const house = { id: 'house', name: 'House' }
-  api.categories.list.mockResolvedValue({
+  api.instruments.list.mockResolvedValue({
     ok: true,
     data: { items: [], total: 0, limit: 50, offset: 0 },
   })

@@ -99,22 +99,25 @@ export async function verifyMainFrameAuthorization(ctx) {
       frame.url.endsWith('ipc-child.html'),
     )
     const sample = ctx.sample(fixtures.validSample)
-    const categoriesBefore = await execute('window.api.categories.list()')
-    assert.equal(categoriesBefore.ok, true)
-    const category = categoriesBefore.data.items[0]
+    const instrumentsBefore = await execute('window.api.instruments.list()')
+    assert.equal(instrumentsBefore.ok, true)
+    const instrument = instrumentsBefore.data.items[0]
     assert.ok(
-      category,
-      'Categories scenario must provide an authorization fixture',
+      instrument,
+      'Instruments scenario must provide an authorization fixture',
     )
     const requests = [
       ['dialog:open-folder'],
       ['library:import-folder', { directory: fixtures.samples }],
       ['library:list', {}],
       ['library:set-favorite', { id: sample.id, favorite: true }],
-      ['categories:list', {}],
-      ['categories:create', { name: 'Unauthorized Category' }],
-      ['categories:rename', { id: category.id, name: 'Unauthorized rename' }],
-      ['categories:read-sample', { sampleId: sample.id }],
+      ['instruments:list', {}],
+      ['instruments:create', { name: 'Unauthorized Instrument' }],
+      [
+        'instruments:rename',
+        { id: instrument.id, name: 'Unauthorized rename' },
+      ],
+      ['instruments:read-sample', { sampleId: sample.id }],
       ['genres:list', {}],
       ['genres:read-sample', { sampleId: sample.id }],
       ['classification:read-sample-type', { sampleId: sample.id }],
@@ -127,8 +130,8 @@ export async function verifyMainFrameAuthorization(ctx) {
         { sampleId: sample.id, token: 'a'.repeat(64), genreIds: [] },
       ],
       [
-        'categories:save-sample',
-        { sampleId: sample.id, token: 'a'.repeat(64), categoryIds: [] },
+        'instruments:save-sample',
+        { sampleId: sample.id, token: 'a'.repeat(64), instrumentIds: [] },
       ],
     ]
     const previousDialogCalls = ctx.dialogCalls()
@@ -157,9 +160,9 @@ export async function verifyMainFrameAuthorization(ctx) {
       'Rejected frames must not open dialogs',
     )
     assert.deepEqual(
-      await execute('window.api.categories.list()'),
-      categoriesBefore,
-      'Rejected frames must not create or rename Categories',
+      await execute('window.api.instruments.list()'),
+      instrumentsBefore,
+      'Rejected frames must not create or rename Instruments',
     )
     await child.executeJavaScript(
       `require("electron").ipcRenderer.send("library:start-drag", ${JSON.stringify(sample.audioUrl)})`,

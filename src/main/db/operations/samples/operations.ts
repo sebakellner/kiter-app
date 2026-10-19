@@ -34,9 +34,9 @@ import {
 import { excludedSources, sourceRoots } from '../../schema/sources.ts'
 import { collections, collectionSamples } from '../../schema/collections.ts'
 import {
-  categories,
+  instruments,
   authors,
-  sampleCategories,
+  sampleInstruments,
   sampleAuthors,
 } from '../../schema/classification.ts'
 import { DbError } from '../../errors.ts'
@@ -138,22 +138,25 @@ function referenceQuery(
         .where(and(eq(sampleGenres.sampleId, input.id), gt(genres.id, after)))
         .orderBy(genres.id)
         .$dynamic()
-    case 'category':
+    case 'instrument':
       return db
         .select({
-          id: sql<string>`${categories.id}`.as('id'),
-          name: sql<string>`${categories.name}`.as('name'),
+          id: sql<string>`${instruments.id}`.as('id'),
+          name: sql<string>`${instruments.name}`.as('name'),
           position: sql<number | null>`NULL`.as('position'),
         })
-        .from(sampleCategories)
-        .innerJoin(categories, eq(categories.id, sampleCategories.categoryId))
+        .from(sampleInstruments)
+        .innerJoin(
+          instruments,
+          eq(instruments.id, sampleInstruments.instrumentId),
+        )
         .where(
           and(
-            eq(sampleCategories.sampleId, input.id),
-            gt(categories.id, after),
+            eq(sampleInstruments.sampleId, input.id),
+            gt(instruments.id, after),
           ),
         )
-        .orderBy(categories.id)
+        .orderBy(instruments.id)
         .$dynamic()
     case 'author':
       return db
@@ -206,10 +209,10 @@ function removalReview(db: AppDatabase, id: string): SampleRemovalReview {
     )
   }
   const hash = createReviewHash('sample', entity, source)
-  const counts = { collection: 0, category: 0, genre: 0, author: 0, root: 0 }
+  const counts = { collection: 0, instrument: 0, genre: 0, author: 0, root: 0 }
   for (const kind of [
     'collection',
-    'category',
+    'instrument',
     'genre',
     'author',
     'root',
@@ -232,7 +235,7 @@ function removalReview(db: AppDatabase, id: string): SampleRemovalReview {
     entity,
     source,
     collectionCount: counts.collection,
-    categoryCount: counts.category,
+    instrumentCount: counts.instrument,
     genreCount: counts.genre,
     authorCount: counts.author,
     rootCount: counts.root,

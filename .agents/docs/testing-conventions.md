@@ -142,7 +142,7 @@ privileges and run on both target platforms.
   testing asynchronous resources.
 - Do not weaken assertions or skip a regression just to make the suite pass.
   If behavior intentionally changes, update expectations and related docs.
-- Assert stable error codes or domain categories where available, rather than
+- Assert stable error codes or domain instruments where available, rather than
   complete OS-specific error strings or stack traces.
 
 ## UI Queries and Text Assertions

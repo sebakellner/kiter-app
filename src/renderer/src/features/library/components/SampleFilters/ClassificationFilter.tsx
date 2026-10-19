@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { Category } from '@shared/domain/classification'
+import type { Instrument } from '@shared/domain/classification'
 import type { Page } from '@shared/domain/pagination'
 import { unwrapIpcResult } from '@shared/ipc/result'
 import { Combobox } from '@renderer/components/ui/Combobox'
@@ -11,23 +11,23 @@ export function ClassificationFilter({
   value,
   onChange,
 }: {
-  kind: 'categories' | 'genres'
+  kind: 'instruments' | 'genres'
   input: React.RefObject<HTMLInputElement | null>
-  value: Category[]
-  onChange: (value: Category[]) => void
+  value: Instrument[]
+  onChange: (value: Instrument[]) => void
 }): React.JSX.Element {
   const [query, setQuery] = useState('')
   const [offset, setOffset] = useState(0)
   const [version, setVersion] = useState(0)
   const [result, setResult] = useState<{
     key: string
-    page: Page<Category>
+    page: Page<Instrument>
   } | null>(null)
   const [failure, setFailure] = useState<{
     key: string
     message: string
   } | null>(null)
-  const label = kind === 'categories' ? 'Categories' : 'Genres'
+  const label = kind === 'instruments' ? 'Instruments' : 'Genres'
   const key = JSON.stringify([query, offset, version])
   const loading = result?.key !== key && failure?.key !== key
   const error = failure?.key === key ? failure.message : null
@@ -60,15 +60,15 @@ export function ClassificationFilter({
 
   function change(ids: string[]): void {
     const available = new Map(
-      [...value, ...(result?.page.items ?? [])].map((category) => [
-        category.id,
-        category,
+      [...value, ...(result?.page.items ?? [])].map((instrument) => [
+        instrument.id,
+        instrument,
       ]),
     )
     onChange(
       ids.flatMap((id) => {
-        const category = available.get(id)
-        return category ? [category] : []
+        const instrument = available.get(id)
+        return instrument ? [instrument] : []
       }),
     )
   }
@@ -85,12 +85,12 @@ export function ClassificationFilter({
         options={
           error
             ? []
-            : (result?.page.items ?? []).map((category) => ({
-                value: category.id,
-                label: category.name,
+            : (result?.page.items ?? []).map((instrument) => ({
+                value: instrument.id,
+                label: instrument.name,
                 disabled:
                   value.length >= 100 &&
-                  !value.some(({ id }) => id === category.id),
+                  !value.some(({ id }) => id === instrument.id),
               }))
         }
         value={value.map(({ id }) => id)}

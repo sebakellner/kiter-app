@@ -130,7 +130,7 @@ export function createClassificationRecognizer(
       matches: matchComponent(component, terms),
     }))
     for (const { matches } of matched) {
-      for (const dimension of ['category', 'genre'] as const) {
+      for (const dimension of ['instrument', 'genre'] as const) {
         const candidates = matches.filter(
           (match) => match.target.dimension === dimension,
         )
@@ -164,20 +164,20 @@ export function createClassificationRecognizer(
         }
         for (const match of specific.filter((match) => !ambiguous.has(match))) {
           propose(match)
-          // Explicit co-classification, not a general Category hierarchy. Only
+          // Explicit co-classification, not a general Instrument hierarchy. Only
           // the supplied Drum Break(s) phrase activates the companion proposal.
           if (
-            dimension === 'category' &&
+            dimension === 'instrument' &&
             match.target.key === 'category:drum-breaks' &&
             /^drum breaks?$/u.test(match.evidence.clue) &&
             entries.some(
               (entry) =>
-                entry.target.dimension === 'category' &&
+                entry.target.dimension === 'instrument' &&
                 entry.target.key === 'category:drums',
             )
           ) {
             propose({
-              target: { dimension: 'category', key: 'category:drums' },
+              target: { dimension: 'instrument', key: 'category:drums' },
               evidence: { ...match.evidence, rule: 'alias' },
             })
           }

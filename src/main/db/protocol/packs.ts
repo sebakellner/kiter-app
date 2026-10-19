@@ -203,7 +203,7 @@ export function isPackReply(value: unknown): value is PackReply {
         isPack(result.entity) &&
         isCount(result.sampleCount) &&
         isCount(result.authorCount) &&
-        isCount(result.categoryCount) &&
+        isCount(result.instrumentCount) &&
         isCount(result.genreCount) &&
         isToken(result.token)
       )

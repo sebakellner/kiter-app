@@ -1,6 +1,6 @@
 import type { AudioFile } from '../domain/source.ts'
 import {
-  categoryFilterSchema,
+  instrumentFilterSchema,
   catalogSearchSchema,
   genreFilterSchema,
   sampleTypeFilterSchema,
@@ -39,7 +39,7 @@ export type CatalogAudioSample = CatalogSample & {
 }
 export interface LibraryListRequest extends PageRequest {
   favoritesOnly?: boolean
-  categoryIds?: string[]
+  instrumentIds?: string[]
   genreIds?: string[]
   sampleTypes?: SampleTypeFilter
   search?: string
@@ -55,12 +55,12 @@ export function requireLibraryListRequest(value: unknown): LibraryListRequest {
   ) {
     throw new DomainValidationError('Invalid Favorites filter.')
   }
-  const categories = categoryFilterSchema.safeParse(
-    value.categoryIds === undefined ? [] : value.categoryIds,
+  const instruments = instrumentFilterSchema.safeParse(
+    value.instrumentIds === undefined ? [] : value.instrumentIds,
   )
-  if (!categories.success) {
+  if (!instruments.success) {
     throw new DomainValidationError(
-      'Invalid Category filter. Select at most 100 unique Categories.',
+      'Invalid Instrument filter. Select at most 100 unique Instruments.',
     )
   }
   const genres = genreFilterSchema.safeParse(
@@ -91,7 +91,7 @@ export function requireLibraryListRequest(value: unknown): LibraryListRequest {
   return {
     ...page,
     favoritesOnly: value.favoritesOnly ?? false,
-    ...(categories.data.length > 0 ? { categoryIds: categories.data } : {}),
+    ...(instruments.data.length > 0 ? { instrumentIds: instruments.data } : {}),
     ...(genres.data.length > 0 ? { genreIds: genres.data } : {}),
     ...(types.data.length > 0 ? { sampleTypes: types.data } : {}),
     ...(text ? { search: text } : {}),

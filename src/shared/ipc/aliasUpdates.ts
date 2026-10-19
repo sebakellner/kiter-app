@@ -6,7 +6,7 @@ import type { IpcResult } from './result.ts'
 export type AliasUpdate = {
   key: string
   targetName: string
-  dimension: 'category' | 'genre' | 'sample-type'
+  dimension: 'instrument' | 'genre' | 'sample-type'
   term: string
   token: string
   blockedReason: string | null
@@ -66,7 +66,7 @@ export function isAliasUpdatePage(value: unknown): value is Page<AliasUpdate> {
           item.term.length > 0 &&
           typeof item.targetName === 'string' &&
           item.targetName.length > 0 &&
-          (item.dimension === 'category' ||
+          (item.dimension === 'instrument' ||
             item.dimension === 'genre' ||
             item.dimension === 'sample-type') &&
           (item.blockedReason === null ||

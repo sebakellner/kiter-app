@@ -5,7 +5,7 @@ import { eq } from 'drizzle-orm'
 import { createMemoryDatabase } from '../../../../../tests/support/database/connection.ts'
 import { makeDiscoveredAudioFile } from '../../../../../tests/support/fixtures/source.ts'
 import { importFolder } from '../sources/import.ts'
-import { createCategory } from './operations.ts'
+import { createInstrument } from './operations.ts'
 import { writeRecognitionAlias } from './vocabulary.ts'
 import { prepareSampleClassification } from './preparation.ts'
 import {
@@ -76,7 +76,7 @@ test('preparation pages reject stale evidence and reflect existing assignments w
     sampleId: sample.id,
     limit: 1,
   })
-  createCategory(db, { name: 'Kick' })
+  createInstrument(db, { name: 'Kick' })
   assert.throws(
     () =>
       prepareSampleClassification(db, {

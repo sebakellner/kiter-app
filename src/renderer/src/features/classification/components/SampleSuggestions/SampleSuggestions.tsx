@@ -2,7 +2,7 @@ import { Badge } from '@renderer/components/ui/Badge'
 import { Button } from '@renderer/components/ui/Button'
 import { useSampleSuggestions } from './useSampleSuggestions'
 import { useState } from 'react'
-import { CategoryEditor } from '../SampleCategories/CategoryEditor'
+import { InstrumentEditor } from '../SampleInstruments/InstrumentEditor'
 import { ClassificationEditor } from '../ClassificationEditor/ClassificationEditor'
 import { SampleTypeEditor } from '../SampleTypeEditor/SampleTypeEditor'
 
@@ -20,11 +20,13 @@ export function SampleSuggestions({
     ({ item }) => item.kind === 'proposal' && !item.alreadyAssigned,
   )
   const ambiguous = groups.filter(({ item }) => item.kind === 'ambiguity')
-  const [categoryAnchor, setCategoryAnchor] = useState<HTMLElement | null>(null)
+  const [instrumentAnchor, setInstrumentAnchor] = useState<HTMLElement | null>(
+    null,
+  )
   const [genreAnchor, setGenreAnchor] = useState<HTMLElement | null>(null)
   const [typeAnchor, setTypeAnchor] = useState<HTMLElement | null>(null)
   const editing =
-    categoryAnchor !== null || genreAnchor !== null || typeAnchor !== null
+    instrumentAnchor !== null || genreAnchor !== null || typeAnchor !== null
   const disabled = loading || pending || error !== null
   return (
     <section aria-label="Classification suggestions">
@@ -32,13 +34,13 @@ export function SampleSuggestions({
       <Button
         disabled={pending || genreAnchor !== null || typeAnchor !== null}
         aria-haspopup="dialog"
-        aria-expanded={categoryAnchor !== null}
-        onClick={(event) => setCategoryAnchor(event.currentTarget)}
+        aria-expanded={instrumentAnchor !== null}
+        onClick={(event) => setInstrumentAnchor(event.currentTarget)}
       >
-        Edit categories
+        Edit instruments
       </Button>
       <Button
-        disabled={pending || categoryAnchor !== null || typeAnchor !== null}
+        disabled={pending || instrumentAnchor !== null || typeAnchor !== null}
         aria-haspopup="dialog"
         aria-expanded={genreAnchor !== null}
         onClick={(event) => setGenreAnchor(event.currentTarget)}
@@ -46,7 +48,7 @@ export function SampleSuggestions({
         Edit genres
       </Button>
       <Button
-        disabled={pending || categoryAnchor !== null || genreAnchor !== null}
+        disabled={pending || instrumentAnchor !== null || genreAnchor !== null}
         aria-haspopup="dialog"
         aria-expanded={typeAnchor !== null}
         onClick={(event) => setTypeAnchor(event.currentTarget)}
@@ -70,11 +72,11 @@ export function SampleSuggestions({
           onSaved={refresh}
         />
       )}
-      {categoryAnchor && (
-        <CategoryEditor
+      {instrumentAnchor && (
+        <InstrumentEditor
           sampleId={sampleId}
-          anchor={categoryAnchor}
-          onClose={() => setCategoryAnchor(null)}
+          anchor={instrumentAnchor}
+          onClose={() => setInstrumentAnchor(null)}
           onSaved={refresh}
         />
       )}
@@ -89,7 +91,7 @@ export function SampleSuggestions({
           </Button>
         </p>
       )}
-      {(['category', 'genre', 'sample-type'] as const).map((dimension) => {
+      {(['instrument', 'genre', 'sample-type'] as const).map((dimension) => {
         const saved = assigned.filter(
           ({ item }) => item.dimension === dimension,
         )
@@ -104,7 +106,7 @@ export function SampleSuggestions({
             <h4>
               {
                 {
-                  category: 'Categories',
+                  instrument: 'Instruments',
                   genre: 'Genres',
                   'sample-type': 'Sample type',
                 }[dimension]

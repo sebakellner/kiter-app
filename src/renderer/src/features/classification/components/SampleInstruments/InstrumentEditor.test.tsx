@@ -1,7 +1,7 @@
 import { cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, expect, test, vi } from 'vitest'
-import { CategoryEditor } from './CategoryEditor'
+import { InstrumentEditor } from './InstrumentEditor'
 import { ClassificationEditor } from '../ClassificationEditor/ClassificationEditor'
 import { SampleTypeEditor } from '../SampleTypeEditor/SampleTypeEditor'
 import { createTestApi } from '../../../../../../../tests/support/ui/bridge'
@@ -16,7 +16,9 @@ afterEach(() => {
   Reflect.deleteProperty(HTMLDialogElement.prototype, 'close')
 })
 
-function setup(dimension: 'category' | 'genre' | 'sample-type' = 'category'): {
+function setup(
+  dimension: 'instrument' | 'genre' | 'sample-type' = 'instrument',
+): {
   api: ReturnType<typeof createTestApi>
   onClose: ReturnType<typeof vi.fn>
   onSaved: ReturnType<typeof vi.fn>
@@ -43,11 +45,11 @@ function setup(dimension: 'category' | 'genre' | 'sample-type' = 'category'): {
       this.removeAttribute('open')
     },
   })
-  api.categories.readSample.mockResolvedValue({
+  api.instruments.readSample.mockResolvedValue({
     ok: true,
-    data: { sampleId: 'sample', token: 'a'.repeat(64), categories: [kick] },
+    data: { sampleId: 'sample', token: 'a'.repeat(64), instruments: [kick] },
   })
-  api.categories.list.mockResolvedValue({
+  api.instruments.list.mockResolvedValue({
     ok: true,
     data: { items: [kick, snare], total: 2, limit: 50, offset: 0 },
   })
@@ -66,8 +68,8 @@ function setup(dimension: 'category' | 'genre' | 'sample-type' = 'category'): {
     data: { sampleId: 'sample', token: 'a'.repeat(64), sampleType: 'loop' },
   })
   render(
-    dimension === 'category' ? (
-      <CategoryEditor
+    dimension === 'instrument' ? (
+      <InstrumentEditor
         sampleId="sample"
         anchor={document.body}
         onClose={onClose}
@@ -167,23 +169,23 @@ test('genre selection uses its own save contract and preserves a stale draft thr
   })
   expect(onSaved).toHaveBeenCalledOnce()
   expect(onClose).toHaveBeenCalledOnce()
-  expect(api.categories.saveSample).not.toHaveBeenCalled()
+  expect(api.instruments.saveSample).not.toHaveBeenCalled()
 })
 
-test('category changes remain a draft until an atomic save succeeds', async () => {
+test('instrument changes remain a draft until an atomic save succeeds', async () => {
   const { api, onClose, onSaved, user } = setup()
-  api.categories.saveSample.mockResolvedValue({
+  api.instruments.saveSample.mockResolvedValue({
     ok: true,
-    data: { sampleId: 'sample', token: 'b'.repeat(64), categories: [snare] },
+    data: { sampleId: 'sample', token: 'b'.repeat(64), instruments: [snare] },
   })
   await user.click(await screen.findByRole('checkbox', { name: 'Kick' }))
   await user.click(screen.getByRole('checkbox', { name: 'Snare' }))
-  expect(api.categories.saveSample).not.toHaveBeenCalled()
+  expect(api.instruments.saveSample).not.toHaveBeenCalled()
   await user.click(screen.getByRole('button', { name: 'Save' }))
-  expect(api.categories.saveSample).toHaveBeenCalledWith({
+  expect(api.instruments.saveSample).toHaveBeenCalledWith({
     sampleId: 'sample',
     token: 'a'.repeat(64),
-    categoryIds: [snare.id],
+    instrumentIds: [snare.id],
   })
   expect(onSaved).toHaveBeenCalledOnce()
   expect(onClose).toHaveBeenCalledOnce()
@@ -199,7 +201,7 @@ test('cancel protects dirty choices and discard performs no writes', async () =>
   await user.click(screen.getByRole('button', { name: 'Cancel' }))
   await user.click(screen.getByRole('button', { name: 'Discard changes' }))
   expect(onClose).toHaveBeenCalledOnce()
-  expect(api.categories.saveSample).not.toHaveBeenCalled()
+  expect(api.instruments.saveSample).not.toHaveBeenCalled()
 })
 
 test('restoring the saved selection clears form dirty state regardless of selection order', async () => {
@@ -211,33 +213,33 @@ test('restoring the saved selection clears form dirty state regardless of select
   expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled()
   await user.click(screen.getByRole('button', { name: 'Cancel' }))
   expect(onClose).toHaveBeenCalledOnce()
-  expect(api.categories.saveSample).not.toHaveBeenCalled()
+  expect(api.instruments.saveSample).not.toHaveBeenCalled()
 })
 
 test('a stale save preserves edits and requires reloading current assignments before retry', async () => {
   const { api, onClose, user } = setup()
-  api.categories.saveSample.mockResolvedValueOnce({
+  api.instruments.saveSample.mockResolvedValueOnce({
     ok: false,
-    error: { code: 'STALE_REVIEW', message: 'Saved categories changed.' },
+    error: { code: 'STALE_REVIEW', message: 'Saved instruments changed.' },
   })
   await user.click(await screen.findByRole('checkbox', { name: 'Snare' }))
   await user.click(screen.getByRole('button', { name: 'Save' }))
   expect(await screen.findByRole('alert')).toHaveTextContent(
-    'Saved categories changed.',
+    'Saved instruments changed.',
   )
   expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled()
   expect(onClose).not.toHaveBeenCalled()
-  api.categories.readSample.mockResolvedValueOnce({
+  api.instruments.readSample.mockResolvedValueOnce({
     ok: true,
-    data: { sampleId: 'sample', token: 'c'.repeat(64), categories: [] },
+    data: { sampleId: 'sample', token: 'c'.repeat(64), instruments: [] },
   })
   await user.click(
-    screen.getByRole('button', { name: 'Reload saved categories' }),
+    screen.getByRole('button', { name: 'Reload saved instruments' }),
   )
   expect(await screen.findByRole('button', { name: 'Save' })).toBeEnabled()
   expect(
-    within(screen.getByRole('list', { name: 'Selected categories' })).getByText(
-      'Snare',
-    ),
+    within(
+      screen.getByRole('list', { name: 'Selected instruments' }),
+    ).getByText('Snare'),
   ).toBeVisible()
 })

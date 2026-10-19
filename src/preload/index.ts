@@ -9,7 +9,7 @@ import {
   isLibraryPage,
 } from '@shared/ipc/library'
 import { requireIpcResult } from '@shared/ipc/result'
-import { isSampleCategoriesSnapshot } from '@shared/ipc/sampleCategories'
+import { isSampleInstrumentsSnapshot } from '@shared/ipc/sampleInstruments'
 import { isSampleTypeSnapshot } from '@shared/ipc/sampleType'
 import {
   GENRE_CHANNELS,
@@ -27,10 +27,10 @@ import {
   isClassificationApplyResult,
 } from '@shared/ipc/classification'
 import {
-  CATEGORY_CHANNELS,
-  isCategory,
-  isCategoryPage,
-} from '@shared/ipc/categories'
+  INSTRUMENT_CHANNELS,
+  isInstrument,
+  isInstrumentPage,
+} from '@shared/ipc/instruments'
 
 // Custom APIs for renderer
 const api: Api = {
@@ -106,31 +106,31 @@ const api: Api = {
         isClassificationPreparationPage,
       ),
   },
-  categories: {
+  instruments: {
     readSample: async (request) =>
       requireIpcResult(
-        await ipcRenderer.invoke(CATEGORY_CHANNELS.readSample, request),
-        isSampleCategoriesSnapshot,
+        await ipcRenderer.invoke(INSTRUMENT_CHANNELS.readSample, request),
+        isSampleInstrumentsSnapshot,
       ),
     saveSample: async (request) =>
       requireIpcResult(
-        await ipcRenderer.invoke(CATEGORY_CHANNELS.saveSample, request),
-        isSampleCategoriesSnapshot,
+        await ipcRenderer.invoke(INSTRUMENT_CHANNELS.saveSample, request),
+        isSampleInstrumentsSnapshot,
       ),
     list: async (request = {}) =>
       requireIpcResult(
-        await ipcRenderer.invoke(CATEGORY_CHANNELS.list, request),
-        isCategoryPage,
+        await ipcRenderer.invoke(INSTRUMENT_CHANNELS.list, request),
+        isInstrumentPage,
       ),
     create: async (request) =>
       requireIpcResult(
-        await ipcRenderer.invoke(CATEGORY_CHANNELS.create, request),
-        isCategory,
+        await ipcRenderer.invoke(INSTRUMENT_CHANNELS.create, request),
+        isInstrument,
       ),
     rename: async (request) =>
       requireIpcResult(
-        await ipcRenderer.invoke(CATEGORY_CHANNELS.rename, request),
-        isCategory,
+        await ipcRenderer.invoke(INSTRUMENT_CHANNELS.rename, request),
+        isInstrument,
       ),
   },
   dialog: {

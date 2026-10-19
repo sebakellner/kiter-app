@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import type { Page } from '../../../../shared/domain/pagination.ts'
 import { and, asc, count, eq } from 'drizzle-orm'
 import type { AppDatabase } from '../../runtime/connection.ts'
-import { categories } from '../../schema/classification.ts'
+import { instruments } from '../../schema/classification.ts'
 import {
   genres,
   recognitionAliases as aliases,
@@ -39,7 +39,7 @@ export function initializeRecognitionVocabulary(
       continue
     }
     const dimension = entry.target.dimension
-    const table = dimension === 'category' ? categories : genres
+    const table = dimension === 'instrument' ? instruments : genres
     const existing =
       dimension === 'sample-type'
         ? undefined
@@ -66,7 +66,7 @@ export function initializeRecognitionVocabulary(
         key: entry.target.key,
         dimension,
         name: existing?.name ?? entry.name,
-        categoryId: dimension === 'category' ? entityId : null,
+        instrumentId: dimension === 'instrument' ? entityId : null,
         genreId: dimension === 'genre' ? entityId : null,
         state,
       })
@@ -112,23 +112,23 @@ export function initializeRecognitionVocabulary(
         .run()
     }
   }
-  // Bind existing custom categories without changing names or creating Categories.
-  for (const category of db.select().from(categories).all()) {
+  // Bind existing custom instruments without changing names or creating Instruments.
+  for (const instrument of db.select().from(instruments).all()) {
     if (
       !db
         .select()
         .from(vocabulary)
-        .where(eq(vocabulary.categoryId, category.id))
+        .where(eq(vocabulary.instrumentId, instrument.id))
         .get()
     ) {
-      registerVocabularyEntity(db, 'category', category)
+      registerVocabularyEntity(db, 'instrument', instrument)
     }
   }
 }
 
 export function registerVocabularyEntity(
   db: AppDatabase,
-  dimension: 'category' | 'genre',
+  dimension: 'instrument' | 'genre',
   entity: { id: string; name: string },
 ): void {
   const offered = db
@@ -138,7 +138,7 @@ export function registerVocabularyEntity(
     .all()
     .find(
       (row) =>
-        row.categoryId === null &&
+        row.instrumentId === null &&
         row.genreId === null &&
         row.state !== 'deleted' &&
         recognitionKey(row.name) === recognitionKey(entity.name),
@@ -146,7 +146,7 @@ export function registerVocabularyEntity(
   if (offered) {
     db.update(vocabulary)
       .set({
-        categoryId: dimension === 'category' ? entity.id : null,
+        instrumentId: dimension === 'instrument' ? entity.id : null,
         genreId: dimension === 'genre' ? entity.id : null,
         name: entity.name,
         state: 'active',
@@ -156,10 +156,10 @@ export function registerVocabularyEntity(
   } else {
     db.insert(vocabulary)
       .values({
-        key: `${dimension}:${entity.id}`,
+        key: `${dimension === 'instrument' ? 'category' : dimension}:${entity.id}`,
         dimension,
         name: entity.name,
-        categoryId: dimension === 'category' ? entity.id : null,
+        instrumentId: dimension === 'instrument' ? entity.id : null,
         genreId: dimension === 'genre' ? entity.id : null,
         state: 'active',
       })
@@ -182,7 +182,7 @@ export function requireRecognitionNameAvailable(
     .some(
       (row) =>
         row.state !== 'deleted' &&
-        (row.categoryId !== null ||
+        (row.instrumentId !== null ||
           row.genreId !== null ||
           dimension === 'sample-type') &&
         row.key !== ownKey &&
@@ -347,7 +347,7 @@ export function listRecognitionVocabulary(
         key: row.key,
         dimension: row.dimension,
         name: row.name,
-        entityId: row.categoryId ?? row.genreId,
+        entityId: row.instrumentId ?? row.genreId,
         state: row.state,
       })),
     total: db.select({ total: count() }).from(vocabulary).get()!.total,
@@ -358,11 +358,11 @@ export function listRecognitionVocabulary(
 
 export function retireVocabularyEntity(
   db: AppDatabase,
-  dimension: 'category' | 'genre',
+  dimension: 'instrument' | 'genre',
   id: string,
 ): void {
   const field =
-    dimension === 'category' ? vocabulary.categoryId : vocabulary.genreId
+    dimension === 'instrument' ? vocabulary.instrumentId : vocabulary.genreId
   const target = db.select().from(vocabulary).where(eq(field, id)).get()
   if (target) {
     db.update(aliases)

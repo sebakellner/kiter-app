@@ -5,74 +5,74 @@ import type {
 import type { AppDatabase } from '../../runtime/connection.ts'
 import * as classification from '../../operations/classification/operations.ts'
 import {
-  readSampleCategories,
-  saveSampleCategories,
-} from '../../operations/classification/sample-categories.ts'
+  readSampleInstruments,
+  saveSampleInstruments,
+} from '../../operations/classification/sample-instruments.ts'
 
 export function executeClassification(
   db: AppDatabase,
   request: ClassificationRequest,
 ): ClassificationReply {
   switch (request.action) {
-    case 'read-sample-categories':
+    case 'read-sample-instruments':
       return {
         action: request.action,
-        result: readSampleCategories(db, request.input),
+        result: readSampleInstruments(db, request.input),
       }
-    case 'save-sample-categories':
+    case 'save-sample-instruments':
       return {
         action: request.action,
-        result: saveSampleCategories(db, request.input),
+        result: saveSampleInstruments(db, request.input),
       }
     case 'create-author':
       return {
         action: request.action,
         result: classification.createAuthor(db, request.input),
       }
-    case 'create-category':
+    case 'create-instrument':
       return {
         action: request.action,
-        result: classification.createCategory(db, request.input),
+        result: classification.createInstrument(db, request.input),
       }
     case 'rename-author':
       return {
         action: request.action,
         result: classification.renameAuthor(db, request.input),
       }
-    case 'rename-category':
+    case 'rename-instrument':
       return {
         action: request.action,
-        result: classification.renameCategory(db, request.input),
+        result: classification.renameInstrument(db, request.input),
       }
     case 'get-author':
       return {
         action: request.action,
         result: classification.getAuthor(db, request.id),
       }
-    case 'get-category':
+    case 'get-instrument':
       return {
         action: request.action,
-        result: classification.getCategory(db, request.id),
+        result: classification.getInstrument(db, request.id),
       }
     case 'list-authors':
       return {
         action: request.action,
         result: classification.listAuthors(db, request.input),
       }
-    case 'list-categories':
+    case 'list-instruments':
       return {
         action: request.action,
-        result: classification.listCategories(db, request.input),
+        result: classification.listInstruments(db, request.input),
       }
     case 'set-author-assignment':
       return {
         action: request.action,
         result: classification.setAuthorAssignment(db, request.input),
       }
-    case 'set-category-assignment':
+    case 'set-instrument-assignment':
       return {
         action: request.action,
-        result: classification.setCategoryAssignment(db, request.input),
+        result: classification.setInstrumentAssignment(db, request.input),
       }
     case 'list-target-authors':
       return {
@@ -83,10 +83,10 @@ export function executeClassification(
           request.input,
         ),
       }
-    case 'list-target-categories':
+    case 'list-target-instruments':
       return {
         action: request.action,
-        result: classification.listTargetCategories(
+        result: classification.listTargetInstruments(
           db,
           request.target,
           request.input,
@@ -97,30 +97,30 @@ export function executeClassification(
         action: request.action,
         result: classification.listAuthorUses(db, request.input),
       }
-    case 'list-category-uses':
+    case 'list-instrument-uses':
       return {
         action: request.action,
-        result: classification.listCategoryUses(db, request.input),
+        result: classification.listInstrumentUses(db, request.input),
       }
     case 'review-author-removal':
       return {
         action: request.action,
         result: classification.reviewAuthorRemoval(db, request.id),
       }
-    case 'review-category-removal':
+    case 'review-instrument-removal':
       return {
         action: request.action,
-        result: classification.reviewCategoryRemoval(db, request.id),
+        result: classification.reviewInstrumentRemoval(db, request.id),
       }
     case 'remove-author':
       return {
         action: request.action,
         result: classification.removeAuthor(db, request.input),
       }
-    case 'remove-category':
+    case 'remove-instrument':
       return {
         action: request.action,
-        result: classification.removeCategory(db, request.input),
+        result: classification.removeInstrument(db, request.input),
       }
   }
 }

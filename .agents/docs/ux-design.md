@@ -72,7 +72,7 @@ Permanent global player
 - The sidebar contains primary destinations and personal Collection shortcuts.
   Keep its text labels visible in both compact and wide windows.
 - The inspector can be opened and closed. It follows the selected Sample, Pack,
-  Collection, Category, or Author and shows an empty state when nothing is selected.
+  Collection, Instrument, or Author and shows an empty state when nothing is selected.
   Profile also uses the inspector through its explicit Edit action.
 - In wide windows, the inspector sits beside the content. In compact windows,
   it overlays the content while keeping the player accessible.
@@ -98,7 +98,7 @@ LIBRARY
   Collections
 
 ORGANIZATION
-  Categories
+  Instruments
   Authors
 
 YOUR COLLECTIONS
@@ -113,7 +113,7 @@ YOUR COLLECTIONS
   than only pinned or recently used Collections.
 - Keep primary destinations visible while Your collections scrolls independently,
   following Shell Sizing and Scrolling.
-- Packs, Collections, Categories, and Authors each have a list and dedicated
+- Packs, Collections, Instruments, and Authors each have a list and dedicated
   entity detail views for exploring their contents.
 - Profile and Settings are separate destinations reached from the header menu.
   Profile concerns the local identity; Settings concerns application preferences.
@@ -179,7 +179,7 @@ recent Collections, and quick actions for importing audio/creating a Collection.
 
 ### Selection, Opening, and History — Agreed
 
-- In Pack, Collection, Category, and Author lists, a single click selects an
+- In Pack, Collection, Instrument, and Author lists, a single click selects an
   element; double-click or Enter opens its dedicated view. Provide a visible
   Open action so opening does not depend on double-click.
 - Selection can exist while the inspector is closed. Where supported, an open
@@ -229,7 +229,7 @@ describe the agreed target.
   actions target checked Samples, not the inspector's active Sample.
 - Agreed batch actions are Add to Collection, removal from the catalog, and,
   within a Collection, membership removal, plus removal of the current direct
-  assignment from Category/Author detail under Catalog Organization. Catalog removal
+  assignment from Instrument/Author detail under Catalog Organization. Catalog removal
   requires impact review and explicit confirmation. Original audio files remain
   untouched. Explicit group classification decisions are separately agreed in
   [Classification](features/classification.md); they do not turn the inspector
@@ -309,9 +309,9 @@ after deletion; Domain Model owns entity/file preservation invariants.
 [Catalog Organization](features/catalog-organization.md#collection-membership-and-ordering)
 owns pickers, append/reorder rules, internal versus native drag, and retry scope.
 
-### Pack, Category, and Author Views — Agreed
+### Pack, Instrument, and Author Views — Agreed
 
-[Catalog Organization](features/catalog-organization.md#pack-category-and-author-views)
+[Catalog Organization](features/catalog-organization.md#pack-instrument-and-author-views)
 owns detail/assignment interactions and the independent Change origin workflow.
 
 ## Search and Presentation
@@ -336,14 +336,14 @@ Apply shared selection/draft transitions here when results change.
   while results scroll, rather than placing these filters in the global header
   or inspector. Samples and Favorites use the same arrangement.
 - Use compact labeled searchable comboboxes with anchored result popovers for
-  Categories and Genres. Allow multiple selected values, preserving the query
+  Instruments and Genres. Allow multiple selected values, preserving the query
   and input focus while choosing results. Give the combobox an accessible name,
   expanded state, and keyboard navigation; expose selected options in its listbox.
   Sample type uses a compact select-style multi-select with its three fixed
   options (One-Shot, Loop, Unknown), without text search. Preserve multiple
   selection and OR matching under Search's filter contract.
-  Deliver Categories first, then Genres and Sample type.
-  Categories remains the product label for sound classifications; the visual
+  Deliver Instruments first, then Genres and Sample type.
+  Instruments remains the product label for sound classifications; the visual
   reference's Instruments label does not introduce another entity or hierarchy.
 - Show removable active-value chips in a row below the dropdowns, together with
   Clear all when filters are active. Chips represent selected filters, not a new
@@ -362,7 +362,7 @@ Apply shared selection/draft transitions here when results change.
 - Samples, Favorites, and Sample lists within Packs and Collections use rows,
   rather than an alternate card presentation.
 - Wide Sample rows accommodate name, Play/Pause, Favorite, contextual menu,
-  waveform, observed duration, format, origin Pack, direct Categories, direct
+  waveform, observed duration, format, origin Pack, direct Instruments, direct
   Authors, and relative source path. Include selection and distinct drag controls
   where applicable. Limit inline relationship labels with access to the rest.
 - BPM and tonality are planned Sample fields under
@@ -375,15 +375,15 @@ Apply shared selection/draft transitions here when results change.
   accessible. Exact responsive layout remains a visual-design decision.
 - Packs and Collections use cover cards with a placeholder when no cover exists,
   name, and Sample count. Pack cards additionally show bounded direct Author and
-  Category labels and source-folder context, rather than a description excerpt.
+  Instrument labels and source-folder context, rather than a description excerpt.
   Collection cards keep only the essential cover, name, and count, apart from
   secondary information needed to distinguish duplicate names.
-  Categories and Authors use text cards with their names and usage counts,
+  Instruments and Authors use text cards with their names and usage counts,
   without introducing new image fields. Cards preserve the agreed distinction
   between selection and opening.
 - Samples and Favorites initially sort alphabetically by display name, with a
   stable tie-breaker. Collections retain their manual sequence.
-- Main Pack, Collection, Category, and Author lists also initially sort
+- Main Pack, Collection, Instrument, and Author lists also initially sort
   alphabetically by name. This does not change Collection membership order or
   Home's recency blocks.
 - Offer a field-visibility menu for Sample rows. Initial scope is showing/hiding
@@ -554,7 +554,7 @@ review without changing these draft-preservation rules.
 
 A React Router SPA with nested routes under a persistent shell is adopted using
 `createHashRouter`. Home and Samples are implemented prototype destinations;
-Favorites is connected to the persistent catalog; Packs, Collections, Categories,
+Favorites is connected to the persistent catalog; Packs, Collections, Instruments,
 and Authors have placeholder views.
 [Architecture](architecture.md#renderer-navigation-and-shell) owns configuration
 and current state boundaries. The remaining route map and complete navigation
@@ -570,8 +570,8 @@ The proposed route map corresponding to the agreed destinations is:
 /packs/:packId
 /collections
 /collections/:collectionId
-/categories
-/categories/:categoryId
+/instruments
+/instruments/:instrumentId
 /authors
 /authors/:authorId
 /search
@@ -634,7 +634,7 @@ rejections, and analysis pause) are owned by the corresponding feature guides.
 ## Feature Contracts
 
 [Classification](features/classification.md) owns the agreed Genre seed,
-Category recognition terms, aliases, Sample-type suggestions, evidence, review,
+Instrument recognition terms, aliases, Sample-type suggestions, evidence, review,
 and rejection memory. [Import](features/import.md) owns integration with import;
 [Operation Execution](features/operation-execution.md) owns queue/history/recovery.
 Feature-specific technical contracts and delivery order live with those guides,

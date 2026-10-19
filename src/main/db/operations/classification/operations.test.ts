@@ -21,7 +21,7 @@ import {
   packs,
   samples,
   userProfiles,
-  sampleCategories,
+  sampleInstruments,
 } from '../../schema/index.ts'
 import { requireClassificationName } from '../../../../shared/domain/classification.ts'
 import { isDbReply, isDbRequest } from '../../protocol/messages.ts'
@@ -77,36 +77,40 @@ test('classification names use NFC, Unicode code points and reject controls befo
   }
 })
 
-test('Category uniqueness and rename rollback coexist with independent homonymous Authors', (t) => {
+test('Instrument uniqueness and rename rollback coexist with independent homonymous Authors', (t) => {
   const { db } = createMemoryDatabase(t)
-  const category = classification.createCategory(db, {
+  const instrument = classification.createInstrument(db, {
     name: ' E\u0301LECTRO ',
   })
-  assert.equal(category.name, 'ÉLECTRO')
-  assert.throws(() => classification.createCategory(db, { name: 'électro' }), {
-    code: 'NAME_CONFLICT',
-  })
-  const drums = classification.createCategory(db, { name: 'Drums' })
+  assert.equal(instrument.name, 'ÉLECTRO')
   assert.throws(
-    () => classification.renameCategory(db, { id: drums.id, name: 'Électro' }),
+    () => classification.createInstrument(db, { name: 'électro' }),
     {
       code: 'NAME_CONFLICT',
     },
   )
-  assert.deepEqual(classification.getCategory(db, drums.id), drums)
-  assert.deepEqual(
-    classification.renameCategory(db, { id: category.id, name: 'Électro' }),
+  const drums = classification.createInstrument(db, { name: 'Drums' })
+  assert.throws(
+    () =>
+      classification.renameInstrument(db, { id: drums.id, name: 'Électro' }),
     {
-      ...category,
+      code: 'NAME_CONFLICT',
+    },
+  )
+  assert.deepEqual(classification.getInstrument(db, drums.id), drums)
+  assert.deepEqual(
+    classification.renameInstrument(db, { id: instrument.id, name: 'Électro' }),
+    {
+      ...instrument,
       name: 'Électro',
     },
   )
-  classification.renameCategory(db, {
-    id: category.id,
+  classification.renameInstrument(db, {
+    id: instrument.id,
     name: 'Custom Textures',
   })
   assert.equal(
-    classification.createCategory(db, { name: 'Électro' }).name,
+    classification.createInstrument(db, { name: 'Électro' }).name,
     'Électro',
   )
   const first = classification.createAuthor(db, { name: 'Producer' })
@@ -121,7 +125,7 @@ test('Category uniqueness and rename rollback coexist with independent homonymou
   )
   assert.deepEqual(classification.getAuthor(db, second.id), second)
   assert.equal(classification.listAuthors(db, { search: 'producer' }).total, 2)
-  for (const get of [classification.getAuthor, classification.getCategory]) {
+  for (const get of [classification.getAuthor, classification.getInstrument]) {
     assert.throws(() => get(db, randomUUID()), { code: 'NOT_FOUND' })
     assert.throws(() => get(db, 'invalid'), { code: 'INVALID_INPUT' })
   }
@@ -177,18 +181,18 @@ test('classification searches are Unicode-aware, literal, accent-sensitive and b
     assert.throws(() => classification.listAuthors(db, input), {
       code: 'INVALID_INPUT',
     })
-    assert.throws(() => classification.listCategories(db, input), {
+    assert.throws(() => classification.listInstruments(db, input), {
       code: 'INVALID_INPUT',
     })
   }
-  classification.createCategory(db, { name: 'Électro' })
-  classification.createCategory(db, { name: 'Bass' })
+  classification.createInstrument(db, { name: 'Électro' })
+  classification.createInstrument(db, { name: 'Bass' })
   assert.equal(
-    classification.listCategories(db, { search: 'éL' }).items[0].name,
+    classification.listInstruments(db, { search: 'éL' }).items[0].name,
     'Électro',
   )
   assert.equal(
-    classification.listCategories(db, { limit: 1 }).items[0].name,
+    classification.listInstruments(db, { limit: 1 }).items[0].name,
     'Bass',
   )
 })
@@ -197,7 +201,7 @@ test('assignments are idempotent, direct and independent of origin, profile, Fav
   const { db } = createMemoryDatabase(t)
   const { sampleId, otherSampleId, packId } = fixture(db)
   const author = classification.createAuthor(db, { name: 'Producer' })
-  const category = classification.createCategory(db, { name: 'Drums' })
+  const instrument = classification.createInstrument(db, { name: 'Drums' })
   db.update(userProfiles).set({ authorId: author.id }).run()
   const sample = { kind: 'sample' as const, id: sampleId }
   const pack = { kind: 'pack' as const, id: packId }
@@ -211,10 +215,10 @@ test('assignments are idempotent, direct and independent of origin, profile, Fav
       classification.listAuthorUses,
     ],
     [
-      category,
-      classification.setCategoryAssignment,
-      classification.listTargetCategories,
-      classification.listCategoryUses,
+      instrument,
+      classification.setInstrumentAssignment,
+      classification.listTargetInstruments,
+      classification.listInstrumentUses,
     ],
   ] as const) {
     assign(db, { id: entity.id, target: pack, assigned: true })
@@ -275,7 +279,7 @@ test('assignments are idempotent, direct and independent of origin, profile, Fav
 test('removal revalidates exact impact, including equal-count substitutions, rename and profile links', (t) => {
   const { db } = createMemoryDatabase(t)
   const { sampleId, otherSampleId, packId } = fixture(db)
-  const category = classification.createCategory(db, { name: 'Drums' })
+  const instrument = classification.createInstrument(db, { name: 'Drums' })
   const author = classification.createAuthor(db, { name: 'Producer' })
   for (const [entity, assign, review, remove, get] of [
     [
@@ -286,11 +290,11 @@ test('removal revalidates exact impact, including equal-count substitutions, ren
       classification.getAuthor,
     ],
     [
-      category,
-      classification.setCategoryAssignment,
-      classification.reviewCategoryRemoval,
-      classification.removeCategory,
-      classification.getCategory,
+      instrument,
+      classification.setInstrumentAssignment,
+      classification.reviewInstrumentRemoval,
+      classification.removeInstrument,
+      classification.getInstrument,
     ],
   ] as const) {
     assign(db, {
@@ -336,12 +340,12 @@ test('removal revalidates exact impact, including equal-count substitutions, ren
       code: 'STALE_REVIEW',
     },
   )
-  const preRename = classification.reviewCategoryRemoval(db, category.id)
-  classification.renameCategory(db, { id: category.id, name: 'Percussion' })
+  const preRename = classification.reviewInstrumentRemoval(db, instrument.id)
+  classification.renameInstrument(db, { id: instrument.id, name: 'Percussion' })
   assert.throws(
     () =>
-      classification.removeCategory(db, {
-        id: category.id,
+      classification.removeInstrument(db, {
+        id: instrument.id,
         token: preRename.token,
       }),
     { code: 'STALE_REVIEW' },
@@ -365,9 +369,9 @@ test('removal revalidates exact impact, including equal-count substitutions, ren
     ...local,
     profile: { ...local.profile, authorId: null },
   })
-  classification.removeCategory(db, {
-    id: category.id,
-    token: classification.reviewCategoryRemoval(db, category.id).token,
+  classification.removeInstrument(db, {
+    id: instrument.id,
+    token: classification.reviewInstrumentRemoval(db, instrument.id).token,
   })
   assert.deepEqual(db.select().from(samples).all(), beforeSamples)
   assert.equal(db.select().from(packs).all().length, 1)
@@ -377,7 +381,7 @@ test('removal revalidates exact impact, including equal-count substitutions, ren
     0,
   )
   assert.equal(
-    classification.listTargetCategories(db, {
+    classification.listTargetInstruments(db, {
       kind: 'sample',
       id: otherSampleId,
     }).total,
@@ -386,7 +390,7 @@ test('removal revalidates exact impact, including equal-count substitutions, ren
   assert.throws(() => classification.getAuthor(db, author.id), {
     code: 'NOT_FOUND',
   })
-  assert.throws(() => classification.getCategory(db, category.id), {
+  assert.throws(() => classification.getInstrument(db, instrument.id), {
     code: 'NOT_FOUND',
   })
 })
@@ -426,29 +430,31 @@ test('removal reviews cover all associations beyond a single internal batch', (t
       observedMtimeMs: 1000,
     })),
   )
-  const category = classification.createCategory(db, { name: 'Large group' })
+  const instrument = classification.createInstrument(db, {
+    name: 'Large group',
+  })
   db.transaction(() => {
     for (const sample of imported) {
-      db.insert(sampleCategories)
-        .values({ sampleId: sample.id, categoryId: category.id })
+      db.insert(sampleInstruments)
+        .values({ sampleId: sample.id, instrumentId: instrument.id })
         .run()
     }
   })
-  const review = classification.reviewCategoryRemoval(db, category.id)
+  const review = classification.reviewInstrumentRemoval(db, instrument.id)
   assert.equal(review.sampleCount, 501)
   const last = imported
     .map((sample) => sample.id)
     .sort()
     .at(-1)!
-  classification.setCategoryAssignment(db, {
-    id: category.id,
+  classification.setInstrumentAssignment(db, {
+    id: instrument.id,
     target: { kind: 'sample', id: last },
     assigned: false,
   })
   assert.throws(
     () =>
-      classification.removeCategory(db, {
-        id: category.id,
+      classification.removeInstrument(db, {
+        id: instrument.id,
         token: review.token,
       }),
     {
@@ -463,33 +469,33 @@ test('classification identities, assignments and review tokens survive database 
   let connection = open(filename)
   try {
     const { sampleId } = fixture(connection.db)
-    const category = classification.createCategory(connection.db, {
+    const instrument = classification.createInstrument(connection.db, {
       name: 'Drums',
     })
-    classification.setCategoryAssignment(connection.db, {
-      id: category.id,
+    classification.setInstrumentAssignment(connection.db, {
+      id: instrument.id,
       target: { kind: 'sample', id: sampleId },
       assigned: true,
     })
-    const review = classification.reviewCategoryRemoval(
+    const review = classification.reviewInstrumentRemoval(
       connection.db,
-      category.id,
+      instrument.id,
     )
     connection.close()
     connection = open(filename)
     assert.deepEqual(
-      classification.reviewCategoryRemoval(connection.db, category.id),
+      classification.reviewInstrumentRemoval(connection.db, instrument.id),
       review,
     )
     assert.deepEqual(
-      classification.listTargetCategories(connection.db, {
+      classification.listTargetInstruments(connection.db, {
         kind: 'sample',
         id: sampleId,
       }).items,
-      [category],
+      [instrument],
     )
-    classification.removeCategory(connection.db, {
-      id: category.id,
+    classification.removeInstrument(connection.db, {
+      id: instrument.id,
       token: review.token,
     })
   } finally {
@@ -503,17 +509,17 @@ test('worker classification contracts reject invalid names, pagination, associat
   for (const request of [
     { action: 'create-author', input: { name: 'Producer' } },
     {
-      action: 'set-category-assignment',
+      action: 'set-instrument-assignment',
       input: { id, target: { kind: 'pack', id }, assigned: true },
     },
     { action: 'list-authors', input: { search: 'É', limit: 100 } },
-    { action: 'remove-category', input: { id, token: 'a'.repeat(64) } },
+    { action: 'remove-instrument', input: { id, token: 'a'.repeat(64) } },
   ]) {
     assert.equal(isDbRequest({ requestId: 1, ...request }), true)
   }
   for (const request of [
     { action: 'create-author', input: { name: 'a\n' } },
-    { action: 'rename-category', input: { id: 'bad', name: 'Valid' } },
+    { action: 'rename-instrument', input: { id: 'bad', name: 'Valid' } },
     { action: 'list-authors', input: { limit: 101 } },
     { action: 'list-author-uses', input: { id, kind: 'collection' } },
     {

@@ -18,7 +18,7 @@ import {
   recognitionAliases,
 } from '../../schema/recognition.ts'
 
-test('explicit application atomically persists Categories, Genres and type while preserving Sample identity', async (t) => {
+test('explicit application atomically persists Instruments, Genres and type while preserving Sample identity', async (t) => {
   const disk = await createDiskDatabase(t)
   let db = disk.connection.db
   const root = path.resolve('House')
@@ -69,7 +69,7 @@ test('invalid or stale suggestions perform no partial writes and late transactio
       }),
     { code: 'STALE_REVIEW' },
   )
-  assert.equal(db.query.categories.findFirst().sync(), undefined)
+  assert.equal(db.query.instruments.findFirst().sync(), undefined)
   native.exec(
     "CREATE TRIGGER fail_genre BEFORE INSERT ON sample_genres BEGIN SELECT RAISE(ABORT, 'injected'); END",
   )
@@ -80,7 +80,7 @@ test('invalid or stale suggestions perform no partial writes and late transactio
       keys: ['category:kick', 'genre:house'],
     }),
   )
-  assert.equal(db.query.categories.findFirst().sync(), undefined)
+  assert.equal(db.query.instruments.findFirst().sync(), undefined)
   assert.deepEqual(db.select().from(sampleGenres).all(), [])
   db.update(samples)
     .set({ favorite: true })
@@ -108,7 +108,7 @@ test('existing libraries recognize and save Drums, Drum Breaks and explicit Loop
     .where(eq(recognitionAliases.suppliedKey, 'category:drums:drum'))
     .run()
   initializeRecognitionVocabulary(db, false)
-  assert.equal(db.query.categories.findFirst().sync(), undefined)
+  assert.equal(db.query.instruments.findFirst().sync(), undefined)
   const root = path.resolve('Vintage Drum Breaks')
   const [sample] = importFolder(db, root, [
     makeDiscoveredAudioFile(root, 'Loops/100_001_Mic1.wav'),

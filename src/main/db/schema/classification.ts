@@ -9,7 +9,8 @@ import {
 import { packs } from './packs.ts'
 import { samples } from './samples.ts'
 
-export const categories = sqliteTable(
+// Physical names are retained for compatibility; application code uses Instruments.
+export const instruments = sqliteTable(
   'categories',
   {
     id: text('id').primaryKey().notNull(),
@@ -36,35 +37,35 @@ export const authors = sqliteTable(
   ],
 )
 
-export const sampleCategories = sqliteTable(
+export const sampleInstruments = sqliteTable(
   'sample_categories',
   {
     sampleId: text('sample_id')
       .notNull()
       .references(() => samples.id, { onDelete: 'cascade' }),
-    categoryId: text('category_id')
+    instrumentId: text('category_id')
       .notNull()
-      .references(() => categories.id, { onDelete: 'cascade' }),
+      .references(() => instruments.id, { onDelete: 'cascade' }),
   },
   (table) => [
-    primaryKey({ columns: [table.sampleId, table.categoryId] }),
-    index('samples_by_category').on(table.categoryId, table.sampleId),
+    primaryKey({ columns: [table.sampleId, table.instrumentId] }),
+    index('samples_by_category').on(table.instrumentId, table.sampleId),
   ],
 )
 
-export const packCategories = sqliteTable(
+export const packInstruments = sqliteTable(
   'pack_categories',
   {
     packId: text('pack_id')
       .notNull()
       .references(() => packs.id, { onDelete: 'cascade' }),
-    categoryId: text('category_id')
+    instrumentId: text('category_id')
       .notNull()
-      .references(() => categories.id, { onDelete: 'cascade' }),
+      .references(() => instruments.id, { onDelete: 'cascade' }),
   },
   (table) => [
-    primaryKey({ columns: [table.packId, table.categoryId] }),
-    index('packs_by_category').on(table.categoryId, table.packId),
+    primaryKey({ columns: [table.packId, table.instrumentId] }),
+    index('packs_by_category').on(table.instrumentId, table.packId),
   ],
 )
 

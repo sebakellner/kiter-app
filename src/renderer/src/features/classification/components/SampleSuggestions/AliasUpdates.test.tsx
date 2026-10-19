@@ -11,7 +11,7 @@ test('checking aliases does not incorporate them until the user explicitly choos
     key: 'category:drums:drum',
     targetName: 'Drums',
     term: 'Drum',
-    dimension: 'category' as const,
+    dimension: 'instrument' as const,
     token: 'a'.repeat(64),
     blockedReason: null,
   }
@@ -34,7 +34,7 @@ test('checking aliases does not incorporate them until the user explicitly choos
   await user.click(
     screen.getByRole('button', { name: 'Check vocabulary updates' }),
   )
-  expect(await screen.findByText('Drum → Drums (category)')).toBeVisible()
+  expect(await screen.findByText('Drum → Drums (instrument)')).toBeVisible()
   expect(api.classification.incorporateAlias).not.toHaveBeenCalled()
   await user.click(
     screen.getByRole('button', { name: 'Add alias: Drum → Drums' }),

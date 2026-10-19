@@ -3,22 +3,24 @@ import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { classificationSelectionSchemas } from '../../schemas'
 import type { ClassificationSelection } from '../../schemas'
-import type { Category } from '@shared/domain/classification'
-import type { CategoryPage } from '@shared/ipc/categories'
+import type { Instrument } from '@shared/domain/classification'
+import type { InstrumentPage } from '@shared/ipc/instruments'
 import { unwrapIpcResult } from '@shared/ipc/result'
 
 type AssignmentSnapshot = {
   sampleId: string
   token: string
-  categories: Category[]
+  instruments: Instrument[]
 }
 
 async function readAssignments(
   sampleId: string,
-  dimension: 'category' | 'genre',
+  dimension: 'instrument' | 'genre',
 ): Promise<AssignmentSnapshot> {
-  if (dimension === 'category') {
-    return unwrapIpcResult(await window.api.categories.readSample({ sampleId }))
+  if (dimension === 'instrument') {
+    return unwrapIpcResult(
+      await window.api.instruments.readSample({ sampleId }),
+    )
   }
   const snapshot = unwrapIpcResult(
     await window.api.genres.readSample({ sampleId }),
@@ -26,20 +28,20 @@ async function readAssignments(
   return {
     sampleId: snapshot.sampleId,
     token: snapshot.token,
-    categories: snapshot.genres,
+    instruments: snapshot.genres,
   }
 }
 
 export function useClassificationEditor(
   sampleId: string,
   onSaved: () => void,
-  dimension: 'category' | 'genre',
+  dimension: 'instrument' | 'genre',
 ): {
   saved: AssignmentSnapshot | null
-  selected: Category[]
+  selected: Instrument[]
   search: string
   offset: number
-  page: CategoryPage | null
+  page: InstrumentPage | null
   loading: boolean
   searching: boolean
   pending: boolean
@@ -50,13 +52,13 @@ export function useClassificationEditor(
   validationError: string | undefined
   save: () => Promise<boolean>
   reload: () => Promise<void>
-  toggle: (category: Category) => void
+  toggle: (instrument: Instrument) => void
   query: (value: string) => void
   move: (value: number) => void
   retryList: () => void
 } {
   const [saved, setSaved] = useState<AssignmentSnapshot | null>(null)
-  const plural = dimension === 'category' ? 'categories' : 'genres'
+  const plural = dimension === 'instrument' ? 'instruments' : 'genres'
   const { control, getValues, setValue, reset, handleSubmit, formState } =
     useForm<ClassificationSelection>({
       resolver: zodResolver(classificationSelectionSchemas[dimension]),
@@ -64,17 +66,17 @@ export function useClassificationEditor(
       mode: 'onBlur',
       reValidateMode: 'onChange',
     })
-  const categoryIds = useWatch({ control, name: 'ids' })
-  const [knownCategories, setKnownCategories] = useState(
-    new Map<string, Category>(),
+  const instrumentIds = useWatch({ control, name: 'ids' })
+  const [knownInstruments, setKnownInstruments] = useState(
+    new Map<string, Instrument>(),
   )
-  const selected = categoryIds.flatMap((id) => {
-    const category = knownCategories.get(id)
-    return category ? [category] : []
+  const selected = instrumentIds.flatMap((id) => {
+    const instrument = knownInstruments.get(id)
+    return instrument ? [instrument] : []
   })
   const [search, setSearch] = useState('')
   const [offset, setOffset] = useState(0)
-  const [page, setPage] = useState<CategoryPage | null>(null)
+  const [page, setPage] = useState<InstrumentPage | null>(null)
   const [loading, setLoading] = useState(true)
   const [searching, setSearching] = useState(true)
   const [pending, setPending] = useState(false)
@@ -99,12 +101,15 @@ export function useClassificationEditor(
       .then((snapshot) => {
         if (current) {
           setSaved(snapshot)
-          setKnownCategories(
+          setKnownInstruments(
             new Map(
-              snapshot.categories.map((category) => [category.id, category]),
+              snapshot.instruments.map((instrument) => [
+                instrument.id,
+                instrument,
+              ]),
             ),
           )
-          reset({ ids: snapshot.categories.map(({ id }) => id).sort() })
+          reset({ ids: snapshot.instruments.map(({ id }) => id).sort() })
           setLoading(false)
         }
       })
@@ -159,19 +164,19 @@ export function useClassificationEditor(
       if (active.current) {
         // Keep the user's intended selection visible for explicit reconciliation.
         const draftIds = getValues('ids')
-        setKnownCategories(
+        setKnownInstruments(
           (current) =>
             new Map([
               ...draftIds.flatMap((id) => {
-                const category = current.get(id)
-                return category ? [[id, category] as const] : []
+                const instrument = current.get(id)
+                return instrument ? [[id, instrument] as const] : []
               }),
-              ...snapshot.categories.map(
-                (category) => [category.id, category] as const,
+              ...snapshot.instruments.map(
+                (instrument) => [instrument.id, instrument] as const,
               ),
             ]),
         )
-        reset({ ids: snapshot.categories.map(({ id }) => id).sort() })
+        reset({ ids: snapshot.instruments.map(({ id }) => id).sort() })
         setSaved(snapshot)
         if (saved) {
           setValue('ids', draftIds, {
@@ -212,12 +217,12 @@ export function useClassificationEditor(
       setError(null)
       try {
         const snapshot =
-          dimension === 'category'
+          dimension === 'instrument'
             ? unwrapIpcResult(
-                await window.api.categories.saveSample({
+                await window.api.instruments.saveSample({
                   sampleId,
                   token: saved.token,
-                  categoryIds: values.ids,
+                  instrumentIds: values.ids,
                 }),
               )
             : await (async (): Promise<AssignmentSnapshot> => {
@@ -231,14 +236,14 @@ export function useClassificationEditor(
                 return {
                   sampleId: result.sampleId,
                   token: result.token,
-                  categories: result.genres,
+                  instruments: result.genres,
                 }
               })()
         if (!active.current) {
           return
         }
         setSaved(snapshot)
-        reset({ ids: snapshot.categories.map(({ id }) => id).sort() })
+        reset({ ids: snapshot.instruments.map(({ id }) => id).sort() })
         onSaved()
         succeeded = true
       } catch (reason) {
@@ -277,23 +282,23 @@ export function useClassificationEditor(
       formState.errors.ids?.message ?? formState.errors.ids?.root?.message,
     save,
     reload,
-    toggle(category: Category) {
+    toggle(instrument: Instrument) {
       const ids = getValues('ids')
-      setKnownCategories(
+      setKnownInstruments(
         (current) =>
           new Map([
             ...ids.flatMap((id) => {
               const item = current.get(id)
               return item ? [[id, item] as const] : []
             }),
-            [category.id, category],
+            [instrument.id, instrument],
           ]),
       )
       setValue(
         'ids',
-        (ids.includes(category.id)
-          ? ids.filter((id) => id !== category.id)
-          : [...ids, category.id]
+        (ids.includes(instrument.id)
+          ? ids.filter((id) => id !== instrument.id)
+          : [...ids, instrument.id]
         ).sort(),
         { shouldDirty: true, shouldValidate: true },
       )

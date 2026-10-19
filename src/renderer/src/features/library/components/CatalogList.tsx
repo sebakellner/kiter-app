@@ -22,7 +22,7 @@ export function CatalogList({
     favoritesOnly,
     revision,
     context.offset,
-    context.categories.map(({ id }) => id),
+    context.instruments.map(({ id }) => id),
     context.genres.map(({ id }) => id),
     context.sampleTypes,
     context.search,
@@ -58,7 +58,7 @@ export function CatalogList({
   return (
     <>
       <SampleFilters
-        categories={context.categories}
+        instruments={context.instruments}
         genres={context.genres}
         sampleTypes={context.sampleTypes}
         search={context.search}
@@ -98,7 +98,7 @@ export function CatalogList({
               <p>
                 {effectiveCatalogSearch(context.search)
                   ? 'No samples match this search. Clear the search or change your filters.'
-                  : context.categories.length > 0 ||
+                  : context.instruments.length > 0 ||
                       context.genres.length > 0 ||
                       context.sampleTypes.length > 0
                     ? 'No samples match these filters. Remove a filter or clear all to see more samples.'

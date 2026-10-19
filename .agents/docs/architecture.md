@@ -115,7 +115,7 @@ driver, schema, failure behavior, and backup limitations.
 The renderer uses React Router with `createHashRouter` for compatibility with
 packaged file-based loading. `/home` is the default destination; `/samples`
 contains paginated library-wide browsing, with Favorites as a separate catalog
-destination. Unknown routes redirect to Home. Packs, Collections, Categories,
+destination. Unknown routes redirect to Home. Packs, Collections, Instruments,
 and Authors are registered as placeholder views
 for sidebar navigation; their domain workflows remain planned. Other destinations
 in UX Design are not registered yet.
@@ -219,7 +219,7 @@ Introduce them under existing folders as the corresponding features arrive.
 | Library/catalog        | Imported roots, stable sample identities, file locations, availability, and rescanning.                                |
 | Packs                  | Imported package metadata, declared credits, cover references, and origin assignments.                                 |
 | Collections            | User-created selections and ordered unique Sample memberships.                                                         |
-| Classification         | Shared Categories and reusable Authors, with independent Sample/Pack credits, without inheritance or credit roles.     |
+| Classification         | Shared Instruments and reusable Authors, with independent Sample/Pack credits, without inheritance or credit roles.    |
 | Local profile/settings | Singleton UserProfile, optional Author link and avatar, and typed Preferences; no login or per-user catalog ownership. |
 | Favorites              | Sample marks independent of Pack and Collection membership.                                                            |
 | Managed assets         | Shared validated image copies for covers/avatars, reference safety, and recoverable cleanup.                           |

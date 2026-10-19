@@ -236,7 +236,7 @@ function isVocabulary(value: unknown): value is VocabularyEntry {
     isRecord(value) &&
     typeof value.key === 'string' &&
     typeof value.name === 'string' &&
-    ['category', 'genre', 'sample-type'].includes(String(value.dimension)) &&
+    ['instrument', 'genre', 'sample-type'].includes(String(value.dimension)) &&
     ['active', 'offered', 'deleted'].includes(String(value.state)) &&
     (value.entityId === null || isEntityId(value.entityId))
   )

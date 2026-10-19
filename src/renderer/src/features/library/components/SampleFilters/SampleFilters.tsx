@@ -1,5 +1,5 @@
 import { useRef } from 'react'
-import type { Category } from '@shared/domain/classification'
+import type { Instrument } from '@shared/domain/classification'
 import type { Genre } from '@shared/domain/recognition'
 import { Button } from '@renderer/components/ui/Button'
 import { Select } from '@renderer/components/ui/Select'
@@ -17,25 +17,25 @@ const sampleTypeLabels = {
 const sampleTypeOptions: SampleTypeFilter = ['loop', 'one-shot', 'unknown']
 
 export function SampleFilters({
-  categories,
+  instruments,
   genres,
   sampleTypes,
   search,
   onSearchChange,
   onChange,
 }: {
-  categories: Category[]
+  instruments: Instrument[]
   genres: Genre[]
   sampleTypes: SampleTypeFilter
   search: string
   onSearchChange: (value: string) => void
   onChange: (filters: {
-    categories: Category[]
+    instruments: Instrument[]
     genres: Genre[]
     sampleTypes: SampleTypeFilter
   }) => void
 }): React.JSX.Element {
-  const categoryInput = useRef<HTMLInputElement>(null)
+  const instrumentInput = useRef<HTMLInputElement>(null)
   const genreInput = useRef<HTMLInputElement>(null)
   const typeInput = useRef<HTMLSelectElement>(null)
   const searchInput = useRef<HTMLInputElement>(null)
@@ -43,11 +43,11 @@ export function SampleFilters({
     <section className="sample-filters" aria-label="Sample filters">
       <div className="sample-filters-controls">
         <ClassificationFilter
-          kind="categories"
-          input={categoryInput}
-          value={categories}
+          kind="instruments"
+          input={instrumentInput}
+          value={instruments}
           onChange={(value) =>
-            onChange({ categories: value, genres, sampleTypes })
+            onChange({ instruments: value, genres, sampleTypes })
           }
         />
         <ClassificationFilter
@@ -55,7 +55,7 @@ export function SampleFilters({
           input={genreInput}
           value={genres}
           onChange={(value) =>
-            onChange({ categories, genres: value, sampleTypes })
+            onChange({ instruments, genres: value, sampleTypes })
           }
         />
         <Select
@@ -66,7 +66,7 @@ export function SampleFilters({
             const type = sampleTypeOptions.find(
               (value) => value === event.currentTarget.value,
             )
-            onChange({ categories, genres, sampleTypes: type ? [type] : [] })
+            onChange({ instruments, genres, sampleTypes: type ? [type] : [] })
           }}
         >
           <option value="all">Sample type</option>
@@ -96,27 +96,29 @@ export function SampleFilters({
           )}
         </div>
       </div>
-      {(categories.length > 0 ||
+      {(instruments.length > 0 ||
         genres.length > 0 ||
         sampleTypes.length > 0) && (
         <div
           className="sample-filters-chips"
           aria-label="Active sample filters"
         >
-          {categories.map((category) => (
+          {instruments.map((instrument) => (
             <Button
-              key={category.id}
-              aria-label={`Remove category filter: ${category.name}`}
+              key={instrument.id}
+              aria-label={`Remove instrument filter: ${instrument.name}`}
               onClick={() => {
                 onChange({
-                  categories: categories.filter(({ id }) => id !== category.id),
+                  instruments: instruments.filter(
+                    ({ id }) => id !== instrument.id,
+                  ),
                   genres,
                   sampleTypes,
                 })
-                categoryInput.current?.focus()
+                instrumentInput.current?.focus()
               }}
             >
-              {category.name} ×
+              {instrument.name} ×
             </Button>
           ))}
           {genres.map((genre) => (
@@ -125,7 +127,7 @@ export function SampleFilters({
               aria-label={`Remove genre filter: ${genre.name}`}
               onClick={() => {
                 onChange({
-                  categories,
+                  instruments,
                   genres: genres.filter(({ id }) => id !== genre.id),
                   sampleTypes,
                 })
@@ -141,7 +143,7 @@ export function SampleFilters({
               aria-label={`Remove Sample type filter: ${sampleTypeLabels[type]}`}
               onClick={() => {
                 onChange({
-                  categories,
+                  instruments,
                   genres,
                   sampleTypes: sampleTypes.filter((value) => value !== type),
                 })
@@ -153,8 +155,8 @@ export function SampleFilters({
           ))}
           <Button
             onClick={() => {
-              onChange({ categories: [], genres: [], sampleTypes: [] })
-              categoryInput.current?.focus()
+              onChange({ instruments: [], genres: [], sampleTypes: [] })
+              instrumentInput.current?.focus()
             }}
           >
             Clear all

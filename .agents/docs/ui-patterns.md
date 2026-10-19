@@ -33,7 +33,7 @@ and [Common Guidelines](common-guidelines.md) for English-first wording.
   Keep field errors near their controls and preserve drafts on validation failure.
 
 - Edit catalog presentation, not source files. Explicit Save/Cancel handles dirty
-  drafts; never save on blur. Category assignments and Author credits share the
+  drafts; never save on blur. Instrument assignments and Author credits share the
   text draft, independent on Samples/Packs. Save is atomic across that draft;
   invalid, failed, or stale data preserves all recoverable edits.
 - Sample musical decisions use that same atomic draft under
@@ -50,10 +50,10 @@ and [Common Guidelines](common-guidelines.md) for English-first wording.
   [Catalog Organization](features/catalog-organization.md#manual-origin-correction).
 - Validate on blur and complete Save; after error, update feedback during
   correction. Domain contracts own field validation.
-- Create Collections/Categories/Authors in minimal dialogs, then open detail after
+- Create Collections/Instruments/Authors in minimal dialogs, then open detail after
   success, never before completion. Pack creation follows [Import](features/import.md).
   Escape requests dismissal with dirty protection; outside click does not dismiss.
-- Assignment selectors can create missing Categories/Authors in nested dialogs.
+- Assignment selectors can create missing Instruments/Authors in nested dialogs.
   Return to selector, adding the entity to parent's draft rather than navigating;
   the created record persists if parent draft is discarded. Collection destination
   picker has its own equivalent exception in Catalog Organization.

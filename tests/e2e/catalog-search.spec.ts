@@ -29,6 +29,7 @@ test('local search matches names and relative paths, intersects filters and rest
     .click()
   await expect(inspector).toContainText('Classifications saved.')
   await inspector.getByRole('button', { name: 'Close inspector' }).click()
+  await expect(library.row('kick.wav')).toBeFocused()
 
   const search = kiter.page.getByRole('searchbox', { name: 'Search samples' })
   const names = kiter.page.getByTestId('sample-name')
@@ -54,7 +55,7 @@ test('local search matches names and relative paths, intersects filters and rest
   await search.fill('kick')
   await expect(names).toHaveText(['kick.wav'])
   await kiter.page
-    .getByRole('combobox', { name: 'Categories', exact: true })
+    .getByRole('combobox', { name: 'Instruments', exact: true })
     .click()
   await kiter.page.getByRole('option', { name: 'Kick', exact: true }).click()
   await kiter.page
@@ -73,7 +74,7 @@ test('local search matches names and relative paths, intersects filters and rest
   await expect(names).toHaveText(['kick.wav'])
   await expect(
     kiter.page.getByRole('button', {
-      name: 'Remove category filter: Kick',
+      name: 'Remove instrument filter: Kick',
       exact: true,
     }),
   ).toBeVisible()

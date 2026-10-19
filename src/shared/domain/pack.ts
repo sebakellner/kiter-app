@@ -58,7 +58,7 @@ export interface SampleOriginRequest {
 export interface PackRemovalReview {
   entity: Pack
   sampleCount: number
-  categoryCount: number
+  instrumentCount: number
   genreCount: number
   authorCount: number
   token: string

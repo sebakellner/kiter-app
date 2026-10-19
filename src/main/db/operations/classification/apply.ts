@@ -6,7 +6,7 @@ import type { ClassificationApplyRequest } from '../../../../shared/ipc/classifi
 import { DbError } from '../../errors.ts'
 import { recognitionVocabulary } from '../../schema/recognition.ts'
 import { samples } from '../../schema/samples.ts'
-import { createCategory, setCategoryAssignment } from './operations.ts'
+import { createInstrument, setInstrumentAssignment } from './operations.ts'
 import { createGenre, setGenreAssignment } from './genres.ts'
 
 export function applySampleClassification(
@@ -61,10 +61,10 @@ export function applySampleClassification(
           .where(eq(recognitionVocabulary.key, proposal.key))
           .get()!
         const target = { kind: 'sample' as const, id: input.sampleId }
-        if (proposal.dimension === 'category') {
+        if (proposal.dimension === 'instrument') {
           const id =
-            entry.categoryId ?? createCategory(db, { name: entry.name }).id
-          setCategoryAssignment(db, { id, target, assigned: true })
+            entry.instrumentId ?? createInstrument(db, { name: entry.name }).id
+          setInstrumentAssignment(db, { id, target, assigned: true })
         } else if (proposal.dimension === 'genre') {
           const id = entry.genreId ?? createGenre(db, { name: entry.name }).id
           setGenreAssignment(db, { id, target, assigned: true })

@@ -9,8 +9,8 @@ import { listCatalogSamples } from './catalog.ts'
 import { updateSample } from './operations.ts'
 import { setFavorite } from './favorites.ts'
 import {
-  createCategory,
-  setCategoryAssignment,
+  createInstrument,
+  setInstrumentAssignment,
 } from '../classification/operations.ts'
 import { listGenres, setGenreAssignment } from '../classification/genres.ts'
 import {
@@ -91,7 +91,7 @@ test('catalog search ranks exact names, prefixes, substrings and path matches be
   assert.deepEqual(listCatalogSamples(db, { search: 'kick', limit: 2 }), first)
 })
 
-test('catalog search intersects Categories, Genres, types and Favorites before counting and paging', (t) => {
+test('catalog search intersects Instruments, Genres, types and Favorites before counting and paging', (t) => {
   const { db } = createMemoryDatabase(t)
   const root = path.resolve('combined-search')
   const imported = importFolder(
@@ -101,13 +101,13 @@ test('catalog search intersects Categories, Genres, types and Favorites before c
       makeDiscoveredAudioFile(root, name),
     ),
   )
-  const category = createCategory(db, { name: 'Drums' })
+  const instrument = createInstrument(db, { name: 'Drums' })
   const genre = listGenres(db, { search: 'house' }).items.find(
     ({ name }) => name === 'House',
   )!
   for (const sample of imported) {
-    setCategoryAssignment(db, {
-      id: category.id,
+    setInstrumentAssignment(db, {
+      id: instrument.id,
       target: { kind: 'sample', id: sample.id },
       assigned: true,
     })
@@ -126,7 +126,7 @@ test('catalog search intersects Categories, Genres, types and Favorites before c
   }
   const filters = {
     search: 'kick',
-    categoryIds: [category.id],
+    instrumentIds: [instrument.id],
     genreIds: [genre.id],
     sampleTypes: ['loop'] as const,
     favoritesOnly: true,

@@ -4,10 +4,10 @@ export { packs } from './packs.ts'
 export { samples, sampleSources, sourceRootSamples } from './samples.ts'
 export { collections, collectionSamples } from './collections.ts'
 export {
-  categories,
+  instruments,
   authors,
-  sampleCategories,
-  packCategories,
+  sampleInstruments,
+  packInstruments,
   packAuthors,
   sampleAuthors,
 } from './classification.ts'

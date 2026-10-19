@@ -1,6 +1,6 @@
 import path from 'node:path'
 import { and, count, eq, inArray, or, sql } from 'drizzle-orm'
-import { sampleCategories } from '../../schema/classification.ts'
+import { sampleInstruments } from '../../schema/classification.ts'
 import { sampleGenres } from '../../schema/recognition.ts'
 import type { AppDatabase } from '../../runtime/connection.ts'
 import {
@@ -56,14 +56,14 @@ export function listCatalogSamples(
     limit = 50,
     offset = 0,
     favoritesOnly,
-    categoryIds,
+    instrumentIds,
     genreIds,
     sampleTypes,
     search,
   } = requireLibraryListRequest(input)
   return db.transaction(() => {
-    const categoryMatch = categoryIds?.length
-      ? sql`exists (select 1 from ${sampleCategories} where ${sampleCategories.sampleId} = ${samples.id} and ${inArray(sampleCategories.categoryId, categoryIds)})`
+    const instrumentMatch = instrumentIds?.length
+      ? sql`exists (select 1 from ${sampleInstruments} where ${sampleInstruments.sampleId} = ${samples.id} and ${inArray(sampleInstruments.instrumentId, instrumentIds)})`
       : undefined
     const searchName = sql`kiter_search_text(coalesce(${samples.displayName}, ${filename}))`
     const searchFilename = sql`kiter_search_text(${filename})`
@@ -87,7 +87,7 @@ export function listCatalogSamples(
       sampleTypes?.length
         ? inArray(sql`coalesce(${samples.sampleType}, 'unknown')`, sampleTypes)
         : undefined,
-      categoryMatch,
+      instrumentMatch,
       genreIds?.length
         ? sql`exists (select 1 from ${sampleGenres} where ${sampleGenres.sampleId} = ${samples.id} and ${inArray(sampleGenres.genreId, genreIds)})`
         : undefined,

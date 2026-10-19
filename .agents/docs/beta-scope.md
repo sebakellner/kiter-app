@@ -34,8 +34,8 @@ restart where specified; internal storage or IPC alone does not complete a row.
 | Persistent library and Favorites | Multiple source folders share stable Sample identities at overlapping locations. Favorites and organization survive restart; missing audio does not delete them.                                                                                | [Domain Model](domain-model.md), [Data Access](data-access.md)                                             |
 | Reviewed import and Packs        | Select files before catalog writes; import standalone or as Packs, reimport without duplicates, review origin conflicts, and inspect actual partial results.                                                                                    | [Import](features/import.md)                                                                               |
 | Collections                      | Create/edit/delete Collections, add/remove references, and persist manual membership order without copying audio.                                                                                                                               | [Catalog Organization](features/catalog-organization.md)                                                   |
-| Classification and credits       | Manage Categories, Genres, Authors, direct assignments, Sample type, and manual origin corrections with agreed impact reviews. Sample/Pack assignments remain independent.                                                                      | [Domain Model](domain-model.md), [Catalog Organization](features/catalog-organization.md)                  |
-| Classification suggestions       | Recognize path-based Category/Genre/type evidence, manage aliases, stage acceptances/rejections, and execute standalone or within import without overwriting confirmed organization.                                                            | [Classification](features/classification.md)                                                               |
+| Classification and credits       | Manage Instruments, Genres, Authors, direct assignments, Sample type, and manual origin corrections with agreed impact reviews. Sample/Pack assignments remain independent.                                                                     | [Domain Model](domain-model.md), [Catalog Organization](features/catalog-organization.md)                  |
+| Classification suggestions       | Recognize path-based Instrument/Genre/type evidence, manage aliases, stage acceptances/rejections, and execute standalone or within import without overwriting confirmed organization.                                                          | [Classification](features/classification.md)                                                               |
 | Global search                    | Search all included entities with agreed matching, approximation, ranking, pagination, local scope, and filters, including duration and effective musical values.                                                                               | [Search](features/search.md)                                                                               |
 | Playback and DAW use             | Global transport, waveform access, sequence behavior, volume persistence, and last-Sample restoration work as agreed. Original-file native dragging is verified with actual receiving DAWs on both platforms.                                   | [Playback](features/playback.md), [Architecture](architecture.md#native-and-platform-integration)          |
 | Duration analysis                | Persist source-bound duration with background measurement, pause/resume, invalidation, controlled retry, and unknown/error states independent of preview.                                                                                       | [Duration Analysis](features/duration-analysis.md)                                                         |
@@ -52,7 +52,7 @@ restart where specified; internal storage or IPC alone does not complete a row.
 ### Prototype Progress
 
 - **Delivered — single-Sample classification suggestions:** opening Sample Info
-  loads Category, Genre, and Sample-type suggestions from cataloged paths and
+  loads Instrument, Genre, and Sample-type suggestions from cataloged paths and
   available Pack Genre evidence. Apply one or Apply all persists the selected
   suggestions, creating required vocabulary where needed. Evidence is available
   for inspection; ignoring a suggestion writes nothing. See
@@ -75,7 +75,7 @@ implementation, preserving working preview, Favorites, and native dragging.
    narrow typed IPC. Deliver source authorization and managed-image foundations
    needed by later workflows rather than UI placeholders alone.
 2. **Library organization:** connect Samples/Favorites, Packs, Collections,
-   Category/Genre/Author operations, profile/images, and persistent preferences.
+   Instrument/Genre/Author operations, profile/images, and persistent preferences.
    Deliver shared query/selection/sequence contracts where their journeys need them.
 3. **Reviewed execution and discovery:** deliver shared confirmed-operation
    persistence/reconciliation, reviewed import/reimport, and classification

@@ -14,16 +14,16 @@ real libraries before delivery. Visual design/prototypes remain deferred.
 
 ## Query Scope and Matching
 
-- Global search covers Samples, Packs, Collections, Categories, Authors, and
+- Global search covers Samples, Packs, Collections, Instruments, Authors, and
   Genres, with bounded grouped suggestions and full mixed results.
 - Empty global search waits for input, without listing the library/query history.
   One character does not query; textual search starts at two. Query history is
   not persistent; navigation context is session-only.
 - Search entity names, Sample filenames/relative source paths, notes/descriptions,
   and the explicit relationships below. Do not infer musical properties from audio.
-- Samples match directly assigned Category/Author/Genre names and origin Pack
-  name, not that Pack's classifications/credits. Packs match direct Category,
-  Author, and Genre names. Collections, Categories, Authors, and Genres match their
+- Samples match directly assigned Instrument/Author/Genre names and origin Pack
+  name, not that Pack's classifications/credits. Packs match direct Instrument,
+  Author, and Genre names. Collections, Instruments, Authors, and Genres match their
   own text, not expansion through members/uses. Pending suggestions never count.
 - Recognition aliases do not expand queries or activate filters.
 - Match case/accent-insensitively with substrings; all query words must match,
@@ -81,16 +81,16 @@ classification/credit names, Pack names, aliases or pending suggestions yet.
   with Retry. Unavailable matching Samples remain in results, with normal main
   audio authorization. Selection revalidates after loading, independently of playback.
 
-### Implemented Category, Genre and Sample Type Filter Slice
+### Implemented Instrument, Genre and Sample Type Filter Slice
 
-Samples and Favorites expose shared sticky in-list Categories and Genres comboboxes and
+Samples and Favorites expose shared sticky in-list Instruments and Genres comboboxes and
 removable active chips with Clear all. Selection applies immediately, retains
 input focus/query, and resets result pagination. Vocabulary options use bounded
 50-item pages with literal catalog matching; opening/focusing refreshes options.
 Loading/error/empty options and result states remain distinct, with retry.
 
 Filter names appear inside the controls rather than in visible external labels:
-Categories and Genres use input placeholders, while the native Sample type
+Instruments and Genres use input placeholders, while the native Sample type
 combobox displays Sample type as its default option. All retain accessible names.
 The single-choice type combobox offers One-Shots, Loops and Unknown, with
 immediate filtering and a removable chip.
@@ -101,12 +101,12 @@ the default, and removing the chip returns focus to the combobox.
 three unique `sampleTypes` values from `loop`, `one-shot` and `unknown`, using
 the shared classification type vocabulary. The worker matches the saved Sample
 type only, mapping a missing (`NULL`) type to Unknown; path-based suggestions
-do not count. Values combine with OR, then intersect Category, Genre and
+do not count. Values combine with OR, then intersect Instrument, Genre and
 Favorites filters before counting and pagination. Empty selection adds no
 constraint. Multiple type values remain supported by the query contract, but
 the current selector chooses at most one.
 
-`library:list` accepts up to 100 unique Category UUIDs and 100 unique Genre UUIDs,
+`library:list` accepts up to 100 unique Instrument UUIDs and 100 unique Genre UUIDs,
 validated with the library feature's shared Zod schemas. The worker filters direct
 saved Sample assignments with OR within each group and AND between groups before
 counting and paginating, then intersects Favorites where requested.
@@ -126,16 +126,16 @@ remain planned.
 ### Agreed Remaining Filter Scope
 
 - Mixed results filter by entity type. Samples-only results additionally offer
-  Genre, Category, Author, Sample type, source roots, origin Pack/standalone,
+  Genre, Instrument, Author, Sample type, source roots, origin Pack/standalone,
   format, observed duration, and effective musical values below. Packs-only results
-  offer direct Genre/Category/Author filters. Never apply Sample filters to other
+  offer direct Genre/Instrument/Author filters. Never apply Sample filters to other
   entities or expand by members.
 - Returning to mixed results disables specific filters but retains their session
   configuration. Local search uses the same matching fields/relations for the
   owning view/tab, constrained to its scope.
 - Samples/Favorites offer the same Sample filters above. Genre also filters Pack
   lists. Values within each group combine with OR; different groups use AND.
-  Categories/Authors require at least one direct assignment in their own group,
+  Instruments/Authors require at least one direct assignment in their own group,
   not inheritance. Availability is not an initial filter.
 - Confirmed Sample types filter as Loop, One-Shot, or Unknown, selectable with OR.
   Free-text loop never implicitly activates that filter. Suggestions are excluded.

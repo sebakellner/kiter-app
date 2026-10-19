@@ -38,7 +38,7 @@ the Kiter family/instrument layout; export copies audio and never moves original
   backup, guaranteed reimport format, or promise of third-party compatibility.
   Integrations with a particular receiving application need their own contract.
 - Include relative exported paths, reference IDs, physical/presentation names,
-  origin Pack, confirmed direct Categories/Genres/Authors, confirmed Sample type,
+  origin Pack, confirmed direct Instruments/Genres/Authors, confirmed Sample type,
   and Collection order when applicable. Never include unaccepted suggestions.
 - Also include effective musical values and automatic/manual provenance under
   [Musical Analysis](musical-analysis.md), distinguishing Unknown/Not applicable.

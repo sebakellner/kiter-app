@@ -36,35 +36,35 @@ operation and never implicitly renames audio.
 ## Kiter Centralization Convention
 
 This is Kiter's initial convention, not a claim of an industry standard or a
-hierarchy between Category records. Use confirmed direct Categories to propose
+hierarchy between Instrument records. Use confirmed direct Instruments to propose
 one physical destination per Sample; no inferred assignment or audio duplication.
 
-| Category                                                                | Relative destination                  |
+| Instrument                                                              | Relative destination                  |
 | ----------------------------------------------------------------------- | ------------------------------------- |
 | Drums                                                                   | `Drums`                               |
-| Kick, Snare, Clap, Hi-Hat, Cymbal, Tom, Percussion                      | `Drums/<Category>`                    |
+| Kick, Snare, Clap, Hi-Hat, Cymbal, Tom, Percussion                      | `Drums/<Instrument>`                  |
 | Bass                                                                    | `Bass`                                |
 | 808                                                                     | `Bass/808`                            |
-| Synth, Lead, Pad, Keys, Piano, Organ, Guitar, Strings, Brass, Woodwinds | `Instruments/<Category>`              |
+| Synth, Lead, Pad, Keys, Piano, Organ, Guitar, Strings, Brass, Woodwinds | `Instruments/<Instrument>`            |
 | Vocals                                                                  | `Vocals`                              |
 | FX                                                                      | `FX`                                  |
-| Riser, Impact, Texture                                                  | `FX/<Category>`                       |
-| No unambiguous mapped Category                                          | `Uncategorized` fallback, with review |
+| Riser, Impact, Texture                                                  | `FX/<Instrument>`                     |
+| No unambiguous mapped Instrument                                        | `Uncategorized` fallback, with review |
 
-- Propose a destination only when mapped Categories identify one choice. Multiple
+- Propose a destination only when mapped Instruments identify one choice. Multiple
   mapped choices require an explicit choice of one destination. A generic family
-  Category does not silently lose to an instrument Category. With no mapped choice,
-  propose Uncategorized. Categories remain unchanged in all cases.
+  Instrument does not silently lose to an instrument Instrument. With no mapped choice,
+  propose Uncategorized. Instruments remain unchanged in all cases.
 - Permit changing destination folders for individual Samples or explicit groups
   before confirmation, including custom classifications. This initial delivery
   saves the confirmed plan, not reusable persistent layout presets.
 - The mapping is an explicit plan-generation vocabulary, not authority to infer
-  identity from names or silently retarget stored plans after Category changes.
-  Link mapped Categories by identity to the convention term. Renaming a linked
-  Category preserves its suggested convention destination rather than renaming the
+  identity from names or silently retarget stored plans after Instrument changes.
+  Link mapped Instruments by identity to the convention term. Renaming a linked
+  Instrument preserves its suggested convention destination rather than renaming the
   folder proposal; show the mapping and allow adjustment in review. A custom
-  Category without that link is not mapped merely because its name matches a term:
-  choose its destination manually or use Uncategorized. Re-created Categories do
+  Instrument without that link is not mapped merely because its name matches a term:
+  choose its destination manually or use Uncategorized. Re-created Instruments do
   not silently recover a deleted identity/link. Exact link storage/delivery follows
   classification identity rules. Loop/One-Shot and Genre do not determine this
   initial layout.
@@ -115,7 +115,7 @@ one physical destination per Sample; no inferred assignment or audio duplication
 
 ## Remaining Delivery Contracts
 
-Define template syntax/counter details, Category mapping identities, bounded plan
+Define template syntax/counter details, Instrument mapping identities, bounded plan
 queries, destination authorization/registration transactions, cross-platform name
 validation, full-content verification, temporary publication, filesystem journals,
 source-version/analysis invalidation, independent pending-original protection/evidence

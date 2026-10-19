@@ -3,18 +3,18 @@
 Read when changing classification suggestions, recognition vocabulary, aliases,
 evidence, rejection memory, or standalone classification. This guide owns their
 feature behavior and technical direction. [Domain Model](../domain-model.md)
-owns Category, Genre, and Sample-type meanings and validation;
+owns Instrument, Genre, and Sample-type meanings and validation;
 [Search](search.md) owns queries and filters.
 
 ## Status and Scope
 
 The reviewed classification workflow below is agreed but not implemented. A pure
 recognition engine and initial in-code vocabulary are implemented as described
-under Architecture and Delivery. Current Author/Category DB operations and
-Category list/create/rename IPC do not deliver the reviewed workflow. Suggestions
+under Architecture and Delivery. Current Author/Instrument DB operations and
+Instrument list/create/rename IPC do not deliver the reviewed workflow. Suggestions
 remain distinct from confirmed user organization.
 
-- Suggest Categories and Genres from filenames and folder names. Sample type
+- Suggest Instruments and Genres from filenames and folder names. Sample type
   has the separate rules below; Author credits and musical BPM/key hints are
   outside this delivery. No audio analysis is used for classification.
 - Recognition is local and deterministic, not approximate library search.
@@ -37,32 +37,32 @@ exhaustive catalog or a limit on custom Genres. Domain Model owns its flat,
 user-editable lifecycle rules. Fresh libraries now persist this seed; existing
 libraries receive offered vocabulary without automatic Genre creation.
 
-### Category Recognition Terms
+### Instrument Recognition Terms
 
 The approved 26 independent terms are Drums, Drum Breaks, Kick, Snare, Clap, Hi-Hat, Cymbal,
 Tom, Percussion, Bass, 808, Synth, Lead, Pad, Keys, Piano, Organ, Guitar, Strings,
 Brass, Woodwinds, Vocals, FX, Riser, Impact, and Texture.
 
-These are recognition terms, not automatically created Category records. Piano
+These are recognition terms, not automatically created Instrument records. Piano
 does not imply Keys; 808 does not imply Bass. Loop/One-Shot are a separate fixed
-Sample-type dimension, not Categories.
+Sample-type dimension, not Instruments.
 
 ### Initial Aliases
 
-- Category Drums: Drum.
-- Category Drum Breaks: Drum Break.
-- Category Kick: Kicks, Bass Drum, Bass Drums, BD.
-- Category Snare: Snares.
-- Category Clap: Claps.
-- Category Hi-Hat: Hi Hat, Hi Hats, Hihat, Hihats, Hats.
-- Category Cymbal: Cymbals.
-- Category Tom: Toms.
-- Category Percussion: Perc.
-- Category Vocals: Vocal, Vox.
-- Category FX: Effects, SFX.
-- Category Riser: Risers.
-- Category Impact: Impacts.
-- Category Texture: Textures.
+- Instrument Drums: Drum.
+- Instrument Drum Breaks: Drum Break.
+- Instrument Kick: Kicks, Bass Drum, Bass Drums, BD.
+- Instrument Snare: Snares.
+- Instrument Clap: Claps.
+- Instrument Hi-Hat: Hi Hat, Hi Hats, Hihat, Hihats, Hats.
+- Instrument Cymbal: Cymbals.
+- Instrument Tom: Toms.
+- Instrument Percussion: Perc.
+- Instrument Vocals: Vocal, Vox.
+- Instrument FX: Effects, SFX.
+- Instrument Riser: Risers.
+- Instrument Impact: Impacts.
+- Instrument Texture: Textures.
 - Genre Drum and Bass: DnB, D&B.
 - Genre Hip Hop: Hip-Hop, HipHop.
 - Genre R&B: RnB, R and B.
@@ -73,15 +73,19 @@ and equivalent separators should not produce redundant records.
 
 ## Alias and Recognition Identity
 
+The application/API dimension is `instrument`. Existing opaque vocabulary keys
+retain their `category:` prefix, including custom entity keys and supplied alias
+identities. Renaming the domain never regenerates those keys, aliases or UUIDs.
+
 - Supplied vocabulary and aliases have stable catalog keys; Genres and aliases
   have identities independent of names. Track renamed, deleted, and newly offered
   content without silently restoring defaults. Re-creating an entry gives it a
   new identity, not its former assignments or historical identity.
 - Keep recognition vocabulary separate from library records: a recognized term
-  may not yet have a Category/Genre record.
-- Users can add aliases to supplied/custom Categories and Genres. An alias has
+  may not yet have an Instrument/Genre record.
+- Users can add aliases to supplied/custom Instruments and Genres. An alias has
   one target per dimension, across supplied and custom aliases. Reassignment is
-  explicit; the same term may target one Category and one Genre independently.
+  explicit; the same term may target one Instrument and one Genre independently.
 - An alias cannot match a different entry's name within its dimension. Enforce
   conflicts when creating/reassigning aliases and creating/renaming entries.
 - Included aliases are editable, reassignable, and deletable like custom aliases.
@@ -116,7 +120,7 @@ and equivalent separators should not produce redundant records.
 - Offer Pack Genres to Samples during import and explicit classification, merging
   with path-derived proposals while identifying the Pack as distinct evidence.
   Assignment still requires acceptance; changing Pack Genres triggers no background
-  proposals. Pack Categories do not implicitly gain this behavior.
+  proposals. Pack Instruments do not implicitly gain this behavior.
 - During import use the reviewed resulting origin: retained/destination Pack,
   including Genres accepted in preparation. Standalone Samples have no Pack
   evidence. Changing origin decisions refreshes affected proposals for review.
@@ -153,7 +157,7 @@ and equivalent separators should not produce redundant records.
   not imply Drums unless they still match that explicit phrase. Loop and Genres
   require independent evidence. Letter/number boundaries remain intact, so
   `Breaks1` alone does not match `Breaks`.
-- Different path components do not override one another for Category/Genre:
+- Different path components do not override one another for Instrument/Genre:
   `Snares/kick_01.wav` may suggest both, each with evidence, for user review.
 
 ### Ambiguity
@@ -166,7 +170,7 @@ and equivalent separators should not produce redundant records.
   targets; independent matches continue. Preserve existing data.
 - Partially overlapping phrases where neither contains the other omit only the
   ambiguous span. Fully contained phrases follow most-specific precedence.
-- Category, Genre, and Sample-type recognition dimensions are independent.
+- Instrument, Genre, and Sample-type recognition dimensions are independent.
 
 ## Sample-Type Suggestions
 
@@ -178,7 +182,7 @@ meaning, optionality, and fixed values.
   standalone Shot. Custom aliases may target either fixed type under the same
   conflict/update/management rules, without creating new types.
 - Use the same root scope and unavailable-audio rules above. Do not infer type
-  from Category, Genre, Pack, other Samples, duration, or audio analysis.
+  from Instrument, Genre, Pack, other Samples, duration, or audio analysis.
 - Explicit filename clues take precedence over folders; otherwise use the nearest
   folder with a clue. `Loops/kick_one_shot.wav` suggests One-Shot.
 - Contradictory clues within a component or remaining at equal priority produce
@@ -196,7 +200,7 @@ meaning, optionality, and fixed values.
 ## Review and Rejection Memory
 
 - Accept/reject individually or for explicit groups of targets and proposals.
-  Category/Genre proposals add assignments without replacing existing ones;
+  Instrument/Genre proposals add assignments without replacing existing ones;
   Sample-type replacement follows its single-value rule above. Pack-origin
   conflicts retain individual keep/assign review under [Import](import.md).
 - Provide an explicit Accept all action for the current preparation's reviewable
@@ -253,7 +257,7 @@ meaning, optionality, and fixed values.
 `src/main/services/classification/` exports `createClassificationRecognizer` and
 the initial recognition vocabulary. The compiled recognizer accepts an effective
 vocabulary with explicit target identities, names, and aliases and processes one
-Sample/Pack at a time. It returns Category/Genre/type proposals, path and Pack
+Sample/Pack at a time. It returns Instrument/Genre/type proposals, path and Pack
 Genre evidence, and explicit ambiguous matches without reading or writing data.
 
 - Initial terms have stable keys independent of display names. The in-code Genre
@@ -270,7 +274,7 @@ Genre evidence, and explicit ambiguous matches without reading or writing data.
   splitting before lowercasing). Existing libraries use the new recognition rule
   without inserting aliases or changing stored names/keys.
 - Most-specific phrases suppress contained matches within each component and
-  Category/Genre dimension. Conflicting targets or partially overlapping phrases
+  Instrument/Genre dimension. Conflicting targets or partially overlapping phrases
   omit ambiguous matches; independent matches continue. Sample type uses filename
   first, then the nearest eligible folder, with no fallback from contradictions.
 - Pack Genre evidence supplied by the caller merges by target identity and
@@ -285,16 +289,16 @@ Genre evidence, and explicit ambiguous matches without reading or writing data.
 - An additive STRICT migration adds Genres, independent Sample/Pack Genre
   memberships, recognition vocabulary mappings, and aliases. Existing catalog
   identities and organization are preserved under the protective-backup runner.
-- Fresh libraries receive 26 Genre records, 25 Category recognition terms (no
-  Category records), and the two fixed Sample types. Existing libraries receive
-  offered Genres, reuse matching Categories, and retain custom Category names.
+- Fresh libraries receive 26 Genre records, 25 Instrument recognition terms (no
+  Instrument records), and the two fixed Sample types. Existing libraries receive
+  offered Genres, reuse matching Instruments, and retain custom Instrument names.
 - Vocabulary keys survive renames and deletion. Deleted targets and aliases have
   tombstones so reopening never restores defaults. Custom re-creation gets a new
   identity. Alias reassignment uses the alias ID explicitly; duplicate normalized
   terms in the same dimension reject with `NAME_CONFLICT`.
 - Internal worker/DbClient commands provide Genre creation/rename/read/pagination,
   direct assignments and impact-checked removal, plus vocabulary/alias pages and
-  alias creation/edit/reassignment/removal. Category name writes enforce alias and
+  alias creation/edit/reassignment/removal. Instrument name writes enforce alias and
   recognition conflicts. Removal reviews include aliases and Genre memberships;
   no renderer IPC or management UI is delivered by this slice.
 - `loadCatalogRecognizer` compiles effective names and aliases through bounded
@@ -338,7 +342,7 @@ This replaces the staged single-Sample review prototype. Batch/import review and
 rejection-memory contracts elsewhere in this guide remain future workflows.
 
 - Opening a selected Sample's inspector automatically loads suggestions and saved
-  classifications. Show grouped Badges under Categories, Genres and Sample type;
+  classifications. Show grouped Badges under Instruments, Genres and Sample type;
   evidence is collapsed under Why these suggestions? by default.
 - Apply (+) saves one proposal immediately. Apply all saves every displayed
   actionable suggestion for this Sample; show required vocabulary creation inline.
@@ -359,14 +363,14 @@ rejection-memory contracts elsewhere in this guide remain future workflows.
 - Renderer reads bounded evidence pages (maximum 2,000 rows) under one token,
   groups duplicate proposals, and disables writes during loading, saving or errors.
   Successful writes refresh saved classifications. Reopening queries current data.
-- Sample Info also exposes the [manual Category editor](catalog-organization.md#implemented-single-sample-category-editor).
+- Sample Info also exposes the [manual Instrument editor](catalog-organization.md#implemented-single-sample-instrument-editor).
   It also exposes the [manual Genre editor](catalog-organization.md#implemented-single-sample-genre-editor).
   While either is open, suggestion writes are disabled. Saving manual assignments
   refreshes suggestions; removal is not rejection memory.
 
 ### Implemented Manual Sample-Type Editor
 
-Sample Info exposes Edit Sample type alongside Edit categories and Edit genres.
+Sample Info exposes Edit Sample type alongside Edit instruments and Edit genres.
 It opens the shared anchored editor popover with a single-value native select:
 Loop, One-Shot, or Unknown. React Hook Form owns the draft; Zod schemas in the
 renderer/shared classification feature schema files validate fixed values. Unknown
@@ -383,17 +387,17 @@ is represented as `unknown` in the editor contract and persisted as SQL NULL.
   preserves the intended choice and exposes the current saved value for comparison.
 - Saving refreshes suggestions. Differing automatic types remain omitted when a
   confirmed type exists; clearing to Unknown permits suggestions again and does
-  not create rejection memory. Categories, Genres, Favorites, origin, source audio,
+  not create rejection memory. Instruments, Genres, Favorites, origin, source audio,
   and other organization remain unchanged. This is a single-Sample short metadata
   edit, outside batch execution and its future combined inspector draft.
 
 ### Explicit Alias Updates
 
-Categories exposes Check vocabulary updates separately from the Sample inspector, with bounded
+Instruments exposes Check vocabulary updates separately from the Sample inspector, with bounded
 pages of new supplied aliases and an individual Add alias action. Checking never
 writes data. Incorporation revalidates the displayed offer token transactionally,
 rejects conflicts/stale offers, and records the supplied alias identity without
-creating Categories/Genres or assignments. Reopening Sample Info uses the updated
+creating Instruments/Genres or assignments. Reopening Sample Info uses the updated
 vocabulary automatically.
 
 An alias is offered only when its supplied identity has never been incorporated;

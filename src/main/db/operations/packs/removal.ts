@@ -11,7 +11,7 @@ import {
 } from '../../internal/review-token.ts'
 import { packs } from '../../schema/packs.ts'
 import { samples } from '../../schema/samples.ts'
-import { packAuthors, packCategories } from '../../schema/classification.ts'
+import { packAuthors, packInstruments } from '../../schema/classification.ts'
 import { packGenres } from '../../schema/recognition.ts'
 import { scheduleUnusedImageCleanup } from '../assets/references.ts'
 import { getPack } from './operations.ts'
@@ -39,10 +39,10 @@ function removalReview(db: AppDatabase, id: string): PackRemovalReview {
     genreAfter = rows[rows.length - 1].id
   }
   let sampleCount = 0,
-    categoryCount = 0,
+    instrumentCount = 0,
     authorCount = 0
   // Hash exact associations in bounded batches, not just their counts.
-  for (const kind of ['sample', 'category', 'author'] as const) {
+  for (const kind of ['sample', 'instrument', 'author'] as const) {
     let after = ''
     for (;;) {
       const batch =
@@ -54,17 +54,17 @@ function removalReview(db: AppDatabase, id: string): PackRemovalReview {
               .orderBy(samples.id)
               .limit(500)
               .all()
-          : kind === 'category'
+          : kind === 'instrument'
             ? db
-                .select({ id: packCategories.categoryId })
-                .from(packCategories)
+                .select({ id: packInstruments.instrumentId })
+                .from(packInstruments)
                 .where(
                   and(
-                    eq(packCategories.packId, id),
-                    gt(packCategories.categoryId, after),
+                    eq(packInstruments.packId, id),
+                    gt(packInstruments.instrumentId, after),
                   ),
                 )
-                .orderBy(packCategories.categoryId)
+                .orderBy(packInstruments.instrumentId)
                 .limit(500)
                 .all()
             : db
@@ -83,8 +83,8 @@ function removalReview(db: AppDatabase, id: string): PackRemovalReview {
       if (kind === 'sample') {
         sampleCount += batch.length
       }
-      if (kind === 'category') {
-        categoryCount += batch.length
+      if (kind === 'instrument') {
+        instrumentCount += batch.length
       }
       if (kind === 'author') {
         authorCount += batch.length
@@ -98,7 +98,7 @@ function removalReview(db: AppDatabase, id: string): PackRemovalReview {
   return {
     entity,
     sampleCount,
-    categoryCount,
+    instrumentCount,
     genreCount,
     authorCount,
     token: hash.digest('hex'),

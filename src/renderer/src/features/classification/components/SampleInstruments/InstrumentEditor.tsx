@@ -1,7 +1,7 @@
 import { ClassificationEditor } from '../ClassificationEditor/ClassificationEditor'
 
-export function CategoryEditor(
+export function InstrumentEditor(
   props: Omit<Parameters<typeof ClassificationEditor>[0], 'dimension'>,
 ): React.JSX.Element {
-  return <ClassificationEditor {...props} dimension="category" />
+  return <ClassificationEditor {...props} dimension="instrument" />
 }
