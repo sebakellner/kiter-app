@@ -1,4 +1,9 @@
 import { join } from 'node:path'
+import type {
+  SampleCategoriesRequest,
+  SampleCategoriesSaveRequest,
+  SampleCategoriesSnapshot,
+} from '../../shared/ipc/sampleCategories'
 import { WorkerTransport } from './client/worker-transport'
 import type { LibrarySample, FavoriteState } from '../../shared/ipc'
 import type {
@@ -114,6 +119,31 @@ import type {
 const UNEXPECTED_REPLY_MESSAGE = 'Unexpected database response'
 
 export class DbClient {
+  async readSampleCategories(
+    input: SampleCategoriesRequest,
+  ): Promise<SampleCategoriesSnapshot> {
+    const reply = await this.classificationRequest({
+      action: 'read-sample-categories',
+      input,
+    })
+    if (reply.action !== 'read-sample-categories') {
+      throw new Error(UNEXPECTED_REPLY_MESSAGE)
+    }
+    return reply.result
+  }
+
+  async saveSampleCategories(
+    input: SampleCategoriesSaveRequest,
+  ): Promise<SampleCategoriesSnapshot> {
+    const reply = await this.classificationRequest({
+      action: 'save-sample-categories',
+      input,
+    })
+    if (reply.action !== 'save-sample-categories') {
+      throw new Error(UNEXPECTED_REPLY_MESSAGE)
+    }
+    return reply.result
+  }
   async applySampleClassification(
     input: ClassificationApplyRequest,
   ): Promise<{ sampleId: string }> {

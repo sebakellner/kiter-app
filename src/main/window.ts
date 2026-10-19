@@ -2,6 +2,7 @@ import { BrowserWindow, shell } from 'electron'
 import { join } from 'path'
 import { is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
+import { LIFECYCLE_CHANNELS } from '../shared/ipc/lifecycle'
 
 export function createWindow(): void {
   // Create the browser window.
@@ -19,6 +20,10 @@ export function createWindow(): void {
 
   mainWindow.on('ready-to-show', () => {
     mainWindow.show()
+  })
+
+  mainWindow.webContents.on('will-prevent-unload', () => {
+    mainWindow.webContents.send(LIFECYCLE_CHANNELS.closeRequested)
   })
 
   mainWindow.webContents.setWindowOpenHandler((details) => {

@@ -62,16 +62,26 @@ app
       )
     }
     let shutdown = false
+    let quitRequested = false
+    app.on('window-all-closed', () => {
+      if (quitRequested) {
+        app.quit()
+      }
+    })
     app.on('before-quit', (event) => {
       if (shutdown) {
         return
       }
       event.preventDefault()
-      shutdown = true
-      // Stop renderer requests before closing the services that authorize them.
-      for (const window of BrowserWindow.getAllWindows()) {
-        window.destroy()
+      const windows = BrowserWindow.getAllWindows()
+      if (windows.length > 0) {
+        quitRequested = true
+        for (const window of windows) {
+          window.close()
+        }
+        return
       }
+      shutdown = true
       void images
         .close()
         .then(() => database.close())

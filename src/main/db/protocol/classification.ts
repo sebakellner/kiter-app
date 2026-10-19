@@ -17,8 +17,20 @@ import {
 } from '../../../shared/domain/classification.ts'
 import { isEntityId, isRecord } from '../../../shared/domain/validation.ts'
 import { isToken, isPage } from './validation.ts'
+import type {
+  SampleCategoriesRequest,
+  SampleCategoriesSaveRequest,
+  SampleCategoriesSnapshot,
+} from '../../../shared/ipc/sampleCategories.ts'
+import {
+  requireSampleCategoriesRequest,
+  requireSampleCategoriesSaveRequest,
+  isSampleCategoriesSnapshot,
+} from '../../../shared/ipc/sampleCategories.ts'
 
 export type ClassificationRequest =
+  | { action: 'read-sample-categories'; input: SampleCategoriesRequest }
+  | { action: 'save-sample-categories'; input: SampleCategoriesSaveRequest }
   | { action: 'create-author' | 'create-category'; input: { name: string } }
   | {
       action: 'rename-author' | 'rename-category'
@@ -55,6 +67,10 @@ export type ClassificationRequest =
     }
 
 export type ClassificationReply =
+  | {
+      action: 'read-sample-categories' | 'save-sample-categories'
+      result: SampleCategoriesSnapshot
+    }
   | { action: 'create-author' | 'rename-author' | 'get-author'; result: Author }
   | {
       action: 'create-category' | 'rename-category' | 'get-category'
@@ -108,6 +124,18 @@ export function isClassificationRequest(
   }
   const input = value.input
   switch (value.action) {
+    case 'read-sample-categories':
+    case 'save-sample-categories':
+      try {
+        if (value.action === 'read-sample-categories') {
+          requireSampleCategoriesRequest(input)
+        } else {
+          requireSampleCategoriesSaveRequest(input)
+        }
+        return true
+      } catch {
+        return false
+      }
     case 'create-author':
     case 'create-category':
       return isRecord(input) && isName(input.name)
@@ -175,6 +203,9 @@ export function isClassificationReply(
   }
   const result = value.result
   switch (value.action) {
+    case 'read-sample-categories':
+    case 'save-sample-categories':
+      return isSampleCategoriesSnapshot(result)
     case 'create-author':
     case 'create-category':
     case 'rename-author':
