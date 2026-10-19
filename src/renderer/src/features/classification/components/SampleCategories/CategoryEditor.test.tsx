@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, expect, test, vi } from 'vitest'
 import { CategoryEditor } from './CategoryEditor'
 import { ClassificationEditor } from '../ClassificationEditor/ClassificationEditor'
+import { SampleTypeEditor } from '../SampleTypeEditor/SampleTypeEditor'
 import { createTestApi } from '../../../../../../../tests/support/ui/bridge'
 
 const kick = { id: '00000000-0000-4000-8000-000000000001', name: 'Kick' }
@@ -15,7 +16,7 @@ afterEach(() => {
   Reflect.deleteProperty(HTMLDialogElement.prototype, 'close')
 })
 
-function setup(dimension: 'category' | 'genre' = 'category'): {
+function setup(dimension: 'category' | 'genre' | 'sample-type' = 'category'): {
   api: ReturnType<typeof createTestApi>
   onClose: ReturnType<typeof vi.fn>
   onSaved: ReturnType<typeof vi.fn>
@@ -60,6 +61,10 @@ function setup(dimension: 'category' | 'genre' = 'category'): {
   })
   const onClose = vi.fn()
   const onSaved = vi.fn()
+  api.classification.readSampleType.mockResolvedValue({
+    ok: true,
+    data: { sampleId: 'sample', token: 'a'.repeat(64), sampleType: 'loop' },
+  })
   render(
     dimension === 'category' ? (
       <CategoryEditor
@@ -68,9 +73,16 @@ function setup(dimension: 'category' | 'genre' = 'category'): {
         onClose={onClose}
         onSaved={onSaved}
       />
-    ) : (
+    ) : dimension === 'genre' ? (
       <ClassificationEditor
         dimension="genre"
+        sampleId="sample"
+        anchor={document.body}
+        onClose={onClose}
+        onSaved={onSaved}
+      />
+    ) : (
+      <SampleTypeEditor
         sampleId="sample"
         anchor={document.body}
         onClose={onClose}
@@ -80,6 +92,45 @@ function setup(dimension: 'category' | 'genre' = 'category'): {
   )
   return { api, onClose, onSaved, user: userEvent.setup() }
 }
+
+test('single Sample type draft protects cancellation and preserves stale choices through reload', async () => {
+  const { api, onClose, onSaved, user } = setup('sample-type')
+  api.classification.saveSampleType
+    .mockResolvedValueOnce({
+      ok: false,
+      error: { code: 'STALE_REVIEW', message: 'Saved Sample type changed.' },
+    })
+    .mockResolvedValueOnce({
+      ok: true,
+      data: { sampleId: 'sample', token: 'c'.repeat(64), sampleType: 'loop' },
+    })
+  const select = await screen.findByRole('combobox', { name: 'Sample type' })
+  expect(select).toHaveValue('loop')
+  await user.selectOptions(select, 'one-shot')
+  await user.click(screen.getByRole('button', { name: 'Cancel' }))
+  expect(onClose).not.toHaveBeenCalled()
+  await user.click(screen.getByRole('button', { name: 'Stay' }))
+  await user.click(screen.getByRole('button', { name: 'Save' }))
+  expect(await screen.findByRole('alert')).toHaveTextContent(
+    'Saved Sample type changed.',
+  )
+  expect(select).toHaveValue('one-shot')
+  expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled()
+  api.classification.readSampleType.mockResolvedValueOnce({
+    ok: true,
+    data: { sampleId: 'sample', token: 'b'.repeat(64), sampleType: 'unknown' },
+  })
+  await user.click(screen.getByRole('button', { name: 'Reload saved type' }))
+  expect(select).toHaveValue('one-shot')
+  await user.selectOptions(select, 'loop')
+  await user.click(screen.getByRole('button', { name: 'Save' }))
+  expect(api.classification.saveSampleType).toHaveBeenLastCalledWith({
+    sampleId: 'sample',
+    token: 'b'.repeat(64),
+    sampleType: 'loop',
+  })
+  expect(onSaved).toHaveBeenCalledOnce()
+})
 
 test('genre selection uses its own save contract and preserves a stale draft through reload', async () => {
   const { api, onClose, onSaved, user } = setup('genre')

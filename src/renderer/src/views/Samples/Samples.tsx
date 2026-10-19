@@ -2,6 +2,7 @@ import { CatalogList } from '@renderer/features/library/components/CatalogList'
 import { useLibrarySession } from '@renderer/features/library/hooks/useLibrarySession'
 import { useCatalogViewContext } from '@renderer/routes/navigationContext'
 import { useLocation } from 'react-router-dom'
+import { Checkbox } from '@renderer/components/ui/Checkbox'
 
 export function Samples(): React.JSX.Element {
   const { dir, loading, error } = useLibrarySession()
@@ -23,8 +24,7 @@ export function Samples(): React.JSX.Element {
       )}
 
       <label>
-        <input
-          type="checkbox"
+        <Checkbox
           data-testid="favorites-filter"
           checked={favoritesOnly}
           onChange={(event) =>

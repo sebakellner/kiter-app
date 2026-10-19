@@ -3,6 +3,10 @@ import {
   sampleCategoriesSaveSchema,
   sampleGenresSaveSchema,
 } from '@shared/features/classification/schemas'
+export { sampleTypeSelectionSchema } from '@shared/features/classification/schemas'
+import type { sampleTypeSelectionSchema } from '@shared/features/classification/schemas'
+
+export type SampleTypeSelection = z.infer<typeof sampleTypeSelectionSchema>
 
 export const sampleCategorySelectionSchema = sampleCategoriesSaveSchema.pick({
   categoryIds: true,

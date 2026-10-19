@@ -1,14 +1,6 @@
 .sample-categories-popover {
-  position: fixed;
-  margin: 0;
   width: min(340px, calc(100vw - 32px));
-  max-height: calc(100vh - 32px);
-  overflow: auto;
   padding: 16px;
-}
-
-.sample-categories-popover::backdrop {
-  background: transparent;
 }
 
 .sample-categories-popover ul {
