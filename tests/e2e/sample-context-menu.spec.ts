@@ -112,29 +112,71 @@ test('unavailable Sample context menus retain Info but cannot start playback', a
 }) => {
   const page = kiter.page
   const library = new LibraryPage(page)
-  await kiter.selectFolder(kiter.samples)
-  await library.openFolder()
-  const original = path.join(kiter.samples, 'snare.wav')
-  const moved = path.join(kiter.samples, 'moved-snare.wav')
-  await rename(original, moved)
+  // Hold native selection so this regression cannot rely on fast import timing.
+  const selection = await kiter.application.evaluateHandle(
+    ({ dialog }, directory) => {
+      const previous = dialog.showOpenDialog
+      const { promise, resolve } = Promise.withResolvers<void>()
+      dialog.showOpenDialog = async () => {
+        await promise
+        return { canceled: false, filePaths: [directory] }
+      }
+      return {
+        release: resolve,
+        restore: () => {
+          dialog.showOpenDialog = previous
+        },
+      }
+    },
+    kiter.samples,
+  )
   try {
-    await page.getByRole('button', { name: 'Refresh', exact: true }).click()
+    await library.openFolder()
+    await expect(
+      page.getByRole('button', { name: 'Loading folder...', exact: true }),
+    ).toBeDisabled()
+    await expect(
+      page.getByRole('button', { name: 'Refresh', exact: true }),
+    ).toHaveCount(0)
+    await selection.evaluate((gate) => gate.release())
     const snare = library.row('snare.wav')
+    // A click only starts the import. The source must be cataloged and authorized
+    // before moving it; otherwise import can fail and leave the view on Home.
     await expect(
       snare.getByRole('button', { name: 'Play snare.wav', exact: true }),
-    ).toBeDisabled()
-    await snare.click({ button: 'right', position: { x: 4, y: 4 } })
-    const menu = page.getByRole('menu', { name: 'Actions for snare.wav' })
+    ).toBeEnabled()
+    // Finish the visible row's lazy source read before invalidating that source.
+    await snare.scrollIntoViewIfNeeded()
     await expect(
-      menu.getByRole('menuitem', { name: 'Play preview' }),
-    ).toBeDisabled()
-    await expect(menu.getByRole('menuitem', { name: 'Info' })).toBeFocused()
-    await page.keyboard.press('Enter')
-    await expect(
-      page.getByRole('complementary', { name: 'Sample info' }),
-    ).toContainText('snare.wav')
-    await expect(page.locator('audio')).not.toHaveAttribute('src')
+      snare.getByRole('img', { name: 'Waveform of snare.wav', exact: true }),
+    ).toBeVisible()
+    const original = path.join(kiter.samples, 'snare.wav')
+    const moved = path.join(kiter.samples, 'moved-snare.wav')
+    await rename(original, moved)
+    try {
+      await page.getByRole('button', { name: 'Refresh', exact: true }).click()
+      await expect(
+        snare.getByRole('button', { name: 'Play snare.wav', exact: true }),
+      ).toBeDisabled()
+      await snare.click({ button: 'right', position: { x: 4, y: 4 } })
+      const menu = page.getByRole('menu', { name: 'Actions for snare.wav' })
+      await expect(
+        menu.getByRole('menuitem', { name: 'Play preview' }),
+      ).toBeDisabled()
+      await expect(menu.getByRole('menuitem', { name: 'Info' })).toBeFocused()
+      await page.keyboard.press('Enter')
+      await expect(
+        page.getByRole('complementary', { name: 'Sample info' }),
+      ).toContainText('snare.wav')
+      await expect(page.locator('audio')).not.toHaveAttribute('src')
+    } finally {
+      await rename(moved, original)
+    }
   } finally {
-    await rename(moved, original)
+    await selection.evaluate((gate) => {
+      gate.release()
+      gate.restore()
+    })
+    await selection.dispose()
   }
 })

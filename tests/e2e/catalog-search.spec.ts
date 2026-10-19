@@ -130,6 +130,12 @@ test('local search matches names and relative paths, intersects filters and rest
   await expect(names).toHaveText([hatPath])
   await expect(search).toBeFocused()
   // A catalog match remains visible even when its original is unavailable.
+  await library.row(hatPath).scrollIntoViewIfNeeded()
+  await expect(
+    library
+      .row(hatPath)
+      .getByRole('img', { name: `Waveform of ${hatPath}`, exact: true }),
+  ).toBeVisible()
   const moved = path.join(folder, 'temporarily-moved.wav')
   await rename(original, moved)
   try {

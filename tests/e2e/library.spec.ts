@@ -1229,6 +1229,13 @@ test('multiple folders share one catalog and unavailable favorites retain their 
     'snare.wav',
   ])
   await expect(library.row('kick.wav')).toHaveAttribute('data-sample-id', id!)
+  // Do not invalidate the source while its visible waveform is still reading it.
+  await library.row('kick.wav').scrollIntoViewIfNeeded()
+  await expect(
+    library
+      .row('kick.wav')
+      .getByRole('img', { name: 'Waveform of kick.wav', exact: true }),
+  ).toBeVisible()
   const original = path.join(kiter.samples, 'kick.wav')
   const moved = path.join(kiter.samples, 'temporarily-moved.wav')
   await rename(original, moved)
