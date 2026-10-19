@@ -1,5 +1,15 @@
 import { isEntityId, isRecord } from '../../../shared/domain/validation.ts'
 import {
+  requireSampleGenresRequest,
+  requireSampleGenresSaveRequest,
+  isSampleGenresSnapshot,
+} from '../../../shared/ipc/genres.ts'
+import type {
+  SampleGenresRequest,
+  SampleGenresSaveRequest,
+  SampleGenresSnapshot,
+} from '../../../shared/ipc/genres.ts'
+import {
   isClassificationTarget,
   requireClassificationPage,
   requireClassificationName,
@@ -45,6 +55,8 @@ import type {
 } from '../../../shared/ipc/classification.ts'
 
 export type RecognitionRequest =
+  | { action: 'read-sample-genres'; input: SampleGenresRequest }
+  | { action: 'save-sample-genres'; input: SampleGenresSaveRequest }
   | { action: 'apply-sample-classification'; input: ClassificationApplyRequest }
   | { action: 'list-alias-updates'; input: PageRequest }
   | { action: 'incorporate-alias'; input: AliasUpdateRequest }
@@ -73,6 +85,10 @@ export type RecognitionRequest =
   | { action: 'remove-recognition-alias'; id: string }
 
 export type RecognitionReply =
+  | {
+      action: 'read-sample-genres' | 'save-sample-genres'
+      result: SampleGenresSnapshot
+    }
   | { action: 'apply-sample-classification'; result: { sampleId: string } }
   | { action: 'list-alias-updates'; result: Page<AliasUpdate> }
   | { action: 'incorporate-alias'; result: { key: string } }
@@ -101,6 +117,12 @@ export function isRecognitionRequest(
   const input = value.input
   try {
     switch (value.action) {
+      case 'read-sample-genres':
+        requireSampleGenresRequest(input)
+        return true
+      case 'save-sample-genres':
+        requireSampleGenresSaveRequest(input)
+        return true
       case 'apply-sample-classification':
         requireClassificationApplyRequest(input)
         return true
@@ -204,6 +226,9 @@ export function isRecognitionReply(value: unknown): value is RecognitionReply {
   }
   const result = value.result
   switch (value.action) {
+    case 'read-sample-genres':
+    case 'save-sample-genres':
+      return isSampleGenresSnapshot(result)
     case 'apply-sample-classification':
       return isClassificationApplyResult(result)
     case 'list-alias-updates':

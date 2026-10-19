@@ -1,5 +1,10 @@
 import { join } from 'node:path'
 import type {
+  SampleGenresRequest,
+  SampleGenresSaveRequest,
+  SampleGenresSnapshot,
+} from '../../shared/ipc/genres'
+import type {
   SampleCategoriesRequest,
   SampleCategoriesSaveRequest,
   SampleCategoriesSnapshot,
@@ -119,6 +124,31 @@ import type {
 const UNEXPECTED_REPLY_MESSAGE = 'Unexpected database response'
 
 export class DbClient {
+  async readSampleGenres(
+    input: SampleGenresRequest,
+  ): Promise<SampleGenresSnapshot> {
+    const reply = await this.recognitionRequest({
+      action: 'read-sample-genres',
+      input,
+    })
+    if (reply.action !== 'read-sample-genres') {
+      throw new Error(UNEXPECTED_REPLY_MESSAGE)
+    }
+    return reply.result
+  }
+
+  async saveSampleGenres(
+    input: SampleGenresSaveRequest,
+  ): Promise<SampleGenresSnapshot> {
+    const reply = await this.recognitionRequest({
+      action: 'save-sample-genres',
+      input,
+    })
+    if (reply.action !== 'save-sample-genres') {
+      throw new Error(UNEXPECTED_REPLY_MESSAGE)
+    }
+    return reply.result
+  }
   async readSampleCategories(
     input: SampleCategoriesRequest,
   ): Promise<SampleCategoriesSnapshot> {
