@@ -244,7 +244,7 @@ test('Memberships append idempotently, retain gaps, reorder atomically and prese
     1,
   )
   assert.equal(
-    classification.listTargetCategories(db, { kind: 'sample', id: ids[0] })
+    classification.listTargetInstruments(db, { kind: 'sample', id: ids[0] })
       .total,
     1,
   )

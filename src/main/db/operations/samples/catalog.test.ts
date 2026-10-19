@@ -8,8 +8,8 @@ import { setFavorite } from './favorites.ts'
 import { updateSample } from './operations.ts'
 import { listCatalogSamples, getCatalogSample } from './catalog.ts'
 import {
-  createCategory,
-  setCategoryAssignment,
+  createInstrument,
+  setInstrumentAssignment,
 } from '../classification/operations.ts'
 import {
   listGenres,
@@ -54,32 +54,32 @@ test('catalog pages include all roots once, honor presentation names and filter 
   assert.throws(() => listCatalogSamples(db, { limit: 101 }))
 })
 
-test('category filters match direct assignments with OR before pagination and combine with Favorites', (t) => {
+test('instrument filters match direct assignments with OR before pagination and combine with Favorites', (t) => {
   const { db } = createMemoryDatabase(t)
-  const root = path.resolve('category-filter')
+  const root = path.resolve('instrument-filter')
   const files = ['a.wav', 'b.wav', 'c.wav', 'd.wav'].map((name) =>
     makeDiscoveredAudioFile(root, name),
   )
   const imported = importFolder(db, root, files)
   const byName = (name: string): string =>
     imported.find((sample) => sample.name === name)!.id
-  const kick = createCategory(db, { name: 'Kick' })
-  const snare = createCategory(db, { name: 'Snare' })
-  for (const [name, category] of [
+  const kick = createInstrument(db, { name: 'Kick' })
+  const snare = createInstrument(db, { name: 'Snare' })
+  for (const [name, instrument] of [
     ['b.wav', kick],
     ['c.wav', kick],
     ['c.wav', snare],
     ['d.wav', snare],
   ] as const) {
-    setCategoryAssignment(db, {
-      id: category.id,
+    setInstrumentAssignment(db, {
+      id: instrument.id,
       target: { kind: 'sample', id: byName(name) },
       assigned: true,
     })
   }
   setFavorite(db, byName('c.wav'), true)
   const first = listCatalogSamples(db, {
-    categoryIds: [kick.id, snare.id],
+    instrumentIds: [kick.id, snare.id],
     limit: 2,
   })
   assert.equal(first.total, 3)
@@ -89,7 +89,7 @@ test('category filters match direct assignments with OR before pagination and co
   )
   assert.deepEqual(
     listCatalogSamples(db, {
-      categoryIds: [kick.id, snare.id],
+      instrumentIds: [kick.id, snare.id],
       limit: 2,
       offset: 2,
     }).items.map(({ name }) => name),
@@ -97,24 +97,24 @@ test('category filters match direct assignments with OR before pagination and co
   )
   assert.deepEqual(
     listCatalogSamples(db, {
-      categoryIds: [kick.id],
+      instrumentIds: [kick.id],
       favoritesOnly: true,
     }).items.map(({ name }) => name),
     ['c.wav'],
   )
   assert.equal(
     listCatalogSamples(db, {
-      categoryIds: ['00000000-0000-4000-8000-000000000099'],
+      instrumentIds: ['00000000-0000-4000-8000-000000000099'],
     }).total,
     0,
   )
-  assert.equal(listCatalogSamples(db, { categoryIds: [] }).total, 4)
+  assert.equal(listCatalogSamples(db, { instrumentIds: [] }).total, 4)
   assert.throws(() =>
-    listCatalogSamples(db, { categoryIds: [kick.id, kick.id] }),
+    listCatalogSamples(db, { instrumentIds: [kick.id, kick.id] }),
   )
 })
 
-test('genre filters use direct assignments with OR, intersect Categories and Favorites, and count before pagination', (t) => {
+test('genre filters use direct assignments with OR, intersect Instruments and Favorites, and count before pagination', (t) => {
   const { db } = createMemoryDatabase(t)
   const root = path.resolve('genre-filter')
   const imported = importFolder(
@@ -132,7 +132,7 @@ test('genre filters use direct assignments with OR, intersect Categories and Fav
   const techno = listGenres(db, { search: 'techno' }).items.find(
     ({ name }) => name === 'Techno',
   )!
-  const kick = createCategory(db, { name: 'Kick' })
+  const kick = createInstrument(db, { name: 'Kick' })
   for (const [name, genre] of [
     ['b.wav', house],
     ['c.wav', house],
@@ -146,7 +146,7 @@ test('genre filters use direct assignments with OR, intersect Categories and Fav
     })
   }
   for (const name of ['c.wav', 'd.wav']) {
-    setCategoryAssignment(db, {
+    setInstrumentAssignment(db, {
       id: kick.id,
       target: { kind: 'sample', id: byName(name) },
       assigned: true,
@@ -167,7 +167,7 @@ test('genre filters use direct assignments with OR, intersect Categories and Fav
     ['d.wav'],
   )
   assert.deepEqual(
-    listCatalogSamples(db, { genreIds, categoryIds: [kick.id] }).items.map(
+    listCatalogSamples(db, { genreIds, instrumentIds: [kick.id] }).items.map(
       ({ name }) => name,
     ),
     ['c.wav', 'd.wav'],
@@ -175,7 +175,7 @@ test('genre filters use direct assignments with OR, intersect Categories and Fav
   assert.deepEqual(
     listCatalogSamples(db, {
       genreIds,
-      categoryIds: [kick.id],
+      instrumentIds: [kick.id],
       favoritesOnly: true,
     }).items.map(({ name }) => name),
     ['c.wav'],
@@ -220,12 +220,12 @@ test('Sample type filters use saved values with OR, include NULL as Unknown and 
       sampleType,
     })
   }
-  const kick = createCategory(db, { name: 'Kick' })
+  const kick = createInstrument(db, { name: 'Kick' })
   const house = listGenres(db, { search: 'house' }).items.find(
     ({ name }) => name === 'House',
   )!
   for (const name of ['b.wav', 'c.wav', 'd.wav']) {
-    setCategoryAssignment(db, {
+    setInstrumentAssignment(db, {
       id: kick.id,
       target: { kind: 'sample', id: byName(name) },
       assigned: true,
@@ -285,7 +285,7 @@ test('Sample type filters use saved values with OR, include NULL as Unknown and 
     5,
   )
   assert.equal(listCatalogSamples(db, { sampleTypes: [] }).total, 5)
-  const filters = { categoryIds: [kick.id], genreIds: [house.id] }
+  const filters = { instrumentIds: [kick.id], genreIds: [house.id] }
   assert.deepEqual(
     listCatalogSamples(db, { ...filters, sampleTypes: ['loop'] }).items.map(
       ({ name }) => name,

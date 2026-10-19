@@ -33,7 +33,7 @@ import {
   sourceRoots,
   sourceRootSamples,
   packs,
-  sampleCategories,
+  sampleInstruments,
   sampleAuthors,
   collectionSamples,
 } from '../../schema/index.ts'
@@ -121,19 +121,19 @@ test('Sample removal checks exact impact, rolls back failures and excludes acros
   db.update(samples).set({ packId }).where(eq(samples.id, id)).run()
   setFavorite(db, id, true)
   operations.updateSample(db, { id, displayName: 'Kick', notes: 'Notes' })
-  const { category } = seedSampleClassification(db, id)
+  const { instrument } = seedSampleClassification(db, id)
   const collection = seedSampleCollection(db, id)
   const review = operations.reviewSampleRemoval(db, id)
   assert.deepEqual(
     [
       review.collectionCount,
-      review.categoryCount,
+      review.instrumentCount,
       review.authorCount,
       review.rootCount,
     ],
     [1, 1, 1, 2],
   )
-  for (const kind of ['collection', 'category', 'author', 'root'] as const) {
+  for (const kind of ['collection', 'instrument', 'author', 'root'] as const) {
     const references = operations.listSampleReferences(db, {
       id,
       kind,
@@ -142,13 +142,13 @@ test('Sample removal checks exact impact, rolls back failures and excludes acros
     assert.equal(references.items.length, 1)
     assert.equal(references.total, kind === 'root' ? 2 : 1)
   }
-  const replacement = classification.createCategory(db, { name: 'Hits' })
-  classification.setCategoryAssignment(db, {
-    id: category.id,
+  const replacement = classification.createInstrument(db, { name: 'Hits' })
+  classification.setInstrumentAssignment(db, {
+    id: instrument.id,
     target: { kind: 'sample', id },
     assigned: false,
   })
-  classification.setCategoryAssignment(db, {
+  classification.setInstrumentAssignment(db, {
     id: replacement.id,
     target: { kind: 'sample', id },
     assigned: true,
@@ -169,7 +169,7 @@ test('Sample removal checks exact impact, rolls back failures and excludes acros
   for (const table of [
     samples,
     sampleSources,
-    sampleCategories,
+    sampleInstruments,
     sampleAuthors,
     collectionSamples,
     sourceRootSamples,

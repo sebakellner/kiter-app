@@ -292,14 +292,14 @@ test('Pack removal reviews exact uses and preserves Samples, organization, roots
     .set({ displayName: 'Kick', notes: 'Keep' })
     .where(eq(samples.id, id))
     .run()
-  const category = classification.createCategory(db, { name: 'Drums' })
+  const instrument = classification.createInstrument(db, { name: 'Drums' })
   const author = classification.createAuthor(db, { name: 'Artist' })
   for (const target of [
     { kind: 'sample' as const, id },
     { kind: 'pack' as const, id: pack.id },
   ]) {
-    classification.setCategoryAssignment(db, {
-      id: category.id,
+    classification.setInstrumentAssignment(db, {
+      id: instrument.id,
       target,
       assigned: true,
     })
@@ -316,7 +316,7 @@ test('Pack removal reviews exact uses and preserves Samples, organization, roots
   const associations = db.select().from(sourceRootSamples).all()
   let review = operations.reviewPackRemoval(db, pack.id)
   assert.equal(review.sampleCount, 3)
-  assert.equal(review.categoryCount, 1)
+  assert.equal(review.instrumentCount, 1)
   assert.equal(review.authorCount, 1)
   operations.setSampleOrigin(db, { sampleId: id, packId: null })
   const outsider = fixture(db, path.resolve('outsider'), 1).imported[0].id
@@ -392,11 +392,11 @@ test('Pack removal reviews exact uses and preserves Samples, organization, roots
     1,
   )
   assert.equal(
-    classification.listTargetCategories(db, { kind: 'sample', id }).total,
+    classification.listTargetInstruments(db, { kind: 'sample', id }).total,
     1,
   )
   assert.equal(db.query.packAuthors.findMany().sync().length, 0)
-  assert.equal(db.query.packCategories.findMany().sync().length, 0)
+  assert.equal(db.query.packInstruments.findMany().sync().length, 0)
   importFolder(db, f.root, f.files)
   assert.equal(operations.reviewPackImport(db, f.sourceRootId).conflictCount, 3)
 })
