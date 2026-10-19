@@ -143,7 +143,43 @@ prototype, not a combined multi-field inspector Save.
   explicit Instrument/Genre bridge adapters. Form schemas stay in the feature's
   `schemas.ts` and derive their selection rules from shared schemas.
 
-## Collection Membership and Ordering
+## Implemented Collection Creation and Browsing
+
+- Collections replaces its placeholder with a bounded list (50 by default,
+  maximum 100) in stored name/UUID order. Cards show name, actual Sample count,
+  a no-cover placeholder and the full stable ID, distinguishing homonyms without
+  inventing creation dates or relying on short-ID collision assumptions.
+- Clicking a card selects it; Enter, double-click or its visible Open action
+  navigates to `/collections/:id`. List pagination, selection and scroll use the
+  existing session-only navigation snapshots and are revalidated on return.
+  Navigation does not mount another player or start/interrupt preview.
+- Create Collection opens a minimal native modal for name and optional
+  description. React Hook Form and shared Zod rules reuse the domain's Unicode,
+  control-character and length policies. Empty Collections and repeated names
+  are valid. Enter retains text semantics; Cmd/Ctrl+Enter or Create submits.
+- Creation opens the new detail only after confirmed success. Pending work blocks
+  editing, duplicate submission and dismissal. Errors keep the draft. Cancel,
+  Escape and blocked navigation offer Create and open, Discard changes or Stay
+  when dirty. Outside clicks do not dismiss. Cancel restores opener focus.
+  Escape is handled before native dialog dismissal, with automatic close requests
+  disabled so repeated Escape cannot hide a still-dirty, navigation-blocking form.
+  Window close/quit offers Save and quit, Discard and quit or Stay; a pending
+  creation finishes before exit, and failures keep the draft and window open.
+- Detail shows saved name/description, ID and actual Sample count, with an empty
+  state only when that count is zero. Missing/invalid identities show unavailable,
+  Retry and a Collections breadcrumb. Loading/error states are distinct; refresh
+  failures preserve the last valid data, and stale responses cannot replace a
+  newer page or detail identity.
+- Typed `collections:create`, `collections:list` and `collections:get` IPC
+  authorize main-frame callers and validate requests. Preload validates saved
+  responses; worker summary queries count memberships without transferring them.
+  Existing internal Collection operations remain available independently.
+- This slice does not expose membership contents/editing, Collection metadata
+  editing/deletion, reordering, covers, sidebar shortcuts or Home recency. Existing
+  nonempty Collections display an accurate count and a limitation message, not a
+  fabricated empty state. No schema migration or source-audio writes are needed.
+
+## Collection Membership and Ordering — Planned UI
 
 - Add samples from individual menu, checked batch, Collection catalog picker, or
   internal dragging onto sidebar shortcut. Add references, not audio copies;

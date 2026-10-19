@@ -16,8 +16,10 @@ its documentation location is still to be defined.
 The first functional UX baseline is agreed. The sections marked Agreed describe
 the intended experience, not shipped capabilities or existing IPC contracts.
 The current renderer has a first shell prototype with Home and paginated,
-library-wide Samples and Favorites under a persistent player. Other sidebar
-destinations have navigable placeholder views; their workflows remain planned.
+library-wide Samples and Favorites under a persistent player. Collections has
+creation, bounded browsing and stable-ID detail views under
+[Catalog Organization](features/catalog-organization.md#implemented-collection-creation-and-browsing).
+Other sidebar destinations have navigable placeholder views; their workflows remain planned.
 Samples and Favorites have a read-only inspector opened explicitly with each
 Sample row's Info action, which selects that Sample and opens the panel,
 following list selection and showing an empty state when no row is selected.
@@ -554,8 +556,9 @@ review without changing these draft-preservation rules.
 
 A React Router SPA with nested routes under a persistent shell is adopted using
 `createHashRouter`. Home and Samples are implemented prototype destinations;
-Favorites is connected to the persistent catalog; Packs, Collections, Instruments,
-and Authors have placeholder views.
+Favorites is connected to the persistent catalog. Collections implements creation,
+paginated browsing and `/collections/:id` details; Packs, Instruments and Authors
+have placeholder views.
 [Architecture](architecture.md#renderer-navigation-and-shell) owns configuration
 and current state boundaries. The remaining route map and complete navigation
 context restoration below are proposals for later deliveries.
