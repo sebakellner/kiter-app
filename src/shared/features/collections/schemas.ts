@@ -40,6 +40,27 @@ export const collectionMembershipSchema = z.object({
   assigned: z.boolean(),
 })
 
+export const collectionOrderTokenSchema = z
+  .string()
+  .regex(
+    /^[a-f0-9]{64}$/u,
+    'Reload the Collection order before moving a Sample.',
+  )
+
+export const collectionMoveSchema = collectionMembershipSchema
+  .omit({ assigned: true })
+  .extend({
+    direction: z.enum(['up', 'down']),
+    token: collectionOrderTokenSchema,
+  })
+
+export const collectionPlaceSchema = collectionMoveSchema
+  .omit({ direction: true })
+  .extend({
+    targetSampleId: collectionMembershipSchema.shape.sampleId,
+    placement: z.enum(['before', 'after']),
+  })
+
 export const collectionDestinationsSchema = z.object({
   sampleId: collectionMembershipSchema.shape.sampleId,
   search: z

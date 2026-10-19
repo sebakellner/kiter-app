@@ -56,6 +56,29 @@ export interface CollectionReorderRequest {
   sampleIds: string[]
 }
 
+export interface CollectionMoveRequest {
+  collectionId: string
+  sampleId: string
+  direction: 'up' | 'down'
+  token: string
+}
+
+export interface CollectionMoveResult {
+  collectionId: string
+  sampleId: string
+  changed: boolean
+  index: number
+  orderToken: string
+}
+
+export interface CollectionPlaceRequest {
+  collectionId: string
+  sampleId: string
+  targetSampleId: string
+  placement: 'before' | 'after'
+  token: string
+}
+
 export interface CollectionRemovalReview {
   entity: Collection
   sampleCount: number

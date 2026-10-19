@@ -102,6 +102,12 @@ test('catalog IPC validates bounded pages and distinguishes unavailable audio fr
   }
   const page = { items: [item], total: 1, limit: 50, offset: 0 }
   assert.ok(isLibraryPage(page))
+  assert.ok(isLibraryPage({ ...page, collectionOrderToken: 'a'.repeat(64) }))
+  assert.equal(isLibraryPage({ ...page, collectionOrderToken: null }), false)
+  assert.equal(
+    isLibraryPage({ ...page, collectionOrderToken: 'invalid' }),
+    false,
+  )
   assert.equal(isLibraryPage({ ...page, total: 0 }), false)
   assert.equal(
     isLibraryPage({

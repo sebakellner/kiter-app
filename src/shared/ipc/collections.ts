@@ -8,6 +8,9 @@ import type {
   CollectionDestinationsRequest,
   CollectionMembershipRequest,
   CollectionMembershipResult,
+  CollectionMoveRequest,
+  CollectionMoveResult,
+  CollectionPlaceRequest,
 } from '../domain/collection.ts'
 import { requireCollectionPage } from '../domain/collection.ts'
 import {
@@ -23,6 +26,9 @@ import {
   collectionGetSchema,
   collectionMembershipSchema,
   collectionDestinationsSchema,
+  collectionMoveSchema,
+  collectionOrderTokenSchema,
+  collectionPlaceSchema,
 } from '../features/collections/schemas.ts'
 import type { IpcResult } from './result.ts'
 
@@ -32,6 +38,8 @@ export const COLLECTION_CHANNELS = {
   get: 'collections:get',
   destinations: 'collections:destinations',
   setMembership: 'collections:set-membership',
+  moveSample: 'collections:move-sample',
+  placeSample: 'collections:place-sample',
 } as const
 
 export interface CollectionGetRequest {
@@ -50,6 +58,55 @@ export interface CollectionsApi {
   setMembership: (
     request: CollectionMembershipRequest,
   ) => Promise<IpcResult<CollectionMembershipResult>>
+  moveSample: (
+    request: CollectionMoveRequest,
+  ) => Promise<IpcResult<CollectionMoveResult>>
+  placeSample: (
+    request: CollectionPlaceRequest,
+  ) => Promise<IpcResult<CollectionMoveResult>>
+}
+
+export function requireCollectionPlaceRequest(
+  value: unknown,
+): CollectionPlaceRequest {
+  const parsed = collectionPlaceSchema.safeParse(value, { jitless: true })
+  if (!parsed.success) {
+    throw new DomainValidationError(
+      'Invalid Collection drop. Drag a library Sample onto a current Collection member.',
+    )
+  }
+  return parsed.data
+}
+
+export function requireCollectionMoveRequest(
+  value: unknown,
+): CollectionMoveRequest {
+  const parsed = collectionMoveSchema.safeParse(value, { jitless: true })
+  if (!parsed.success) {
+    throw new DomainValidationError(
+      'Invalid Collection move. Reload the current order before moving a Sample.',
+    )
+  }
+  return parsed.data
+}
+
+export function isCollectionOrderToken(value: unknown): value is string {
+  return collectionOrderTokenSchema.safeParse(value, { jitless: true }).success
+}
+
+export function isCollectionMoveResult(
+  value: unknown,
+): value is CollectionMoveResult {
+  return (
+    isRecord(value) &&
+    isEntityId(value.collectionId) &&
+    isEntityId(value.sampleId) &&
+    typeof value.changed === 'boolean' &&
+    typeof value.index === 'number' &&
+    Number.isSafeInteger(value.index) &&
+    value.index >= 0 &&
+    isCollectionOrderToken(value.orderToken)
+  )
 }
 
 export function requireCollectionDestinationsRequest(
