@@ -5,6 +5,7 @@ import { SampleList } from './SampleList'
 import { useSampleInspector } from './SampleInspector'
 import { useCallback, useLayoutEffect } from 'react'
 import type { CatalogViewContext } from '@renderer/routes/navigationContext'
+import { CategoryFilter } from './CategoryFilter/CategoryFilter'
 
 export function CatalogList({
   favoritesOnly = false,
@@ -20,6 +21,7 @@ export function CatalogList({
     favoritesOnly,
     revision,
     context.offset,
+    context.categories.map(({ id }) => id),
   )
   const select = useCallback(
     (selectedId: string | null) => update({ selectedId }),
@@ -51,6 +53,12 @@ export function CatalogList({
   ])
   return (
     <>
+      <CategoryFilter
+        value={context.categories}
+        onChange={(categories) =>
+          update({ categories, offset: 0, scrollTop: 0 })
+        }
+      />
       <Button onClick={refresh} disabled={loading}>
         Refresh
       </Button>
@@ -60,18 +68,23 @@ export function CatalogList({
           {error} <Button onClick={refresh}>Retry</Button>
         </p>
       )}
-      <div aria-busy={loading} data-testid="catalog-results">
+      <div
+        aria-busy={loading}
+        data-testid="catalog-results"
+        data-total={page?.total}
+      >
         {page && (
           <>
             <p>
-              {page.total}{' '}
-              {favoritesOnly ? 'favorite samples' : 'samples in your library'}
+              {page.total} {favoritesOnly ? 'favorite samples' : 'results'}
             </p>
             {page.total === 0 ? (
               <p>
-                {favoritesOnly
-                  ? 'No favorites yet. Mark samples as favorites in Samples.'
-                  : 'Your library is empty. Open a folder to add audio samples. Original files stay in place.'}
+                {context.categories.length > 0
+                  ? 'No samples match these categories. Remove a category filter or clear all to see more samples.'
+                  : favoritesOnly
+                    ? 'No favorites yet. Mark samples as favorites in Samples.'
+                    : 'Your library is empty. Open a folder to add audio samples. Original files stay in place.'}
               </p>
             ) : (
               <SampleList

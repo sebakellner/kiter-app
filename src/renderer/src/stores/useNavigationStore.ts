@@ -1,7 +1,9 @@
 import { create } from 'zustand'
+import type { Category } from '@shared/domain/classification'
 
 export type ViewContext = {
   favoritesOnly: boolean
+  categories: Category[]
   offset: number
   selectedId: string | null
   inspectorOpen: boolean
@@ -10,6 +12,7 @@ export type ViewContext = {
 
 export const defaultContext: ViewContext = {
   favoritesOnly: false,
+  categories: [],
   offset: 0,
   selectedId: null,
   inspectorOpen: false,

@@ -1,4 +1,5 @@
 import type { AudioFile } from '../domain/source.ts'
+import { categoryFilterSchema } from '../features/library/schemas.ts'
 import {
   DomainValidationError,
   isEntityId,
@@ -31,6 +32,7 @@ export type CatalogAudioSample = CatalogSample & {
 }
 export interface LibraryListRequest extends PageRequest {
   favoritesOnly?: boolean
+  categoryIds?: string[]
 }
 export type LibraryPage = Page<CatalogAudioSample>
 
@@ -43,7 +45,19 @@ export function requireLibraryListRequest(value: unknown): LibraryListRequest {
   ) {
     throw new DomainValidationError('Invalid Favorites filter.')
   }
-  return { ...page, favoritesOnly: value.favoritesOnly ?? false }
+  const categories = categoryFilterSchema.safeParse(
+    value.categoryIds === undefined ? [] : value.categoryIds,
+  )
+  if (!categories.success) {
+    throw new DomainValidationError(
+      'Invalid Category filter. Select at most 100 unique Categories.',
+    )
+  }
+  return {
+    ...page,
+    favoritesOnly: value.favoritesOnly ?? false,
+    ...(categories.data.length > 0 ? { categoryIds: categories.data } : {}),
+  }
 }
 
 export function isCatalogSample(value: unknown): value is CatalogSample {

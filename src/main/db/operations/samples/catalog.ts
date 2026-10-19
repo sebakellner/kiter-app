@@ -1,5 +1,6 @@
 import path from 'node:path'
-import { count, eq, sql } from 'drizzle-orm'
+import { and, count, eq, inArray, sql } from 'drizzle-orm'
+import { sampleCategories } from '../../schema/classification.ts'
 import type { AppDatabase } from '../../runtime/connection.ts'
 import {
   samples,
@@ -54,9 +55,16 @@ export function listCatalogSamples(
     limit = 50,
     offset = 0,
     favoritesOnly,
+    categoryIds,
   } = requireLibraryListRequest(input)
   return db.transaction(() => {
-    const filter = favoritesOnly ? eq(samples.favorite, true) : undefined
+    const categoryMatch = categoryIds?.length
+      ? sql`exists (select 1 from ${sampleCategories} where ${sampleCategories.sampleId} = ${samples.id} and ${inArray(sampleCategories.categoryId, categoryIds)})`
+      : undefined
+    const filter = and(
+      favoritesOnly ? eq(samples.favorite, true) : undefined,
+      categoryMatch,
+    )
     const total = db
       .select({ value: count() })
       .from(samples)

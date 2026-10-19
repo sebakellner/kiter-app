@@ -6,6 +6,7 @@ export function useCatalog(
   favoritesOnly: boolean,
   revision: number,
   initialOffset = 0,
+  categoryIds: string[] = [],
 ): {
   page: LibraryPage | null
   loading: boolean
@@ -14,27 +15,37 @@ export function useCatalog(
   refresh: () => void
 } {
   const [page, setPage] = useState<LibraryPage | null>(null)
-  const [request, setRequest] = useState({ offset: initialOffset, version: 0 })
+  const filterKey = JSON.stringify(categoryIds.slice().sort())
+  const [request, setRequest] = useState({
+    offset: initialOffset,
+    version: 0,
+    filterKey,
+  })
   const [completion, setCompletion] = useState<{
     request: typeof request
     revision: number
     favoritesOnly: boolean
+    filterKey: string
     error: string | null
   } | null>(null)
   const loading =
     completion?.request !== request ||
     completion.revision !== revision ||
-    completion.favoritesOnly !== favoritesOnly
+    completion.favoritesOnly !== favoritesOnly ||
+    completion.filterKey !== filterKey
   const error = loading ? null : (completion?.error ?? null)
 
   useEffect(() => {
     let active = true
+    const ids: string[] = JSON.parse(filterKey)
+    const offset = request.filterKey !== filterKey ? 0 : request.offset
     void (async () => {
       try {
         let next = unwrapIpcResult(
           await window.api.library.list({
             favoritesOnly,
-            offset: request.offset,
+            ...(ids.length ? { categoryIds: ids } : {}),
+            offset,
           }),
         )
         // Removing the final Favorite on a page must not strand the view beyond its results.
@@ -42,6 +53,7 @@ export function useCatalog(
           next = unwrapIpcResult(
             await window.api.library.list({
               favoritesOnly,
+              ...(ids.length ? { categoryIds: ids } : {}),
               offset: Math.max(
                 0,
                 Math.floor((next.total - 1) / next.limit) * next.limit,
@@ -51,7 +63,13 @@ export function useCatalog(
         }
         if (active) {
           setPage(next)
-          setCompletion({ request, revision, favoritesOnly, error: null })
+          setCompletion({
+            request,
+            revision,
+            favoritesOnly,
+            filterKey,
+            error: null,
+          })
         }
       } catch (reason) {
         if (active) {
@@ -59,6 +77,7 @@ export function useCatalog(
             request,
             revision,
             favoritesOnly,
+            filterKey,
             error:
               reason instanceof Error
                 ? reason.message
@@ -70,14 +89,18 @@ export function useCatalog(
     return () => {
       active = false
     }
-  }, [favoritesOnly, revision, request])
+  }, [favoritesOnly, revision, request, filterKey])
 
   return {
     page,
     loading,
     error,
     load: (offset) =>
-      setRequest((current) => ({ offset, version: current.version + 1 })),
+      setRequest((current) => ({
+        offset,
+        version: current.version + 1,
+        filterKey,
+      })),
     refresh: () =>
       setRequest((current) => ({ ...current, version: current.version + 1 })),
   }

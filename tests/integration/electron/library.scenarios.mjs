@@ -46,10 +46,12 @@ export async function verifyListing(ctx) {
     'Repeated clicks must not open concurrent dialogs',
   )
   assert.deepEqual(await ctx.names(), fixtures.expected)
-  assert.ok(
+  assert.equal(
     await execute(
-      'document.body.textContent.includes("5 samples in your library")',
+      'Number(document.querySelector("[data-testid=catalog-results]").dataset.total)',
     ),
+    fixtures.expected.length,
+    'Catalog total must include every discovered Sample',
   )
 }
 
