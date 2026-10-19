@@ -44,7 +44,7 @@ records intact. This existing contract is not the planned selected-file workflow
   owns protection resolution before such an original becomes importable.
 - Incomplete discovery blocks confirmation until rescanned successfully or the
   affected folder is removed. Never commit incomplete scans as complete results.
-- New Packs offer name, optional description/cover, Categories, and Authors;
+- New Packs offer name, optional description/cover, Instruments, and Authors;
   only name is required, suggested from folder name. Genre/type suggestion
   integration follows [Classification](classification.md). Existing Pack reimport
   preserves stored presentation rather than import defaults.

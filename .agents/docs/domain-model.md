@@ -12,7 +12,7 @@ Kiter's local library. It separates those decisions from the implemented
 catalog and from questions that still require agreement.
 
 - **Agreed domain:** one local UserProfile with Preferences, one Library,
-  Sample, Pack, Collection, Category, Genre, Author, and sample favorite marks.
+  Sample, Pack, Collection, Instrument, Genre, Author, and sample favorite marks.
 - **Agreed Genre extension, not implemented:** optional multiple Genres on Samples
   and Packs, with independent assignments, an initial vocabulary plus user-created
   entries, and no hierarchy. Business rules and initial content are agreed;
@@ -26,9 +26,9 @@ catalog and from questions that still require agreement.
   `LibrarySample`, `AudioSample`, `FavoriteState`, and typed IPC results.
   Drizzle rows remain private persistence types, separate from domain contracts.
   Source size/mtime observations advance revisions on detected changes.
-- **Implemented internal classification slice:** Author/Category creation, reads,
+- **Implemented internal classification slice:** Author/Instrument creation, reads,
   renaming, paginated search, independent Sample/Pack assignments, use inspection,
-  and impact-checked removal through the DB worker/client. Category listing,
+  and impact-checked removal through the DB worker/client. Instrument listing,
   creation and renaming have IPC/preload contracts; other classification IPC and
   all classification UI remain pending.
 - **Implemented internal Collection slice:** create/edit/read, bounded lists,
@@ -63,9 +63,9 @@ permission to implement unresolved behavior:
 
 - Import Packs and standalone Samples, preview audio, classify and credit them,
   and build ordered Collections without duplicating source audio.
-- Edit Pack names, descriptions, covers, Categories, and Author credits;
+- Edit Pack names, descriptions, covers, Instruments, and Author credits;
   manage one local UserProfile with an optional Author link and managed avatar.
-- Search across the Library, including Packs, Collections, Categories, and
+- Search across the Library, including Packs, Collections, Instruments, and
   available Sample data. Favorites remain independent Sample marks.
 - Rename, relocate, centralize, and export through reviewed file workflows
   that preserve identities and references. Centralization uses a producer-chosen
@@ -90,10 +90,10 @@ first entity delivery.
 | Preferences | Application behavior chosen by the local user.                                            | Typed settings for the local profile; volume is implemented internally, field visibility and analysis pause are agreed extensions. |
 | Library     | The complete local scope of imported samples, packs, collections, and their organization. | One Library with multiple source directories; not a separately identified entity in this stage.                                    |
 | Sample      | A cataloged audio resource with its own identity and organization.                        | Core entity; it may be standalone or have one origin Pack.                                                                         |
-| Pack        | An imported source package, such as a sample product from a producer or provider.         | Core entity with presentation data, samples, categories, and declared authors.                                                     |
+| Pack        | An imported source package, such as a sample product from a producer or provider.         | Core entity with presentation data, samples, instruments, and declared authors.                                                    |
 | Collection  | A selection of samples assembled inside Kiter.                                            | Core entity referencing samples from different Packs and standalone samples.                                                       |
-| Category    | A classification used to organize Samples and Packs.                                      | Classification entity; assignments are independent for each target.                                                                |
-| Genre       | A musical style used to classify Samples and Packs, separately from Category.             | Optional multiple direct assignments; flat vocabulary with initial and user-created entries, without a primary Genre.              |
+| Instrument  | A classification used to organize Samples and Packs.                                      | Classification entity; assignments are independent for each target.                                                                |
+| Genre       | A musical style used to classify Samples and Packs, separately from Instrument.           | Optional multiple direct assignments; flat vocabulary with initial and user-created entries, without a primary Genre.              |
 | Author      | A declared author, producer, provider, or collaborator credited on Samples or Packs.      | Reusable credit identity, not a user profile or authorization principal; may represent the same person as UserProfile.             |
 | Favorite    | A personal mark on a Sample.                                                              | Sample state, not a separate grouping or named-list entity in this stage.                                                          |
 
@@ -157,7 +157,7 @@ URL or merely a filename.
   Editing supplies both fields; absent fields clear their stored values.
 - Has zero or one origin Pack. A Sample without a Pack is a standalone Sample.
 - Can belong to any number of Collections.
-- Can have multiple Categories assigned directly to it.
+- Can have multiple Instruments assigned directly to it.
 - Can have multiple direct Author credits, independent of its Pack's credits.
 - Can be marked or unmarked as a Favorite independently of its memberships.
 - Has technical metadata and derived analysis tied to its source version.
@@ -191,7 +191,7 @@ duplicate source audio.
 ### Sample Type
 
 Each Sample has at most one optional type: Loop or One-Shot. An unset value means
-unknown; classification is not required. This is independent of Category, Genre,
+unknown; classification is not required. This is independent of Instrument, Genre,
 and Pack origin, and users may edit it. The vocabulary is fixed for this stage,
 not a user-extensible collection of types.
 
@@ -208,7 +208,7 @@ type. Confirmed user choices survive reimport until an explicit change.
 recognition, aliases, evidence priority, replacement/rejection review, and atomic
 execution and the implemented single-Sample manual type editor.
 [Search](features/search.md) owns planned confirmed-type filters. Types are not
-Categories or musical analysis results.
+Instruments or musical analysis results.
 
 ### Pack
 
@@ -217,10 +217,10 @@ assembled in the app.
 
 - Has its own stable ID and a required name, initially suggested from the
   selected folder and editable without renaming that folder.
-- Can have an optional description and cover. Categories and Authors are
+- Can have an optional description and cover. Instruments and Authors are
   optional; their absence must not block import.
 - Groups Samples for which it is the origin Pack.
-- Can have multiple Categories assigned directly to it.
+- Can have multiple Instruments assigned directly to it.
 - Can credit multiple Authors or collaborators. An Author can be credited on
   multiple Packs.
 - Is distinct from the directory used to import it. A folder may supply a Pack,
@@ -255,15 +255,15 @@ A Collection is a user-created selection, independent of package origin.
 - Contains an ordered list of Sample references, with no repeated Sample ID
   within the same Collection.
 - Can combine Samples from several Packs and standalone Samples.
-- Has no Authors or Categories of its own in this stage.
-- Does not change a Sample's origin Pack, Categories, or Favorite mark.
+- Has no Authors or Instruments of its own in this stage.
+- Does not change a Sample's origin Pack, Instruments, or Favorite mark.
 - Can be created empty. Collection names may repeat.
 
 The same Sample may appear once in each of several Collections. Removing it
 from one Collection does not remove it from the others or from the Library.
 
 Collection names follow the 1–120 Unicode code-point, trimmed NFC policy used by
-Authors/Categories, including rejecting controls and line/paragraph separators
+Authors/Instruments, including rejecting controls and line/paragraph separators
 before trimming. Optional descriptions use NFC, allow CR/LF line breaks, reject
 other control characters, and contain at most 5,000 code points including
 whitespace. Whitespace-only descriptions become `null`; nonempty descriptions
@@ -273,24 +273,27 @@ description clears it. Names may repeat.
 [Catalog Organization](features/catalog-organization.md#implemented-internal-contracts)
 owns current bounded queries and reorder/impact execution contracts.
 
-### Category
+### Instrument
 
-A Category represents an organizational classification, not a measurement
-extracted from audio.
+An Instrument represents an instrument or class of sound, not a measurement
+extracted from audio. This deliberately broad dimension includes musical
+instruments and families (Piano, Guitar, Drums), sound roles (Kick, Lead, Pad),
+Vocals, FX, Risers, Impacts, Textures and Drum Breaks. The rename from Category
+does not split the vocabulary or restrict existing custom classifications.
 
 - Has a stable ID and required display name.
 - Uses one flat, user-created and editable vocabulary shared by Samples and
-  Packs, with no hierarchy or mandatory predefined categories.
-- Samples and Packs can each have multiple Category assignments.
-- Pack Categories do not automatically become its Samples' Categories.
-- Category assignments are user-managed data, not disposable analysis output.
+  Packs, with no hierarchy or mandatory predefined instruments.
+- Samples and Packs can each have multiple Instrument assignments.
+- Pack Instruments do not automatically become its Samples' Instruments.
+- Instrument assignments are user-managed data, not disposable analysis output.
 
-Category names must be unique ignoring case and leading/trailing whitespace.
+Instrument names must be unique ignoring case and leading/trailing whitespace.
 Normalize Unicode to NFC and use locale-independent lowercasing for matching;
 preserve accents and internal spaces.
 Inherited display or filtering behavior must not be introduced implicitly.
 
-Author and Category names are trimmed and normalized to NFC for storage, with
+Author and Instrument names are trimmed and normalized to NFC for storage, with
 1–120 Unicode code points after normalization. Reject Unicode control characters
 and line/paragraph separators before trimming. Preserve display case, accents,
 and internal spaces. Author names remain non-unique.
@@ -301,8 +304,8 @@ separate matching rules.
 
 ### Genre
 
-Genre is a musical-style dimension separate from Category. For example, House
-and Techno are Genres, while Kick, Snare, and Riser can be Categories.
+Genre is a musical-style dimension separate from Instrument. For example, House
+and Techno are Genres, while Kick, Snare, and Riser can be Instruments.
 
 - Samples and Packs can each have zero, one, or multiple Genres. Classification
   is optional, and there is no primary Genre or ranking among assigned Genres.
@@ -325,11 +328,11 @@ and Techno are Genres, while Kick, Snare, and Riser can be Categories.
   original audio, and all other organization. Replacement is not required.
 - The vocabulary is flat. House and Tech House are independent entries; assigning
   or filtering by one does not implicitly include the other.
-- Names are unique across supplied and user-created Genres under the Category
+- Names are unique across supplied and user-created Genres under the Instrument
   matching policy: trimmed NFC and locale-independent lowercasing, preserving
   accents and internal spaces. Creating or renaming to an occupied name is
   rejected; it does not create a duplicate or merge existing Genres.
-- Names follow the Category validation policy: required, trimmed NFC, and 1–120
+- Names follow the Instrument validation policy: required, trimmed NFC, and 1–120
   Unicode code points after normalization. Reject Unicode control characters and
   line/paragraph separators before trimming; preserve display case, accents, and
   internal spaces.
@@ -343,7 +346,7 @@ for the implemented editor and Classification for initialization and vocabulary 
 [Classification](features/classification.md#genre-seed) owns the approved initial
 26-entry catalog and recognition/alias delivery. [Search](features/search.md) owns
 Genre query matching, filters, and result navigation. Catalog-update tracking and
-storage/IPC remain executable contracts; current Category operations do not
+storage/IPC remain executable contracts; current Instrument operations do not
 implement Genres.
 
 ### Author
@@ -394,8 +397,8 @@ One local Library
 Sample -> zero or one origin Pack
 Pack -> origin Samples
 Collection <-> Samples through ordered, unique memberships
-Sample <-> Categories through direct assignments
-Pack <-> Categories through direct assignments
+Sample <-> Instruments through direct assignments
+Pack <-> Instruments through direct assignments
 Sample <-> Genres through direct assignments
 Pack <-> Genres through independent direct assignments
 Pack <-> Authors through declared credits
@@ -411,8 +414,8 @@ Pack / Collection -> cover reference
 | -------------------------- | ---------------------------------------------------------------------------------------- |
 | Sample to Pack             | Zero or one origin Pack per Sample; a Pack can group multiple Samples.                   |
 | Sample to Collection       | Many-to-many; ordered and unique within each Collection.                                 |
-| Sample to Category         | Multiple direct assignments; independent of Pack Categories.                             |
-| Pack to Category           | Multiple direct assignments; no automatic propagation to Samples.                        |
+| Sample to Instrument       | Multiple direct assignments; independent of Pack Instruments.                            |
+| Pack to Instrument         | Multiple direct assignments; no automatic propagation to Samples.                        |
 | Sample to Genre            | Zero or multiple direct assignments, with no primary Genre; independent of Pack Genres.  |
 | Pack to Genre              | Zero or multiple direct assignments, with no primary Genre or automatic propagation.     |
 | Pack to Author             | Multiple credits per Pack; Authors are reusable across Packs.                            |
@@ -423,7 +426,7 @@ Pack / Collection -> cover reference
 
 The user can explicitly correct a Sample's origin by assigning an existing
 Pack, changing Packs, or leaving it standalone. This never moves audio or
-changes Collection memberships, direct Categories, or Favorites.
+changes Collection memberships, direct Instruments, or Favorites.
 
 These relationships do not require a separate class, table, or package for
 every concept.
@@ -439,15 +442,15 @@ These profiles define information to preserve, not SQL tables, column types,
 or the final IPC payloads. Required names must contain non-whitespace text.
 Length limits and text validation must be agreed before implementing forms.
 
-| Concept     | Required information                                                                       | Optional information / associations                                                                                                              |
-| ----------- | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| UserProfile | Stable ID and presentation name.                                                           | Managed avatar reference and linked Author.                                                                                                      |
-| Preferences | Profile reference and preview volume in the inclusive range 0 to 1.                        | Planned typed field-visibility and analysis-pause settings follow their owning guides; current storage supports volume only.                     |
-| Sample      | Stable ID, source location reference, actual filename, availability, and Favorite boolean. | Presentation-name override, notes, zero or one origin Pack, direct Category/Author assignments, and Collection memberships.                      |
-| Pack        | Stable ID, name, and the source-directory association used to recognize reimports.         | Description, cover reference, Category assignments, and Author credits. Origin Sample references follow the creation and empty-Pack rules above. |
-| Collection  | Stable ID, name, and an ordered membership list, which can be empty.                       | Description and cover reference.                                                                                                                 |
-| Category    | Stable ID and unique display name under the agreed matching policy.                        | Sample and Pack assignments.                                                                                                                     |
-| Author      | Stable ID and name.                                                                        | Sample/Pack credits and optional UserProfile link; no credit roles in this stage.                                                                |
+| Concept     | Required information                                                                       | Optional information / associations                                                                                                                |
+| ----------- | ------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| UserProfile | Stable ID and presentation name.                                                           | Managed avatar reference and linked Author.                                                                                                        |
+| Preferences | Profile reference and preview volume in the inclusive range 0 to 1.                        | Planned typed field-visibility and analysis-pause settings follow their owning guides; current storage supports volume only.                       |
+| Sample      | Stable ID, source location reference, actual filename, availability, and Favorite boolean. | Presentation-name override, notes, zero or one origin Pack, direct Instrument/Author assignments, and Collection memberships.                      |
+| Pack        | Stable ID, name, and the source-directory association used to recognize reimports.         | Description, cover reference, Instrument assignments, and Author credits. Origin Sample references follow the creation and empty-Pack rules above. |
+| Collection  | Stable ID, name, and an ordered membership list, which can be empty.                       | Description and cover reference.                                                                                                                   |
+| Instrument  | Stable ID and unique display name under the agreed matching policy.                        | Sample and Pack assignments.                                                                                                                       |
+| Author      | Stable ID and name.                                                                        | Sample/Pack credits and optional UserProfile link; no credit roles in this stage.                                                                  |
 
 When no presentation-name override exists, display the actual Sample filename.
 A rescan can refresh observed file information but must not replace an override
@@ -499,7 +502,7 @@ design.
 ### Removal and Deletion
 
 - Removing a Pack from Kiter keeps its Samples in the Library as standalone
-  Samples. Their IDs, direct Categories and Author credits, Favorite marks, and Collection
+  Samples. Their IDs, direct Instruments and Author credits, Favorite marks, and Collection
   memberships remain intact.
 - Detached Pack Samples receive manual standalone protection on removal;
   later Pack registration requires reviewing them again.
@@ -511,7 +514,7 @@ design.
   or memberships.
 - Removing a Sample from the catalog requires confirmation showing affected
   references. Delete its catalog record, Favorite mark, annotations, Pack
-  association, Category/Author assignments, and Collection memberships, but keep its
+  association, Instrument/Author assignments, and Collection memberships, but keep its
   source audio. Preserve an exclusion for that canonical location so rescans
   do not undo the decision. Explicit reinclusion does not restore deleted data.
 - Exclusions are Library-wide. Explicit reinclusion requires a registered
@@ -519,7 +522,7 @@ design.
   changed canonical locations. It creates a new Sample/source associated with
   that root, manually standalone and without deleted organization; overlapping
   associations are rediscovered on rescan.
-- Removing a Category or Author requires showing its uses and obtaining
+- Removing an Instrument or Author requires showing its uses and obtaining
   confirmation. Remove its assignments or credits, not the associated
   Samples, Packs, or files.
 - Author removal also shows any UserProfile link and clears that link without
@@ -548,7 +551,7 @@ These are separately scoped future operations, not side effects of import or
 organization.
 
 - In-app renaming or relocation must preserve Sample IDs and all Pack,
-  Collection, Category, and Favorite references.
+  Collection, Instrument, and Favorite references.
 - Centralization is a reviewed batch of file operations, not a new Sample
   identity. Changed root associations and destinations outside imported roots
   must be explicitly modeled and authorized.

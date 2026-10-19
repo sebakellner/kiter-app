@@ -17,7 +17,7 @@ data; [Search](search.md) owns musical filters and [Export](export.md) owns mani
   estimate. Reanalysis updates only the automatic layer and never overwrites edits.
 - A manual decision can specify a value, Unknown, or Not applicable. Manual Unknown
   suppresses automatic use without deleting the estimate; Not applicable is an
-  explicit user decision, never inferred from failure, Category, or Loop/One-Shot.
+  explicit user decision, never inferred from failure, Instrument, or Loop/One-Shot.
   Use automatic explicitly clears the manual decision and exposes any valid
   estimate, or Unknown when none exists.
 - Edit these decisions in the inspector's atomic metadata Save/Cancel draft with
@@ -44,7 +44,7 @@ data; [Search](search.md) owns musical filters and [Export](export.md) owns mani
   modes the chosen analyzer can actually estimate; never fabricate mode detection
   from a major/minor-only result. Exact canonical spelling is a display contract.
 - Treat BPM and tonality independently: one may be known while the other is not.
-  Not every Sample has a reliable pulse or tonal center; neither Category nor
+  Not every Sample has a reliable pulse or tonal center; neither Instrument nor
   duration nor Sample type proves one exists.
 - Low-confidence or unresolved ambiguous automatic results leave the effective
   automatic value Unknown. Detail may expose uncertain candidates, including

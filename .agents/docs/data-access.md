@@ -9,9 +9,9 @@ See [Architecture](architecture.md) for process ownership and
 The database uses stable Drizzle ORM with `better-sqlite3` in a dedicated worker.
 The 22-table schema, reviewed migrations, singleton profile/Preferences
 bootstrap, source imports, Favorites, and internal profile/volume operations are
-implemented. Internal Author/Category commands, independent Sample/Pack assignments,
+implemented. Internal Author/Instrument commands, independent Sample/Pack assignments,
 paginated queries/use inspection, and impact-checked deletion are implemented through
-the worker and `DbClient`. Category list/create/rename IPC and preload are
+the worker and `DbClient`. Instrument list/create/rename IPC and preload are
 implemented; other classification IPC and all classification UI remain pending.
 Internal Collection creation/editing, bounded reads, ordered memberships,
 atomic reorder and impact-checked removal also run through the worker/client.
@@ -259,7 +259,7 @@ have different responsibilities.
 | `packs`                                          | Imported package, presentation data, cover and unique source-root association.       |
 | `collections`                                    | User-created grouping with optional description and cover.                           |
 | `collection_samples`                             | Duplicate-free Sample references with unique ordered positions.                      |
-| `categories`                                     | Shared flat vocabulary, unique normalized name keys.                                 |
+| `categories`                                     | Instrument vocabulary (legacy physical table name), unique normalized name keys.     |
 | `genres` / `sample_genres` / `pack_genres`       | Musical-style vocabulary and independent direct Sample/Pack assignments.             |
 | `recognition_vocabulary` / `recognition_aliases` | Stable recognition mappings, offered/retired terms and editable aliases.             |
 | `sample_categories` / `pack_categories`          | Independent direct classifications.                                                  |
@@ -270,15 +270,31 @@ have different responsibilities.
 No account User, Library, Favorite, or Pack-membership table is needed.
 Do not add Kits, Tags, named favorite lists, or speculative analysis tables.
 
+### Instrument Storage Compatibility
+
+Instrument replaces Category in domain types, renderer state/routes, IPC and
+worker contracts. This is a terminology change, not a new entity or taxonomy.
+Drizzle's `instruments`, `sampleInstruments`, `packInstruments` and `instrumentId`
+properties map to the existing `categories`, `sample_categories`,
+`pack_categories` and `category_id` SQL identifiers. Existing constraints/indexes,
+migration history, UUIDs and assignments remain unchanged; no migration is needed.
+
+Recognition columns use a typed storage adapter: application dimension
+`instrument` reads/writes the existing stored `category` value. Opaque vocabulary
+keys retain `category:` prefixes so initialization cannot mistake existing or
+deleted entries for new defaults. Supplied alias keys, custom aliases, edits and
+reassignments remain intact. Do not rename these storage values/keys by text
+replacement. Restored catalogs use the same adapter on normal database open.
+
 ### Service-Level Invariants
 
 - Generate UUIDs in the application. A canonical location is a lookup, not
   Sample identity; separate copies remain separate Samples. Never hash-merge.
 - Create Sample/source pairs transactionally. Missing files retain records.
   Resolve privileged paths from authorized identities, not renderer input.
-- Unicode names must contain non-whitespace text. Normalize Category/Author keys
+- Unicode names must contain non-whitespace text. Normalize Instrument/Author keys
   with `name.trim().normalize('NFC').toLowerCase()`, preserving accents/internal
-  spaces. Rename and key updates are atomic; only Category keys are unique.
+  spaces. Rename and key updates are atomic; only Instrument keys are unique.
 - Optional absent text is `NULL`. Presentation overrides do not rename files.
 - `revision` is a monotonic analysis-invalidation token, not a content hash.
   Observed size/mtime changes advance it without changing organization.
@@ -296,11 +312,11 @@ Do not add Kits, Tags, named favorite lists, or speculative analysis tables.
 ### Commands and Atomic Boundaries (Target)
 
 Source import, Favorite writes, profile reads, volume writes, and internal
-Author/Category operations are implemented. The latter include idempotent direct
+Author/Instrument operations are implemented. The latter include idempotent direct
 assignments on Samples/Packs, literal normalized search, bounded pages, and
 transactional removal with exact-impact review tokens. `NAME_CONFLICT` identifies
-duplicate Category keys; `STALE_REVIEW` requires renewed impact review. These
-classification operations expose only Category list/create/rename through IPC and
+duplicate Instrument keys; `STALE_REVIEW` requires renewed impact review. These
+classification operations expose only Instrument list/create/rename through IPC and
 preload; there is no classification UI yet. The table below describes
 target behavior, including workflows still pending.
 
@@ -314,24 +330,24 @@ bounded batches; removal rechecks inside an immediate transaction. Final cover
 references become `cleanup_pending` only after checking all three reference
 owners. Collection IPC/UI remain pending; main performs recoverable image cleanup.
 
-| Command                | Required behavior                                                                                                                   |
-| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| Import/rescan          | Reuse IDs, filter exclusions, create Sample/source pairs, reconcile root associations; preserve organization.                       |
-| Failed scan            | Do not commit incomplete discovery; later persist a known root's failure separately. Absence alone does not prove a missing source. |
-| Create/reimport Pack   | Recognize source-root association, not names; require eligible Samples and preserve manual origins.                                 |
-| Change origin          | Update Pack and manual protection atomically; preserve all other organization.                                                      |
-| Relink/change source   | Preserve ID, update verified source/revision, invalidate analysis; reject exclusions and occupied destinations.                     |
-| Remove Pack            | Detach Samples, cascade credits/categories; retain Samples, roots, Favorites and Collections.                                       |
-| Remove Collection      | Remove memberships only; schedule unused cover cleanup.                                                                             |
-| Remove Sample          | Confirm, exclude its canonical location and delete metadata transactionally; keep original audio.                                   |
-| Reinclude source       | Verify, clear exclusion, create a new identity; do not restore deleted annotations.                                                 |
-| Unregister root        | Disable registration, retain identity/associations; re-registration reuses it.                                                      |
-| Remove Category/Author | Review uses, delete associations; Author removal clears profile link, never resources/profile.                                      |
-| Reorder Collection     | Validate complete unique sequence, write positions atomically; preserve order on failure.                                           |
-| Edit profile           | Change name, optional Author/avatar; do not rename Authors or create credits.                                                       |
-| Save Preferences       | Validate typed settings; preserve prior state on failure, including zero volume.                                                    |
-| Assign credits         | Change explicit Author associations on the selected target only.                                                                    |
-| Attach/replace image   | Publish validated copy, atomically register/reference it; preserve prior image on failure.                                          |
+| Command                  | Required behavior                                                                                                                   |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
+| Import/rescan            | Reuse IDs, filter exclusions, create Sample/source pairs, reconcile root associations; preserve organization.                       |
+| Failed scan              | Do not commit incomplete discovery; later persist a known root's failure separately. Absence alone does not prove a missing source. |
+| Create/reimport Pack     | Recognize source-root association, not names; require eligible Samples and preserve manual origins.                                 |
+| Change origin            | Update Pack and manual protection atomically; preserve all other organization.                                                      |
+| Relink/change source     | Preserve ID, update verified source/revision, invalidate analysis; reject exclusions and occupied destinations.                     |
+| Remove Pack              | Detach Samples, cascade credits/instruments; retain Samples, roots, Favorites and Collections.                                      |
+| Remove Collection        | Remove memberships only; schedule unused cover cleanup.                                                                             |
+| Remove Sample            | Confirm, exclude its canonical location and delete metadata transactionally; keep original audio.                                   |
+| Reinclude source         | Verify, clear exclusion, create a new identity; do not restore deleted annotations.                                                 |
+| Unregister root          | Disable registration, retain identity/associations; re-registration reuses it.                                                      |
+| Remove Instrument/Author | Review uses, delete associations; Author removal clears profile link, never resources/profile.                                      |
+| Reorder Collection       | Validate complete unique sequence, write positions atomically; preserve order on failure.                                           |
+| Edit profile             | Change name, optional Author/avatar; do not rename Authors or create credits.                                                       |
+| Save Preferences         | Validate typed settings; preserve prior state on failure, including zero volume.                                                    |
+| Assign credits           | Change explicit Author associations on the selected target only.                                                                    |
+| Attach/replace image     | Publish validated copy, atomically register/reference it; preserve prior image on failure.                                          |
 
 Exclusions apply across overlapping roots. Imports never clear them. No committed
 source may share an excluded path. Do not use `INSERT OR REPLACE` on entities:
@@ -425,7 +441,7 @@ exists; extend the smallest owning operation/service.
 The product's catalog is persisted through `DbClient`; there is no `Catalog`
 domain entity or catch-all catalog service. Current UI remains folder-scoped.
 Internal profile/volume operations are not exposed to settings UI or applied to
-the player. Category list/create/rename are available through preload; remaining
+the player. Instrument list/create/rename are available through preload; remaining
 classification, Collection and Pack operations are internal to `DbClient`.
 Other entity tables await their complete operations and UI.
 

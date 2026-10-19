@@ -1,7 +1,7 @@
 # Catalog Organization
 
 Read when changing catalog removal/reinclusion, Collection membership/order,
-Category/Author detail assignments, source relinking, or manual origin correction. These are agreed
+Instrument/Author detail assignments, source relinking, or manual origin correction. These are agreed
 planned interactions; internal operations exist only as described in
 [Data Access](../data-access.md). [Domain Model](../domain-model.md) owns entity
 lifecycle/invariants; [UI Patterns](../ui-patterns.md) owns drafts/forms and
@@ -18,11 +18,11 @@ The current worker/client operations are narrower than the planned UI below:
   members, new members append, removal may leave gaps. Full reorder supplies each
   current Sample ID exactly once and writes contiguous positions atomically,
   rejecting stale/incomplete sequences without changing prior order.
-- Internal Author/Category and target-assignment pages use 50, maximum 100,
+- Internal Author/Instrument and target-assignment pages use 50, maximum 100,
   normalized name key/UUID order. Partial search is literal, locale-independent,
   accent-preserving. Sample/Pack uses paginate separately and removal review
   includes counts/profile link. This is not global-search matching.
-- Pack removal reviews presentation, cover, exact origins and Category/Author
+- Pack removal reviews presentation, cover, exact origins and Instrument/Author
   assignments, rechecking transactionally with `STALE_REVIEW` on change. Detached
   Samples gain manual standalone protection. Only unreferenced covers become
   `cleanup_pending`, with separate physical cleanup.
@@ -31,7 +31,7 @@ The current worker/client operations are narrower than the planned UI below:
   reference cleanup checks all Packs/Collections/profile avatars and delegates
   physical cleanup recoverably to main's managed-image service.
 - Sample removal review hashes presentation, Favorite/origin, source observation/
-  revision, and exact Collection/Category/Author/root references in 500-item
+  revision, and exact Collection/Instrument/Author/root references in 500-item
   batches. Reference reads use UUID pages of 50, maximum 100. Immediate transaction
   rechecks token; exclusion/deletion commit together, stale state rejects, and
   internal APIs grant no audio authorization.
@@ -40,7 +40,7 @@ The current worker/client operations are narrower than the planned UI below:
   path change. Transaction rechecks exclusion, registered containment, vacancy,
   then clears exclusion and creates new manually standalone Sample/source under
   chosen root. Other overlapping associations await rescan.
-- Author/Category removal rechecks impact token, entity name, exact Sample/Pack
+- Author/Instrument removal rechecks impact token, entity name, exact Sample/Pack
   IDs and profile link transactionally, rejecting `STALE_REVIEW`. Counts alone
   do not establish unchanged impact. Tokens prove reviewed state, not UI consent
   or authorization. Genre/aliases are future extensions, not current operations.
@@ -66,7 +66,7 @@ The current worker/client operations are narrower than the planned UI below:
 - Reinclusion and batch removal continue after individual failures; report
   successful, failed, and unprocessed scopes distinctly. Retry failed targets
   after revalidation and reconfirm when impact/scope changes.
-- Pack/Collection/Category/Author deletion uses brief review of name, consequences,
+- Pack/Collection/Instrument/Author deletion uses brief review of name, consequences,
   counts, consultable details, and specific confirmation, without typed names.
   Preserve Samples/audio under domain lifecycle rules; Author impact includes
   clearing any profile link. Genre/alias impact follows its domain/feature contract.
@@ -78,52 +78,52 @@ The current worker/client operations are narrower than the planned UI below:
   result. History reaching a deleted detail shows unavailable with recovery links.
   Batch IPC/reinclusion UI are not implied by existing worker operations.
 
-## Implemented Single-Sample Category Editor
+## Implemented Single-Sample Instrument Editor
 
-Sample Info exposes Edit categories alongside classification suggestions. It
+Sample Info exposes Edit instruments alongside classification suggestions. It
 opens a compact, anchored editor with a search field, paginated existing
-Categories, multiple selection, removable selected items, and Save/Cancel.
+Instruments, multiple selection, removable selected items, and Save/Cancel.
 The editor uses a native modal dialog with a transparent backdrop as its
 popover container: the Sample remains visible, while underlying navigation,
 selection, suggestions, and player controls are temporarily unavailable.
 Outside clicks do not dismiss it. Escape and Cancel protect dirty edits with
-Save and close, Discard changes, and Stay; focus returns to Edit categories.
+Save and close, Discard changes, and Stay; focus returns to Edit instruments.
 Cmd/Ctrl+Enter saves. Native window close/application quit similarly offers
 Save and quit, Discard and quit, or Stay, waiting for pending writes.
 The primary UI Popover owns that surface's position, focus and dismissal;
 the feature's EditorPopover retains Save/Cancel, dirty review and exit protection.
 
 - Changes remain a local draft until one atomic Save. Empty selection clears
-  direct assignments, without deleting Categories, changing Pack assignments,
+  direct assignments, without deleting Instruments, changing Pack assignments,
   remembering rejections, or modifying audio or other Sample organization.
-- React Hook Form owns selected Category IDs and dirty tracking, with a Zod
+- React Hook Form owns selected Instrument IDs and dirty tracking, with a Zod
   resolver reusing the shared selection schema. Zod validates read/save requests
   at the IPC and worker boundaries as well; DB state checks remain transactional.
   The renderer's `features/classification/schemas.ts` derives the form schema
   from `shared/features/classification/schemas.ts`, which owns the request rules.
-- `categories:read-sample` returns the Sample's current Categories and a read-state
-  token. `categories:save-sample` validates the Sample, unique Category identities,
+- `instruments:read-sample` returns the Sample's current Instruments and a read-state
+  token. `instruments:save-sample` validates the Sample, unique Instrument identities,
   and the current saved assignment/name snapshot in an immediate worker transaction.
-  Changed assignments or renamed/deleted saved Categories reject with STALE_REVIEW.
-  A missing selected Category rejects without partial replacement.
+  Changed assignments or renamed/deleted saved Instruments reject with STALE_REVIEW.
+  A missing selected Instrument rejects without partial replacement.
 - Errors preserve the draft. A failed or uncertain save requires Reload saved
-  categories before retry; this refreshes the token and shows current saved values
+  instruments before retry; this refreshes the token and shows current saved values
   while preserving the intended selection for explicit comparison and correction.
-- Category search reuses literal normalized catalog matching, pages of 50, with
+- Instrument search reuses literal normalized catalog matching, pages of 50, with
   stale responses ignored. This first editor accepts at most 1,000 assignments
   per Sample and fails explicitly above that limit; it does not truncate data.
 - Successful Save refreshes classification suggestions. Removing an assignment
-  may offer it again from unchanged evidence. Category creation, manual editing
+  may offer it again from unchanged evidence. Instrument creation, manual editing
   of other fields, and multi-Sample editing remain later slices. Future metadata
   fields join the shared atomic inspector draft under UI Patterns.
 
 ## Implemented Single-Sample Genre Editor
 
-Sample Info also exposes Edit genres. It reuses the Category editor's anchored
+Sample Info also exposes Edit genres. It reuses the Instrument editor's anchored
 modal popover, React Hook Form draft, Zod validation, bounded search, focus,
 Save/Cancel, dirty dismissal/exit protection, and preserved-draft reload behavior.
 Only one classification editor opens at a time; suggestion writes remain disabled
-until it closes. Categories and Genres are separate short metadata drafts in this
+until it closes. Instruments and Genres are separate short metadata drafts in this
 prototype, not a combined multi-field inspector Save.
 
 - `genres:list` exposes the existing literal normalized Genre query with pages of
@@ -135,12 +135,12 @@ prototype, not a combined multi-field inspector Save.
 - The token covers Sample identity and saved Genre identities/names. Changed
   assignments or renamed/deleted saved Genres require fresh review; missing
   selected Genres or late failures roll back every assignment change.
-- Category assignments, Sample type, credits, origin, Favorites, sources, and Pack
+- Instrument assignments, Sample type, credits, origin, Favorites, sources, and Pack
   Genre assignments are preserved. There is no inheritance or implicit rejection.
   Successful Save refreshes suggestions. Genre creation/rename/deletion UI and
   multi-Sample assignment remain later slices.
 - `ClassificationEditor` and its hook own the shared renderer behavior, with
-  explicit Category/Genre bridge adapters. Form schemas stay in the feature's
+  explicit Instrument/Genre bridge adapters. Form schemas stay in the feature's
   `schemas.ts` and derive their selection rules from shared schemas.
 
 ## Collection Membership and Ordering
@@ -173,14 +173,14 @@ prototype, not a combined multi-field inspector Save.
 - Retry with deleted Sample/Collection updates scope and requires confirmation of
   remaining targets/destinations, never name-based identity substitution.
 
-## Pack, Category, and Author Views
+## Pack, Instrument, and Author Views
 
-- Pack detail prioritizes Samples under cover/name/description/Category/Author
+- Pack detail prioritizes Samples under cover/name/description/Instrument/Author
   header, with contextual list filters/actions. Presentation uses inspector drafts.
-- Category/Author detail uses direct Samples/Packs tabs with separate contexts,
+- Instrument/Author detail uses direct Samples/Packs tabs with separate contexts,
   without inheriting from Sample origins. Labels navigate to entity detail;
   assignment editing has separate controls.
-- Inspector supports Category/Author name, uses, and contextual actions via
+- Inspector supports Instrument/Author name, uses, and contextual actions via
   Save/Cancel; no additional fields without domain agreement.
 - Detail-header Edit explicitly inspects page entity even if showing a member;
   resolve dirty draft first. Shared context restoration preserves that target.
