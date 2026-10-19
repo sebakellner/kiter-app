@@ -72,8 +72,7 @@ export function CatalogList({
         {page && (
           <>
             <p>
-              {page.total}{' '}
-              {favoritesOnly ? 'favorite samples' : 'samples in your library'}
+              {page.total} {favoritesOnly ? 'favorite samples' : 'results'}
             </p>
             {page.total === 0 ? (
               <p>
