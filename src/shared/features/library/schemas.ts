@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { isEntityId } from '../../domain/validation.ts'
+import { sampleTypeSelectionSchema } from '../classification/schemas.ts'
 
 export const categoryFilterSchema = z
   .array(z.string().refine(isEntityId))
@@ -16,3 +17,13 @@ export const genreFilterSchema = z
     (ids) => new Set(ids).size === ids.length,
     'Select each genre only once.',
   )
+
+export const sampleTypeFilterSchema = z
+  .array(sampleTypeSelectionSchema.shape.sampleType)
+  .max(3, 'Select at most three Sample types.')
+  .refine(
+    (types) => new Set(types).size === types.length,
+    'Select each Sample type only once.',
+  )
+
+export type SampleTypeFilter = z.infer<typeof sampleTypeFilterSchema>

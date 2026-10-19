@@ -113,3 +113,36 @@ test('catalog IPC validates bounded pages and distinguishes unavailable audio fr
     false,
   )
 })
+
+test('Sample type filters validate fixed unique choices and preserve combined filters', () => {
+  const categoryId = randomUUID()
+  const genreId = randomUUID()
+  const request = {
+    categoryIds: [categoryId],
+    genreIds: [genreId],
+    sampleTypes: ['loop', 'one-shot', 'unknown'],
+    favoritesOnly: true,
+    limit: 2,
+    offset: 2,
+  }
+  assert.deepEqual(requireLibraryListRequest(request), request)
+  assert.deepEqual(
+    requireLibraryListRequest({ sampleTypes: [] }),
+    requireLibraryListRequest({}),
+  )
+  for (const sampleTypes of [
+    null,
+    'loop',
+    [null],
+    ['Loop'],
+    ['one shot'],
+    ['invalid'],
+    ['loop', 'loop'],
+    ['unknown', 'unknown'],
+    ['loop', 'one-shot', 'unknown', 'loop'],
+  ]) {
+    assert.throws(() => requireLibraryListRequest({ sampleTypes }), {
+      name: 'DomainValidationError',
+    })
+  }
+})

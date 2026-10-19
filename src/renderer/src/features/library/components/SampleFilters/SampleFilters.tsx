@@ -2,20 +2,36 @@ import { useRef } from 'react'
 import type { Category } from '@shared/domain/classification'
 import type { Genre } from '@shared/domain/recognition'
 import { Button } from '@renderer/components/ui/Button'
+import { Select } from '@renderer/components/ui/Select'
+import type { SampleTypeFilter } from '@shared/features/library/schemas'
 import { ClassificationFilter } from './ClassificationFilter'
 import './sample-filters.css'
+
+const sampleTypeLabels = {
+  loop: 'Loops',
+  'one-shot': 'One-Shots',
+  unknown: 'Unknown',
+}
+const sampleTypeOptions: SampleTypeFilter = ['loop', 'one-shot', 'unknown']
 
 export function SampleFilters({
   categories,
   genres,
+  sampleTypes,
   onChange,
 }: {
   categories: Category[]
   genres: Genre[]
-  onChange: (filters: { categories: Category[]; genres: Genre[] }) => void
+  sampleTypes: SampleTypeFilter
+  onChange: (filters: {
+    categories: Category[]
+    genres: Genre[]
+    sampleTypes: SampleTypeFilter
+  }) => void
 }): React.JSX.Element {
   const categoryInput = useRef<HTMLInputElement>(null)
   const genreInput = useRef<HTMLInputElement>(null)
+  const typeInput = useRef<HTMLSelectElement>(null)
   return (
     <section className="sample-filters" aria-label="Sample filters">
       <div className="sample-filters-controls">
@@ -23,16 +39,38 @@ export function SampleFilters({
           kind="categories"
           input={categoryInput}
           value={categories}
-          onChange={(value) => onChange({ categories: value, genres })}
+          onChange={(value) =>
+            onChange({ categories: value, genres, sampleTypes })
+          }
         />
         <ClassificationFilter
           kind="genres"
           input={genreInput}
           value={genres}
-          onChange={(value) => onChange({ categories, genres: value })}
+          onChange={(value) =>
+            onChange({ categories, genres: value, sampleTypes })
+          }
         />
+        <Select
+          aria-label="Sample type"
+          ref={typeInput}
+          value={sampleTypes[0] ?? 'all'}
+          onChange={(event) => {
+            const type = sampleTypeOptions.find(
+              (value) => value === event.currentTarget.value,
+            )
+            onChange({ categories, genres, sampleTypes: type ? [type] : [] })
+          }}
+        >
+          <option value="all">Sample type</option>
+          <option value="one-shot">One-Shots</option>
+          <option value="loop">Loops</option>
+          <option value="unknown">Unknown</option>
+        </Select>
       </div>
-      {(categories.length > 0 || genres.length > 0) && (
+      {(categories.length > 0 ||
+        genres.length > 0 ||
+        sampleTypes.length > 0) && (
         <div
           className="sample-filters-chips"
           aria-label="Active sample filters"
@@ -45,6 +83,7 @@ export function SampleFilters({
                 onChange({
                   categories: categories.filter(({ id }) => id !== category.id),
                   genres,
+                  sampleTypes,
                 })
                 categoryInput.current?.focus()
               }}
@@ -60,6 +99,7 @@ export function SampleFilters({
                 onChange({
                   categories,
                   genres: genres.filter(({ id }) => id !== genre.id),
+                  sampleTypes,
                 })
                 genreInput.current?.focus()
               }}
@@ -67,9 +107,25 @@ export function SampleFilters({
               {genre.name} ×
             </Button>
           ))}
+          {sampleTypes.map((type) => (
+            <Button
+              key={type}
+              aria-label={`Remove Sample type filter: ${sampleTypeLabels[type]}`}
+              onClick={() => {
+                onChange({
+                  categories,
+                  genres,
+                  sampleTypes: sampleTypes.filter((value) => value !== type),
+                })
+                typeInput.current?.focus()
+              }}
+            >
+              {sampleTypeLabels[type]} ×
+            </Button>
+          ))}
           <Button
             onClick={() => {
-              onChange({ categories: [], genres: [] })
+              onChange({ categories: [], genres: [], sampleTypes: [] })
               categoryInput.current?.focus()
             }}
           >

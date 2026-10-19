@@ -46,7 +46,7 @@ libraries before delivery. Visual design/prototypes remain deferred.
 
 ## Filters and Local Search
 
-### Implemented Category and Genre Filter Slice
+### Implemented Category, Genre and Sample Type Filter Slice
 
 Samples and Favorites expose shared sticky in-list Categories and Genres comboboxes and
 removable active chips with Clear all. Selection applies immediately, retains
@@ -54,17 +54,34 @@ input focus/query, and resets result pagination. Vocabulary options use bounded
 50-item pages with literal catalog matching; opening/focusing refreshes options.
 Loading/error/empty options and result states remain distinct, with retry.
 
+Filter names appear inside the controls rather than in visible external labels:
+Categories and Genres use input placeholders, while the native Sample type
+combobox displays Sample type as its default option. All retain accessible names.
+The single-choice type combobox offers One-Shots, Loops and Unknown, with
+immediate filtering and a removable chip.
+The default adds no type constraint and includes Unknown Samples; each other
+choice filters its one saved type. Removing the chip or using Clear all restores
+the default, and removing the chip returns focus to the combobox.
+`library:list` accepts at most
+three unique `sampleTypes` values from `loop`, `one-shot` and `unknown`, using
+the shared classification type vocabulary. The worker matches the saved Sample
+type only, mapping a missing (`NULL`) type to Unknown; path-based suggestions
+do not count. Values combine with OR, then intersect Category, Genre and
+Favorites filters before counting and pagination. Empty selection adds no
+constraint. Multiple type values remain supported by the query contract, but
+the current selector chooses at most one.
+
 `library:list` accepts up to 100 unique Category UUIDs and 100 unique Genre UUIDs,
 validated with the library feature's shared Zod schemas. The worker filters direct
 saved Sample assignments with OR within each group and AND between groups before
 counting and paginating, then intersects Favorites where requested.
 An empty selection adds no constraint; missing/deleted IDs match nothing,
 not another entry with the same name. Suggestions and Pack classifications do not
-match. Clear all removes both groups together. Removing a chip retains the other
+match. Clear all removes all three groups together. Removing a chip retains the other
 selections and returns focus to its group's input without clearing either query.
 Main's normal audio authorization still applies to returned results.
 
-Each destination/history snapshot retains the selected identities and display
+Each destination/history snapshot retains selected Sample types and the classification identities and display
 labels for this session only; reopening queries current results rather than
 caching Sample records. Filter changes revalidate selection and keep playback
 independent. Retained chip labels are session snapshots, not authoritative names

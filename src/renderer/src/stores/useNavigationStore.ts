@@ -1,11 +1,13 @@
 import { create } from 'zustand'
 import type { Category } from '@shared/domain/classification'
 import type { Genre } from '@shared/domain/recognition'
+import type { SampleTypeFilter } from '@shared/features/library/schemas'
 
 export type ViewContext = {
   favoritesOnly: boolean
   categories: Category[]
   genres: Genre[]
+  sampleTypes: SampleTypeFilter
   offset: number
   selectedId: string | null
   inspectorOpen: boolean
@@ -16,6 +18,7 @@ export const defaultContext: ViewContext = {
   favoritesOnly: false,
   categories: [],
   genres: [],
+  sampleTypes: [],
   offset: 0,
   selectedId: null,
   inspectorOpen: false,

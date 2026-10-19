@@ -9,19 +9,22 @@ import { createTestApi } from '../../../../../../../tests/support/ui/bridge'
 import { deferred } from '../../../../../../../tests/support/fixtures/deferred'
 import type { IpcResult } from '@shared/ipc/result'
 import type { Page } from '@shared/domain/pagination'
+import type { SampleTypeFilter } from '@shared/features/library/schemas'
 
 function Example(): React.JSX.Element {
   const [value, setValue] = useState<{
     categories: Category[]
     genres: Genre[]
+    sampleTypes: SampleTypeFilter
   }>({
     categories: [],
     genres: [],
+    sampleTypes: [],
   })
   return <SampleFilters {...value} onChange={setValue} />
 }
 
-test('classification comboboxes retain independent choices and queries, remove chips and clear both groups', async () => {
+test('filters retain independent choices and queries, remove chips and clear all groups', async () => {
   const api = createTestApi()
   vi.stubGlobal('api', api)
   vi.stubGlobal(
@@ -58,6 +61,20 @@ test('classification comboboxes retain independent choices and queries, remove c
   const user = userEvent.setup()
   render(<Example />)
   const input = screen.getByRole('combobox', { name: 'Categories' })
+  expect(input).toHaveAttribute('placeholder', 'Categories')
+  expect(screen.getByRole('combobox', { name: 'Genres' })).toHaveAttribute(
+    'placeholder',
+    'Genres',
+  )
+  expect(
+    screen.queryByText('Categories', { selector: 'label' }),
+  ).not.toBeInTheDocument()
+  expect(
+    screen.queryByText('Genres', { selector: 'label' }),
+  ).not.toBeInTheDocument()
+  expect(
+    screen.queryByText('Sample type', { selector: 'label' }),
+  ).not.toBeInTheDocument()
   await user.click(input)
   await user.click(await screen.findByRole('option', { name: 'Kick' }))
   await user.click(screen.getByRole('option', { name: 'Snare' }))
@@ -85,6 +102,30 @@ test('classification comboboxes retain independent choices and queries, remove c
   )
   expect(genres).toHaveFocus()
   expect(genres).toHaveValue('ho')
+  const types = screen.getByRole('combobox', { name: 'Sample type' })
+  expect(types).toHaveValue('all')
+  await user.selectOptions(types, 'loop')
+  expect(types).toHaveValue('loop')
+  expect(
+    screen.getByRole('button', { name: 'Remove Sample type filter: Loops' }),
+  ).toBeVisible()
+  await user.selectOptions(types, 'one-shot')
+  expect(
+    screen.queryByRole('button', { name: 'Remove Sample type filter: Loops' }),
+  ).not.toBeInTheDocument()
+  await user.selectOptions(types, 'unknown')
+  expect(types).toHaveValue('unknown')
+  expect(
+    screen.queryByRole('button', {
+      name: 'Remove Sample type filter: One-Shots',
+    }),
+  ).not.toBeInTheDocument()
+  await user.click(
+    screen.getByRole('button', { name: 'Remove Sample type filter: Unknown' }),
+  )
+  expect(types).toHaveValue('all')
+  expect(types).toHaveFocus()
+  await user.selectOptions(types, 'one-shot')
   expect(
     screen.getByRole('button', { name: 'Remove category filter: Snare' }),
   ).toBeVisible()
@@ -98,6 +139,50 @@ test('classification comboboxes retain independent choices and queries, remove c
   ).not.toBeInTheDocument()
   expect(input).toHaveFocus()
   expect(genres).toHaveValue('ho')
+  expect(types).toHaveValue('all')
+  expect(
+    screen.queryByRole('button', {
+      name: 'Remove Sample type filter: One-Shots',
+    }),
+  ).not.toBeInTheDocument()
+})
+
+test('Sample type selector shows its filter name by default and replaces a single choice without refetching vocabulary', async () => {
+  const api = createTestApi()
+  api.categories.list.mockResolvedValue({
+    ok: true,
+    data: { items: [], total: 0, limit: 50, offset: 0 },
+  })
+  api.genres.list.mockResolvedValue({
+    ok: true,
+    data: { items: [], total: 0, limit: 50, offset: 0 },
+  })
+  vi.stubGlobal('api', api)
+  const user = userEvent.setup()
+  render(<Example />)
+  const types = screen.getByRole('combobox', { name: 'Sample type' })
+  expect(screen.getByRole('option', { name: 'Sample type' })).toHaveProperty(
+    'selected',
+    true,
+  )
+  await user.selectOptions(types, 'loop')
+  expect(types).toHaveFocus()
+  await user.selectOptions(types, 'unknown')
+  expect(types).toHaveValue('unknown')
+  expect(
+    screen.queryByRole('button', { name: 'Remove Sample type filter: Loops' }),
+  ).not.toBeInTheDocument()
+  await user.selectOptions(types, 'all')
+  expect(types).toHaveValue('all')
+  expect(screen.getByRole('option', { name: 'Sample type' })).toHaveProperty(
+    'selected',
+    true,
+  )
+  expect(
+    screen.queryByRole('button', { name: 'Clear all' }),
+  ).not.toBeInTheDocument()
+  expect(api.categories.list).toHaveBeenCalledTimes(1)
+  expect(api.genres.list).toHaveBeenCalledTimes(1)
 })
 
 test('Genre options reject stale searches and preserve selected chips through failure and retry', async () => {

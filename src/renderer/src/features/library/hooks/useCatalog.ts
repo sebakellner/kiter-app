@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { unwrapIpcResult } from '@shared/ipc/result'
 import type { LibraryPage } from '@shared/ipc/library'
+import type { SampleTypeFilter } from '@shared/features/library/schemas'
 
 export function useCatalog(
   favoritesOnly: boolean,
@@ -8,6 +9,7 @@ export function useCatalog(
   initialOffset = 0,
   categoryIds: string[] = [],
   genreIds: string[] = [],
+  sampleTypes: SampleTypeFilter = [],
 ): {
   page: LibraryPage | null
   loading: boolean
@@ -19,6 +21,7 @@ export function useCatalog(
   const filterKey = JSON.stringify([
     categoryIds.slice().sort(),
     genreIds.slice().sort(),
+    sampleTypes.slice().sort(),
   ])
   const [request, setRequest] = useState({
     offset: initialOffset,
@@ -41,10 +44,12 @@ export function useCatalog(
 
   useEffect(() => {
     let active = true
-    const [categories, genres]: [string[], string[]] = JSON.parse(filterKey)
+    const [categories, genres, types]: [string[], string[], SampleTypeFilter] =
+      JSON.parse(filterKey)
     const filters = {
       ...(categories.length ? { categoryIds: categories } : {}),
       ...(genres.length ? { genreIds: genres } : {}),
+      ...(types.length ? { sampleTypes: types } : {}),
     }
     const offset = request.filterKey !== filterKey ? 0 : request.offset
     void (async () => {
@@ -56,6 +61,9 @@ export function useCatalog(
             offset,
           }),
         )
+        if (!active) {
+          return
+        }
         // Removing the final Favorite on a page must not strand the view beyond its results.
         if (next.offset > 0 && next.items.length === 0) {
           next = unwrapIpcResult(
