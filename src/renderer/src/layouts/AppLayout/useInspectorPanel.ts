@@ -51,6 +51,9 @@ export function useInspectorPanel(
       return
     }
     function confineFocus(event: FocusEvent): void {
+      if (document.querySelector('dialog[open]')) {
+        return
+      }
       if (
         event.target instanceof Element &&
         !panel.current?.contains(event.target) &&
@@ -60,6 +63,9 @@ export function useInspectorPanel(
       }
     }
     function cycleFocus(event: KeyboardEvent): void {
+      if (document.querySelector('dialog[open]')) {
+        return
+      }
       if (event.key !== 'Tab' || event.defaultPrevented) {
         return
       }
