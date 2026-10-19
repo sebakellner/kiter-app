@@ -149,6 +149,8 @@ prototype, not a combined multi-field inspector Save.
   maximum 100) in stored name/UUID order. Cards show name, actual Sample count,
   a no-cover placeholder and the full stable ID, distinguishing homonyms without
   inventing creation dates or relying on short-ID collision assumptions.
+  The primary UI Card supplies the presentation container; the feature owns cover
+  content, counts, selection and navigation, independently of future Pack cards.
 - Clicking a card selects it; Enter, double-click or its visible Open action
   navigates to `/collections/:id`. List pagination, selection and scroll use the
   existing session-only navigation snapshots and are revalidated on return.
