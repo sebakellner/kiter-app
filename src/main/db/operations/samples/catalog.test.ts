@@ -54,6 +54,60 @@ test('catalog pages include all roots once, honor presentation names and filter 
   assert.throws(() => listCatalogSamples(db, { limit: 101 }))
 })
 
+test('catalog rows include bounded direct classification labels and a full overflow count', (t) => {
+  const { db } = createMemoryDatabase(t)
+  const root = path.resolve('row-classification')
+  const imported = importFolder(
+    db,
+    root,
+    ['a.wav', 'b.wav'].map((name) => makeDiscoveredAudioFile(root, name)),
+  )
+  const sample = imported.find(({ name }) => name === 'a.wav')!
+  saveSampleType(db, {
+    ...readSampleType(db, { sampleId: sample.id }),
+    sampleType: 'loop',
+  })
+  for (const name of ['Piano', 'Keys', 'Synth', 'Strings']) {
+    const instrument = createInstrument(db, { name })
+    setInstrumentAssignment(db, {
+      id: instrument.id,
+      target: { kind: 'sample', id: sample.id },
+      assigned: true,
+    })
+  }
+  const selectedGenres = listGenres(db, {}).items.slice(0, 3)
+  for (const genre of selectedGenres) {
+    setGenreAssignment(db, {
+      id: genre.id,
+      target: { kind: 'sample', id: sample.id },
+      assigned: true,
+    })
+  }
+  const first = listCatalogSamples(db, { limit: 1 })
+  assert.equal(first.items.length, 1)
+  assert.deepEqual(first.items[0].classification, {
+    instruments: ['Keys', 'Piano'],
+    genres: selectedGenres
+      .map(({ name }) => name)
+      .sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()))
+      .slice(0, 2),
+    sampleType: 'loop',
+    additionalInstrumentCount: 2,
+    additionalGenreCount: 1,
+  })
+  assert.deepEqual(
+    listCatalogSamples(db, { limit: 1, offset: 1 }).items[0].classification,
+    {
+      instruments: [],
+      genres: [],
+      sampleType: null,
+      additionalInstrumentCount: 0,
+      additionalGenreCount: 0,
+    },
+  )
+  assert.deepEqual(listCatalogSamples(db, { offset: 2 }).items, [])
+})
+
 test('instrument filters match direct assignments with OR before pagination and combine with Favorites', (t) => {
   const { db } = createMemoryDatabase(t)
   const root = path.resolve('instrument-filter')

@@ -1,4 +1,4 @@
-import { and, count, eq, inArray, or, sql, type SQL } from 'drizzle-orm'
+import { and, count, eq, inArray, lte, or, sql, type SQL } from 'drizzle-orm'
 import { instruments, sampleInstruments } from '../../schema/classification.ts'
 import { genres, sampleGenres } from '../../schema/recognition.ts'
 import type { AppDatabase } from '../../runtime/connection.ts'
@@ -12,6 +12,7 @@ import {
   requireLibraryListRequest,
   type CatalogSample,
   type CatalogPage,
+  type CatalogClassification,
   type LibraryListRequest,
 } from '../../../../shared/ipc/library.ts'
 import { requireEntityId } from '../../../../shared/domain/validation.ts'
@@ -121,7 +122,7 @@ export function listCatalogSamples(
       .where(filter)
       .get()!.value
     const rows = db
-      .select(fields)
+      .select({ ...fields, sampleType: samples.sampleType })
       .from(samples)
       .innerJoin(sampleSources, eq(sampleSources.sampleId, samples.id))
       .where(filter)
@@ -139,8 +140,90 @@ export function listCatalogSamples(
       .limit(limit)
       .offset(offset)
       .all()
+    const classifications = new Map<string, CatalogClassification>(
+      rows.map((row) => [
+        row.id,
+        {
+          instruments: [],
+          genres: [],
+          sampleType: row.sampleType,
+          additionalInstrumentCount: 0,
+          additionalGenreCount: 0,
+        },
+      ]),
+    )
+    // Read assignments for this page together, never through one IPC per row.
+    if (rows.length > 0) {
+      const ids = rows.map(({ id }) => id)
+      const rankedInstruments = db
+        .select({
+          sampleId: sampleInstruments.sampleId,
+          name: instruments.name,
+          rank: sql<number>`row_number() over (partition by ${sampleInstruments.sampleId} order by lower(${instruments.name}), ${instruments.id})`.as(
+            'rank',
+          ),
+          total:
+            sql<number>`count(*) over (partition by ${sampleInstruments.sampleId})`.as(
+              'total',
+            ),
+        })
+        .from(sampleInstruments)
+        .innerJoin(
+          instruments,
+          eq(instruments.id, sampleInstruments.instrumentId),
+        )
+        .where(inArray(sampleInstruments.sampleId, ids))
+        .as('ranked_instruments')
+      const assignedInstruments = db
+        .select()
+        .from(rankedInstruments)
+        .where(lte(rankedInstruments.rank, 2))
+        .orderBy(rankedInstruments.sampleId, sql`${rankedInstruments.rank}`)
+        .all()
+      const rankedGenres = db
+        .select({
+          sampleId: sampleGenres.sampleId,
+          name: genres.name,
+          rank: sql<number>`row_number() over (partition by ${sampleGenres.sampleId} order by lower(${genres.name}), ${genres.id})`.as(
+            'rank',
+          ),
+          total:
+            sql<number>`count(*) over (partition by ${sampleGenres.sampleId})`.as(
+              'total',
+            ),
+        })
+        .from(sampleGenres)
+        .innerJoin(genres, eq(genres.id, sampleGenres.genreId))
+        .where(inArray(sampleGenres.sampleId, ids))
+        .as('ranked_genres')
+      const assignedGenres = db
+        .select()
+        .from(rankedGenres)
+        .where(lte(rankedGenres.rank, 2))
+        .orderBy(rankedGenres.sampleId, sql`${rankedGenres.rank}`)
+        .all()
+      for (const [kind, assignments] of [
+        ['instruments', assignedInstruments],
+        ['genres', assignedGenres],
+      ] as const) {
+        for (const assignment of assignments) {
+          const classification = classifications.get(assignment.sampleId)!
+          classification[kind].push(assignment.name)
+          if (assignment.rank === 1) {
+            const countKey =
+              kind === 'instruments'
+                ? 'additionalInstrumentCount'
+                : 'additionalGenreCount'
+            classification[countKey] = Math.max(0, assignment.total - 2)
+          }
+        }
+      }
+    }
     return {
-      items: rows,
+      items: rows.map(({ sampleType, ...row }) => ({
+        ...row,
+        classification: { ...classifications.get(row.id)!, sampleType },
+      })),
       total,
       limit,
       offset,

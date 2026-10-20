@@ -17,6 +17,7 @@ import {
 } from 'react-router-dom'
 import { Collections } from './Collections'
 import { CollectionDetail } from '../CollectionDetail/CollectionDetail'
+import { Samples } from '../Samples/Samples'
 import { useNavigationContext } from '@renderer/routes/navigationContext'
 import { useNavigationStore } from '@renderer/stores/useNavigationStore'
 import { createTestApi } from '../../../../../tests/support/ui/bridge'
@@ -39,6 +40,90 @@ afterEach(() => {
 })
 
 const onReady = (): void => {}
+
+test('explicit batch selection survives empty filters, clears on Done and is not restored after leaving the view', async () => {
+  const { api, router, user } = setup()
+  await screen.findByText(/No Collections yet/)
+  const collection = makeCollectionSummary({ sampleCount: 1 })
+  const sample = {
+    ...makeAudioSample(),
+    audioUrl: null,
+    rootPath: '/fixtures',
+    sourceRevision: 1,
+    unavailableReason: 'Audio unavailable.',
+  }
+  api.library.onDragError.mockReturnValue(vi.fn())
+  api.collections.get.mockResolvedValue({ ok: true, data: collection })
+  api.library.list.mockImplementation(async (request) => ({
+    ok: true,
+    data: {
+      items: request?.search || request?.favoritesOnly ? [] : [sample],
+      total: request?.search || request?.favoritesOnly ? 0 : 1,
+      limit: 50,
+      offset: 0,
+      collectionOrderToken: 'a'.repeat(64),
+    },
+  }))
+  await act(async () => {
+    await router.navigate(`/collections/${collection.id}`)
+  })
+  await screen.findByRole('row')
+  expect(screen.queryByRole('checkbox')).not.toBeInTheDocument()
+  await user.click(screen.getByRole('button', { name: 'Select' }))
+  expect(
+    screen.getByText(
+      'Selection prototype. Batch actions are not available yet.',
+    ),
+  ).toBeVisible()
+  await user.click(screen.getByRole('checkbox', { name: 'Select kick.wav' }))
+  expect(screen.getByText('1 selected')).toBeVisible()
+  expect(screen.getByRole('row')).toHaveAttribute('aria-selected', 'false')
+  const search = screen.getByRole('searchbox', { name: 'Search samples' })
+  await user.type(search, 'zz')
+  expect(
+    await screen.findByText('1 selected (1 outside this page)'),
+  ).toBeVisible()
+  await user.clear(search)
+  expect(
+    await screen.findByRole('checkbox', { name: 'Select kick.wav' }),
+  ).toBeChecked()
+  await user.click(screen.getByRole('button', { name: 'Done' }))
+  expect(
+    screen.queryByText(
+      'Selection prototype. Batch actions are not available yet.',
+    ),
+  ).not.toBeInTheDocument()
+  expect(screen.queryByRole('checkbox')).not.toBeInTheDocument()
+  await user.click(screen.getByRole('button', { name: 'Select' }))
+  expect(
+    screen.getByRole('checkbox', { name: 'Select kick.wav' }),
+  ).not.toBeChecked()
+  await user.click(screen.getByRole('checkbox', { name: 'Select kick.wav' }))
+  await act(async () => {
+    await router.navigate('/home')
+  })
+  await act(async () => {
+    await router.navigate(-1)
+  })
+  await screen.findByRole('row')
+  expect(screen.queryByRole('checkbox')).not.toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Select' })).toBeVisible()
+  await act(async () => {
+    await router.navigate('/samples')
+  })
+  await screen.findByRole('row')
+  await user.click(screen.getByRole('button', { name: 'Select' }))
+  await user.click(screen.getByRole('checkbox', { name: 'Select kick.wav' }))
+  const favorites = screen.getByRole('checkbox', { name: 'Favorites only' })
+  await user.click(favorites)
+  expect(
+    await screen.findByText('1 selected (1 outside this page)'),
+  ).toBeVisible()
+  await user.click(favorites)
+  expect(
+    await screen.findByRole('checkbox', { name: 'Select kick.wav' }),
+  ).toBeChecked()
+})
 
 test.each(['success', 'failure'] as const)(
   'pending Collection deletion waits for native quit and handles %s without replaying the request',
@@ -384,6 +469,7 @@ function setup(initialEntry = '/collections'): {
         children: [
           { path: '/collections', element: <Collections /> },
           { path: '/collections/:id', element: <CollectionDetail /> },
+          { path: '/samples', element: <Samples /> },
           { path: '/home', element: <h1>Home</h1> },
         ],
       },

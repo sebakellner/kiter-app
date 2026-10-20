@@ -19,6 +19,10 @@ type Props = {
   selection?: { id: string | null; onChange: (id: string | null) => void }
   onRemoveFromCollection?: (sample: ListSample) => void
   membershipPending?: boolean
+  batch?: {
+    ids: ReadonlySet<string>
+    onChange: (id: string, checked: boolean) => void
+  }
   onAddToCollection?: (sample: ListSample) => void
   order?: {
     drag: CollectionDragController
@@ -41,6 +45,7 @@ export function SampleList({
   selection,
   onRemoveFromCollection,
   membershipPending = false,
+  batch,
   onAddToCollection,
   order,
 }: Props): React.JSX.Element {
@@ -99,6 +104,14 @@ export function SampleList({
                 : undefined
             }
             membershipPending={membershipPending}
+            batch={
+              batch
+                ? {
+                    checked: batch.ids.has(sample.id),
+                    onChange: (checked) => batch.onChange(sample.id, checked),
+                  }
+                : undefined
+            }
             order={
               order
                 ? {

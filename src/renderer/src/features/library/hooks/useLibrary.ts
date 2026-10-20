@@ -10,6 +10,7 @@ export function useLibrary(): {
   revision: number
   openFolder: () => Promise<boolean>
   updateFavorite: (state: FavoriteState) => void
+  refreshCatalog: () => void
 } {
   const [dir, setDir] = useState<string | null>(null)
   const [files, setFiles] = useState<AudioSample[]>([])
@@ -17,6 +18,10 @@ export function useLibrary(): {
   const [error, setError] = useState<string | null>(null)
   const [revision, setRevision] = useState(0)
   const opening = useRef(false)
+  const refreshCatalog = useCallback(
+    () => setRevision((value) => value + 1),
+    [],
+  )
 
   const openFolder = useCallback(async () => {
     if (opening.current) {
@@ -56,5 +61,14 @@ export function useLibrary(): {
     )
   }, [])
 
-  return { dir, files, loading, error, revision, openFolder, updateFavorite }
+  return {
+    dir,
+    files,
+    loading,
+    error,
+    revision,
+    openFolder,
+    updateFavorite,
+    refreshCatalog,
+  }
 }

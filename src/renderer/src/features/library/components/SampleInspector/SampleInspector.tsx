@@ -1,5 +1,6 @@
 import { Button } from '@renderer/components/ui/Button'
 import { useSampleInspector } from './useSampleInspector'
+import { useLibrarySession } from '../../hooks/useLibrarySession'
 import { SampleSuggestions } from '@renderer/features/classification/components/SampleSuggestions/SampleSuggestions'
 
 export function SampleInspector({
@@ -8,6 +9,7 @@ export function SampleInspector({
   onClose: () => void
 }): React.JSX.Element {
   const { sample } = useSampleInspector()
+  const { refreshCatalog } = useLibrarySession()
   return (
     <>
       <header className="app-shell-inspector-header">
@@ -17,7 +19,11 @@ export function SampleInspector({
       <div className="app-shell-inspector-body">
         {sample ? (
           <>
-            <SampleSuggestions key={sample.id} sampleId={sample.id} />
+            <SampleSuggestions
+              key={sample.id}
+              sampleId={sample.id}
+              onChanged={refreshCatalog}
+            />
             <dl>
               <dt>Name</dt>
               <dd>{sample.name}</dd>

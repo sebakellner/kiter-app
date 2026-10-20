@@ -1,4 +1,5 @@
 import type { AudioFile } from '../domain/source.ts'
+import type { Sample } from '../domain/sample.ts'
 import {
   instrumentFilterSchema,
   catalogSearchSchema,
@@ -30,9 +31,17 @@ export const LIBRARY_CHANNELS = {
 
 export type LibrarySample = AudioFile & { id: string; favorite: boolean }
 export type AudioSample = LibrarySample & { audioUrl: string }
+export type CatalogClassification = {
+  instruments: string[]
+  genres: string[]
+  sampleType: Sample['sampleType']
+  additionalInstrumentCount: number
+  additionalGenreCount: number
+}
 export type CatalogSample = LibrarySample & {
   rootPath: string | null
   sourceRevision: number
+  classification?: CatalogClassification
 }
 export type CatalogAudioSample = CatalogSample & {
   audioUrl: string | null
@@ -121,7 +130,32 @@ export function isCatalogSample(value: unknown): value is CatalogSample {
     Number.isSafeInteger(value.sourceRevision) &&
     value.sourceRevision > 0 &&
     (value.rootPath === null || typeof value.rootPath === 'string') &&
+    (value.classification === undefined ||
+      isCatalogClassification(value.classification)) &&
     isFavoriteState(value)
+  )
+}
+
+function isCatalogClassification(
+  value: unknown,
+): value is CatalogClassification {
+  return (
+    isRecord(value) &&
+    Array.isArray(value.instruments) &&
+    value.instruments.length <= 2 &&
+    value.instruments.every((name) => typeof name === 'string') &&
+    Array.isArray(value.genres) &&
+    value.genres.length <= 2 &&
+    value.genres.every((name) => typeof name === 'string') &&
+    (value.sampleType === null ||
+      value.sampleType === 'loop' ||
+      value.sampleType === 'one-shot') &&
+    typeof value.additionalInstrumentCount === 'number' &&
+    Number.isSafeInteger(value.additionalInstrumentCount) &&
+    value.additionalInstrumentCount >= 0 &&
+    typeof value.additionalGenreCount === 'number' &&
+    Number.isSafeInteger(value.additionalGenreCount) &&
+    value.additionalGenreCount >= 0
   )
 }
 

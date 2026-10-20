@@ -58,7 +58,10 @@ async function read(sampleId: string): Promise<ClassificationPreparationPage> {
   return { ...first, items }
 }
 
-export function useSampleSuggestions(sampleId: string): {
+export function useSampleSuggestions(
+  sampleId: string,
+  onChanged?: () => void,
+): {
   groups: SuggestionGroup[]
   loading: boolean
   pending: boolean
@@ -126,6 +129,7 @@ export function useSampleSuggestions(sampleId: string): {
           keys,
         }),
       )
+      onChanged?.()
       if (active.current) {
         setNotice('Classifications saved.')
         setVersion((value) => value + 1)

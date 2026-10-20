@@ -15,3 +15,15 @@
   clip-path: inset(50%);
   white-space: nowrap;
 }
+.catalog-selection-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.catalog-selection-controls p {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-small);
+}

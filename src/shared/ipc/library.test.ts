@@ -6,8 +6,41 @@ import {
   isImportFolderRequest,
   isSetFavoriteRequest,
   isLibraryPage,
+  isCatalogSample,
   requireLibraryListRequest,
 } from './library.ts'
+import { makeAudioSample } from '../../../tests/support/fixtures/audio-sample.ts'
+
+test('catalog classification summaries validate bounded labels, counts and sample type', () => {
+  const sample = {
+    ...makeAudioSample(),
+    rootPath: null,
+    sourceRevision: 1,
+  }
+  const classification = {
+    instruments: ['Piano'],
+    genres: ['Ambient'],
+    sampleType: 'loop',
+    additionalInstrumentCount: 3,
+    additionalGenreCount: 1,
+  }
+  assert.ok(isCatalogSample({ ...sample, classification }))
+  assert.ok(isCatalogSample(sample))
+  for (const invalid of [
+    null,
+    { ...classification, instruments: ['a', 'b', 'c'] },
+    { ...classification, genres: [123] },
+    { ...classification, sampleType: 'automatic' },
+    { ...classification, additionalInstrumentCount: -1 },
+    { ...classification, additionalInstrumentCount: 1.5 },
+    { ...classification, additionalInstrumentCount: undefined },
+    { ...classification, additionalGenreCount: -1 },
+    { ...classification, additionalGenreCount: 1.5 },
+    { ...classification, additionalGenreCount: undefined },
+  ]) {
+    assert.equal(isCatalogSample({ ...sample, classification: invalid }), false)
+  }
+})
 
 test('library IPC guards reject malformed requests and unauthorized URL shapes', () => {
   const id = randomUUID()

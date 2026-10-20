@@ -19,3 +19,21 @@
 .waveform-status {
   color: var(--color-text-secondary);
 }
+
+.sample-waveform[data-compact] {
+  min-height: 28px;
+  gap: 8px;
+  font-size: var(--font-size-small);
+}
+
+.sample-waveform[data-compact] canvas {
+  flex: 1;
+  min-width: 0;
+  width: 0;
+  height: 28px;
+}
+
+.sample-waveform[data-compact] .sample-duration {
+  min-width: 0;
+  flex-shrink: 0;
+}

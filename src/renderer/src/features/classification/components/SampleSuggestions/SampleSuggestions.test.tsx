@@ -73,12 +73,14 @@ test('automatically groups suggestions and applies one directly, then displays s
     data: { sampleId: 'sample' },
   })
   const user = userEvent.setup()
-  render(<SampleSuggestions sampleId="sample" />)
+  const onChanged = vi.fn()
+  render(<SampleSuggestions sampleId="sample" onChanged={onChanged} />)
   const apply = await screen.findByRole('button', { name: 'Apply Kick' })
   expect(
     screen.queryByRole('button', { name: 'Suggest classifications' }),
   ).not.toBeInTheDocument()
   expect(screen.getByText('Creates Kick when applied.')).toBeVisible()
+  expect(onChanged).not.toHaveBeenCalled()
   await user.click(apply)
   expect(api.classification.applySample).toHaveBeenCalledWith({
     sampleId: 'sample',
@@ -90,6 +92,7 @@ test('automatically groups suggestions and applies one directly, then displays s
     screen.queryByRole('button', { name: 'Apply Kick' }),
   ).not.toBeInTheDocument()
   expect(screen.getByText('Kick')).toBeVisible()
+  expect(onChanged).toHaveBeenCalledOnce()
 })
 
 test('Apply all includes all paginated suggestions but excludes ambiguous and assigned entries', async () => {
@@ -116,7 +119,8 @@ test('Apply all includes all paginated suggestions but excludes ambiguous and as
     error: { code: 'STALE_REVIEW', message: 'Suggestions changed.' },
   })
   const user = userEvent.setup()
-  render(<SampleSuggestions sampleId="sample" />)
+  const onChanged = vi.fn()
+  render(<SampleSuggestions sampleId="sample" onChanged={onChanged} />)
   await user.click(await screen.findByRole('button', { name: 'Apply all (2)' }))
   expect(api.classification.applySample).toHaveBeenCalledWith({
     sampleId: 'sample',
@@ -127,6 +131,7 @@ test('Apply all includes all paginated suggestions but excludes ambiguous and as
     'Suggestions changed.',
   )
   expect(screen.getByRole('button', { name: 'Apply Kick' })).toBeDisabled()
+  expect(onChanged).not.toHaveBeenCalled()
 })
 
 test('load errors offer refresh and late responses cannot replace another inspected Sample', async () => {

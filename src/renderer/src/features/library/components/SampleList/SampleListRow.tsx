@@ -1,5 +1,7 @@
 import { useId, type ComponentProps } from 'react'
 import { Button } from '@renderer/components/ui/Button'
+import { Checkbox } from '@renderer/components/ui/Checkbox/Checkbox'
+import { Badge } from '@renderer/components/ui/Badge/Badge'
 import {
   ContextMenu,
   useContextMenu,
@@ -27,6 +29,7 @@ type Props = {
   onAddToCollection?: () => void
   onRemoveFromCollection?: () => void
   membershipPending: boolean
+  batch?: { checked: boolean; onChange: (checked: boolean) => void }
   order?: {
     drag: CollectionDragController
     canMoveUp: boolean
@@ -51,12 +54,15 @@ export function SampleListRow({
   onAddToCollection,
   onRemoveFromCollection,
   membershipPending,
+  batch,
   order,
 }: Props): React.JSX.Element {
   const menu = useContextMenu()
   const sourceId = useId()
   const descriptionId =
     showRelativePath || showSourceFolder ? sourceId : undefined
+  const classification =
+    'classification' in sample ? sample.classification : undefined
   return (
     <li
       {...rowProps}
@@ -92,8 +98,27 @@ export function SampleListRow({
       data-sample-id={sample.id}
       aria-describedby={descriptionId}
     >
-      <div role="gridcell">
-        <div className="sample-heading">
+      <div role="gridcell" className="sample-row-layout">
+        <div className="sample-row-leading">
+          {batch && (
+            <label
+              className="sample-row-check"
+              onClick={(event) => event.stopPropagation()}
+              onDragStart={(event) => {
+                event.preventDefault()
+                event.stopPropagation()
+              }}
+            >
+              <Checkbox
+                checked={batch.checked}
+                aria-label={`Select ${sample.name}`}
+                aria-describedby={descriptionId}
+                onChange={(event) =>
+                  batch.onChange(event.currentTarget.checked)
+                }
+              />
+            </label>
+          )}
           {order && (
             <Button
               variant="ghost"
@@ -113,6 +138,28 @@ export function SampleListRow({
               <span aria-hidden="true">⠿</span>
             </Button>
           )}
+        </div>
+        <div className="sample-row-cover" aria-hidden="true">
+          ♪
+        </div>
+        <Button
+          variant="ghost"
+          draggable={false}
+          disabled={!sample.audioUrl}
+          className="preview-button"
+          data-testid="preview-toggle"
+          aria-label={`${playing ? 'Pause' : 'Play'} ${sample.name}`}
+          aria-describedby={descriptionId}
+          aria-pressed={playing}
+          onDragStart={(event) => {
+            event.preventDefault()
+            event.stopPropagation()
+          }}
+          onClick={onPreview}
+        >
+          <span aria-hidden="true">{playing ? 'Ⅱ' : '▶'}</span>
+        </Button>
+        <div className="sample-row-identity">
           <Button
             {...audioDragProps}
             className="sample-name"
@@ -120,18 +167,124 @@ export function SampleListRow({
             disabled={!sample.audioUrl}
             aria-label={`Preview ${sample.name}`}
             aria-describedby={descriptionId}
+            title={sample.name}
             onClick={onPreview}
           >
             {sample.name}
           </Button>
+          {classification &&
+          (classification.instruments.length > 0 ||
+            classification.genres.length > 0 ||
+            classification.sampleType ||
+            classification.additionalInstrumentCount > 0 ||
+            classification.additionalGenreCount > 0) ? (
+            <div
+              className="sample-row-badges"
+              role="list"
+              aria-label="Sample categories"
+            >
+              {classification.instruments.map((name) => (
+                <Badge
+                  key={`instrument:${name}`}
+                  role="listitem"
+                  title={`Instrument: ${name}`}
+                >
+                  <span className="sample-row-category-kind">Instrument: </span>
+                  {name}
+                </Badge>
+              ))}
+              {classification.genres.map((name) => (
+                <Badge
+                  key={`genre:${name}`}
+                  role="listitem"
+                  title={`Genre: ${name}`}
+                >
+                  <span className="sample-row-category-kind">Genre: </span>
+                  {name}
+                </Badge>
+              ))}
+              {classification.sampleType && (
+                <Badge role="listitem">
+                  <span className="sample-row-category-kind">
+                    Sample type:{' '}
+                  </span>
+                  {classification.sampleType === 'loop' ? 'Loop' : 'One-Shot'}
+                </Badge>
+              )}
+              {[
+                {
+                  count: classification.additionalInstrumentCount,
+                  singular: 'instrument',
+                  plural: 'instruments',
+                },
+                {
+                  count: classification.additionalGenreCount,
+                  singular: 'genre',
+                  plural: 'genres',
+                },
+              ].map(
+                ({ count, singular, plural }) =>
+                  count > 0 && (
+                    <span key={singular} role="listitem">
+                      {onInspect ? (
+                        <Button
+                          variant="ghost"
+                          aria-label={`View ${count} more ${count === 1 ? singular : plural}: ${sample.name}`}
+                          aria-describedby={descriptionId}
+                          onClick={(event) => onInspect(event.currentTarget)}
+                        >
+                          +{count} {count === 1 ? singular : plural}
+                        </Button>
+                      ) : (
+                        <span>
+                          {count} more {count === 1 ? singular : plural}
+                        </span>
+                      )}
+                    </span>
+                  ),
+              )}
+            </div>
+          ) : null}
+          {descriptionId && (
+            <div id={sourceId} className="sample-source-context">
+              {showRelativePath && (
+                <p data-testid="sample-relative-path">{sample.relativePath}</p>
+              )}
+              {showSourceFolder && (
+                <p>
+                  {'rootPath' in sample
+                    ? (sample.rootPath ?? sample.path)
+                    : sample.path}
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+        <div className="sample-row-waveform">
+          {sample.audioUrl ? (
+            <div className="sample-waveform-drag" {...audioDragProps}>
+              <Waveform
+                key={sample.audioUrl}
+                audioUrl={sample.audioUrl}
+                name={sample.name}
+                compact
+              />
+            </div>
+          ) : (
+            <span className="sample-row-unavailable">Preview unavailable</span>
+          )}
+        </div>
+        <div className="sample-row-actions">
           <FavoriteButton
             file={sample}
+            compact
             onChanged={onFavoriteChanged}
             descriptionId={descriptionId}
           />
           {onInspect && (
             <Button
               variant="ghost"
+              className="sample-row-info"
               draggable={false}
               aria-label={`Info: ${sample.name}`}
               aria-describedby={descriptionId}
@@ -149,22 +302,7 @@ export function SampleListRow({
             </Button>
           )}
           <Button
-            draggable={false}
-            disabled={!sample.audioUrl}
-            className="preview-button"
-            data-testid="preview-toggle"
-            aria-label={`${playing ? 'Pause' : 'Play'} ${sample.name}`}
-            aria-describedby={descriptionId}
-            aria-pressed={playing}
-            onDragStart={(event) => {
-              event.preventDefault()
-              event.stopPropagation()
-            }}
-            onClick={onPreview}
-          >
-            {playing ? 'Pause' : 'Preview'}
-          </Button>
-          <Button
+            variant="ghost"
             {...menu.triggerProps}
             aria-label={`More actions: ${sample.name}`}
             aria-describedby={descriptionId}
@@ -172,37 +310,16 @@ export function SampleListRow({
             <span aria-hidden="true">⋯</span>
           </Button>
         </div>
-        {descriptionId && (
-          <div id={sourceId} className="sample-source-context">
-            {showRelativePath && (
-              <p data-testid="sample-relative-path">{sample.relativePath}</p>
-            )}
-            {showSourceFolder && (
-              <p>
-                {'rootPath' in sample
-                  ? (sample.rootPath ?? sample.path)
-                  : sample.path}
-              </p>
-            )}
-          </div>
-        )}
-        {sample.audioUrl && (
-          <div className="sample-waveform-drag" {...audioDragProps}>
-            <Waveform
-              key={sample.audioUrl}
-              audioUrl={sample.audioUrl}
-              name={sample.name}
-            />
-          </div>
-        )}
-        {'unavailableReason' in sample && sample.unavailableReason && (
-          <p role="status">{sample.unavailableReason}</p>
-        )}
-        {dragError && (
-          <p role="alert" className="sample-error sample-drag-error">
-            {dragError}
-          </p>
-        )}
+        <div className="sample-row-feedback">
+          {'unavailableReason' in sample && sample.unavailableReason && (
+            <p role="status">{sample.unavailableReason}</p>
+          )}
+          {dragError && (
+            <p role="alert" className="sample-error sample-drag-error">
+              {dragError}
+            </p>
+          )}
+        </div>
       </div>
       <ContextMenu
         {...menu.menuProps}
