@@ -1,10 +1,11 @@
 .catalog-list-controls {
   position: sticky;
-  top: 0;
+  top: var(--space-0);
   z-index: 1;
-  padding-bottom: 8px;
-  border-bottom: 1px solid var(--color-border);
-  background: var(--color-background);
+  padding-bottom: var(--space-2);
+  border-bottom: var(--border-width-1) var(--border-style-solid)
+    var(--color-border-default);
+  background: var(--color-surface-page);
 }
 
 .catalog-order-announcement {
@@ -19,11 +20,15 @@
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 8px;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
 }
 
 .catalog-selection-controls p {
   color: var(--color-text-secondary);
-  font-size: var(--font-size-small);
+  font-family: var(--typography-caption-font-family);
+  font-size: var(--typography-caption-font-size);
+  font-weight: var(--typography-caption-font-weight);
+  letter-spacing: var(--typography-caption-letter-spacing);
+  line-height: var(--typography-caption-line-height);
 }

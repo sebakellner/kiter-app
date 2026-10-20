@@ -1,20 +1,25 @@
 .ui-popover {
   position: fixed;
   inset: auto;
-  margin: 0;
+  margin: var(--space-0);
   box-sizing: border-box;
-  max-width: calc(100vw - 16px);
-  max-height: calc(100vh - 16px);
+  max-width: calc(100vw - var(--space-4));
+  max-height: calc(100vh - var(--space-4));
   overflow: auto;
   z-index: 1;
-  padding: 6px;
-  background: var(--color-background-soft);
-  color: var(--color-text);
-  border: 1px solid var(--color-control-border);
+  padding: var(--space-2);
+  background: var(--color-surface-soft);
+  color: var(--color-text-default);
+  border: var(--border-control);
   border-radius: var(--radius-surface);
-  box-shadow: var(--shadow-overlay);
+  box-shadow: var(--shadow-black-28);
+  font-family: var(--typography-body-font-family);
+  font-size: var(--typography-body-font-size);
+  font-weight: var(--typography-body-font-weight);
+  letter-spacing: var(--typography-body-letter-spacing);
+  line-height: var(--typography-body-line-height);
 }
 
 .ui-popover::backdrop {
-  background: transparent;
+  background: var(--color-transparent);
 }

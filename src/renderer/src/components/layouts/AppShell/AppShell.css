@@ -2,29 +2,39 @@
   height: 100dvh;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
+  color: var(--color-text-default);
+  background: var(--color-surface-page);
+  font-family: var(--typography-body-font-family);
+  font-size: var(--typography-body-font-size);
+  font-weight: var(--typography-body-font-weight);
+  letter-spacing: var(--typography-body-letter-spacing);
+  line-height: var(--typography-body-line-height);
 }
 
 .app-shell-header {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px 24px;
-  background: var(--color-background-soft);
-  border-bottom: 1px solid var(--color-border);
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-6);
+  background: var(--color-surface-soft);
+  border-bottom: var(--border-width-1) var(--border-style-solid)
+    var(--color-border-default);
 }
 
 .app-shell-brand {
   margin-right: auto;
-  font-size: 16px;
-  font-weight: 650;
-  letter-spacing: -0.4px;
+  font-family: var(--typography-section-font-family);
+  font-size: var(--typography-section-font-size);
+  font-weight: var(--typography-section-font-weight);
+  letter-spacing: var(--typography-section-letter-spacing);
+  line-height: var(--typography-section-line-height);
 }
 
 .app-shell-workspace {
   position: relative;
   display: grid;
   grid-template-columns: 200px minmax(0, 1fr);
-  min-height: 0;
+  min-height: var(--space-0);
 }
 
 .app-shell-workspace[data-inspector-open='true'] {
@@ -32,40 +42,50 @@
 }
 
 .app-shell-inspector {
-  min-height: 0;
-  min-width: 0;
+  min-height: var(--space-0);
+  min-width: var(--space-0);
   display: flex;
   flex-direction: column;
-  background: var(--color-background-soft);
-  border-left: 1px solid var(--color-border);
+  background: var(--color-surface-soft);
+  border-left: var(--border-width-1) var(--border-style-solid)
+    var(--color-border-default);
   overflow-wrap: anywhere;
 }
 
 .app-shell-inspector-header {
-  padding: 16px;
-  border-bottom: 1px solid var(--color-border);
+  padding: var(--space-4);
+  border-bottom: var(--border-width-1) var(--border-style-solid)
+    var(--color-border-default);
   flex-shrink: 0;
 }
 
 .app-shell-inspector-header h2 {
-  margin-bottom: 8px;
+  margin-bottom: var(--space-2);
+  font-family: var(--typography-section-font-family);
+  font-size: var(--typography-section-font-size);
+  font-weight: var(--typography-section-font-weight);
+  letter-spacing: var(--typography-section-letter-spacing);
+  line-height: var(--typography-section-line-height);
 }
 
 .app-shell-inspector-body {
-  padding: 16px;
+  padding: var(--space-4);
   overflow-y: auto;
-  min-height: 0;
+  min-height: var(--space-0);
 }
 
 .app-shell-inspector-body dt {
   color: var(--color-text-secondary);
-  font-size: var(--font-size-small);
-  font-weight: 500;
-  margin-top: 12px;
+  font-family: var(--typography-label-font-family);
+  font-size: var(--typography-label-font-size);
+  font-weight: var(--typography-label-font-weight);
+  letter-spacing: var(--typography-label-letter-spacing);
+  line-height: var(--typography-label-line-height);
+  margin-top: var(--space-3);
 }
 
 .app-shell-inspector-body dd {
-  margin: 0;
+  margin: var(--space-0);
   user-select: text;
 }
 
@@ -75,31 +95,32 @@
 
 [data-inspector-compact='true'] .app-shell-inspector {
   position: absolute;
-  inset: 0 0 0 auto;
+  inset: var(--space-0) var(--space-0) var(--space-0) auto;
   width: min(320px, 80%);
   z-index: 2;
 }
 
 .app-shell-inspector-backdrop {
   position: absolute;
-  inset: 0;
-  background: rgb(0 0 0 / 35%);
+  inset: var(--space-0);
+  background: var(--color-backdrop-inspector);
   z-index: 1;
 }
 
 .app-shell-sidebar {
-  min-height: 0;
-  padding: 20px 12px;
-  background: var(--color-background-soft);
-  border-right: 1px solid var(--color-border);
+  min-height: var(--space-0);
+  padding: var(--space-5) var(--space-3);
+  background: var(--color-surface-soft);
+  border-right: var(--border-width-1) var(--border-style-solid)
+    var(--color-border-default);
 }
 
 .app-shell-sidebar nav {
   display: flex;
   flex-direction: column;
   height: 100%;
-  min-height: 0;
-  gap: 2px;
+  min-height: var(--space-0);
+  gap: var(--space-1);
 }
 
 .app-shell-sidebar nav > a,
@@ -108,65 +129,79 @@
 }
 
 .app-shell-collections {
-  min-height: 0;
+  min-height: var(--space-0);
   overflow-y: auto;
 }
 
 .app-shell-sidebar a {
   display: block;
-  padding: 7px 12px;
+  padding: var(--space-2) var(--space-3);
   border: 0;
   border-radius: var(--radius-control);
   color: var(--color-text-secondary);
-  font-size: 14px;
-  font-weight: 400;
+  font-family: var(--typography-body-font-family);
+  font-size: var(--typography-body-font-size);
+  font-weight: var(--typography-body-font-weight);
+  letter-spacing: var(--typography-body-letter-spacing);
+  line-height: var(--typography-body-line-height);
   text-align: left;
   text-decoration: none;
 }
 
 .app-shell-sidebar a[aria-current='page'] {
-  background: var(--color-selection);
-  color: var(--color-text);
-  box-shadow: inset 3px 0 var(--color-accent);
-  font-weight: 600;
+  background: var(--color-surface-selection);
+  color: var(--color-text-default);
+  box-shadow: var(--shadow-selection-indicator);
+  font-family: var(--typography-body-strong-font-family);
+  font-size: var(--typography-body-strong-font-size);
+  font-weight: var(--typography-body-strong-font-weight);
+  letter-spacing: var(--typography-body-strong-letter-spacing);
+  line-height: var(--typography-body-strong-line-height);
 }
 
 .app-shell-sidebar a.ui-button[aria-current='page']:hover {
-  background: var(--color-selection);
+  background: var(--color-surface-selection);
 }
 
 .app-shell-sidebar h2 {
-  margin: 20px 12px 4px;
+  margin: var(--space-5) var(--space-3) var(--space-1);
   color: var(--color-text-secondary);
-  font-size: var(--font-size-small);
-  font-weight: 500;
+  font-family: var(--typography-label-font-family);
+  font-size: var(--typography-label-font-size);
+  font-weight: var(--typography-label-font-weight);
+  letter-spacing: var(--typography-label-letter-spacing);
+  line-height: var(--typography-label-line-height);
 }
 
 .app-shell-collections p {
-  padding: 4px 12px;
+  padding: var(--space-1) var(--space-3);
   color: var(--color-text-secondary);
-  font-size: var(--font-size-control);
+  font-family: var(--typography-control-font-family);
+  font-size: var(--typography-control-font-size);
+  font-weight: var(--typography-control-font-weight);
+  letter-spacing: var(--typography-control-letter-spacing);
+  line-height: var(--typography-control-line-height);
 }
 
 .app-shell-content {
-  min-width: 0;
-  min-height: 0;
+  min-width: var(--space-0);
+  min-height: var(--space-0);
   overflow-y: auto;
-  padding: 24px;
+  padding: var(--space-6);
   overflow-wrap: anywhere;
 }
 
 .app-shell-skip {
   position: absolute;
-  left: 12px;
+  left: var(--space-3);
   top: -100px;
   z-index: 1;
-  padding: 8px;
-  color: var(--color-text);
-  background: var(--color-background);
+  padding: var(--space-2);
+  color: var(--color-text-default);
+  background: var(--color-surface-page);
   border-radius: var(--radius-control);
 }
 
 .app-shell-skip:focus {
-  top: 12px;
+  top: var(--space-3);
 }

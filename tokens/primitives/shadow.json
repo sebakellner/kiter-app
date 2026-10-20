@@ -15,6 +15,21 @@
       },
       "$type": "shadow"
     },
+    "inset-yellow-500": {
+      "$value": {
+        "color": {
+          "colorSpace": "srgb",
+          "components": [1, 0.7843137254901961, 0],
+          "hex": "#FFC800"
+        },
+        "offsetX": { "value": 3, "unit": "px" },
+        "offsetY": { "value": 0, "unit": "px" },
+        "blur": { "value": 0, "unit": "px" },
+        "spread": { "value": 0, "unit": "px" },
+        "inset": true
+      },
+      "$type": "shadow"
+    },
     "inset-violet-400": {
       "$value": {
         "color": {

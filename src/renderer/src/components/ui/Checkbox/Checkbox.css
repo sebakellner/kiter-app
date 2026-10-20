@@ -1,13 +1,13 @@
 .ui-checkbox {
-  width: 15px;
-  height: 15px;
-  margin-inline-end: 6px;
-  accent-color: var(--color-accent);
+  width: var(--space-4);
+  height: var(--space-4);
+  margin-inline-end: var(--space-2);
+  accent-color: var(--color-action-primary);
   vertical-align: -2px;
   cursor: pointer;
 }
 
 .ui-checkbox:disabled {
-  opacity: 0.5;
+  opacity: var(--opacity-disabled);
   cursor: default;
 }

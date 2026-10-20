@@ -1,63 +1,71 @@
 .collection-form fieldset {
   display: grid;
-  gap: 8px;
-  padding: 0;
+  gap: var(--space-2);
+  padding: var(--space-0);
   border: 0;
 }
 
 .collection-form textarea {
-  min-height: 80px;
+  min-height: var(--space-20);
   resize: vertical;
-  padding: 8px 10px;
-  border: 1px solid var(--color-control-border);
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-control);
   border-radius: var(--radius-control);
-  background: var(--color-background);
-  color: var(--color-text);
-  font-size: var(--font-size-control);
+  background: var(--color-surface-field);
+  color: var(--color-text-default);
+  font-family: var(--typography-control-font-family);
+  font-size: var(--typography-control-font-size);
+  font-weight: var(--typography-control-font-weight);
+  letter-spacing: var(--typography-control-letter-spacing);
+  line-height: var(--typography-control-line-height);
 }
 
 .collection-form textarea:enabled:hover {
-  border-color: var(--color-text-secondary);
+  border-color: var(--color-border-hover);
 }
 
 .collection-form textarea[aria-invalid='true'] {
-  border-color: var(--color-danger);
+  border-color: var(--color-border-danger);
 }
 
 .collection-form textarea:disabled {
-  opacity: 0.5;
+  opacity: var(--opacity-disabled);
 }
 
 .collection-form label {
-  font-size: var(--font-size-control);
-  font-weight: 500;
+  font-family: var(--typography-label-font-family);
+  font-size: var(--typography-label-font-size);
+  font-weight: var(--typography-label-font-weight);
+  letter-spacing: var(--typography-label-letter-spacing);
+  line-height: var(--typography-label-line-height);
 }
 
 .collection-form label:not(:first-child) {
-  margin-top: 8px;
+  margin-top: var(--space-2);
 }
 
 .collection-form footer {
   display: flex;
   justify-content: flex-end;
-  gap: 8px;
-  margin-top: 24px;
+  gap: var(--space-2);
+  margin-top: var(--space-6);
 }
 
 .collection-form [role='alert'] {
-  color: var(--color-danger);
+  color: var(--color-status-danger);
 }
 
 .collection-form section[aria-label] {
-  margin-top: 20px;
-  padding-top: 16px;
-  border-top: 1px solid var(--color-border);
+  margin-top: var(--space-5);
+  padding-top: var(--space-4);
+  border-top: var(--border-width-1) var(--border-style-solid)
+    var(--color-border-default);
 }
 
 .collection-form section[aria-label] p {
-  margin-bottom: 12px;
+  margin-bottom: var(--space-3);
 }
 
 .collection-form section[aria-label] .ui-button {
-  margin: 0 8px 8px 0;
+  margin: var(--space-0) var(--space-2) var(--space-2) var(--space-0);
 }

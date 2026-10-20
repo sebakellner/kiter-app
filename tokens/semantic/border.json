@@ -1,0 +1,12 @@
+{
+  "border": {
+    "control": {
+      "$type": "border",
+      "$value": {
+        "width": "{border.width.1}",
+        "style": "{border.style.solid}",
+        "color": "{color.slate.500}"
+      }
+    }
+  }
+}

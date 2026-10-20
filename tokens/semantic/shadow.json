@@ -1,0 +1,8 @@
+{
+  "shadow": {
+    "selection-indicator": {
+      "$value": "{shadow.inset-yellow-500}",
+      "$type": "shadow"
+    }
+  }
+}

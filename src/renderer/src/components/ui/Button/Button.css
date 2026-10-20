@@ -2,57 +2,63 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  min-height: 32px;
-  padding: 5px 12px;
-  border: 1px solid var(--color-control-border);
+  gap: var(--space-2);
+  min-height: var(--space-8);
+  padding: var(--space-1) var(--space-3);
+  border: var(--border-control);
   border-radius: var(--radius-control);
-  background: var(--color-background-soft);
-  color: var(--color-text);
-  font-size: var(--font-size-control);
-  font-weight: 500;
-  line-height: 20px;
+  background: var(--color-action-secondary);
+  color: var(--color-text-default);
+  font-family: var(--typography-control-font-family);
+  font-size: var(--typography-control-font-size);
+  font-weight: var(--typography-control-font-weight);
+  letter-spacing: var(--typography-control-letter-spacing);
+  line-height: var(--typography-control-line-height);
   text-decoration: none;
   cursor: pointer;
 }
 
 .ui-button:enabled:hover,
 a.ui-button:hover {
-  background: var(--color-background-mute);
+  background: var(--color-action-secondary-hover);
 }
 
 .ui-button:enabled:active,
 a.ui-button:active {
-  background: var(--color-selection);
+  background: var(--color-action-secondary-active);
 }
 
 .ui-button[data-variant='primary'] {
-  border-color: var(--color-accent);
-  background: var(--color-accent);
-  color: var(--color-on-accent);
-  font-weight: 600;
+  border-color: var(--color-action-primary);
+  background: var(--color-action-primary);
+  color: var(--color-text-on-action);
+  font-family: var(--typography-control-strong-font-family);
+  font-size: var(--typography-control-strong-font-size);
+  font-weight: var(--typography-control-strong-font-weight);
+  letter-spacing: var(--typography-control-strong-letter-spacing);
+  line-height: var(--typography-control-strong-line-height);
 }
 
 .ui-button[data-variant='primary']:enabled:hover,
 a.ui-button[data-variant='primary']:hover {
-  background: var(--color-accent-hover);
-  border-color: var(--color-accent-hover);
+  background: var(--color-action-primary-hover);
+  border-color: var(--color-action-primary-hover);
 }
 
 .ui-button[data-variant='ghost'] {
-  border-color: transparent;
-  background: transparent;
+  border-color: var(--color-action-ghost);
+  background: var(--color-action-ghost);
   color: var(--color-text-secondary);
 }
 
 .ui-button[data-variant='ghost']:enabled:hover,
 a.ui-button[data-variant='ghost']:hover {
-  background: var(--color-background-mute);
-  color: var(--color-text);
+  background: var(--color-action-ghost-hover);
+  color: var(--color-text-default);
 }
 
 .ui-button:disabled,
 .ui-button[aria-disabled='true'] {
-  opacity: 0.5;
+  opacity: var(--opacity-disabled);
   cursor: default;
 }

@@ -1,12 +1,12 @@
 .favorite-button[aria-pressed='true'][data-variant='ghost'] {
-  border-color: var(--color-accent);
-  background: var(--color-selection);
-  color: var(--color-accent-hover);
+  border-color: var(--color-selection-indicator);
+  background: var(--color-surface-selection);
+  color: var(--color-action-primary);
 }
 
 .favorite-button[aria-pressed='true'][data-variant='ghost']:enabled:hover {
-  background: var(--color-background-mute);
-  color: var(--color-accent-hover);
+  background: var(--color-action-ghost-hover);
+  color: var(--color-action-primary-hover);
 }
 
 .sample-favorite {
@@ -15,5 +15,9 @@
 
 .sample-favorite .sample-error {
   display: block;
-  font-size: var(--font-size-small);
+  font-family: var(--typography-caption-font-family);
+  font-size: var(--typography-caption-font-size);
+  font-weight: var(--typography-caption-font-weight);
+  letter-spacing: var(--typography-caption-letter-spacing);
+  line-height: var(--typography-caption-line-height);
 }

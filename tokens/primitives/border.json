@@ -1,0 +1,11 @@
+{
+  "border": {
+    "width": {
+      "$description": "Raw border widths in pixels, independent of the layout spacing grid.",
+      "1": { "$value": { "value": 1, "unit": "px" }, "$type": "dimension" }
+    },
+    "style": {
+      "solid": { "$value": "solid", "$type": "strokeStyle" }
+    }
+  }
+}

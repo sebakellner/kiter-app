@@ -23,6 +23,17 @@
         "lineHeight": "{font.line-height.normal}"
       }
     },
+    "control-strong": {
+      "$description": "Emphasized primary actions at the shared compact control size.",
+      "$type": "typography",
+      "$value": {
+        "fontFamily": "{font.family.instrument-sans}",
+        "fontSize": "{font.size.13}",
+        "fontWeight": "{font.weight.600}",
+        "letterSpacing": "{font.letter-spacing.normal}",
+        "lineHeight": "{font.line-height.normal}"
+      }
+    },
     "body": {
       "$description": "Default reading text, Sample names and navigation labels.",
       "$type": "typography",

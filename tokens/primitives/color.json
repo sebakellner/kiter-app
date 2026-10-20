@@ -1,7 +1,7 @@
 {
   "color": {
     "slate": {
-      "$description": "The supplied #292D34 is step 900. Supporting neutrals are rounded sRGB channel mixes with black (950: 20%) or white (850: 5%, 800: 10%, 700: 16%, 500: 50%, 300: 70%).",
+      "$description": "The supplied #292D34 is step 900. Supporting neutrals are rounded sRGB channel mixes with black (950: 20%, 975: 50%, 990: 80%) or white (850: 5%, 800: 10%, 700: 16%, 500: 50%, 300: 70%). All slate steps are opaque.",
       "300": {
         "$type": "color",
         "$value": {
@@ -71,6 +71,26 @@
           ],
           "hex": "#21242A"
         }
+      },
+      "975": {
+        "$type": "color",
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.08235294117647059, 0.09019607843137255, 0.10196078431372549
+          ],
+          "hex": "#15171A"
+        }
+      },
+      "990": {
+        "$type": "color",
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.03137254901960784, 0.03529411764705882, 0.0392156862745098
+          ],
+          "hex": "#08090A"
+        }
       }
     },
     "white": {
@@ -82,7 +102,7 @@
       }
     },
     "yellow": {
-      "$description": "The supplied #FFC800 is step 500. Step 400 mixes 20% white into it for the primary-action hover state.",
+      "$description": "The supplied #FFC800 is step 500. Step 400 mixes 20% white into it for the primary-action hover state. Step 900 mixes 38% of step 500 with 62% pure black for a saturated dark accent surface, using rounded sRGB channels.",
       "400": {
         "$type": "color",
         "$value": {
@@ -97,6 +117,14 @@
           "colorSpace": "srgb",
           "components": [1, 0.7843137254901961, 0],
           "hex": "#FFC800"
+        }
+      },
+      "900": {
+        "$type": "color",
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [0.3803921568627451, 0.2980392156862745, 0],
+          "hex": "#614C00"
         }
       }
     },
@@ -164,6 +192,15 @@
           ],
           "hex": "#3E3C63"
         }
+      }
+    },
+    "black": {
+      "$description": "Opaque pure black, the endpoint of mixing the base slate with 100% black; distinct from translucent black scrims.",
+      "$type": "color",
+      "$value": {
+        "colorSpace": "srgb",
+        "components": [0, 0, 0],
+        "hex": "#000000"
       }
     },
     "black-alpha": {

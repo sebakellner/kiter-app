@@ -1,0 +1,6 @@
+{
+  "opacity": {
+    "$description": "Unitless opacity values from 0 to 1. Numeric names express percentages, not CSS percentage values.",
+    "50": { "$value": 0.5, "$type": "number" }
+  }
+}

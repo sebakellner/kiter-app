@@ -1,6 +1,6 @@
 .sample-filters {
-  padding-block: 8px;
-  background: var(--color-background);
+  padding-block: var(--space-2);
+  background: var(--color-surface-page);
 }
 
 .sample-filters-controls,
@@ -8,7 +8,7 @@
 .sample-filters-chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: var(--space-1);
 }
 
 .sample-filters-search {
@@ -17,5 +17,5 @@
 }
 
 .sample-filters-chips {
-  margin-top: 8px;
+  margin-top: var(--space-2);
 }

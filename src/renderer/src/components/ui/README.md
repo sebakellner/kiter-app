@@ -1,10 +1,11 @@
 # Kiter UI foundations
 
 The current visual foundation is dark-only and uses locally bundled Instrument
-Sans, with system fonts as fallback. Surfaces use neutral blacks and grays, with an off-white accent for primary
-actions, focus and active states. Red remains reserved for errors. Shared colors,
-control/surface radii and small text sizes live in
-`../../assets/base.css`. Focus styling lives in `../../assets/main.css`.
+Sans, with system fonts as fallback. Surfaces use opaque near-blacks and grays,
+with a single yellow accent (`#FFC800`) for actions, focus and selection indicators.
+Pink remains reserved for errors. Shared colors, radii, spacing and typography
+come from the generated tokens. `../../assets/base.css` applies global defaults;
+focus styling lives in `../../assets/main.css`.
 Component styles remain beside their owners; feature behavior does not belong
 in these primitives.
 
@@ -16,9 +17,19 @@ semantic JSON files for Style Dictionary. They use `$value`, `$type` and
 `{token.path}` references. Run `pnpm tokens` from the repository root to generate
 [`src/styles/tokens.css`](../../../../../src/styles/tokens.css). This file is
 generated: edit the source JSON and regenerate rather than editing its CSS.
-The renderer does not import it yet; application consumption remains separate
-work, so the conventions below are not a claim that the current renderer already
-follows them. The JSON tokens are the source of truth for these design decisions.
+The renderer imports it before the base styles. Global defaults, UI primitives,
+the shell and feature styles consume the generated tokens; the old base palette
+and typography variables have been removed. The JSON tokens are the source of
+truth for these design decisions.
+
+Responsive breakpoints, provisional panel/popup widths and heights without an
+appropriate token, accessibility helper offsets, focus geometry and stacking
+indices remain local contracts. They are not forced onto the layout spacing
+scale. Popover positioning reads `--space-1` and `--space-2` from computed root
+styles, falling back to their source JSON values when styles are unavailable.
+Other preserved values without a matching token include the Sample-row cover
+glyph's 20px font size, the drag-preview opacity of 0.55 and the Input placeholder
+opacity of 1. Font-face weight ranges describe the bundled asset, not UI text roles.
 
 The interchange format follows the DTCG 2025.10
 [Format Module](https://www.designtokens.org/tr/2025.10/format/) and
@@ -126,6 +137,25 @@ rounding every region into a card. Do not add pill or circular radii until a
 specific component needs them. Radius is an independent scale; sharing values
 with spacing does not make spacing tokens appropriate for corner geometry.
 
+### Border and opacity: typed values with semantic roles
+
+[`primitives/border.json`](../../../../../tokens/primitives/border.json) defines
+`border.width.1` as a 1px `dimension` and `border.style.solid` as a `strokeStyle`.
+Borders are not layout spacing and need not follow the 4px grid.
+[`semantic/border.json`](../../../../../tokens/semantic/border.json) combines
+these with the control-border palette primitive in `border.control`, a DTCG
+`border` composite with `width`, `style` and `color` properties. CSS exports it as
+`--border-control`; variants can override its color with semantic action colors.
+
+[`primitives/opacity.json`](../../../../../tokens/primitives/opacity.json) defines
+`opacity.50` as the unitless number `0.5`; its numeric name expresses a percentage.
+[`semantic/opacity.json`](../../../../../tokens/semantic/opacity.json) aliases it
+as `opacity.disabled`, exported as `--opacity-disabled`. DTCG has no dedicated
+opacity type: use `number`, with values constrained by this system to 0–1.
+The disabled role preserves the existing whole-control opacity, including
+text and borders. It is not interchangeable with color alpha and does not imply
+that rendered accessibility contrast has been validated.
+
 ### Color: name the job, not the shade
 
 [`semantic/color.json`](../../../../../tokens/semantic/color.json) is the UI
@@ -135,23 +165,42 @@ sources of truth.
 
 | Supplied primitive | HEX       | Design role                                   |
 | ------------------ | --------- | --------------------------------------------- |
-| `color.slate.900`  | `#292D34` | Main workspace background                     |
+| `color.slate.900`  | `#292D34` | Base neutral; foreground on primary actions   |
 | `color.white`      | `#FFFFFF` | Primary text                                  |
 | `color.yellow.500` | `#FFC800` | Primary actions                               |
 | `color.pink.500`   | `#FD71AF` | Invalid control borders; basis for error text |
-| `color.cyan.500`   | `#49CCF9` | Keyboard focus                                |
-| `color.violet.500` | `#7B68EE` | Basis for selected surfaces and markers       |
+| `color.cyan.500`   | `#49CCF9` | Retained palette primitive; no active UI role |
+| `color.violet.500` | `#7B68EE` | Retained palette primitive; no active UI role |
 
-Keep the workspace predominantly slate and white. Yellow is the primary visual
-accent; cyan, violet and pink identify focus, selection and errors rather than
-decorate unrelated content. Layout, type and alignment do not change with the
+Keep the workspace predominantly slate and white. Yellow is the only visual
+accent, shared by primary actions, keyboard focus and selection indicators.
+Pink is reserved for errors, not decorative emphasis. Layout, type and alignment do not change with the
 palette. Asset-specific colors are not part of the interface token palette.
 
 Supporting shades are explicit raw primitives derived by rounded sRGB channel
-mixing, not runtime color calculations: slate 950 mixes 20% black into the base;
+mixing, not runtime color calculations: slate 950/975/990 mix 20/50/80% black into the base;
 850/800/700/500/300 mix 5/10/16/50/70% white. Yellow 400, pink 400 and violet 400
 mix 20% white into their supplied base colors. Violet 900 mixes 25% violet 500
 with 75% slate 900. The original six HEX values remain unchanged.
+
+The opaque dark extension is slate 975 (`#15171A`), slate 990 (`#08090A`) and
+`color.black` (`#000000`, the 100% black endpoint). The existing semantic surface
+roles use slate 990 for `page`, slate 975 for `soft`, slate 950 for `muted` and
+opaque black for `field`. The `selection` surface uses neutral slate 950 so white
+text stays readable; its indicator uses yellow 500. Secondary actions use slate
+950 at rest, slate 850 on hover and slate 800 while pressed. Ghost actions use
+slate 900 on hover. The selection inset shadow is exposed as
+`shadow.selection-indicator`.
+Sample rows use `surface.hover` (slate 900, `#292D34`) for hover and keyboard
+focus, and `surface.selection` (slate 950, `#21242A`) for persistent selection
+without a lateral marker. Selected rows retain their selection surface on hover
+and focus. Row keyboard focus retains its outline, and focused child controls
+retain their own focus indicators. The optional `surface.accent-subtle` role
+remains available but is not used for general hover or Sample-row selection.
+Waveforms use `color.waveform.default`, referencing the existing slate 300
+(`#BFC0C2`) neutral rather than the primary-action accent.
+Unlike `color.black-alpha`, these colors are fully opaque and do not depend on
+the surface behind them. Components should still consume semantic surface roles.
 
 | Role family       | Examples                                                                                               | Usage                                                      |
 | ----------------- | ------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------- |
@@ -164,8 +213,8 @@ with 75% slate 900. The original six HEX values remain unchanged.
 | `color.status`    | `danger`                                                                                               | Error text, paired with explanatory content                |
 | `color.backdrop`  | `inspector`, `dialog`                                                                                  | Scrims, not opaque surfaces                                |
 
-Equal values do not imply equal roles: page and primary-action foreground are
-both `#292D34`, but must remain independently themeable aliases. Focus and
+Equal values do not imply equal roles: surface and action colors must remain
+independently themeable aliases even when they share a primitive. Focus and
 selection must remain distinguishable without relying on color alone. Do not
 invent success/warning hues or a disabled opacity without reviewing the actual
 state. Before applying tokens, validate foreground/background pairs: 4.5:1 for
@@ -174,12 +223,12 @@ their adjacent colors. Decorative separators are not control boundaries.
 
 `color.status.danger` uses pink 400 (`#FD8DBF`) so small error text maintains at
 least 4.5:1 against all defined opaque dark surfaces. The original pink 500 remains
-the invalid-border color. `color.selection.indicator` uses violet 400 (`#9586F1`)
-to maintain at least 3:1 against the selected surface. Do not use the original
-violet as a small-text background with white text: that pair is only about 4.15:1.
+the invalid-border color. `color.selection.indicator` and `color.focus.ring` use
+yellow 500 (`#FFC800`) against dark surfaces. Never use yellow as a selected
+background with white text; selection uses a neutral surface and yellow marker.
 `color.text.on-action` is for yellow primary fills, not every colored surface.
-Focus rings should sit outside light action fills with a dark gap; cyan against
-yellow alone is not a sufficient boundary. These are token-level contrast checks,
+Focus rings should sit outside yellow action fills with a dark gap so the ring
+does not merge with the fill. These are token-level contrast checks,
 not a claim of completed rendered or cross-platform accessibility validation.
 
 ### Typography: explicit text roles
@@ -212,10 +261,9 @@ assets into `out/renderer/assets`; there is no runtime dependency on Google Font
 or another remote service. The SIL Open Font License and copyright notice are
 copied from `public/licenses/instrument-sans-OFL.txt` into the renderer build.
 
-`assets/base.css` applies the same family stack globally; buttons and inputs
-inherit it. This font-only integration does not import the full generated token
-CSS or change the current palette. The token source declares the family name,
-while the local `@font-face` definitions load the actual font. Review native
+`assets/base.css` applies the body recipe globally and title/section recipes to
+`h1`/`h2`; controls consume their own complete recipes. The token source declares
+the family name, while local `@font-face` definitions load the actual font. Review native
 controls, glyph coverage beyond Latin/extended Latin and fallback behavior on
 each target platform. Display styles are reserved for featured introductions and
 entity headers, not ordinary workspace text. Use
@@ -226,6 +274,7 @@ entity headers, not ordinary workspace text. Use
 | `typography.caption`        | 12px      | 1.5 (`normal`)         |    400 | Supporting metadata and durations               |
 | `typography.label`          | 12px      | 1.5 (`normal`)         |    500 | Field labels and compact group headings         |
 | `typography.control`        | 13px      | 1.5 (`normal`)         |    500 | Buttons, compact inputs and selects             |
+| `typography.control-strong` | 13px      | 1.5 (`normal`)         |    600 | Emphasized primary actions                      |
 | `typography.body`           | 14px      | 1.5 (`normal`)         |    400 | Sample names, navigation and reading text       |
 | `typography.body-strong`    | 14px      | 1.5 (`normal`)         |    600 | Selection and inline emphasis                   |
 | `typography.section`        | 18px      | 1.25 (`tight`)         |    600 | Inspector, dialog and section headings          |
@@ -295,10 +344,9 @@ the token definitions alone do not establish visual or accessibility support.
 - `Card` uses a quiet panel surface; selected cards and active sidebar links use
   the selection color. `Badge` is supporting information, not a primary action.
 
-In the current renderer, the off-white accent identifies primary actions, focus
-and active states. The target token palette separates these roles as documented
-above. The selection
-surface and inset marker distinguish the current navigation destination without
+The yellow accent identifies primary actions, focus and selection indicators,
+with independent semantic roles as documented above. The neutral selection
+surface and yellow inset marker distinguish the current navigation destination without
 relying on color alone. Disabled controls remain visibly muted; they do not imply
 that a background operation is running.
 
