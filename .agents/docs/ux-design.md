@@ -361,6 +361,29 @@ Apply shared selection/draft transitions here when results change.
   labels, and clear removal actions. Exact spacing, colors, and compact geometry
   remain prototype/design decisions.
 
+### Sample Names and Source Context — Adopted
+
+- Use the Sample's effective presentation name as its primary label throughout
+  the UI: list rows, inspector, player, menus, dialogs, confirmations, toasts and
+  status messages. Transfer objects already expose this value as `name`, using
+  the original filename when no presentation override exists. Render that value
+  as supplied; do not derive a replacement from `relativePath`, strip extensions,
+  or invent a new display-name fallback in each component.
+- Paths describe source locations, not Sample identity or primary display text.
+  Show relative paths as secondary context when they differ from the name or are
+  needed to distinguish displayed homonyms. Keep that context visible without
+  requiring hover. If displayed Samples also share the same relative path, show
+  their source-folder context; the complete source path may be used when needed
+  to resolve that ambiguity. Otherwise full paths belong in Info, tooltips and
+  workflows explicitly reviewing filesystem locations.
+- Accessible action names use the same Sample name as visible UI. Associate
+  secondary path context through accessible descriptions rather than replacing
+  the name with a path. Waveform and playback labels follow the same naming rule.
+- Continue addressing every operation, selection, membership and drag by stable
+  Sample identity. A name, relative path or source folder is not an operation key.
+  Naming changes never rename, move or modify source audio, change search scope,
+  or require loading the complete library to inspect name collisions.
+
 ### List and Card Presentation — Agreed
 
 - Samples, Favorites, and Sample lists within Packs and Collections use rows,

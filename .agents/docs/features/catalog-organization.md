@@ -86,6 +86,18 @@ and reinclusion UI remains planned.
   result. History reaching a deleted detail shows unavailable with recovery links.
   Batch IPC/reinclusion UI are not implied by existing worker operations.
 
+## Implemented Favorite Feedback
+
+- Favorite controls retain their local saved/pending/error state and publish a
+  success toast only after a confirmed write for the acted-on Sample. Notices
+  distinguish addition from removal and identify the Sample by its effective name
+  under [Sample Names and Source Context](../ux-design.md#sample-names-and-source-context--adopted). Repeated
+  changes to the same Sample update its transient notification; unrelated Samples
+  keep separate notices. Pending and failed writes never publish success.
+- Toasts are session-only, do not change selection or playback, and survive
+  navigation even when a Favorite-only result disappears after removal. Recoverable
+  write failures remain inline with the Favorite action.
+
 ## Implemented Sample Context Menu
 
 - SampleListRow exposes the same actions through right-click and an explicit
@@ -269,6 +281,13 @@ prototype, not a combined multi-field inspector Save.
   Only failed destinations retry. Missing/invalid identities require choosing again,
   never substitution by a matching name. Results remain until explicitly dismissed;
   they are not durable shared-operation history.
+- After each completed addition attempt, a toast identifies the Sample and
+  destination or reports actual added/already-included/failed counts. Failures
+  produce a persistent error notice rather than a success-shaped summary; the
+  picker's detailed results and failed-only retry remain authoritative. Closing
+  the picker or navigating does not clear the notification.
+  Sample names lead the picker and notices; relative paths remain secondary
+  source context, never substitutes for the Sample name or stable operation ID.
 - Pending writes disable duplicate actions/dismissal and block route changes.
   Native exit waits for the bounded additions/removal; failures retain their local
   results instead of closing the app. Nested creation retains its existing draft
