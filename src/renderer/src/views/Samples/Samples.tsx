@@ -37,11 +37,7 @@ export function Samples(): React.JSX.Element {
         />
         Favorites only
       </label>
-      <CatalogList
-        key={`${key}:${favoritesOnly}`}
-        favoritesOnly={favoritesOnly}
-        {...view}
-      />
+      <CatalogList key={key} favoritesOnly={favoritesOnly} {...view} />
     </section>
   )
 }
