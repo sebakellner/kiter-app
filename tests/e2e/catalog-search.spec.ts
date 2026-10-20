@@ -29,6 +29,7 @@ test('local search reads saved metadata and relative paths and restores independ
   await search.fill('TEXTURES open')
   await expect(names).toHaveText(['Ópen_Hat.wav'])
   await expect(page.getByTestId('sample-relative-path')).toHaveText(hatPath)
+  await expect(page.getByTestId('sample-relative-path')).toBeHidden()
   await library
     .row('Ópen_Hat.wav')
     .getByRole('button', { name: 'More actions: Ópen_Hat.wav', exact: true })
@@ -51,6 +52,7 @@ test('local search reads saved metadata and relative paths and restores independ
   await expect(search).toHaveValue('TEXTURES open')
   await expect(names).toHaveText(['Ópen_Hat.wav'])
   await expect(page.getByTestId('sample-relative-path')).toHaveText(hatPath)
+  await expect(page.getByTestId('sample-relative-path')).toBeHidden()
   await page.getByRole('button', { name: 'Forward', exact: true }).click()
   await expect(search).toHaveValue('house kick')
   await expect(names).toHaveText(['snare.wav'])
@@ -77,9 +79,7 @@ test('search resets pagination and clears hidden selection without unloading the
     page.getByRole('button', { name: 'Next page', exact: true }),
   ).toBeDisabled()
   const row = library.row('sample-50.wav')
-  await row
-    .getByRole('button', { name: 'Info: sample-50.wav', exact: true })
-    .click()
+  await library.inspect('sample-50.wav')
   await row
     .getByRole('button', { name: 'Play sample-50.wav', exact: true })
     .click()
