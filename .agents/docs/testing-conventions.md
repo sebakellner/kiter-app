@@ -355,6 +355,24 @@ waits for Electron exit before removing it.
 
 ## End-to-End Journeys
 
+- Add an E2E only for a significant risk that needs the real application:
+  renderer/preload/main/worker wiring, actual media, browser drag gestures,
+  native modality/focus, application close or representative process restart.
+  Do not target an E2E count or duplicate every feature variant at this layer.
+- Keep one principal behavior per journey. Prepare unrelated catalog state through
+  real typed APIs using `tests/support/electron/catalog.ts`; keep the action being
+  tested UI-driven. Import/dialog journeys still exercise their own UI setup.
+- Put filter combinations, validation, draft/error states and menu key variants in
+  renderer tests. Put exact ordering, stale tokens, rollback and reopen durability
+  in real SQLite tests. Retain representative E2E wiring checks rather than repeating
+  those matrices or restarting Electron for every metadata field.
+- Before removing a journey, identify retained coverage or add the smaller-layer
+  regression first. A mocked renderer test does not replace real drag, audio,
+  modality or native lifecycle evidence. Investigate traces before calling a failure
+  flaky; do not hide it with retries, sleeps, broad skips or larger global timeouts.
+- For internal HTML drag tests, move over the destination twice and observe the
+  application's insertion marker before releasing. Assert saved order separately;
+  a completed mouse gesture alone is not evidence of an accepted drop.
 - Playwright launches Electron through `tests/support/electron/e2e-entry.mjs`,
   which sets isolated `userData` before synchronously requiring the built entry.
   This test-only entry is excluded from packaging; production exposes no reset API.
@@ -363,7 +381,9 @@ waits for Electron exit before removing it.
   process sharing only the test directory. Audio fixtures remain byte-identical.
 - Use semantic locators and awaited user interactions. Keep page objects small
   and business assertions in the test. Use evaluation only for infrastructure
-  control or native/media observations unavailable through ordinary locators.
+  control, explicit real-API fixture preparation, or native/media observations
+  unavailable through ordinary locators. Do not invoke the operation under test
+  through evaluation instead of exercising its UI.
 - Await observable workflow completion, not just the initiating click, before
   changing filesystem fixtures. In particular, wait for an imported Sample's
   enabled preview control before moving its source to simulate unavailability,
@@ -377,6 +397,26 @@ waits for Electron exit before removing it.
   contain only generated fixtures; CI retains them for seven days on failures.
 - These tests run the built app, not an installed/package artifact. Native drag
   payload checks still do not establish actual DAW reception.
+
+### Coverage Ownership
+
+Use this map when extending or simplifying the current journeys:
+
+| Risk                                                                           | Primary coverage                                                                       | E2E responsibility                                                                                                                    |
+| ------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| Collection order, stale snapshots, rollback, reopen                            | `src/main/db/operations/collections/order.test.ts`, `useMoveCollectionSample.test.tsx` | One real handle drop; original-file name/waveform handoff remains separate                                                            |
+| Filtered ordering and keyboard moves across pages                              | `src/renderer/src/views/Collections/Collections.test.tsx`, `SampleList.test.tsx`       | Browser focus after a real drop                                                                                                       |
+| Membership duplicates, multiple destinations, nested creation, partial results | `AddToCollection.test.tsx`, Collection DB operations                                   | Create/add through the picker and recover after process restart; remove an unavailable reference without affecting another Collection |
+| Classification persistence and field isolation                                 | `src/main/db/operations/classification/sample-{instruments,genres,type}.test.ts`       | Save each editor through the bridge; representative editor native close and restart                                                   |
+| Search matching and filter intersections                                       | Library DB tests, `useCatalog.test.tsx`, `SampleFilters.test.tsx`                      | Saved metadata/path query, destination history, pagination and loaded-player continuity                                               |
+| Context-menu keyboard variants and dismissal                                   | `ContextMenu.test.tsx`, `SampleList.test.tsx`                                          | Real right-click/preview/Info and unavailable audio after gated native selection                                                      |
+| Native dialogs, compact inspector focus/inert regions, navigation restoration  | Dialog/Popover components and navigation state tests                                   | Retain browser/native scenarios: jsdom cannot establish modality, hit testing or actual layout                                        |
+| Favorites durability and shutdown                                              | `tests/integration/electron/favorites-restart.mjs`                                     | One restart restores catalog/Favorite while clearing session context and closing old renderer windows                                 |
+
+The reduced journeys intentionally do not repeat all combinations across Electron
+processes. This map describes layered evidence, not equivalent native coverage for
+every removed combination. CI continues to run the retained E2E on both target OSes;
+moving unreliable tests to a scheduled job is not a stability fix.
 
 ## Platform and Manual Validation
 
