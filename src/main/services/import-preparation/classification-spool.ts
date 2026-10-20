@@ -78,21 +78,26 @@ export class ClassificationSpool {
   }
 
   async append(record: ClassificationRecord): Promise<void> {
+    if (this.digest) {
+      throw new Error(
+        'Cannot append to a finished import classification generation.',
+      )
+    }
     const contents = JSON.stringify(record)
     const bytes = Buffer.byteLength(contents)
-    this.bytes += bytes
-    this.evidence +=
+    const nextBytes = this.bytes + bytes
+    const nextEvidence =
+      this.evidence +
       record.rows.reduce((sum, row) => sum + row.evidence.length, 0) +
       record.ambiguities.reduce(
         (sum, ambiguity) => sum + ambiguity.evidence.length,
         0,
       )
     if (
-      this.digest ||
       this.records.length >= IMPORT_CLASSIFICATION_LIMITS.records ||
-      this.bytes > IMPORT_CLASSIFICATION_LIMITS.bytes ||
+      nextBytes > IMPORT_CLASSIFICATION_LIMITS.bytes ||
       bytes > IMPORT_CLASSIFICATION_LIMITS.recordBytes ||
-      this.evidence > IMPORT_CLASSIFICATION_LIMITS.evidence ||
+      nextEvidence > IMPORT_CLASSIFICATION_LIMITS.evidence ||
       this.counts.proposals + record.rows.length >
         IMPORT_CLASSIFICATION_LIMITS.proposals
     ) {
@@ -104,6 +109,8 @@ export class ClassificationSpool {
       flag: 'wx',
       mode: 0o600,
     })
+    this.bytes = nextBytes
+    this.evidence = nextEvidence
     this.recordIndexes.set(record.id, this.records.length)
     this.records.push({
       id: record.id,

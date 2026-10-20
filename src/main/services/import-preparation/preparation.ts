@@ -1031,6 +1031,9 @@ export class ImportPreparationService {
     this.requireSession(previous.summary.id, previous.summary.revision)
     replacement.summary.revision = previous.summary.revision
     if (replacement.classification.active) {
+      // Force fresh Sample decisions after selection resets, even if their
+      // fingerprints match again. Pack decisions instead follow subject/evidence/
+      // assignment fingerprints; unchanged root evidence needs no blanket reset.
       for (const [id, choice] of replacement.draft.choices) {
         if (choice.needsSelectionReview) {
           replacement.classification.invalidated.add(id)

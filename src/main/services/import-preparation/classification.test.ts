@@ -826,6 +826,40 @@ test('oversized classification records reject before writing a truncated generat
     PreparationLimitError,
   )
   assert.equal(generation.counts.targets, 0)
+  assert.equal(generation.counts.proposals, 0)
+  await generation.append({
+    id: 'c'.repeat(64),
+    stateToken: row.stateToken,
+    subject: row.subject,
+    ambiguities: [],
+    rows: [{ ...row, fingerprint: 'd'.repeat(64) }],
+  })
+  generation.finish()
+  const sealed = generation.summary(summary.preparationId, summary.revision)
+  const page = await generation.page(0, 50, 'proposals')
+  await assert.rejects(
+    generation.append({
+      id: 'e'.repeat(64),
+      stateToken: row.stateToken,
+      subject: row.subject,
+      ambiguities: [],
+      rows: [],
+    }),
+    (error: unknown) => {
+      assert.ok(error instanceof Error)
+      assert.ok(!(error instanceof PreparationLimitError))
+      assert.equal(
+        error.message,
+        'Cannot append to a finished import classification generation.',
+      )
+      return true
+    },
+  )
+  assert.deepEqual(
+    generation.summary(summary.preparationId, summary.revision),
+    sealed,
+  )
+  assert.deepEqual(await generation.page(0, 50, 'proposals'), page)
   assert.equal(
     service.getClassificationSummary(request(summary)).classificationToken,
     summary.classificationToken,
