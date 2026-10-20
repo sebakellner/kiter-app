@@ -1,12 +1,17 @@
 .ui-badge {
   display: inline-block;
   max-width: 100%;
-  padding: 0.125rem 0.5rem;
-  border: 1px solid var(--color-border);
+  padding: var(--space-1) var(--space-2);
+  border: var(--border-width-1) var(--border-style-solid)
+    var(--color-border-default);
   border-radius: var(--radius-control);
-  background: var(--color-background-mute);
+  background: var(--color-surface-muted);
   color: var(--color-text-secondary);
-  font-size: var(--font-size-small);
+  font-family: var(--typography-caption-font-family);
+  font-size: var(--typography-caption-font-size);
+  font-weight: var(--typography-caption-font-weight);
+  letter-spacing: var(--typography-caption-letter-spacing);
+  line-height: var(--typography-caption-line-height);
   overflow-wrap: anywhere;
   vertical-align: middle;
 }

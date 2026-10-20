@@ -1,25 +1,28 @@
 .ui-select {
   max-width: 100%;
-  min-height: 32px;
-  padding: 5px 8px;
-  border: 1px solid var(--color-control-border);
+  min-height: var(--space-8);
+  padding: var(--space-1) var(--space-2);
+  border: var(--border-control);
   border-radius: var(--radius-control);
-  background: var(--color-background);
-  color: var(--color-text);
-  font-size: var(--font-size-control);
-  line-height: 20px;
+  background: var(--color-surface-field);
+  color: var(--color-text-default);
+  font-family: var(--typography-control-font-family);
+  font-size: var(--typography-control-font-size);
+  font-weight: var(--typography-control-font-weight);
+  letter-spacing: var(--typography-control-letter-spacing);
+  line-height: var(--typography-control-line-height);
   cursor: pointer;
 }
 
 .ui-select:enabled:hover {
-  border-color: var(--color-text-secondary);
+  border-color: var(--color-border-hover);
 }
 
 .ui-select[aria-invalid='true'] {
-  border-color: var(--color-danger);
+  border-color: var(--color-border-danger);
 }
 
 .ui-select:disabled {
-  opacity: 0.5;
+  opacity: var(--opacity-disabled);
   cursor: default;
 }

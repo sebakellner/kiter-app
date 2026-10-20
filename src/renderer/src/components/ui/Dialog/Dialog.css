@@ -1,21 +1,31 @@
 .ui-dialog {
   margin: auto;
-  width: min(440px, calc(100vw - 32px));
-  max-width: calc(100vw - 32px);
-  max-height: calc(100dvh - 32px);
+  width: min(440px, calc(100vw - var(--space-8)));
+  max-width: calc(100vw - var(--space-8));
+  max-height: calc(100dvh - var(--space-8));
   overflow: auto;
-  padding: 24px;
-  border: 1px solid var(--color-control-border);
+  padding: var(--space-6);
+  border: var(--border-control);
   border-radius: var(--radius-surface);
-  background: var(--color-background-soft);
-  color: var(--color-text);
-  box-shadow: var(--shadow-overlay);
+  background: var(--color-surface-soft);
+  color: var(--color-text-default);
+  box-shadow: var(--shadow-black-28);
+  font-family: var(--typography-body-font-family);
+  font-size: var(--typography-body-font-size);
+  font-weight: var(--typography-body-font-weight);
+  letter-spacing: var(--typography-body-letter-spacing);
+  line-height: var(--typography-body-line-height);
 }
 
 .ui-dialog::backdrop {
-  background: rgb(0 0 0 / 48%);
+  background: var(--color-backdrop-dialog);
 }
 
 .ui-dialog h2 {
-  margin-bottom: 20px;
+  margin-bottom: var(--space-5);
+  font-family: var(--typography-section-font-family);
+  font-size: var(--typography-section-font-size);
+  font-weight: var(--typography-section-font-weight);
+  letter-spacing: var(--typography-section-letter-spacing);
+  line-height: var(--typography-section-line-height);
 }

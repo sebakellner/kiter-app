@@ -1,13 +1,14 @@
 .ui-card {
-  border: 1px solid var(--color-border);
+  border: var(--border-width-1) var(--border-style-solid)
+    var(--color-border-default);
   border-radius: var(--radius-surface);
-  background: var(--color-background-soft);
-  padding: 16px;
-  min-width: 0;
+  background: var(--color-surface-soft);
+  padding: var(--space-4);
+  min-width: var(--space-0);
   overflow-wrap: anywhere;
 }
 
 .ui-card[aria-selected='true'] {
-  border-color: var(--color-accent);
-  background: var(--color-selection);
+  border-color: var(--color-selection-indicator);
+  background: var(--color-surface-selection);
 }
