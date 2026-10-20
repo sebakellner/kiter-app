@@ -3,6 +3,9 @@
  */
 
 :root {
+  --border-width-1: 1px;
+  --border-style-solid: solid;
+  --border-control: 1px solid #94969a;
   --color-slate-300: #bfc0c2;
   --color-slate-500: #94969a;
   --color-slate-700: #4b4f54;
@@ -47,6 +50,8 @@
   --color-status-danger: #fd8dbf;
   --color-backdrop-inspector: rgba(0, 0, 0, 0.35);
   --color-backdrop-dialog: rgba(0, 0, 0, 0.48);
+  --opacity-50: 0.5;
+  --opacity-disabled: 0.5; /** Whole-control opacity for the existing disabled Button state; not a text color or an accessibility contrast guarantee. */
   --radius-0: 0px;
   --radius-4: 4px;
   --radius-8: 8px;

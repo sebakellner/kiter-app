@@ -1,5 +1,6 @@
 @import './fonts.css';
 @import './base.css';
+@import '../../../styles/tokens.css';
 
 body {
   overflow: hidden;
