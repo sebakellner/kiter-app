@@ -1,4 +1,5 @@
 export { ImportPreparationService } from './preparation'
+export type { ImportClassificationSummary } from './classification-spool'
 export type {
   ImportPreparation,
   PreparationCandidate,

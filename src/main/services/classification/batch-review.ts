@@ -30,6 +30,21 @@ export type { ClassificationReviewRow } from '../../../shared/features/classific
 
 type ReviewRow = ClassificationReviewRow & { fingerprint: string }
 
+/** Reused by spooled import review; each chunk remains bounded by this contract.
+ * Global scope tokens and group atomicity belong to its owning coordinator.
+ */
+export function prepareClassificationReviewRows(
+  snapshot: unknown,
+  rejections: unknown = [],
+  includeRejected = false,
+): ReviewRow[] {
+  return makeRows(
+    normalizeSnapshot(snapshot),
+    normalizeRejections(rejections),
+    includeRejected,
+  )
+}
+
 function parse<T>(schema: z.ZodType<T>, value: unknown): T {
   const result = schema.safeParse(value)
   if (!result.success) {

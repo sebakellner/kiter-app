@@ -69,14 +69,16 @@ export interface ReviewCandidate extends PreparationCandidate {
   originResolution: 'keep' | 'assign' | null
 }
 
-export interface PreparationReview {
-  contractVersion: 1
+export type PreparationReview = {
   preparationId: string
   revision: number
   reviewToken: string
   selectedCount: number
   conflictCount: number
-}
+} & (
+  | { contractVersion: 1; classificationDigest?: never }
+  | { contractVersion: 2; classificationDigest: string }
+)
 
 export interface PreparationRequest {
   preparationId: string

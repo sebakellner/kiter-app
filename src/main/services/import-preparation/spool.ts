@@ -10,7 +10,7 @@ export class PreparationLimitError extends Error {}
 export class PreparationSpool {
   count = 0
   private bytes = 0
-  private readonly directory: string
+  readonly directory: string
   private readonly preparationId: string
 
   constructor(directory: string, preparationId: string) {

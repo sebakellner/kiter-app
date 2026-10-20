@@ -139,9 +139,31 @@ import type {
   ImageReferenceRequest,
 } from '../../shared/domain/imageAsset'
 
+import type {
+  ImportClassificationContextRequest,
+  ImportClassificationContext,
+} from '../../shared/features/classification/import-context-schemas'
+
 const UNEXPECTED_REPLY_MESSAGE = 'Unexpected database response'
 
 export class DbClient {
+  async readImportClassificationContext(
+    input: ImportClassificationContextRequest,
+  ): Promise<ImportClassificationContext> {
+    this.transport.assertOpen()
+    const request = {
+      action: 'read-import-classification-context',
+      input,
+    } as const
+    if (!isImportPreparationRequest(request)) {
+      throw new DomainValidationError('Invalid import classification context.')
+    }
+    const reply = await this.transport.request(request)
+    if (reply.action !== request.action) {
+      throw new Error(UNEXPECTED_REPLY_MESSAGE)
+    }
+    return reply.result
+  }
   async readImportCatalog(
     input: ImportCatalogRequest,
   ): Promise<ImportCatalogSnapshot> {

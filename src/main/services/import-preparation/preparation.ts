@@ -9,7 +9,7 @@ import {
 } from '../../../shared/domain/validation.ts'
 import { requireDescription } from '../../../shared/domain/presentation.ts'
 import { IpcError } from '../../../shared/ipc/result.ts'
-import { PreparationSpool } from './spool.ts'
+import { PreparationSpool, PreparationLimitError } from './spool.ts'
 import { addPreparationIssue, discoverPreparationRoots } from './builder.ts'
 import {
   candidatePageRequestSchema,
@@ -22,6 +22,9 @@ import {
   originDecisionsRequestSchema,
   rootRequestSchema,
   packDetailsRequestSchema,
+  classificationReferenceSchema,
+  classificationPageSchema,
+  classificationStageSchema,
 } from './schemas.ts'
 import { reviewCandidate, type PreparationDraft } from './selection.ts'
 import { changedReviewRoots } from './revalidation.ts'
@@ -34,6 +37,17 @@ import {
 } from './errors.ts'
 import { suggestPackDetails } from './pack-details.ts'
 import { requireSubtreeScope } from './subtree.ts'
+import {
+  buildImportClassifications,
+  emptyClassificationState,
+  type ImportClassificationState,
+} from './classification.ts'
+import type {
+  ClassificationSpool,
+  ImportClassificationSummary,
+  StagedClassification,
+} from './classification-spool.ts'
+import type { ClassificationDecisionRequest } from '../../../shared/features/classification/batch-schemas.ts'
 import type {
   ImportPreparation,
   PreparationRoot,
@@ -51,6 +65,7 @@ interface Session {
   invalidated: boolean
   disposing: Promise<void> | null
   draft: PreparationDraft
+  classification: ImportClassificationState
 }
 
 // Instantiate once per owner in main. No renderer paths or audio capabilities.
@@ -60,11 +75,13 @@ export class ImportPreparationService {
   private closed = false
   private cleanupPending: PreparationSpool | null = null
   private work: Promise<unknown> | null = null
-  private readonly database: Pick<DbClient, 'readImportCatalog'>
+  private readonly database: Pick<DbClient, 'readImportCatalog'> &
+    Partial<Pick<DbClient, 'readImportClassificationContext'>>
   private readonly temporaryParent: string
 
   constructor(
-    database: Pick<DbClient, 'readImportCatalog'>,
+    database: Pick<DbClient, 'readImportCatalog'> &
+      Partial<Pick<DbClient, 'readImportClassificationContext'>>,
     temporaryParent: string,
   ) {
     this.database = database
@@ -117,6 +134,263 @@ export class ImportPreparationService {
 
   get(preparationId: string): ImportPreparation {
     return structuredClone(this.requireSession(preparationId).summary)
+  }
+
+  async prepareClassifications(
+    input: PreparationRequest,
+  ): Promise<ImportClassificationSummary> {
+    const request = this.parse(preparationRequestSchema.strict(), input)
+    return this.runWork(request, 'prepare-classifications', async (session) => {
+      if (
+        !session.summary.mode ||
+        session.summary.roots.length === 0 ||
+        session.summary.roots.some((root) => root.state === 'blocked')
+      ) {
+        throw new DomainValidationError(
+          'Choose an import mode and complete discovery before classification review.',
+        )
+      }
+      await sealReview(session.summary, session.spool, session.draft.choices)
+      const generation = await this.buildClassifications(
+        session,
+        session.classification.choices,
+      )
+      return this.publishClassifications(session, generation, true)
+    })
+  }
+
+  getClassificationSummary(
+    input: PreparationRequest,
+  ): ImportClassificationSummary {
+    const request = this.parse(preparationRequestSchema.strict(), input)
+    const session = this.requireSession(request.preparationId, request.revision)
+    return this.requireClassifications(session).summary(
+      session.summary.id,
+      session.summary.revision,
+    )
+  }
+
+  async listClassifications(
+    input: PreparationRequest & {
+      classificationToken: string
+      kind?: 'proposals' | 'ambiguities' | 'decisions'
+      offset?: number
+      limit?: number
+    },
+  ): Promise<
+    Awaited<ReturnType<ClassificationSpool['page']>> & {
+      revision: number
+      classificationToken: string
+    }
+  > {
+    const request = this.parse(classificationPageSchema, input)
+    const session = this.requireSession(request.preparationId, request.revision)
+    const generation = this.checkClassifications(
+      session,
+      request.classificationToken,
+    )
+    try {
+      const page = await generation.page(
+        request.offset,
+        request.limit,
+        request.kind,
+      )
+      this.requireSession(request.preparationId, request.revision)
+      if (session.classification.generation !== generation) {
+        throw new IpcError('STALE_REVIEW', 'Reload import classifications.')
+      }
+      return {
+        ...page,
+        revision: request.revision,
+        classificationToken: request.classificationToken,
+      }
+    } catch (error) {
+      this.requireSession(request.preparationId, request.revision)
+      if (error instanceof IpcError || error instanceof DomainValidationError) {
+        throw error
+      }
+      logPreparationFailure('read-page', error)
+      throw preparationFailure(
+        'Unable to read import classifications. Discard and prepare again.',
+        error,
+      )
+    }
+  }
+
+  async stageClassifications(
+    input: PreparationRequest & {
+      classificationToken: string
+      choices: ClassificationDecisionRequest['choices']
+    },
+  ): Promise<ImportClassificationSummary> {
+    const request = this.parse(classificationStageSchema, input)
+    return this.runWork(request, 'stage-classifications', async (session) => {
+      const generation = this.checkClassifications(
+        session,
+        request.classificationToken,
+      )
+      const choices = new Map(session.classification.choices)
+      const seen = new Set<string>()
+      for (const choice of request.choices) {
+        const row = await generation.proposal(choice.proposalKey)
+        if (!row?.reviewable || seen.has(choice.proposalKey)) {
+          throw new DomainValidationError(
+            'Choose distinct reviewable import classification proposals.',
+          )
+        }
+        seen.add(choice.proposalKey)
+        if (choice.decision === 'unreviewed') {
+          choices.delete(choice.proposalKey)
+        } else {
+          choices.set(choice.proposalKey, {
+            fingerprint: row.fingerprint,
+            decision: choice.decision,
+          })
+        }
+      }
+      return this.publishClassifications(
+        session,
+        await this.buildClassifications(session, choices),
+        true,
+        choices,
+      )
+    })
+  }
+
+  async acceptAllClassifications(
+    input: PreparationRequest & { classificationToken: string },
+  ): Promise<ImportClassificationSummary> {
+    const request = this.parse(classificationReferenceSchema, input)
+    return this.runWork(
+      request,
+      'accept-all-classifications',
+      async (session) => {
+        const generation = this.checkClassifications(
+          session,
+          request.classificationToken,
+        )
+        const choices = new Map(session.classification.choices)
+        for await (const batch of generation.batches()) {
+          for (const record of batch) {
+            for (const row of record.rows) {
+              if (row.reviewable) {
+                choices.set(row.proposalKey, {
+                  fingerprint: row.fingerprint,
+                  decision: 'accept',
+                })
+              }
+            }
+          }
+        }
+        return this.publishClassifications(
+          session,
+          await this.buildClassifications(session, choices),
+          true,
+          choices,
+        )
+      },
+    )
+  }
+
+  private requireClassifications(session: Session): ClassificationSpool {
+    if (
+      !session.classification.generation ||
+      session.classification.revision !== session.summary.revision
+    ) {
+      throw new IpcError(
+        'STALE_REVIEW',
+        'Prepare import classifications for the current revision.',
+      )
+    }
+    return session.classification.generation
+  }
+
+  private checkClassifications(
+    session: Session,
+    token: string,
+  ): ClassificationSpool {
+    const generation = this.requireClassifications(session)
+    if (
+      generation.summary(session.summary.id, session.summary.revision)
+        .classificationToken !== token
+    ) {
+      throw new IpcError('STALE_REVIEW', 'Reload import classifications.')
+    }
+    return generation
+  }
+
+  private async buildClassifications(
+    session: Session,
+    choices: ReadonlyMap<string, StagedClassification>,
+  ): Promise<ClassificationSpool> {
+    const read = this.database.readImportClassificationContext
+    if (!read) {
+      throw new IpcError(
+        'PROTOCOL_ERROR',
+        'Classification catalog access is unavailable.',
+      )
+    }
+    try {
+      return await buildImportClassifications(
+        { readImportClassificationContext: read.bind(this.database) },
+        session.summary,
+        session.spool,
+        session.draft.choices,
+        choices,
+        session.classification.invalidated,
+      )
+    } catch (error) {
+      if (error instanceof AggregateError) {
+        session.classification.cleanupFailed = true
+      }
+      if (error instanceof PreparationLimitError) {
+        throw new DomainValidationError(
+          'Import classification exceeds its safety limits.',
+        )
+      }
+      throw error
+    }
+  }
+
+  private async publishClassifications(
+    session: Session,
+    generation: ClassificationSpool,
+    advance: boolean,
+    expected: ReadonlyMap<string, StagedClassification> = session.classification
+      .choices,
+  ): Promise<ImportClassificationSummary> {
+    this.requireSession(session.summary.id, session.summary.revision)
+    const previous = session.classification.generation
+    let invalidated = 0
+    for (const [key, choice] of expected) {
+      if (generation.choices.get(key)?.fingerprint !== choice.fingerprint) {
+        invalidated++
+      }
+    }
+    if (advance) {
+      this.advance(session)
+    }
+    session.classification = {
+      active: true,
+      revision: session.summary.revision,
+      generation,
+      choices: generation.choices,
+      invalidated: new Set(),
+      cleanupFailed: false,
+    }
+    if (previous) {
+      try {
+        await previous.dispose()
+      } catch (error) {
+        session.classification.cleanupFailed = true
+        throw error
+      }
+    }
+    return generation.summary(
+      session.summary.id,
+      session.summary.revision,
+      invalidated,
+    )
   }
 
   async listCandidates(
@@ -373,6 +647,12 @@ export class ImportPreparationService {
           summary,
           spool,
           draft: { choices, seal: null },
+          classification: {
+            ...emptyClassificationState(),
+            active: session.classification.active,
+            choices: session.classification.choices,
+            invalidated: new Set(session.classification.invalidated),
+          },
         })
       } catch (error) {
         if (this.session?.spool !== spool) {
@@ -502,10 +782,31 @@ export class ImportPreparationService {
           'Import inputs changed. Rescan the affected folders and review their selection again.',
         )
       }
+      if (session.classification.active) {
+        const previous = session.classification.generation
+        const generation = await this.buildClassifications(
+          session,
+          session.classification.choices,
+        )
+        const changed = previous
+          ? previous.digest !== generation.digest
+          : [...session.classification.choices].some(
+              ([key, choice]) =>
+                generation.choices.get(key)?.fingerprint !== choice.fingerprint,
+            )
+        await this.publishClassifications(session, generation, changed)
+        if (changed) {
+          throw new IpcError(
+            'STALE_REVIEW',
+            'Import classification inputs changed. Review the refreshed suggestions.',
+          )
+        }
+      }
       const seal = await sealReview(
         summary,
         session.spool,
         session.draft.choices,
+        session.classification.generation?.digest,
       )
       this.requireSession(request.preparationId, request.revision)
       session.draft.seal = seal
@@ -638,8 +939,35 @@ export class ImportPreparationService {
       )
       await action(summary, choices, session)
       this.requireSession(request.preparationId, request.revision)
+      const invalidated = new Set(session.classification.invalidated)
+      if (session.classification.active) {
+        if (summary.mode !== session.summary.mode) {
+          for await (const batch of session.spool.batches()) {
+            for (const candidate of batch) {
+              invalidated.add(candidate.id)
+            }
+          }
+          for (const root of summary.roots) {
+            invalidated.add(root.id)
+          }
+        } else {
+          for (const id of new Set([
+            ...choices.keys(),
+            ...session.draft.choices.keys(),
+          ])) {
+            if (
+              JSON.stringify(choices.get(id)) !==
+              JSON.stringify(session.draft.choices.get(id))
+            ) {
+              invalidated.add(id)
+            }
+          }
+        }
+        this.requireSession(request.preparationId, request.revision)
+      }
       session.summary = summary
       session.draft.choices = choices
+      session.classification.invalidated = invalidated
       this.advance(session)
       return structuredClone(summary)
     })
@@ -655,7 +983,11 @@ export class ImportPreparationService {
         new IpcError('CLOSING', 'Import preparation is closed.'),
       )
     }
-    if (this.work || this.cleanupPending) {
+    if (
+      this.work ||
+      this.cleanupPending ||
+      this.session?.classification.cleanupFailed
+    ) {
       return Promise.reject(
         new DomainValidationError(
           'Wait for the current preparation work or retry cleanup.',
@@ -698,6 +1030,13 @@ export class ImportPreparationService {
   ): Promise<ImportPreparation> {
     this.requireSession(previous.summary.id, previous.summary.revision)
     replacement.summary.revision = previous.summary.revision
+    if (replacement.classification.active) {
+      for (const [id, choice] of replacement.draft.choices) {
+        if (choice.needsSelectionReview) {
+          replacement.classification.invalidated.add(id)
+        }
+      }
+    }
     this.advance(replacement)
     this.session = replacement
     this.cleanupPending = previous.spool
@@ -835,6 +1174,12 @@ export class ImportPreparationService {
         invalidated: false,
         disposing: null,
         draft: { choices: new Map(), seal: null },
+        classification: {
+          ...emptyClassificationState(),
+          active: previous?.classification.active ?? false,
+          choices: new Map(previous?.classification.choices),
+          invalidated: new Set(previous?.classification.invalidated),
+        },
       }
     } catch (error) {
       this.cleanupPending = spool

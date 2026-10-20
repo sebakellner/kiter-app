@@ -5,6 +5,7 @@ export {
   ClassificationBatchReview,
   classificationEvidenceKey,
   classificationPackEvidenceId,
+  prepareClassificationReviewRows,
 } from './batch-review.ts'
 export type { ClassificationReviewRow } from './batch-review.ts'
 export type {

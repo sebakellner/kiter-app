@@ -3,6 +3,11 @@ import { importCandidateSnapshotSchema } from '../../../shared/features/imports/
 import { isDiscoveredAudioFile } from '../../../shared/domain/source.ts'
 import { PREPARATION_LIMITS } from './types.ts'
 import { IMPORT_PREPARATION_MAX_ROOTS } from '../../../shared/features/imports/schemas.ts'
+import {
+  classificationDecisionsSchema,
+  classificationBatchSnapshotSchema,
+  classificationReviewRowSchema,
+} from '../../../shared/features/classification/batch-schemas.ts'
 
 export const spooledCandidateSchema = z.object({
   id: z.string().regex(/^[a-f0-9]{64}$/u),
@@ -114,3 +119,39 @@ export const packDetailsRequestSchema = rootRequestSchema
     description: z.string().nullable().optional(),
   })
   .strict()
+
+export const classificationReferenceSchema = preparationRequestSchema
+  .extend({
+    classificationToken: z.string().regex(/^[a-f0-9]{64}$/u),
+  })
+  .strict()
+export const classificationPageSchema = classificationReferenceSchema
+  .extend({
+    kind: z
+      .enum(['proposals', 'ambiguities', 'decisions'])
+      .default('proposals'),
+    offset: z.int().min(0).max(500000).default(0),
+    limit: z.int().min(1).max(100).default(50),
+  })
+  .strict()
+export const classificationStageSchema = classificationReferenceSchema
+  .extend({
+    choices: classificationDecisionsSchema.shape.choices,
+  })
+  .strict()
+
+export const classificationRecordSchema = z.strictObject({
+  id: z.string().regex(/^[a-f0-9]{64}$/u),
+  stateToken: z.string().regex(/^[a-f0-9]{64}$/u),
+  rows: z
+    .array(
+      classificationReviewRowSchema.extend({
+        fingerprint: z.string().regex(/^[a-f0-9]{64}$/u),
+      }),
+    )
+    .max(2000),
+  ambiguities:
+    classificationBatchSnapshotSchema.shape.targets.element.shape.ambiguities,
+  subject:
+    classificationBatchSnapshotSchema.shape.targets.element.shape.subject,
+})
