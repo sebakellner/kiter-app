@@ -13,6 +13,9 @@ recognition engine and initial in-code vocabulary are implemented as described
 under Architecture and Delivery. Current Author/Instrument DB operations and
 Instrument list/create/rename IPC do not deliver the reviewed workflow. Suggestions
 remain distinct from confirmed user organization.
+The shared batch contract and session review core are also implemented internally;
+catalog-backed batch preparation, rejection storage and confirmed execution remain
+pending.
 
 - Suggest Instruments and Genres from filenames and folder names. Sample type
   has the separate rules below; Author credits and musical BPM/key hints are
@@ -220,8 +223,10 @@ meaning, optionality, and fixed values.
 - Revalidate before execution. Changed relevant identities, evidence, or rules
   require fresh review of affected targets, preserving still-valid decisions.
   Never reinterpret decisions or silently create replacement classifications.
-- Remember explicit rejection while its evidence is unchanged. Alias/rule updates
-  alone do not reset it; the same clue recognized differently is still rejected.
+- Remember explicit rejection for the particular classification identity while its
+  evidence is unchanged. Alias/rule updates alone do not reset it for that identity;
+  recognizing the same clue as a different classification may offer a new proposal.
+  Rejecting Drums must not suppress Drum Breaks supported by the same phrase.
   New/changed supporting evidence, including a distinct newly recognized clue,
   can justify another proposal. The rules apply equally to Samples and Packs.
 - Case/separator-only changes are the same normalized clue. Renaming a target
@@ -406,6 +411,136 @@ edited, reassigned, and deleted supplied aliases are not restored. Retired targe
 are excluded. Terms already in use appear blocked rather than being overwritten.
 This delivers alias additions only, not general vocabulary-update management.
 
+### Implemented Shared Batch Contract and Session Review Core
+
+`src/shared/features/classification/batch-schemas.ts` owns strict, version-1
+serializable schemas for snapshots, subjects, evidence, proposal targets,
+rejections, review references, decisions, pages, and exported drafts.
+`ClassificationBatchReview` in `src/main/services/classification/` implements
+their internal session-only review behavior. This slice does **not** change the
+immediate inspector workflow, integrate import preparation, expose IPC/UI, read
+or write the catalog, or persist rejection memory. Authors and images are outside
+this contract and reject as unknown fields.
+
+Unlike the existing non-strict shared schemas, this versioned batch contract
+deliberately uses `z.strictObject` to reject unknown fields rather than silently
+strip them. Future extensions must explicitly declare supported fields in the
+owning schemas and validate their behavior; do not relax strictness for reuse.
+
+#### Identities and Caller Responsibilities
+
+- A subject identifies a Sample or Pack by catalog UUID, or a new import target by
+  preparation ID plus candidate/root ID. Existing entities use catalog identities;
+  draft IDs are not reserved UUIDs. The future committing owner must map new subjects
+  to committed identities atomically with assignments/rejections, never persist
+  preparation-local handles as catalog identities.
+- Instrument/Genre proposals bind a stable effective vocabulary key, current name,
+  and existing entity UUID or explicit `null` for required creation. Sample type
+  binds only `loop` or `one-shot`. Names are not identities. The caller resolves
+  catalog/vocabulary bindings and omits ambiguous recognition results; the core
+  rejects duplicate subjects/proposals and inconsistent bindings for the same key.
+- Trusted main/worker callers assemble complete, bounded snapshots from eligible
+  roots and effective vocabulary. Each subject carries a SHA-256 `stateToken`
+  binding relevant source/root/origin, vocabulary/rules, and saved organization
+  observations. The core neither creates nor authorizes that token. It does not
+  prove filesystem existence, grant audio access, discover roots, or turn several
+  reads into an atomic filesystem/catalog snapshot.
+- Evidence retains the recognizer's original component text, matched term, token
+  span, source availability and rule provenance. Recognition evidence/target types
+  now live in shared domain contracts and are re-exported by the existing service.
+  The immediate inspector's read-state/apply token is **not** this review protocol.
+
+#### Version-1 Evidence and Rejection Serialization
+
+- SHA-256 evidence keys hash UTF-8 compact JSON arrays. Path keys hash
+  `["classification-evidence-v1", "path", occurrence, normalizedClueTokens]`.
+  Version-1 clue normalization is NFC, lowercase-to-uppercase splitting before
+  locale-independent lowercase, equivalent whitespace/hyphen/underscore/dot
+  separators, and the current recognition punctuation-preserving tokenization.
+  Changing these identity rules requires a new serialization version, not silently
+  changing stored version-1 keys with a recognizer update.
+- Occurrences are exact, caller-scoped location identities, shared across overlapping
+  roots. Do not lowercase paths or use display names as occurrence identities.
+  Component role, source availability, original spelling, matched name/alias,
+  token offset, and rule version are explanation/staleness inputs, not evidence-key
+  inputs. Repeated support at the same occurrence/clue is one rejection clue.
+- Pack evidence hashes
+  `["classification-evidence-v1", "pack-genre", packId, genreKey]`.
+  A catalog Pack uses its UUID. `classificationPackEvidenceId` encodes a new Pack
+  as compact JSON `["import-pack", preparationId, rootId]`, preventing collisions
+  between preparations. Genre keys remain stable across renames; Pack presentation
+  names do not participate.
+- A rejection record is `{ contractVersion: 1, subject, target: { dimension, key },
+evidenceKeys }`. Matching uses subject and stable classification identity plus
+  evidence, not aliases or display names. Rejections never cross Samples/Packs,
+  dimensions, or classification identities. Re-created classifications receive
+  new identities; reassigned aliases can offer their new target.
+- With all current supporting evidence keys covered by remembered rejections for
+  that scope, a proposal is marked remembered and non-reviewable by default. Any
+  new supporting occurrence/clue makes it reviewable again. Removing support alone
+  does not erase memory for unchanged remaining clues. Explicit `includeRejected`
+  makes remembered proposals reviewable without modifying their stored memory.
+- Exported rejection intents contain `remember` records for explicit rejections
+  and `forget` scopes for accepted classifications. A future target transaction
+  must apply acceptance and clear that subject/classification's rejection records
+  atomically. Merely viewing, staging, exporting, or discarding changes nothing.
+
+#### Review, Groups, Freshness and Dependencies
+
+- `getReference()` returns opaque review ID, monotonic revision, and SHA-256 token.
+  Tokens bind the full normalized snapshot, remembered rejections, review mode and
+  staged choices. Object property order and collection input order are normalized.
+  No token is execution consent or a replacement for authoritative revalidation.
+- `stage` validates an explicit group of 1–100 unique proposal keys atomically,
+  supporting `accept`, `reject`, and returning to `unreviewed`. Assigned and hidden
+  remembered proposals cannot be staged. `acceptAll` requires the complete current
+  reference and stages every reviewable proposal, including unloaded pages and
+  previously staged rejections. It has no implicit page/filter scope.
+- `getSummary` reports complete scope counts, distinct required vocabulary
+  creations, and existing-type replacements. `listProposals` exposes saved type,
+  proposed type, replacement status, evidence and dependencies; `listAmbiguities`
+  keeps omitted matches inspectable. Pages default to 50, maximum 100. Existing
+  assignments are non-actionable; proposals never encode assignment removals.
+- Every edit/refresh advances the revision and invalidates old page/group/export
+  references. `refresh` accepts a newly authoritative snapshot and retains a choice
+  only when subject/classification identity, exact evidence/provenance, bindings,
+  relevant saved state, source-state token, and dependency fingerprints still match.
+  Other targets retain valid decisions. Failed validation leaves the old draft
+  unchanged. `discard` releases the owned snapshot and invalidates future access.
+- A Sample Genre may depend explicitly on a selected Pack's proposed Genre. The
+  core requires matching Pack evidence, rejects missing/cyclic/wrong-dimension
+  dependencies, and prevents staged Pack evidence from omitting its dependency.
+  Existing catalog Pack evidence needs no staged acceptance. New draft Pack
+  evidence must refer to a Pack inside the same snapshot/preparation.
+- Exported decisions place Packs before Samples. `dependencyBlocks` identifies
+  accepted Sample decisions whose required Pack Genre is neither already assigned
+  nor staged accepted. `dependenciesSatisfied` reports only this check: it does
+  **not** claim confirmation/execution readiness. Upstream evidence/binding changes
+  invalidate dependent choices, not unrelated targets. Actual execution failures
+  and dependency-blocked durable outcomes remain future execution work.
+
+#### Bounds and Validation Evidence
+
+The internal in-memory core accepts at most 100 subjects, 2,000 proposals, 10,000
+supporting evidence rows including ambiguity evidence, and 8 MiB serialized
+snapshot content. A proposal retains at most 1,000 evidence rows; remembered
+rejection inputs also cap total evidence keys at 10,000 and serialized content at
+8 MiB. Import-local and review handles are at most 256 UTF-16 code units, allowing
+encoded draft Pack evidence to fit the 4,096-unit evidence-identifier limit.
+Limits reject explicitly;
+there is no truncation, streaming input, large-library throughput claim, or whole
+20,000-candidate import integration in this slice. Future import composition must
+define complete paged/spooled scope and group-token semantics rather than silently
+splitting a global Accept all across independent reviews. Serialized-byte limits
+are not process-memory budgets; parsing, indexes and defensive copies add overhead.
+
+Pure tests cover serialization round trips, normalized evidence identity, independent
+Drums/Drum Breaks rejections, alias/rename and changed-evidence behavior, explicit
+rejection override, atomic groups, whole-scope Accept all beyond a loaded page,
+type replacements, preserved assignments, stale/foreign references, refresh and
+discard, Pack dependencies, detached outputs, strict schemas and resource limits.
+Validation is local on macOS, not Windows or a packaged Electron/DAW workflow.
+
 ### Remaining Workflow Delivery
 
 - Pure recognition combines included vocabulary, library names, and aliases into
@@ -419,8 +554,9 @@ This delivers alias additions only, not general vocabulary-update management.
   executable workflow must include its agreed persistence/recovery guarantees.
   Preserve preview, Favorites, and authorized native dragging throughout.
 
-Remaining implementation contracts: future catalog updates, serialized evidence/rejection keys
-(including targets not yet created), tokenization punctuation edge cases, conflict
-payloads, review tokens, dependency queries, IPC, and bounded execution limits.
+Remaining implementation contracts: future catalog updates, tokenization punctuation
+edge cases, catalog-backed batch snapshot adapters and rejection storage, persisted
+draft-to-catalog identity promotion, execution conflict payloads, durable confirmation,
+dependency/result queries, IPC, and measured execution limits.
 Visual design/prototypes remain deferred. These open technical contracts do not
 reopen the business rules above or establish shipped capabilities.
