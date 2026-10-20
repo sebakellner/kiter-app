@@ -1,6 +1,12 @@
 export { createClassificationRecognizer } from './recognition.ts'
 export { initialRecognitionVocabulary } from './vocabulary.ts'
 export { loadCatalogRecognizer } from './catalog.ts'
+export {
+  ClassificationBatchReview,
+  classificationEvidenceKey,
+  classificationPackEvidenceId,
+} from './batch-review.ts'
+export type { ClassificationReviewRow } from './batch-review.ts'
 export type {
   RecognitionComponent,
   RecognitionDimension,

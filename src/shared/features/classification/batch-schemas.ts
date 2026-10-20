@@ -1,0 +1,262 @@
+import { z } from 'zod'
+import { isEntityId, requirePresentationName } from '../../domain/validation.ts'
+
+export const CLASSIFICATION_BATCH_LIMITS = {
+  targets: 100,
+  proposals: 2000,
+  evidence: 10000,
+  decisions: 100,
+  page: 100,
+  serializedBytes: 8 * 1024 * 1024,
+} as const
+
+const identifier = z.string().min(1).max(4096)
+const opaqueId = z.string().min(1).max(256)
+const entityId = z.string().refine(isEntityId)
+const token = z.string().regex(/^[a-f0-9]{64}$/u)
+const dimension = z.enum(['instrument', 'genre', 'sample-type'])
+const sampleType = z.enum(['loop', 'one-shot'])
+const name = z
+  .string()
+  .max(480)
+  .refine((value) => {
+    try {
+      return requirePresentationName(value) === value
+    } catch {
+      return false
+    }
+  }, 'Expected a normalized classification name.')
+
+// Import-local identities are bound to their preparation, never reserved UUIDs.
+export const classificationSubjectSchema = z.strictObject({
+  kind: z.enum(['sample', 'pack']),
+  identity: z.discriminatedUnion('kind', [
+    z.strictObject({ kind: z.literal('catalog'), id: entityId }),
+    z.strictObject({
+      kind: z.literal('import'),
+      preparationId: opaqueId,
+      id: opaqueId,
+    }),
+  ]),
+})
+
+const recognitionTarget = z.strictObject({ dimension, key: identifier })
+
+export const classificationEvidenceSchema = z.discriminatedUnion('kind', [
+  z.strictObject({
+    kind: z.literal('path'),
+    occurrence: identifier,
+    component: z.enum(['root', 'folder', 'filename']),
+    availability: z.enum(['observed', 'cataloged']),
+    text: z.string().min(1).max(4096),
+    clue: identifier,
+    term: identifier,
+    rule: z.enum(['name', 'alias']),
+    ruleVersion: z.literal('path-v2'),
+    span: z
+      .tuple([z.int().nonnegative(), z.int().positive()])
+      .refine(([start, end]) => start < end, 'Expected a nonempty token span.'),
+  }),
+  z.strictObject({
+    kind: z.literal('pack-genre'),
+    // Catalog Pack UUID, or an import-local Pack identity encoded by its caller.
+    packId: identifier,
+    genreKey: identifier,
+  }),
+])
+
+export const classificationProposalTargetSchema = z.discriminatedUnion(
+  'dimension',
+  [
+    z.strictObject({
+      dimension: z.literal('instrument'),
+      key: identifier,
+      name,
+      entityId: entityId.nullable(),
+    }),
+    z.strictObject({
+      dimension: z.literal('genre'),
+      key: identifier,
+      name,
+      entityId: entityId.nullable(),
+    }),
+    z.strictObject({ dimension: z.literal('sample-type'), key: sampleType }),
+  ],
+)
+
+const proposal = z.strictObject({
+  target: classificationProposalTargetSchema,
+  evidence: z.array(classificationEvidenceSchema).min(1).max(1000),
+  // Only staged Pack Genre acceptance can supply a classification dependency.
+  dependencies: z
+    .array(
+      z.strictObject({
+        subject: classificationSubjectSchema,
+        genreKey: identifier,
+      }),
+    )
+    .max(100),
+})
+
+export const classificationBatchSnapshotSchema = z.strictObject({
+  contractVersion: z.literal(1),
+  targets: z
+    .array(
+      z.strictObject({
+        subject: classificationSubjectSchema,
+        // Caller-owned read-state digest: source scope, origin, effective rules, etc.
+        stateToken: token,
+        currentType: sampleType.nullable(),
+        assignments: z.array(recognitionTarget).max(1000),
+        proposals: z.array(proposal).max(CLASSIFICATION_BATCH_LIMITS.proposals),
+        ambiguities: z
+          .array(
+            z.strictObject({
+              reason: z.enum([
+                'conflicting-targets',
+                'overlapping-phrases',
+                'contradictory-type',
+              ]),
+              dimension,
+              targets: z.array(recognitionTarget).min(1).max(100),
+              evidence: z
+                .array(classificationEvidenceSchema.options[0])
+                .min(1)
+                .max(1000),
+            }),
+          )
+          .max(1000),
+      }),
+    )
+    .max(CLASSIFICATION_BATCH_LIMITS.targets),
+})
+
+export const classificationRejectionSchema = z.strictObject({
+  contractVersion: z.literal(1),
+  subject: classificationSubjectSchema,
+  target: recognitionTarget,
+  // Scoped to stable classification identity, not its current name or aliases.
+  evidenceKeys: z.array(token).min(1).max(1000),
+})
+
+export const classificationRejectionsSchema = z
+  .array(classificationRejectionSchema)
+  .max(CLASSIFICATION_BATCH_LIMITS.evidence)
+
+const reviewReference = {
+  reviewId: opaqueId,
+  revision: z.int().positive(),
+  token,
+}
+
+export const classificationDecisionsSchema = z.strictObject({
+  ...reviewReference,
+  choices: z
+    .array(
+      z.strictObject({
+        proposalKey: token,
+        decision: z.enum(['accept', 'reject', 'unreviewed']),
+      }),
+    )
+    .min(1)
+    .max(CLASSIFICATION_BATCH_LIMITS.decisions),
+})
+
+export const classificationAcceptAllSchema = z.strictObject(reviewReference)
+
+export const classificationReviewRowSchema = proposal.extend({
+  proposalKey: token,
+  subject: classificationSubjectSchema,
+  stateToken: token,
+  currentType: sampleType.nullable(),
+  replacesType: z.boolean(),
+  evidenceKeys: z.array(token).min(1).max(1000),
+  remembered: z.boolean(),
+  reviewable: z.boolean(),
+  assigned: z.boolean(),
+  decision: z.enum(['accept', 'reject', 'unreviewed']),
+})
+
+export const classificationBatchDraftSchema = z.strictObject({
+  ...reviewReference,
+  contractVersion: z.literal(1),
+  dependenciesSatisfied: z.boolean(),
+  dependencyBlocks: z
+    .array(
+      z.strictObject({
+        proposalKey: token,
+        dependency: proposal.shape.dependencies.element,
+      }),
+    )
+    .max(CLASSIFICATION_BATCH_LIMITS.proposals * 100),
+  decisions: z
+    .array(classificationReviewRowSchema)
+    .max(CLASSIFICATION_BATCH_LIMITS.proposals)
+    .refine((rows) => rows.every((row) => row.decision !== 'unreviewed')),
+  rejectionChanges: z.strictObject({
+    remember: z
+      .array(classificationRejectionSchema)
+      .max(CLASSIFICATION_BATCH_LIMITS.proposals),
+    forget: z
+      .array(
+        z.strictObject({
+          subject: classificationSubjectSchema,
+          target: recognitionTarget,
+        }),
+      )
+      .max(CLASSIFICATION_BATCH_LIMITS.proposals),
+  }),
+})
+
+export const classificationReviewPageSchema = z.strictObject({
+  ...reviewReference,
+  offset: z.int().nonnegative().default(0),
+  limit: z.int().min(1).max(CLASSIFICATION_BATCH_LIMITS.page).default(50),
+})
+
+export type ClassificationSubject = z.infer<typeof classificationSubjectSchema>
+export type ClassificationReviewRow = z.infer<
+  typeof classificationReviewRowSchema
+>
+export type ClassificationBatchDraft = z.infer<
+  typeof classificationBatchDraftSchema
+>
+export type ClassificationProposalTarget = z.infer<
+  typeof classificationProposalTargetSchema
+>
+export type ClassificationBatchSnapshot = z.infer<
+  typeof classificationBatchSnapshotSchema
+>
+export type ClassificationRejection = z.infer<
+  typeof classificationRejectionSchema
+>
+export type ClassificationDecisionRequest = z.infer<
+  typeof classificationDecisionsSchema
+>
+export type ClassificationReviewReference = z.infer<
+  typeof classificationAcceptAllSchema
+>
+
+export type ClassificationReviewSummary = ClassificationReviewReference & {
+  contractVersion: 1
+  targets: number
+  proposals: number
+  reviewable: number
+  remembered: number
+  ambiguities: number
+  requiredCreations: number
+  typeReplacements: number
+  accepted: number
+  rejected: number
+}
+
+export type ClassificationReviewPage<T> = ClassificationReviewReference & {
+  items: T[]
+  total: number
+  nextOffset: number | null
+}
+
+export type ClassificationAmbiguityRow =
+  ClassificationBatchSnapshot['targets'][number]['ambiguities'][number] & {
+    subject: ClassificationSubject
+  }
