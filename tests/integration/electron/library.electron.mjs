@@ -210,7 +210,7 @@ async function run() {
       const rows = await execute(`
         Array.from(document.querySelectorAll("[data-sample-id]"), row => ({
           id: row.dataset.sampleId, audioUrl: row.dataset.audioUrl,
-          relativePath: row.querySelector("[data-testid=sample-name]").textContent
+          relativePath: (row.querySelector("[data-testid=sample-relative-path]") ?? row.querySelector("[data-testid=sample-name]")).textContent
         }))
       `)
       samples = new Map(rows.map((sample) => [sample.relativePath, sample]))
