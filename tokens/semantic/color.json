@@ -1,12 +1,12 @@
 {
   "color": {
-    "$description": "Dark slate workspace with yellow primary actions, cyan keyboard focus, violet selection and pink errors. Each color has a distinct job; do not use every accent as interchangeable decoration. Values reference primitives only.",
+    "$description": "Near-black workspace with opaque slate surfaces and a single yellow accent for primary actions, keyboard focus and selection indicators. Pink is reserved for error states. Values reference primitives only.",
     "action": {
       "primary": { "$value": "{color.yellow.500}", "$type": "color" },
       "primary-hover": { "$value": "{color.yellow.400}", "$type": "color" },
       "secondary": { "$value": "{color.slate.850}", "$type": "color" },
       "secondary-hover": { "$value": "{color.slate.800}", "$type": "color" },
-      "secondary-active": { "$value": "{color.violet.900}", "$type": "color" },
+      "secondary-active": { "$value": "{color.slate.700}", "$type": "color" },
       "ghost": { "$value": "{color.transparent}", "$type": "color" },
       "ghost-hover": { "$value": "{color.slate.800}", "$type": "color" }
     },
@@ -16,11 +16,12 @@
       "on-action": { "$value": "{color.slate.900}", "$type": "color" }
     },
     "surface": {
-      "page": { "$value": "{color.slate.900}", "$type": "color" },
-      "soft": { "$value": "{color.slate.850}", "$type": "color" },
-      "muted": { "$value": "{color.slate.800}", "$type": "color" },
-      "selection": { "$value": "{color.violet.900}", "$type": "color" },
-      "field": { "$value": "{color.slate.950}", "$type": "color" }
+      "page": { "$value": "{color.slate.990}", "$type": "color" },
+      "soft": { "$value": "{color.slate.975}", "$type": "color" },
+      "muted": { "$value": "{color.slate.950}", "$type": "color" },
+      "selection": { "$value": "{color.slate.950}", "$type": "color" },
+      "accent-subtle": { "$value": "{color.yellow.900}", "$type": "color" },
+      "field": { "$value": "{color.black}", "$type": "color" }
     },
     "border": {
       "default": { "$value": "{color.slate.700}", "$type": "color" },
@@ -29,13 +30,16 @@
       "danger": { "$value": "{color.pink.500}", "$type": "color" }
     },
     "focus": {
-      "ring": { "$value": "{color.cyan.500}", "$type": "color" }
+      "ring": { "$value": "{color.yellow.500}", "$type": "color" }
     },
     "selection": {
-      "indicator": { "$value": "{color.violet.400}", "$type": "color" }
+      "indicator": { "$value": "{color.yellow.500}", "$type": "color" }
     },
     "status": {
       "danger": { "$value": "{color.pink.400}", "$type": "color" }
+    },
+    "waveform": {
+      "default": { "$value": "{color.slate.300}", "$type": "color" }
     },
     "backdrop": {
       "inspector": { "$value": "{color.black-alpha.35}", "$type": "color" },

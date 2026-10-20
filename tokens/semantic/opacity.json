@@ -1,7 +1,7 @@
 {
   "opacity": {
     "disabled": {
-      "$description": "Whole-control opacity for the existing disabled Button state; not a text color or an accessibility contrast guarantee.",
+      "$description": "Whole-control opacity for disabled controls and options; not a text color or an accessibility contrast guarantee.",
       "$value": "{opacity.50}",
       "$type": "number"
     }
