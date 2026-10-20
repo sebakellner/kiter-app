@@ -2,11 +2,11 @@ import {
   act,
   cleanup,
   fireEvent,
-  render,
   screen,
   waitFor,
   within,
 } from '@testing-library/react'
+import { renderWithToasts as render } from '../../../../../tests/support/ui/renderWithToasts'
 import userEvent from '@testing-library/user-event'
 import { afterEach, expect, test, vi } from 'vitest'
 import {

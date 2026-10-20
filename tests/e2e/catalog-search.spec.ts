@@ -27,14 +27,30 @@ test('local search reads saved metadata and relative paths and restores independ
   await expect(names).toHaveText(['snare.wav'])
   await expect(search).toBeFocused()
   await search.fill('TEXTURES open')
-  await expect(names).toHaveText([hatPath])
+  await expect(names).toHaveText(['Ópen_Hat.wav'])
+  await expect(page.getByTestId('sample-relative-path')).toHaveText(hatPath)
+  await library
+    .row('Ópen_Hat.wav')
+    .getByRole('button', { name: 'More actions: Ópen_Hat.wav', exact: true })
+    .click()
+  await page
+    .getByRole('menuitem', { name: 'Add to Collection', exact: true })
+    .click()
+  const picker = page.getByRole('dialog', {
+    name: 'Add to Collection',
+    exact: true,
+  })
+  await expect(picker.getByText('Ópen_Hat.wav', { exact: true })).toBeVisible()
+  await expect(picker.getByText(hatPath, { exact: true })).toBeVisible()
+  await picker.getByRole('button', { name: 'Cancel', exact: true }).click()
   await page.getByRole('link', { name: 'Favorites', exact: true }).click()
   await expect(search).toHaveValue('')
   await search.fill('house kick')
   await expect(names).toHaveText(['snare.wav'])
   await page.getByRole('button', { name: 'Back', exact: true }).click()
   await expect(search).toHaveValue('TEXTURES open')
-  await expect(names).toHaveText([hatPath])
+  await expect(names).toHaveText(['Ópen_Hat.wav'])
+  await expect(page.getByTestId('sample-relative-path')).toHaveText(hatPath)
   await page.getByRole('button', { name: 'Forward', exact: true }).click()
   await expect(search).toHaveValue('house kick')
   await expect(names).toHaveText(['snare.wav'])

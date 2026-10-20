@@ -15,9 +15,9 @@ export function PreviewPlayer({
       tabIndex={-1}
     >
       <div className="preview-player-description">
-        <p>
+        <p title={selected?.path}>
           {selected
-            ? `Preview: ${selected.relativePath}`
+            ? `Preview: ${selected.name}`
             : 'Choose a sample to preview'}
         </p>
         {error && (

@@ -10,7 +10,7 @@ import { useMoveCollectionSample } from './useMoveCollectionSample'
 const collectionId = '11111111-1111-4111-8111-111111111111'
 const sample = {
   id: '22222222-2222-4222-8222-222222222222',
-  relativePath: 'kick.wav',
+  name: 'Kick 808',
 }
 const page: LibraryPage = {
   items: [],
@@ -69,6 +69,7 @@ test('moves are serialized, remain pessimistic and require a fresh page before a
   expect(close).toHaveBeenCalledOnce()
   expect(onRefresh).not.toHaveBeenCalled()
   expect(result.current.notice).toContain('position 51')
+  expect(result.current.notice).toContain('Kick 808 moved')
   expect(result.current.blocked).toBe(true)
   await act(async () => result.current.move(sample, 'down'))
   expect(api.collections.moveSample).toHaveBeenCalledOnce()

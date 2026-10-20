@@ -3,7 +3,7 @@ import type { DragEvent } from 'react'
 import type { CollectionPlaceRequest } from '@shared/domain/collection'
 
 export const COLLECTION_REORDER_MIME = 'application/x-kiter-collection-sample'
-type Target = { id: string; relativePath: string }
+type Target = { id: string; name: string }
 type Placement = CollectionPlaceRequest['placement']
 type ActiveDrag = {
   sample: Target
@@ -109,7 +109,7 @@ export function useCollectionDrag({
       if (row) {
         event.dataTransfer.setDragImage(row, 12, 12)
       }
-      const source = { id: sample.id, relativePath: sample.relativePath }
+      const source = { id: sample.id, name: sample.name }
       active.current = { sample: source, collectionId, token, offset }
       setDraggingId(sample.id)
       setTarget(null)

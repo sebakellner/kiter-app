@@ -1,4 +1,4 @@
-import type { ComponentProps } from 'react'
+import { useId, type ComponentProps } from 'react'
 import { Button } from '@renderer/components/ui/Button'
 import {
   ContextMenu,
@@ -14,6 +14,8 @@ import type { SampleAudioDragProps } from '../../hooks/useSampleAudioDrag'
 
 type Props = {
   sample: ListSample
+  showRelativePath: boolean
+  showSourceFolder: boolean
   rowProps: ComponentProps<'li'>
   audioDragProps: SampleAudioDragProps
   playing: boolean
@@ -36,6 +38,8 @@ type Props = {
 
 export function SampleListRow({
   sample,
+  showRelativePath,
+  showSourceFolder,
   rowProps,
   audioDragProps,
   playing,
@@ -50,6 +54,9 @@ export function SampleListRow({
   order,
 }: Props): React.JSX.Element {
   const menu = useContextMenu()
+  const sourceId = useId()
+  const descriptionId =
+    showRelativePath || showSourceFolder ? sourceId : undefined
   return (
     <li
       {...rowProps}
@@ -83,6 +90,7 @@ export function SampleListRow({
       title={`${sample.path}\n${order ? 'Drag the handle to reorder. Drag the name or waveform into your DAW.' : 'Drag this sample into your DAW'}`}
       data-audio-url={sample.audioUrl}
       data-sample-id={sample.id}
+      aria-describedby={descriptionId}
     >
       <div role="gridcell">
         <div className="sample-heading">
@@ -90,7 +98,8 @@ export function SampleListRow({
             <Button
               variant="ghost"
               className="sample-order-handle"
-              aria-label={`Reorder ${sample.relativePath}`}
+              aria-label={`Reorder ${sample.name}`}
+              aria-describedby={descriptionId}
               title="Drag to reorder. Keyboard moves are in the Sample menu."
               disabled={!order.drag.enabled}
               draggable={order.drag.enabled}
@@ -109,21 +118,23 @@ export function SampleListRow({
             className="sample-name"
             data-testid="sample-name"
             disabled={!sample.audioUrl}
-            aria-label={`Preview ${sample.relativePath}`}
+            aria-label={`Preview ${sample.name}`}
+            aria-describedby={descriptionId}
             onClick={onPreview}
           >
-            {sample.relativePath}
+            {sample.name}
           </Button>
-          {'rootPath' in sample &&
-            sample.name !== sample.relativePath.split(/[\\/]/).pop() && (
-              <span>{sample.name}</span>
-            )}
-          <FavoriteButton file={sample} onChanged={onFavoriteChanged} />
+          <FavoriteButton
+            file={sample}
+            onChanged={onFavoriteChanged}
+            descriptionId={descriptionId}
+          />
           {onInspect && (
             <Button
               variant="ghost"
               draggable={false}
-              aria-label={`Info: ${sample.relativePath}`}
+              aria-label={`Info: ${sample.name}`}
+              aria-describedby={descriptionId}
               aria-controls="sample-inspector"
               aria-expanded={
                 inspectorOpen && rowProps['aria-selected'] === true
@@ -142,7 +153,8 @@ export function SampleListRow({
             disabled={!sample.audioUrl}
             className="preview-button"
             data-testid="preview-toggle"
-            aria-label={`${playing ? 'Pause' : 'Play'} ${sample.relativePath}`}
+            aria-label={`${playing ? 'Pause' : 'Play'} ${sample.name}`}
+            aria-describedby={descriptionId}
             aria-pressed={playing}
             onDragStart={(event) => {
               event.preventDefault()
@@ -154,18 +166,32 @@ export function SampleListRow({
           </Button>
           <Button
             {...menu.triggerProps}
-            aria-label={`More actions: ${sample.relativePath}`}
+            aria-label={`More actions: ${sample.name}`}
+            aria-describedby={descriptionId}
           >
             <span aria-hidden="true">⋯</span>
           </Button>
         </div>
-        {'rootPath' in sample && <p>{sample.rootPath ?? sample.path}</p>}
+        {descriptionId && (
+          <div id={sourceId} className="sample-source-context">
+            {showRelativePath && (
+              <p data-testid="sample-relative-path">{sample.relativePath}</p>
+            )}
+            {showSourceFolder && (
+              <p>
+                {'rootPath' in sample
+                  ? (sample.rootPath ?? sample.path)
+                  : sample.path}
+              </p>
+            )}
+          </div>
+        )}
         {sample.audioUrl && (
           <div className="sample-waveform-drag" {...audioDragProps}>
             <Waveform
               key={sample.audioUrl}
               audioUrl={sample.audioUrl}
-              name={sample.relativePath}
+              name={sample.name}
             />
           </div>
         )}
@@ -180,7 +206,7 @@ export function SampleListRow({
       </div>
       <ContextMenu
         {...menu.menuProps}
-        label={`Actions for ${sample.relativePath}`}
+        label={`Actions for ${sample.name}`}
         items={[
           {
             id: 'preview',

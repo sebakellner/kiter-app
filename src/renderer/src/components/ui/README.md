@@ -26,6 +26,23 @@ in these primitives.
   Cancel receives initial focus; Escape cancels and outside clicks do not dismiss.
   `pending` blocks both actions and dismissal; `confirmDisabled` blocks confirmation
   only. The caller owns async work, errors and closing after confirmed success.
+- `Toast` provides success, info and error feedback without moving focus. Success
+  and info expire after five seconds by default, preserving remaining time while
+  hovered or focused. Errors stay until dismissed. The close button is accessible;
+  Escape dismisses a focused toast without dismissing its surrounding modal.
+  Treat each notice as immutable and mount a new keyed Toast for a new message.
+  Mount a single `ToastProvider` around the app and call
+  `const { showToast } = useToast()` from features. The provider owns session-only
+  state and the private viewport; features do not import a store or mount a host.
+  The viewport follows native dialogs so notifications stay visible and interactive
+  above modal content, and survives route changes. `showToast` groups notices by
+  optional operation identity and bounds the stack to five, removing only older
+  transient notices to make room. Existing errors survive later successes;
+  repeated failures for the same operation update that failure. When all five
+  slots hold errors, additional independent notices are not added rather than
+  evicting an unresolved error; feature-owned feedback remains authoritative.
+  `useToast` requires a provider. Provider unmount clears its notifications and
+  timers; no notification state is shared between separate providers.
 - `Card` uses a quiet panel surface; selected cards and active sidebar links use
   the selection color. `Badge` is supporting information, not a primary action.
 

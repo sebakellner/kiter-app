@@ -4,10 +4,20 @@ import './FavoriteButton.css'
 import { Button } from '@renderer/components/ui/Button'
 import type { LibrarySample, FavoriteState } from '@shared/ipc'
 import { unwrapIpcResult } from '@shared/ipc/result'
+import { useToast } from '@renderer/components/ui/Toast'
 
-type Props = { file: LibrarySample; onChanged: (state: FavoriteState) => void }
+type Props = {
+  file: LibrarySample
+  onChanged: (state: FavoriteState) => void
+  descriptionId?: string
+}
 
-export function FavoriteButton({ file, onChanged }: Props): React.JSX.Element {
+export function FavoriteButton({
+  file,
+  onChanged,
+  descriptionId,
+}: Props): React.JSX.Element {
+  const { showToast } = useToast()
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const state = useRef({ mounted: false, busy: false })
@@ -31,7 +41,18 @@ export function FavoriteButton({ file, onChanged }: Props): React.JSX.Element {
       const saved = unwrapIpcResult(
         await window.api.library.setFavorite(file.id, !file.favorite),
       )
+      if (saved.id !== file.id) {
+        throw new Error(
+          'The Favorite change could not be verified. Refresh before trying again.',
+        )
+      }
       onChanged(saved)
+      showToast({
+        operationId: `favorite:${file.id}`,
+        message: saved.favorite
+          ? `“${file.name}” added to Favorites.`
+          : `“${file.name}” removed from Favorites.`,
+      })
     } catch (reason) {
       if (state.current.mounted) {
         setError(
@@ -55,7 +76,8 @@ export function FavoriteButton({ file, onChanged }: Props): React.JSX.Element {
         draggable={false}
         disabled={pending}
         aria-pressed={file.favorite}
-        aria-label={`${file.favorite ? 'Remove favorite' : 'Add favorite'}: ${file.relativePath}`}
+        aria-label={`${file.favorite ? 'Remove favorite' : 'Add favorite'}: ${file.name}`}
+        aria-describedby={descriptionId}
         onDragStart={(event) => {
           event.preventDefault()
           event.stopPropagation()

@@ -42,7 +42,18 @@ test('a Sample menu creates a Collection membership that survives a separate Ele
   await expect(
     picker.getByRole('region', { name: 'Collection results' }),
   ).toContainText('1 added, 0 already included, 0 failed.')
+  await expect(
+    picker.getByRole('region', { name: 'Notifications' }),
+  ).toContainText('“kick.wav” added to “Session Picks”.')
   await picker.getByRole('button', { name: 'Done', exact: true }).click()
+  const notifications = page.getByRole('region', { name: 'Notifications' })
+  await expect(notifications).toContainText(
+    '“kick.wav” added to “Session Picks”.',
+  )
+  await notifications
+    .getByRole('button', { name: /Dismiss notification/ })
+    .click()
+  await expect(notifications.getByRole('status')).toHaveCount(0)
   await expect(page.locator('audio')).not.toHaveAttribute('src')
 
   await kiter.restart()

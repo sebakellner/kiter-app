@@ -162,7 +162,7 @@ export function CatalogList({
       {adding && (
         <AddToCollection
           key={adding.id}
-          sample={{ id: adding.id, name: adding.relativePath }}
+          sample={adding}
           onClose={() => {
             setAdding(null)
             if (collectionId) {

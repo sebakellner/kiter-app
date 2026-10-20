@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { act, render, screen, waitFor } from '@testing-library/react'
+import { act, screen, waitFor, within } from '@testing-library/react'
+import { renderWithToasts as render } from '../../../../../../../tests/support/ui/renderWithToasts'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, test, vi } from 'vitest'
 import type { FavoriteState, IpcResult } from '@shared/ipc'
@@ -19,6 +20,57 @@ function FavoriteHarness(): React.JSX.Element {
 }
 
 describe('FavoriteButton', () => {
+  test('Favorite feedback uses the Sample name, not its source path', async () => {
+    const api = createTestApi()
+    const file = makeAudioSample({
+      name: 'Warm Kick',
+      relativePath: 'Pack/Drums/kick.wav',
+    })
+    api.library.setFavorite.mockResolvedValue({
+      ok: true,
+      data: { id: file.id, favorite: true },
+    })
+    vi.stubGlobal('api', api)
+    const user = userEvent.setup()
+    render(<FavoriteButton file={file} onChanged={vi.fn()} />)
+    await user.click(
+      screen.getByRole('button', { name: 'Add favorite: Warm Kick' }),
+    )
+    expect(
+      within(screen.getByRole('region', { name: 'Notifications' })).getByRole(
+        'status',
+      ),
+    ).toHaveTextContent('“Warm Kick” added to Favorites.')
+    expect(api.library.setFavorite).toHaveBeenCalledExactlyOnceWith(
+      file.id,
+      true,
+    )
+  })
+
+  test('an unverified reply cannot change the Sample or publish a success toast', async () => {
+    const api = createTestApi()
+    api.library.setFavorite.mockResolvedValue({
+      ok: true,
+      data: { id: '22222222-2222-4222-8222-222222222222', favorite: true },
+    })
+    vi.stubGlobal('api', api)
+    const onChanged = vi.fn()
+    const user = userEvent.setup()
+    render(<FavoriteButton file={makeAudioSample()} onChanged={onChanged} />)
+    await user.click(
+      screen.getByRole('button', { name: 'Add favorite: kick.wav' }),
+    )
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'could not be verified',
+    )
+    expect(onChanged).not.toHaveBeenCalled()
+    expect(
+      within(screen.getByRole('region', { name: 'Notifications' })).queryByRole(
+        'status',
+      ),
+    ).not.toBeInTheDocument()
+  })
+
   test('prevents duplicate writes while pending and presents the confirmed state', async () => {
     const api = createTestApi()
     const pending = deferred<IpcResult<FavoriteState>>()
@@ -38,6 +90,11 @@ describe('FavoriteButton', () => {
       makeAudioSample().id,
       true,
     )
+    expect(
+      within(screen.getByRole('region', { name: 'Notifications' })).queryByRole(
+        'status',
+      ),
+    ).not.toBeInTheDocument()
     await act(async () =>
       pending.resolve({
         ok: true,
@@ -48,6 +105,11 @@ describe('FavoriteButton', () => {
       screen.getByRole('button', { name: 'Remove favorite: kick.wav' }),
     ).toBeEnabled()
     expect(button).toHaveAttribute('aria-pressed', 'true')
+    expect(
+      within(screen.getByRole('region', { name: 'Notifications' })).getByRole(
+        'status',
+      ),
+    ).toHaveTextContent('“kick.wav” added to Favorites.')
   })
 
   test('preserves the previous state on failure and allows a successful retry', async () => {
@@ -76,6 +138,11 @@ describe('FavoriteButton', () => {
     )
     expect(button).toBeEnabled()
     expect(button).toHaveAttribute('aria-pressed', 'false')
+    expect(
+      within(screen.getByRole('region', { name: 'Notifications' })).queryByRole(
+        'status',
+      ),
+    ).not.toBeInTheDocument()
     await user.click(button)
     await waitFor(() => expect(button).toHaveAttribute('aria-pressed', 'true'))
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
