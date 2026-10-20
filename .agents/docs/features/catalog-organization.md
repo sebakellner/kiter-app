@@ -213,6 +213,9 @@ prototype, not a combined multi-field inspector Save.
   Cmd/Ctrl+Enter, dirty Save/Discard/Stay review, navigation blocking and native
   quit protection. Editing changes only name/description, not the stable ID,
   memberships, manual order, independently managed cover or source audio.
+- The form module's `useCollectionForm` owns React Hook Form, bridge requests,
+  reload/baseline state, dirty review and navigation/quit protection. The component
+  retains presentation, accessible field wiring and focus placement.
 - `collections:update` requires expected saved name/description. Stale, failed
   or uncertain saves retain the draft and require Reload saved details before
   another explicit save. Reload preserves intended edits, updates the saved

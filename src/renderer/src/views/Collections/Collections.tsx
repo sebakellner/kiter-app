@@ -14,6 +14,7 @@ export function Collections(): React.JSX.Element {
 }
 
 function CollectionList(): React.JSX.Element {
+  const { state } = useLocation()
   const { context, update, onReady } = useCatalogViewContext()
   const { page, loading, error, load, refresh } = useCollections(context.offset)
   const [creating, setCreating] = useState(false)
@@ -38,6 +39,11 @@ function CollectionList(): React.JSX.Element {
       <h1 id="collections-title" tabIndex={-1}>
         Collections
       </h1>
+      {state?.collectionDeleted === true && (
+        <p role="status">
+          Collection deleted. Samples and original audio files were kept.
+        </p>
+      )}
       <Button variant="primary" onClick={() => setCreating(true)}>
         Create Collection
       </Button>

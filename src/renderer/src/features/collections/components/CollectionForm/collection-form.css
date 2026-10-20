@@ -1,11 +1,11 @@
-.collection-create fieldset {
+.collection-form fieldset {
   display: grid;
   gap: 8px;
   padding: 0;
   border: 0;
 }
 
-.collection-create textarea {
+.collection-form textarea {
   min-height: 80px;
   resize: vertical;
   padding: 8px 10px;
@@ -16,48 +16,48 @@
   font-size: var(--font-size-control);
 }
 
-.collection-create textarea:enabled:hover {
+.collection-form textarea:enabled:hover {
   border-color: var(--color-text-secondary);
 }
 
-.collection-create textarea[aria-invalid='true'] {
+.collection-form textarea[aria-invalid='true'] {
   border-color: var(--color-danger);
 }
 
-.collection-create textarea:disabled {
+.collection-form textarea:disabled {
   opacity: 0.5;
 }
 
-.collection-create label {
+.collection-form label {
   font-size: var(--font-size-control);
   font-weight: 500;
 }
 
-.collection-create label:not(:first-child) {
+.collection-form label:not(:first-child) {
   margin-top: 8px;
 }
 
-.collection-create footer {
+.collection-form footer {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
   margin-top: 24px;
 }
 
-.collection-create [role='alert'] {
+.collection-form [role='alert'] {
   color: var(--color-danger);
 }
 
-.collection-create section[aria-label] {
+.collection-form section[aria-label] {
   margin-top: 20px;
   padding-top: 16px;
   border-top: 1px solid var(--color-border);
 }
 
-.collection-create section[aria-label] p {
+.collection-form section[aria-label] p {
   margin-bottom: 12px;
 }
 
-.collection-create section[aria-label] .ui-button {
+.collection-form section[aria-label] .ui-button {
   margin: 0 8px 8px 0;
 }

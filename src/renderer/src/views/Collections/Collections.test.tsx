@@ -22,7 +22,10 @@ import { useNavigationStore } from '@renderer/stores/useNavigationStore'
 import { createTestApi } from '../../../../../tests/support/ui/bridge'
 import { makeCollectionSummary } from '../../../../../tests/support/fixtures/collection'
 import { deferred } from '../../../../../tests/support/fixtures/deferred'
-import type { Collection } from '@shared/domain/collection'
+import type {
+  Collection,
+  CollectionRemovalReview,
+} from '@shared/domain/collection'
 import type { IpcResult } from '@shared/ipc/result'
 import { LibrarySessionProvider } from '@renderer/features/library/components/LibrarySessionProvider'
 import { SampleInspectorProvider } from '@renderer/features/library/components/SampleInspector'
@@ -36,6 +39,285 @@ afterEach(() => {
 })
 
 const onReady = (): void => {}
+
+test.each(['success', 'failure'] as const)(
+  'pending Collection deletion waits for native quit and handles %s without replaying the request',
+  async (outcome) => {
+    const { api, router, user } = setup()
+    await screen.findByText(/No Collections yet/)
+    const close = vi.spyOn(window, 'close').mockImplementation(() => {})
+    const collection = makeCollectionSummary()
+    api.collections.get.mockResolvedValue({ ok: true, data: collection })
+    api.collections.reviewRemoval.mockResolvedValue({
+      ok: true,
+      data: { entity: collection, sampleCount: 0, token: 'a'.repeat(64) },
+    })
+    await act(async () => {
+      await router.navigate(`/collections/${collection.id}`)
+    })
+    await user.click(
+      await screen.findByRole('button', { name: 'Delete Collection' }),
+    )
+    const dialog = screen.getByRole('alertdialog')
+    const pending = deferred<IpcResult<{ id: string }>>()
+    api.collections.remove.mockReturnValueOnce(pending.promise)
+    await user.click(
+      await within(dialog).findByRole('button', { name: 'Delete Collection' }),
+    )
+    const exit = new Event('beforeunload', { cancelable: true })
+    act(() => {
+      window.dispatchEvent(exit)
+    })
+    expect(exit.defaultPrevented).toBe(true)
+    expect(close).not.toHaveBeenCalled()
+    await act(async () => {
+      await router.navigate('/home')
+    })
+    expect(router.state.location.pathname).toBe(`/collections/${collection.id}`)
+    await act(async () =>
+      pending.resolve(
+        outcome === 'success'
+          ? { ok: true, data: { id: collection.id } }
+          : {
+              ok: false,
+              error: {
+                code: 'STORAGE_FAILED',
+                message: 'Unable to verify deletion. Review again.',
+              },
+            },
+      ),
+    )
+    expect(api.collections.remove).toHaveBeenCalledTimes(1)
+    if (outcome === 'success') {
+      expect(close).toHaveBeenCalledOnce()
+    } else {
+      expect(close).not.toHaveBeenCalled()
+      expect(await within(dialog).findByRole('alert')).toHaveTextContent(
+        'Review again.',
+      )
+      await user.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+      await act(async () => {
+        await router.navigate('/home')
+      })
+      expect(
+        await screen.findByRole('heading', { name: 'Home' }),
+      ).toBeInTheDocument()
+    }
+  },
+)
+
+test('Collection deletion requires a successful fresh review and ignores results after leaving its detail', async () => {
+  const { api, router, user } = setup()
+  await screen.findByText(/No Collections yet/)
+  const collection = makeCollectionSummary()
+  api.collections.get.mockResolvedValue({ ok: true, data: collection })
+  api.collections.reviewRemoval.mockResolvedValueOnce({
+    ok: false,
+    error: {
+      code: 'STORAGE_FAILED',
+      message: 'Unable to review the Collection.',
+    },
+  })
+  await act(async () => {
+    await router.navigate(`/collections/${collection.id}`)
+  })
+  await user.click(
+    await screen.findByRole('button', { name: 'Delete Collection' }),
+  )
+  const dialog = screen.getByRole('alertdialog')
+  expect(await within(dialog).findByRole('alert')).toHaveTextContent(
+    'Unable to review',
+  )
+  expect(api.collections.remove).not.toHaveBeenCalled()
+  const pending = deferred<IpcResult<CollectionRemovalReview>>()
+  api.collections.reviewRemoval.mockReturnValueOnce(pending.promise)
+  await user.click(within(dialog).getByRole('button', { name: 'Review again' }))
+  expect(
+    within(dialog).getByRole('button', { name: 'Review again' }),
+  ).toBeDisabled()
+  await act(async () => {
+    await router.navigate('/home')
+  })
+  await act(async () =>
+    pending.resolve({
+      ok: true,
+      data: { entity: collection, sampleCount: 0, token: 'a'.repeat(64) },
+    }),
+  )
+  expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+  expect(screen.getByRole('heading', { name: 'Home' })).toBeInTheDocument()
+  expect(api.collections.remove).not.toHaveBeenCalled()
+})
+
+test('Collection editing preserves failed drafts, reloads saved values for comparison and saves with the refreshed baseline', async () => {
+  const { api, router, user } = setup()
+  await screen.findByText(/No Collections yet/)
+  const collection = makeCollectionSummary({
+    description: 'Original description',
+  })
+  api.collections.get.mockResolvedValue({ ok: true, data: collection })
+  await act(async () => {
+    await router.navigate(`/collections/${collection.id}`)
+  })
+  await user.click(
+    await screen.findByRole('button', { name: 'Edit Collection' }),
+  )
+  const dialog = screen.getByRole('dialog', { name: 'Edit Collection' })
+  const name = within(dialog).getByRole('textbox', { name: 'Name' })
+  expect(name).toHaveValue(collection.name)
+  await user.clear(name)
+  await user.type(name, 'My new name')
+  api.collections.update.mockResolvedValueOnce({
+    ok: false,
+    error: {
+      code: 'STALE_REVIEW',
+      message: 'The Collection changed. Reload saved details.',
+    },
+  })
+  await user.click(within(dialog).getByRole('button', { name: 'Save' }))
+  expect(await within(dialog).findByRole('alert')).toHaveTextContent(
+    'The Collection changed.',
+  )
+  expect(name).toHaveValue('My new name')
+  expect(within(dialog).getByRole('button', { name: 'Save' })).toBeDisabled()
+  const newer = { ...collection, name: 'Another saved name' }
+  api.collections.get.mockResolvedValue({ ok: true, data: newer })
+  await user.click(
+    within(dialog).getByRole('button', { name: 'Reload saved details' }),
+  )
+  expect(name).toHaveValue('My new name')
+  expect(within(dialog).getByText(newer.name)).toBeInTheDocument()
+  const pending = deferred<IpcResult<Collection>>()
+  api.collections.update.mockReturnValueOnce(pending.promise)
+  await user.click(within(dialog).getByRole('button', { name: 'Save' }))
+  expect(name).toBeDisabled()
+  await user.keyboard('{Escape}')
+  expect(dialog).toBeVisible()
+  expect(api.collections.update).toHaveBeenLastCalledWith({
+    id: collection.id,
+    name: 'My new name',
+    description: 'Original description',
+    expected: { name: newer.name, description: newer.description },
+  })
+  const saved = { ...newer, name: 'My new name' }
+  api.collections.get.mockResolvedValue({ ok: true, data: saved })
+  await act(async () => pending.resolve({ ok: true, data: saved }))
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  expect(
+    await screen.findByRole('heading', { name: saved.name, level: 1 }),
+  ).toBeInTheDocument()
+  expect(api.library.setFavorite).not.toHaveBeenCalled()
+})
+
+test('Collection edit navigation offers Save, Discard or Stay and never deletes a dirty draft', async () => {
+  const { api, router, user } = setup()
+  await screen.findByText(/No Collections yet/)
+  const collection = makeCollectionSummary()
+  api.collections.get.mockResolvedValue({ ok: true, data: collection })
+  await act(async () => {
+    await router.navigate(`/collections/${collection.id}`)
+  })
+  await user.click(
+    await screen.findByRole('button', { name: 'Edit Collection' }),
+  )
+  const dialog = screen.getByRole('dialog')
+  await user.type(
+    within(dialog).getByRole('textbox', { name: 'Name' }),
+    ' edited',
+  )
+  await act(async () => {
+    await router.navigate('/home')
+  })
+  expect(router.state.location.pathname).toBe(`/collections/${collection.id}`)
+  await user.click(within(dialog).getByRole('button', { name: 'Stay' }))
+  await user.keyboard('{Escape}')
+  expect(
+    within(dialog).getByRole('button', { name: 'Save and close' }),
+  ).toBeVisible()
+  await user.click(
+    within(dialog).getByRole('button', { name: 'Discard changes' }),
+  )
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  expect(api.collections.update).not.toHaveBeenCalled()
+  expect(api.collections.reviewRemoval).not.toHaveBeenCalled()
+})
+
+test('Collection deletion cancels safely, discards stale reviews and requires a fresh confirmation before navigating to the list', async () => {
+  const { api, router, user } = setup()
+  await screen.findByText(/No Collections yet/)
+  const collection = makeCollectionSummary({ sampleCount: 1 })
+  api.collections.get.mockResolvedValue({ ok: true, data: collection })
+  const review = { entity: collection, sampleCount: 1, token: 'a'.repeat(64) }
+  api.collections.reviewRemoval.mockResolvedValue({ ok: true, data: review })
+  await act(async () => {
+    await router.navigate(`/collections/${collection.id}`)
+  })
+  const opener = await screen.findByRole('button', {
+    name: 'Delete Collection',
+  })
+  await user.click(opener)
+  let dialog = screen.getByRole('alertdialog', { name: 'Delete Collection?' })
+  expect(
+    await within(dialog).findByText(/Original|original audio files are kept/),
+  ).toBeInTheDocument()
+  await user.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+  expect(api.collections.remove).not.toHaveBeenCalled()
+  expect(opener).toHaveFocus()
+  await user.click(opener)
+  dialog = screen.getByRole('alertdialog')
+  await waitFor(() =>
+    expect(
+      within(dialog).getByRole('button', { name: 'Delete Collection' }),
+    ).toBeEnabled(),
+  )
+  api.collections.remove.mockResolvedValueOnce({
+    ok: false,
+    error: {
+      code: 'STALE_REVIEW',
+      message: 'The Collection changed. Review it again before removing.',
+    },
+  })
+  await user.click(
+    within(dialog).getByRole('button', { name: 'Delete Collection' }),
+  )
+  expect(await within(dialog).findByRole('alert')).toHaveTextContent(
+    'Review it again',
+  )
+  expect(
+    within(dialog).queryByRole('button', { name: 'Delete Collection' }),
+  ).not.toBeInTheDocument()
+  const fresh = { ...review, sampleCount: 2, token: 'b'.repeat(64) }
+  api.collections.reviewRemoval.mockResolvedValueOnce({ ok: true, data: fresh })
+  await user.click(within(dialog).getByRole('button', { name: 'Review again' }))
+  expect(
+    await within(dialog).findByText(/2 Sample references/),
+  ).toBeInTheDocument()
+  expect(api.collections.remove).toHaveBeenCalledTimes(1)
+  const pending = deferred<IpcResult<{ id: string }>>()
+  api.collections.remove.mockReturnValueOnce(pending.promise)
+  await user.click(
+    within(dialog).getByRole('button', { name: 'Delete Collection' }),
+  )
+  await user.keyboard('{Escape}')
+  expect(dialog).toBeVisible()
+  expect(within(dialog).getByRole('button', { name: 'Cancel' })).toBeDisabled()
+  expect(api.collections.remove).toHaveBeenLastCalledWith({
+    id: collection.id,
+    token: fresh.token,
+  })
+  await act(async () => {
+    await router.navigate('/home')
+  })
+  expect(router.state.location.pathname).toBe(`/collections/${collection.id}`)
+  await act(async () =>
+    pending.resolve({ ok: true, data: { id: collection.id } }),
+  )
+  await waitFor(() =>
+    expect(router.state.location.pathname).toBe('/collections'),
+  )
+  expect(screen.getByText(/Collection deleted\. Samples/)).toBeInTheDocument()
+  expect(api.library.setFavorite).not.toHaveBeenCalled()
+})
 
 function Layout(): React.JSX.Element {
   const { context, update } = useNavigationContext()
