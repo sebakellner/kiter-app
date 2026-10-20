@@ -80,6 +80,74 @@ test('saved classification filters intersect with Favorites and restore their de
   await expect(kiter.page.locator('audio')).not.toHaveAttribute('src')
 })
 
+test('narrow Name cells keep the full accessible filename and badges on one line each without expanding rows', async ({
+  kiter,
+}) => {
+  const name =
+    'Deep_Kick_with_a_long_filename_that_must_not_wrap_in_a_narrow_table.wav'
+  await writeFile(path.join(kiter.empty, name), createWav(0.1))
+  await writeFile(path.join(kiter.empty, 'short.wav'), createWav(0.1))
+  const page = kiter.page
+  const library = new LibraryPage(page)
+  await kiter.selectFolder(kiter.empty)
+  await library.openFolder()
+  await expect(page.getByTestId('sample-name')).toHaveCount(2)
+  await seedClassifiedSample(page, name)
+  await page.getByRole('button', { name: 'Refresh', exact: true }).click()
+  const row = library.row(name)
+  const categories = row.getByRole('list', { name: 'Sample categories' })
+  await expect(categories.getByRole('listitem')).toHaveCount(3)
+  await kiter.application.evaluate(({ BrowserWindow }) =>
+    BrowserWindow.getAllWindows()[0].setContentSize(900, 680),
+  )
+  await expect.poll(() => page.evaluate(() => innerWidth)).toBe(900)
+  await expect(page.getByTestId('sample-duration')).toHaveCount(2)
+
+  const layout = await row.evaluate((element) => {
+    const filename = element.querySelector<HTMLElement>(
+      '[data-testid="sample-name"]',
+    )
+    const badges = element.querySelector<HTMLElement>(
+      '[aria-label="Sample categories"]',
+    )
+    if (!filename || !badges) {
+      throw new Error(
+        'The Sample must expose its filename and saved categories.',
+      )
+    }
+    const text = document.createRange()
+    text.selectNodeContents(filename)
+    const badgeTops = Array.from(
+      badges.children,
+      (badge) => badge.getBoundingClientRect().top,
+    )
+    return {
+      filenameLines: new Set(
+        Array.from(text.getClientRects(), (rect) => Math.round(rect.top)),
+      ).size,
+      filenameClipped: filename.scrollWidth > filename.clientWidth,
+      badgesClipped: badges.scrollWidth > badges.clientWidth,
+      badgeLineSpread: Math.max(...badgeTops) - Math.min(...badgeTops),
+      rowHeight: element.getBoundingClientRect().height,
+    }
+  })
+  expect(layout.filenameLines).toBe(1)
+  expect(layout.filenameClipped).toBe(true)
+  expect(layout.badgesClipped).toBe(true)
+  expect(layout.badgeLineSpread).toBeLessThan(1)
+  const shortHeight = await library
+    .row('short.wav')
+    .evaluate((element) => element.getBoundingClientRect().height)
+  expect(layout.rowHeight).toBe(shortHeight)
+  await expect(
+    row.getByRole('button', { name: `Preview ${name}`, exact: true }),
+  ).toHaveAttribute('title', name)
+  await library.inspect(name)
+  await expect(
+    page.getByRole('complementary', { name: 'Sample info' }),
+  ).toContainText(name)
+})
+
 test('saving a manual Sample type overrides suggestions and Unknown allows fresh proposals', async ({
   kiter,
 }) => {

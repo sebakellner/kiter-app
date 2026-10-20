@@ -88,8 +88,8 @@ export function SampleList({
         <TableColumn className="sample-list-pack-column" />
         {order && <TableColumn className="sample-list-control-column" />}
         <TableColumn className="sample-list-control-column" />
-        <TableColumn className="sample-list-name-column" />
         <TableColumn />
+        <TableColumn className="sample-list-waveform-column" />
         <TableColumn className="sample-list-time-column" />
         <TableColumn className="sample-list-favorite-column" />
         <TableColumn className="sample-list-actions-column" />
