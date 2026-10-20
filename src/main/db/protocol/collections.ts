@@ -13,6 +13,9 @@ import type {
   CollectionDestination,
   CollectionDestinationsRequest,
   CollectionMembershipResult,
+  CollectionMoveRequest,
+  CollectionMoveResult,
+  CollectionPlaceRequest,
 } from '../../../shared/domain/collection.ts'
 import {
   requireCollectionDescription,
@@ -32,9 +35,14 @@ import {
   requireCollectionDestinationsRequest,
   isCollectionDestinationPage,
   isCollectionMembershipResult,
+  requireCollectionMoveRequest,
+  isCollectionMoveResult,
+  requireCollectionPlaceRequest,
 } from '../../../shared/ipc/collections.ts'
 
 export type CollectionRequest =
+  | { action: 'place-collection-sample'; input: CollectionPlaceRequest }
+  | { action: 'move-collection-sample'; input: CollectionMoveRequest }
   | {
       action: 'list-collection-destinations'
       input: CollectionDestinationsRequest
@@ -55,6 +63,8 @@ export type CollectionRequest =
   | { action: 'remove-collection'; input: CollectionRemovalRequest }
 
 export type CollectionReply =
+  | { action: 'place-collection-sample'; result: CollectionMoveResult }
+  | { action: 'move-collection-sample'; result: CollectionMoveResult }
   | {
       action: 'list-collection-destinations'
       result: CollectionPage<CollectionDestination>
@@ -89,6 +99,12 @@ export function isCollectionRequest(
   const input = value.input
   try {
     switch (value.action) {
+      case 'place-collection-sample':
+        requireCollectionPlaceRequest(input)
+        return true
+      case 'move-collection-sample':
+        requireCollectionMoveRequest(input)
+        return true
       case 'list-collection-destinations':
         requireCollectionDestinationsRequest(input)
         return true
@@ -144,6 +160,10 @@ export function isCollectionReply(value: unknown): value is CollectionReply {
   }
   const result = value.result
   switch (value.action) {
+    case 'place-collection-sample':
+      return isCollectionMoveResult(result)
+    case 'move-collection-sample':
+      return isCollectionMoveResult(result)
     case 'list-collection-destinations':
       return isCollectionDestinationPage(result)
     case 'get-collection-summary':

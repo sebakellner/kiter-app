@@ -11,13 +11,13 @@ import { sourceRoots } from '../../schema/sources.ts'
 import {
   requireLibraryListRequest,
   type CatalogSample,
+  type CatalogPage,
   type LibraryListRequest,
 } from '../../../../shared/ipc/library.ts'
-import type { Page } from '../../../../shared/domain/pagination.ts'
 import { requireEntityId } from '../../../../shared/domain/validation.ts'
 import { DbError } from '../../errors.ts'
 import { collectionSamples } from '../../schema/collections.ts'
-import { getCollection } from '../collections/operations.ts'
+import { getCollectionOrderToken } from '../collections/order.ts'
 
 // Root associations are discovery evidence; current containment is checked in main.
 const rootPath = sql<string | null>`(SELECT min(${sourceRoots.canonicalPath})
@@ -105,15 +105,15 @@ function buildSearchRank(search: string | undefined): SQL | undefined {
 export function listCatalogSamples(
   db: AppDatabase,
   input: LibraryListRequest,
-): Page<CatalogSample> {
+): CatalogPage {
   const request = requireLibraryListRequest(input)
   const { limit = 50, offset = 0, search, collectionId } = request
   const filter = buildCatalogFilter(request)
   const rank = buildSearchRank(search)
   return db.transaction(() => {
-    if (collectionId) {
-      getCollection(db, collectionId)
-    }
+    const collectionOrderToken = collectionId
+      ? getCollectionOrderToken(db, collectionId)
+      : undefined
     const total = db
       .select({ value: count() })
       .from(samples)
@@ -139,7 +139,13 @@ export function listCatalogSamples(
       .limit(limit)
       .offset(offset)
       .all()
-    return { items: rows, total, limit, offset }
+    return {
+      items: rows,
+      total,
+      limit,
+      offset,
+      ...(collectionOrderToken ? { collectionOrderToken } : {}),
+    }
   })
 }
 

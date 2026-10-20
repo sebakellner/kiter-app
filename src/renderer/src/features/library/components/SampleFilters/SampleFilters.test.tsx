@@ -206,6 +206,45 @@ test('Sample type selector shows its filter name by default and replaces a singl
   expect(api.genres.list).toHaveBeenCalledTimes(1)
 })
 
+test('pending-operation disabling preserves criteria and prevents every filter or clear action', async () => {
+  const api = createTestApi()
+  vi.stubGlobal('api', api)
+  api.instruments.list.mockResolvedValue({
+    ok: true,
+    data: { items: [], total: 0, limit: 50, offset: 0 },
+  })
+  api.genres.list.mockResolvedValue({
+    ok: true,
+    data: { items: [], total: 0, limit: 50, offset: 0 },
+  })
+  const onChange = vi.fn()
+  const onSearchChange = vi.fn()
+  const user = userEvent.setup()
+  render(
+    <SampleFilters
+      instruments={[{ id: 'kick', name: 'Kick' }]}
+      genres={[{ id: 'house', name: 'House' }]}
+      sampleTypes={['loop']}
+      search="kick"
+      disabled
+      onChange={onChange}
+      onSearchChange={onSearchChange}
+    />,
+  )
+  for (const control of [
+    ...screen.getAllByRole('combobox'),
+    ...screen.getAllByRole('button'),
+    screen.getByRole('searchbox'),
+  ]) {
+    expect(control).toBeDisabled()
+  }
+  await user.click(screen.getByRole('button', { name: 'Clear all' }))
+  await user.type(screen.getByRole('searchbox'), 'snare')
+  expect(screen.getByRole('searchbox')).toHaveValue('kick')
+  expect(onChange).not.toHaveBeenCalled()
+  expect(onSearchChange).not.toHaveBeenCalled()
+})
+
 test('Genre options reject stale searches and preserve selected chips through failure and retry', async () => {
   const api = createTestApi()
   vi.stubGlobal('api', api)

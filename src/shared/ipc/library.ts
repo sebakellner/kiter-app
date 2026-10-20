@@ -7,6 +7,7 @@ import {
   type SampleTypeFilter,
 } from '../features/library/schemas.ts'
 import { effectiveCatalogSearch } from '../features/library/search.ts'
+import { isCollectionOrderToken } from './collections.ts'
 import {
   DomainValidationError,
   isEntityId,
@@ -45,7 +46,12 @@ export interface LibraryListRequest extends PageRequest {
   search?: string
   collectionId?: string
 }
-export type LibraryPage = Page<CatalogAudioSample>
+export type CatalogPage = Page<CatalogSample> & {
+  collectionOrderToken?: string
+}
+export type LibraryPage = Omit<CatalogPage, 'items'> & {
+  items: CatalogAudioSample[]
+}
 
 export function requireLibraryListRequest(value: unknown): LibraryListRequest {
   const page = requirePage(value)
@@ -128,6 +134,8 @@ export function isLibraryPage(value: unknown): value is LibraryPage {
     return (
       value.limit === limit &&
       value.offset === offset &&
+      (value.collectionOrderToken === undefined ||
+        isCollectionOrderToken(value.collectionOrderToken)) &&
       typeof value.total === 'number' &&
       Number.isSafeInteger(value.total) &&
       value.total >= 0 &&

@@ -5,6 +5,9 @@ import type { PreviewController } from '../../hooks/usePreview'
 import { SampleListRow } from './SampleListRow'
 import { useSampleList } from './useSampleList'
 import type { ListSample } from './useSampleList'
+import type { CollectionDragController } from '@renderer/features/collections/hooks/useCollectionDrag'
+import type { CollectionMoveRequest } from '@shared/domain/collection'
+import { useSampleAudioDrag } from '../../hooks/useSampleAudioDrag'
 
 type Props = {
   samples: ListSample[]
@@ -17,6 +20,15 @@ type Props = {
   onRemoveFromCollection?: (sample: ListSample) => void
   membershipPending?: boolean
   onAddToCollection?: (sample: ListSample) => void
+  order?: {
+    drag: CollectionDragController
+    offset: number
+    total: number
+    onMove: (
+      sample: ListSample,
+      direction: CollectionMoveRequest['direction'],
+    ) => void
+  }
 }
 
 export function SampleList({
@@ -30,8 +42,10 @@ export function SampleList({
   onRemoveFromCollection,
   membershipPending = false,
   onAddToCollection,
+  order,
 }: Props): React.JSX.Element {
-  const { dragError, previewSample, getRowProps, selectSample } = useSampleList(
+  const audioDrag = useSampleAudioDrag()
+  const { previewSample, getRowProps, selectSample } = useSampleList(
     samples,
     preview,
     onSelectionChanged,
@@ -50,9 +64,12 @@ export function SampleList({
             key={sample.id}
             sample={sample}
             rowProps={getRowProps(index)}
+            audioDragProps={audioDrag.getDragProps(sample)}
             playing={preview.selected?.id === sample.id && preview.playing}
             dragError={
-              dragError?.audioUrl === sample.audioUrl ? dragError.message : null
+              audioDrag.error?.audioUrl === sample.audioUrl
+                ? audioDrag.error.message
+                : null
             }
             onPreview={() => previewSample(sample)}
             onFavoriteChanged={onFavoriteChanged}
@@ -65,6 +82,19 @@ export function SampleList({
                 : undefined
             }
             membershipPending={membershipPending}
+            order={
+              order
+                ? {
+                    drag: order.drag,
+                    canMoveUp: order.drag.enabled && order.offset + index > 0,
+                    canMoveDown:
+                      order.drag.enabled &&
+                      order.offset + index < order.total - 1,
+                    select: () => selectSample(sample),
+                    move: (direction) => order.onMove(sample, direction),
+                  }
+                : undefined
+            }
             inspectorOpen={inspectorOpen}
             onInspect={
               onInspect

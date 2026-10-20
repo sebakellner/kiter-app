@@ -18,6 +18,7 @@ import { WorkerTransport } from './client/worker-transport'
 import type { LibrarySample, FavoriteState } from '../../shared/ipc'
 import type {
   CatalogSample,
+  CatalogPage,
   LibraryListRequest,
 } from '../../shared/ipc/library'
 import type { Page } from '../../shared/domain/pagination'
@@ -64,6 +65,9 @@ import type {
   CollectionDestination,
   CollectionDestinationsRequest,
   CollectionMembershipResult,
+  CollectionMoveRequest,
+  CollectionMoveResult,
+  CollectionPlaceRequest,
 } from '../../shared/domain/collection'
 import type { CollectionRequest } from './protocol/collections'
 import { isCollectionRequest } from './protocol/collections'
@@ -399,7 +403,7 @@ export class DbClient {
   }
   async listCatalogSamples(
     input: LibraryListRequest = {},
-  ): Promise<Page<CatalogSample>> {
+  ): Promise<CatalogPage> {
     const reply = await this.sampleRequest({
       action: 'list-catalog-samples',
       input,
@@ -1001,6 +1005,32 @@ export class DbClient {
       input,
     })
     if (reply.action !== 'set-collection-membership') {
+      throw new Error(UNEXPECTED_REPLY_MESSAGE)
+    }
+    return reply.result
+  }
+
+  async moveCollectionSample(
+    input: CollectionMoveRequest,
+  ): Promise<CollectionMoveResult> {
+    const reply = await this.collectionRequest({
+      action: 'move-collection-sample',
+      input,
+    })
+    if (reply.action !== 'move-collection-sample') {
+      throw new Error(UNEXPECTED_REPLY_MESSAGE)
+    }
+    return reply.result
+  }
+
+  async placeCollectionSample(
+    input: CollectionPlaceRequest,
+  ): Promise<CollectionMoveResult> {
+    const reply = await this.collectionRequest({
+      action: 'place-collection-sample',
+      input,
+    })
+    if (reply.action !== 'place-collection-sample') {
       throw new Error(UNEXPECTED_REPLY_MESSAGE)
     }
     return reply.result

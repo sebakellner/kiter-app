@@ -11,6 +11,9 @@ import {
   requireCollectionMembershipRequest,
   isCollectionDestinationPage,
   isCollectionMembershipResult,
+  requireCollectionMoveRequest,
+  isCollectionMoveResult,
+  requireCollectionPlaceRequest,
 } from './collections.ts'
 import { requireCollectionPage } from '../domain/collection.ts'
 
@@ -55,6 +58,72 @@ test('Collection IPC creation reuses Unicode name/description rules and rejects 
     assert.throws(() => requireCollectionCreateRequest(value), {
       code: 'INVALID_INPUT',
     })
+  }
+})
+
+test('Collection drops validate both member identities, explicit placement and the drag-start snapshot', () => {
+  const { id } = makeCollectionSummary()
+  const request = {
+    collectionId: id,
+    sampleId: id,
+    targetSampleId: id,
+    placement: 'before',
+    token: 'a'.repeat(64),
+  }
+  assert.deepEqual(requireCollectionPlaceRequest(request), request)
+  for (const invalid of [
+    null,
+    {},
+    { ...request, targetSampleId: null },
+    { ...request, targetSampleId: '/file.wav' },
+    { ...request, placement: 'first' },
+    { ...request, token: '' },
+  ]) {
+    assert.throws(() => requireCollectionPlaceRequest(invalid), {
+      code: 'INVALID_INPUT',
+    })
+  }
+})
+
+test('Collection moves require an exact read token, one direction and catalog identities', () => {
+  const { id } = makeCollectionSummary()
+  const request = {
+    collectionId: id,
+    sampleId: id,
+    direction: 'up',
+    token: 'a'.repeat(64),
+  }
+  assert.deepEqual(requireCollectionMoveRequest(request), request)
+  for (const invalid of [
+    null,
+    {},
+    { ...request, collectionId: '/path' },
+    { ...request, sampleId: null },
+    { ...request, direction: 'left' },
+    { ...request, token: '' },
+    { ...request, token: 'a'.repeat(63) },
+  ]) {
+    assert.throws(() => requireCollectionMoveRequest(invalid), {
+      code: 'INVALID_INPUT',
+    })
+  }
+  const result = {
+    collectionId: id,
+    sampleId: id,
+    changed: true,
+    index: 50,
+    orderToken: request.token,
+  }
+  assert.equal(isCollectionMoveResult(result), true)
+  for (const invalid of [
+    { ...result, index: -1 },
+    { ...result, index: 0.5 },
+    { ...result, index: Number.MAX_SAFE_INTEGER + 1 },
+    { ...result, changed: undefined },
+    { ...result, orderToken: null },
+    { ...result, sampleId: '/path' },
+  ]) {
+    assert.equal(isCollectionMoveResult(invalid), false)
   }
 })
 

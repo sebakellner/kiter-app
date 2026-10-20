@@ -8,6 +8,8 @@ export function createTestApi(): {
     get: ReturnType<typeof vi.fn<Api['collections']['get']>>
     destinations: ReturnType<typeof vi.fn<Api['collections']['destinations']>>
     setMembership: ReturnType<typeof vi.fn<Api['collections']['setMembership']>>
+    moveSample: ReturnType<typeof vi.fn<Api['collections']['moveSample']>>
+    placeSample: ReturnType<typeof vi.fn<Api['collections']['placeSample']>>
   }
   genres: {
     list: ReturnType<typeof vi.fn<Api['genres']['list']>>
@@ -60,6 +62,8 @@ export function createTestApi(): {
       get: vi.fn<Api['collections']['get']>(),
       destinations: vi.fn<Api['collections']['destinations']>(),
       setMembership: vi.fn<Api['collections']['setMembership']>(),
+      moveSample: vi.fn<Api['collections']['moveSample']>(),
+      placeSample: vi.fn<Api['collections']['placeSample']>(),
     },
     genres: {
       list: vi.fn<Api['genres']['list']>(),

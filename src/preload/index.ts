@@ -24,6 +24,7 @@ import {
   isCollectionSummary,
   isCollectionDestinationPage,
   isCollectionMembershipResult,
+  isCollectionMoveResult,
 } from '@shared/ipc/collections'
 import {
   isAliasUpdatePage,
@@ -43,6 +44,16 @@ import {
 // Custom APIs for renderer
 const api: Api = {
   collections: {
+    placeSample: async (request) =>
+      requireIpcResult(
+        await ipcRenderer.invoke(COLLECTION_CHANNELS.placeSample, request),
+        isCollectionMoveResult,
+      ),
+    moveSample: async (request) =>
+      requireIpcResult(
+        await ipcRenderer.invoke(COLLECTION_CHANNELS.moveSample, request),
+        isCollectionMoveResult,
+      ),
     destinations: async (request) =>
       requireIpcResult(
         await ipcRenderer.invoke(COLLECTION_CHANNELS.destinations, request),

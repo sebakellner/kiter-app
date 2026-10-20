@@ -5,6 +5,10 @@ import type {
 import type { AppDatabase } from '../../runtime/connection.ts'
 import * as collections from '../../operations/collections/operations.ts'
 import {
+  moveCollectionSample,
+  placeCollectionSample,
+} from '../../operations/collections/order.ts'
+import {
   reviewCollectionRemoval,
   removeCollection,
 } from '../../operations/collections/removal.ts'
@@ -14,6 +18,16 @@ export function executeCollection(
   request: CollectionRequest,
 ): CollectionReply {
   switch (request.action) {
+    case 'place-collection-sample':
+      return {
+        action: request.action,
+        result: placeCollectionSample(db, request.input),
+      }
+    case 'move-collection-sample':
+      return {
+        action: request.action,
+        result: moveCollectionSample(db, request.input),
+      }
     case 'list-collection-destinations':
       return {
         action: request.action,
