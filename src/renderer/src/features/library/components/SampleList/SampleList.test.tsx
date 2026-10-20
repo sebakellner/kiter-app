@@ -1,4 +1,5 @@
-import { act, fireEvent, render, screen, within } from '@testing-library/react'
+import { act, fireEvent, screen, within } from '@testing-library/react'
+import { renderWithToasts as render } from '../../../../../../../tests/support/ui/renderWithToasts'
 import userEvent from '@testing-library/user-event'
 import { expect, test, vi } from 'vitest'
 import { useState } from 'react'
@@ -10,6 +11,7 @@ import {
   useCollectionDrag,
   COLLECTION_REORDER_MIME,
 } from '@renderer/features/collections/hooks/useCollectionDrag'
+import { PreviewPlayer } from '../PreviewPlayer/PreviewPlayer'
 
 vi.mock('../Waveform', () => ({
   Waveform: ({ name }: { name: string }) => (
@@ -62,6 +64,100 @@ const snare = makeAudioSample({
   name: 'snare.wav',
   relativePath: 'snare.wav',
   audioUrl: 'sample://audio/00000000-0000-4000-8000-000000000004',
+})
+
+test('Sample names lead row actions, waveforms and playback while paths remain secondary descriptions', async () => {
+  const { preview } = setup()
+  const user = userEvent.setup()
+  const sample = makeAudioSample({
+    name: 'Warm Kick',
+    relativePath: 'Pack/Drums/kick.wav',
+  })
+  const add = vi.fn()
+  render(
+    <>
+      <SampleList
+        samples={[sample]}
+        preview={preview}
+        onFavoriteChanged={vi.fn()}
+        onInspect={vi.fn()}
+        onAddToCollection={add}
+      />
+      <PreviewPlayer preview={{ ...preview, selected: sample }} />
+    </>,
+  )
+  const row = screen.getByRole('row')
+  expect(within(row).getByTestId('sample-name')).toHaveTextContent('Warm Kick')
+  expect(within(row).getByTestId('sample-relative-path')).toHaveTextContent(
+    sample.relativePath,
+  )
+  expect(
+    within(row).getByRole('button', { name: 'Preview Warm Kick' }),
+  ).toHaveAccessibleDescription(sample.relativePath)
+  expect(
+    within(row).getByRole('button', { name: 'Add favorite: Warm Kick' }),
+  ).toHaveAccessibleDescription(sample.relativePath)
+  expect(
+    within(row).getByRole('button', { name: 'Info: Warm Kick' }),
+  ).toBeInTheDocument()
+  expect(
+    within(row).getByRole('img', { name: 'Waveform of Warm Kick' }),
+  ).toBeInTheDocument()
+  expect(
+    screen.getByRole('region', { name: 'Global player' }),
+  ).toHaveTextContent('Preview: Warm Kick')
+  expect(
+    screen.getByRole('region', { name: 'Global player' }),
+  ).not.toHaveTextContent(sample.relativePath)
+  await user.click(
+    within(row).getByRole('button', { name: 'More actions: Warm Kick' }),
+  )
+  const menu = screen.getByRole('menu', { name: 'Actions for Warm Kick' })
+  await user.click(
+    within(menu).getByRole('menuitem', { name: 'Add to Collection' }),
+  )
+  expect(add).toHaveBeenCalledWith(sample)
+})
+
+test('homonymous Samples retain visible path and source context without replacing their primary names', () => {
+  const { preview } = setup()
+  const samples = [
+    {
+      ...makeAudioSample({ name: 'Kick', relativePath: 'Drums/kick.wav' }),
+      rootPath: '/fixtures/Pack A',
+      sourceRevision: 1,
+      unavailableReason: null,
+    },
+    {
+      ...makeAudioSample({
+        id: snare.id,
+        name: 'Kick',
+        relativePath: 'Drums/kick.wav',
+        path: '/fixtures/Pack B/Drums/kick.wav',
+      }),
+      rootPath: '/fixtures/Pack B',
+      sourceRevision: 1,
+      unavailableReason: null,
+    },
+  ]
+  render(
+    <SampleList
+      samples={samples}
+      preview={preview}
+      onFavoriteChanged={vi.fn()}
+    />,
+  )
+  const rows = screen.getAllByRole('row')
+  for (const [index, row] of rows.entries()) {
+    expect(within(row).getByTestId('sample-name')).toHaveTextContent('Kick')
+    expect(within(row).getByTestId('sample-relative-path')).toHaveTextContent(
+      samples[index].relativePath,
+    )
+    expect(within(row).getByText(samples[index].rootPath)).toBeVisible()
+    expect(
+      within(row).getByRole('button', { name: 'Preview Kick' }),
+    ).toHaveAccessibleDescription(`Drums/kick.wav ${samples[index].rootPath}`)
+  }
 })
 
 function setup(): {
@@ -466,7 +562,7 @@ test('Collection handles reorder with internal drag data and a drop marker witho
   expect(onPlace).not.toHaveBeenCalled()
   dragEvent(second, 'drop', dataTransfer, 25)
   expect(onPlace).toHaveBeenCalledWith(
-    { id: kick.id, relativePath: kick.relativePath },
+    { id: kick.id, name: kick.name },
     snare.id,
     'before',
     'a'.repeat(64),

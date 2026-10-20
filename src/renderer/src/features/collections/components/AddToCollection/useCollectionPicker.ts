@@ -38,7 +38,10 @@ type PickerController = {
   chooseAgain: () => void
 }
 
-export function useCollectionPicker(sampleId: string): PickerController {
+export function useCollectionPicker(
+  sampleId: string,
+  onCompleted: (outcomes: MembershipOutcome[]) => void,
+): PickerController {
   const form = useForm<CollectionPickerValues>({
     resolver: zodResolver(collectionPickerSchema),
     defaultValues: { collectionIds: [] },
@@ -190,6 +193,7 @@ export function useCollectionPicker(sampleId: string): PickerController {
         }
       }
       if (mounted.current) {
+        onCompleted(next)
         setOutcomes((current) => [
           ...(current ?? []).filter(
             ({ id }) => !next.some((item) => item.id === id),

@@ -20,7 +20,7 @@ test('removal preserves failed targets for retry, blocks duplicate writes and re
   const collectionId = '11111111-1111-4111-8111-111111111111'
   const sample = {
     id: '22222222-2222-4222-8222-222222222222',
-    relativePath: 'kick.wav',
+    name: 'Kick 808',
   }
   const { result, unmount } = renderHook(() =>
     useRemoveCollectionSample(collectionId, onChanged),
@@ -47,6 +47,7 @@ test('removal preserves failed targets for retry, blocks duplicate writes and re
   await act(async () => result.current.retry())
   expect(result.current.error).toBeNull()
   expect(result.current.notice).toContain('Sample remains in your library')
+  expect(result.current.notice).toContain('Kick 808 removed')
   expect(onChanged).toHaveBeenCalledOnce()
   expect(
     api.collections.setMembership.mock.calls.map(([request]) => request),
@@ -75,7 +76,7 @@ test('an unmounted removal does not refresh a different view after its write com
   act(() => {
     void result.current.remove({
       id: '22222222-2222-4222-8222-222222222222',
-      relativePath: 'kick.wav',
+      name: 'Kick 808',
     })
   })
   unmount()

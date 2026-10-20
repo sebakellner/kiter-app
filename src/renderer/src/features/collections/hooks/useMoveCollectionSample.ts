@@ -7,7 +7,7 @@ import type {
   CollectionPlaceRequest,
 } from '@shared/domain/collection'
 
-type Target = { id: string; relativePath: string }
+type Target = { id: string; name: string }
 type MoveState = {
   pending: boolean
   sourcePage: LibraryPage
@@ -134,7 +134,7 @@ export function useMoveCollectionSample({
         sourcePage: page,
         error: null,
         notice: result.changed
-          ? `${sample.relativePath} moved to position ${result.index + 1}.`
+          ? `${sample.name} moved to position ${result.index + 1}.`
           : 'This Sample is already in that position.',
       })
       onMoved(result)

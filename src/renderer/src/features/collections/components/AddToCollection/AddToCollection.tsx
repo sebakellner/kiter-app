@@ -7,15 +7,43 @@ import { CreateCollection } from '../CreateCollection/CreateCollection'
 import { useCollectionPicker } from './useCollectionPicker'
 import { PendingMembershipGuard } from '../PendingMembershipGuard'
 import './add-to-collection.css'
+import { useToast } from '@renderer/components/ui/Toast'
+import type { LibrarySample } from '@shared/ipc/library'
 
 export function AddToCollection({
   sample,
   onClose,
 }: {
-  sample: { id: string; name: string }
+  sample: Pick<LibrarySample, 'id' | 'name' | 'relativePath'>
   onClose: () => void
 }): React.JSX.Element {
-  const picker = useCollectionPicker(sample.id)
+  const operationId = useId()
+  const { showToast } = useToast()
+  const picker = useCollectionPicker(sample.id, (outcomes) => {
+    const added = outcomes.filter(({ status }) => status === 'added')
+    const existing = outcomes.filter(
+      ({ status }) => status === 'already-included',
+    )
+    const failed = outcomes.filter(({ status }) => status === 'failed')
+    if (failed.length > 0) {
+      showToast({
+        operationId,
+        variant: 'error',
+        message: `“${sample.name}”: ${added.length} added, ${existing.length} already included, ${failed.length} failed. Review the Collection results.`,
+      })
+    } else if (added.length === 1 && existing.length === 0) {
+      showToast({
+        operationId,
+        message: `“${sample.name}” added to “${added[0].name}”.`,
+      })
+    } else {
+      showToast({
+        operationId,
+        variant: added.length > 0 ? 'success' : 'info',
+        message: `“${sample.name}”: ${added.length} added, ${existing.length} already included, 0 failed.`,
+      })
+    }
+  })
   const [creating, setCreating] = useState(false)
   const titleId = useId()
   const input = useRef<HTMLInputElement>(null)
@@ -50,6 +78,9 @@ export function AddToCollection({
       {picker.pending && <PendingMembershipGuard />}
       <h2 id={titleId}>Add to Collection</h2>
       <p>{sample.name}</p>
+      {sample.relativePath !== sample.name && (
+        <p className="collection-picker-help">{sample.relativePath}</p>
+      )}
       <p className="collection-picker-help">
         Add references to this Sample. Original audio stays in place.
       </p>

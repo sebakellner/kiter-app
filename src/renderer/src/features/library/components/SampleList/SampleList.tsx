@@ -56,6 +56,14 @@ export function SampleList({
     return <p>No audio files to display.</p>
   }
 
+  const nameCounts = new Map<string, number>()
+  const locationCounts = new Map<string, number>()
+  for (const sample of samples) {
+    nameCounts.set(sample.name, (nameCounts.get(sample.name) ?? 0) + 1)
+    const key = JSON.stringify([sample.name, sample.relativePath])
+    locationCounts.set(key, (locationCounts.get(key) ?? 0) + 1)
+  }
+
   return (
     <>
       <ul className="sample-list" role="grid" aria-label="Audio files">
@@ -63,6 +71,15 @@ export function SampleList({
           <SampleListRow
             key={sample.id}
             sample={sample}
+            showRelativePath={
+              sample.relativePath !== sample.name ||
+              (nameCounts.get(sample.name) ?? 0) > 1
+            }
+            showSourceFolder={
+              (locationCounts.get(
+                JSON.stringify([sample.name, sample.relativePath]),
+              ) ?? 0) > 1
+            }
             rowProps={getRowProps(index)}
             audioDragProps={audioDrag.getDragProps(sample)}
             playing={preview.selected?.id === sample.id && preview.playing}

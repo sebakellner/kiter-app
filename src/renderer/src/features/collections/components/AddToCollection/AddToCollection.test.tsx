@@ -1,11 +1,5 @@
-import {
-  act,
-  cleanup,
-  render,
-  screen,
-  waitFor,
-  within,
-} from '@testing-library/react'
+import { act, cleanup, screen, waitFor, within } from '@testing-library/react'
+import { renderWithToasts as render } from '../../../../../../../tests/support/ui/renderWithToasts'
 import userEvent from '@testing-library/user-event'
 import { afterEach, expect, test, vi } from 'vitest'
 import { createMemoryRouter, Link, RouterProvider } from 'react-router-dom'
@@ -20,7 +14,11 @@ import { makeCollectionSummary } from '../../../../../../../tests/support/fixtur
 import { deferred } from '../../../../../../../tests/support/fixtures/deferred'
 import { AddToCollection } from './AddToCollection'
 
-const sample = { id: '00000000-0000-4000-8000-000000000001', name: 'kick.wav' }
+const sample = {
+  id: '00000000-0000-4000-8000-000000000001',
+  name: 'Warm Kick',
+  relativePath: 'Pack/Drums/kick.wav',
+}
 const first = { ...makeCollectionSummary(), assigned: true }
 const second = {
   ...makeCollectionSummary({ id: '22222222-2222-4222-8222-222222222222' }),
@@ -80,6 +78,11 @@ function setup(total = 2): {
 
 test('multi-destination additions distinguish existing members, retain partial results and retry only failed identities', async () => {
   const { api, user, router, onClose } = setup()
+  const picker = screen.getByRole('dialog', { name: 'Add to Collection' })
+  expect(within(picker).getByText('Warm Kick', { exact: true })).toBeVisible()
+  expect(
+    within(picker).getByText(sample.relativePath, { exact: true }),
+  ).toBeVisible()
   await user.click(
     await screen.findByRole('checkbox', { name: new RegExp(first.id) }),
   )
@@ -101,6 +104,13 @@ test('multi-destination additions distinguish existing members, retain partial r
   })
   expect(results).toHaveTextContent('0 added, 1 already included, 1 failed.')
   expect(results).toHaveTextContent('Second destination failed.')
+  expect(
+    within(screen.getByRole('region', { name: 'Notifications' })).getByRole(
+      'alert',
+    ),
+  ).toHaveTextContent(
+    '“Warm Kick”: 0 added, 1 already included, 1 failed. Review the Collection results.',
+  )
   expect(
     api.collections.setMembership.mock.calls.map(
       ([request]) => request.collectionId,
@@ -208,6 +218,11 @@ test('destination selection survives pages, stale searches and read failures wit
   expect(
     await screen.findByRole('region', { name: 'Collection results' }),
   ).toHaveTextContent('2 added')
+  expect(
+    within(screen.getByRole('region', { name: 'Notifications' })).getByRole(
+      'status',
+    ),
+  ).toHaveTextContent('“Warm Kick”: 2 added, 0 already included, 0 failed.')
   expect(
     api.collections.setMembership.mock.calls.map(
       ([request]) => request.collectionId,

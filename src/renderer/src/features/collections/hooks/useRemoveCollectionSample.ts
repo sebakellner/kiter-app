@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { unwrapIpcResult } from '@shared/ipc/result'
 
-type Target = { id: string; relativePath: string }
+type Target = { id: string; name: string }
 
 export function useRemoveCollectionSample(
   collectionId: string | undefined,
@@ -64,7 +64,7 @@ export function useRemoveCollectionSample(
       }
       setNotice(
         result.changed
-          ? `${sample.relativePath} removed from this Collection. The Sample remains in your library.`
+          ? `${sample.name} removed from this Collection. The Sample remains in your library.`
           : 'This Sample is no longer in this Collection.',
       )
       setState(null)
