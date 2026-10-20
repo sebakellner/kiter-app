@@ -127,6 +127,13 @@ test('destination search pages homonyms by stable identity and observes membersh
     assigned: true,
   })
   assert.equal(first.items[1].assigned, false)
+  const batchDestinations = listCollectionDestinations(db, {
+    search: 'textures',
+    limit: 1,
+  })
+  assert.equal(batchDestinations.total, 52)
+  assert.equal(batchDestinations.items[0].sampleCount, 1)
+  assert.equal(batchDestinations.items[0].assigned, false)
   assert.deepEqual(
     listCollectionDestinations(db, {
       sampleId: sample.id,

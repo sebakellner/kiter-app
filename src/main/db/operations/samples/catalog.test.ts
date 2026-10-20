@@ -21,6 +21,59 @@ import {
   readSampleType,
   saveSampleType,
 } from '../classification/sample-type.ts'
+import {
+  createCollection,
+  setCollectionMembership,
+} from '../collections/operations.ts'
+
+test('checked identities resolve in bounded catalog or Collection order independently of checkbox order', (t) => {
+  const { db } = createMemoryDatabase(t)
+  const root = path.resolve('checked-sample-order')
+  const imported = importFolder(
+    db,
+    root,
+    ['z.wav', 'a.wav', 'b.wav', 'unselected.wav'].map((name) =>
+      makeDiscoveredAudioFile(root, name),
+    ),
+  )
+  const byName = (name: string): string =>
+    imported.find((item) => item.name === name)!.id
+  const ids = [byName('z.wav'), byName('b.wav'), byName('a.wav')]
+  const collection = createCollection(db, { name: 'Source order' })
+  for (const sampleId of ids) {
+    setCollectionMembership(db, {
+      collectionId: collection.id,
+      sampleId,
+      assigned: true,
+    })
+  }
+  const page = listCatalogSamples(db, { sampleIds: ids, limit: 2 })
+  assert.equal(page.total, 3)
+  assert.deepEqual(
+    page.items.map(({ name }) => name),
+    ['a.wav', 'b.wav'],
+  )
+  assert.deepEqual(
+    listCatalogSamples(db, { sampleIds: ids, limit: 2, offset: 2 }).items.map(
+      ({ name }) => name,
+    ),
+    ['z.wav'],
+  )
+  const members = listCatalogSamples(db, {
+    sampleIds: ids.slice().reverse(),
+    collectionId: collection.id,
+  })
+  assert.deepEqual(
+    members.items.map(({ id }) => id),
+    ids,
+  )
+  assert.equal(
+    listCatalogSamples(db, {
+      sampleIds: ['00000000-0000-4000-8000-000000000001'],
+    }).total,
+    0,
+  )
+})
 
 test('catalog pages include all roots once, honor presentation names and filter Favorites', (t) => {
   const { db } = createMemoryDatabase(t)
