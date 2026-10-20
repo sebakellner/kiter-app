@@ -6,6 +6,7 @@ import {
   genreFilterSchema,
   sampleTypeFilterSchema,
   type SampleTypeFilter,
+  checkedSampleIdsSchema,
 } from '../features/library/schemas.ts'
 import { effectiveCatalogSearch } from '../features/library/search.ts'
 import { isCollectionOrderToken } from './collections.ts'
@@ -48,6 +49,7 @@ export type CatalogAudioSample = CatalogSample & {
   unavailableReason: string | null
 }
 export interface LibraryListRequest extends PageRequest {
+  sampleIds?: string[]
   favoritesOnly?: boolean
   instrumentIds?: string[]
   genreIds?: string[]
@@ -70,6 +72,12 @@ export function requireLibraryListRequest(value: unknown): LibraryListRequest {
       typeof value.favoritesOnly !== 'boolean')
   ) {
     throw new DomainValidationError('Invalid Favorites filter.')
+  }
+  const checked = checkedSampleIdsSchema.optional().safeParse(value.sampleIds)
+  if (!checked.success) {
+    throw new DomainValidationError(
+      'Select between 1 and 1,000 unique Samples.',
+    )
   }
   const instruments = instrumentFilterSchema.safeParse(
     value.instrumentIds === undefined ? [] : value.instrumentIds,
@@ -109,6 +117,7 @@ export function requireLibraryListRequest(value: unknown): LibraryListRequest {
   }
   return {
     ...page,
+    ...(checked.data ? { sampleIds: checked.data } : {}),
     favoritesOnly: value.favoritesOnly ?? false,
     ...(instruments.data.length > 0 ? { instrumentIds: instruments.data } : {}),
     ...(genres.data.length > 0 ? { genreIds: genres.data } : {}),

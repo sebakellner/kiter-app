@@ -48,7 +48,7 @@ export interface CollectionDestination extends CollectionSummary {
 }
 
 export interface CollectionDestinationsRequest extends PageRequest {
-  sampleId: string
+  sampleId?: string
   search?: string
 }
 

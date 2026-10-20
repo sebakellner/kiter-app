@@ -180,6 +180,12 @@ test('Collection moves require an exact read token, one direction and catalog id
 
 test('Collection destination and membership contracts validate identities, bounded literal search and actual outcomes', () => {
   const { id } = makeCollectionSummary()
+  assert.deepEqual(requireCollectionDestinationsRequest({}), {
+    sampleId: undefined,
+    search: '',
+    limit: 50,
+    offset: 0,
+  })
   assert.deepEqual(
     requireCollectionDestinationsRequest({
       sampleId: id,
@@ -197,7 +203,6 @@ test('Collection destination and membership contracts validate identities, bound
   )
   for (const input of [
     null,
-    {},
     { sampleId: '/audio.wav' },
     { sampleId: id, search: null },
     { sampleId: id, search: 'a'.repeat(121) },

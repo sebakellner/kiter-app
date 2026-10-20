@@ -73,7 +73,7 @@ export const collectionPlaceSchema = collectionMoveSchema
   })
 
 export const collectionDestinationsSchema = z.object({
-  sampleId: collectionMembershipSchema.shape.sampleId,
+  sampleId: collectionMembershipSchema.shape.sampleId.optional(),
   search: z
     .string()
     .max(120, 'Use at most 120 characters to search.')
