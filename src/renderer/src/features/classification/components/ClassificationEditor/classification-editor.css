@@ -1,28 +1,28 @@
 .sample-instruments-popover {
-  width: min(340px, calc(100vw - 32px));
-  padding: 16px;
+  width: min(340px, calc(100vw - var(--space-8)));
+  padding: var(--space-4);
 }
 
 .sample-instruments-popover ul {
   list-style: none;
-  padding: 0;
+  padding: var(--space-0);
   max-height: 180px;
   overflow: auto;
 }
 
 .sample-instruments-popover footer {
   position: sticky;
-  bottom: 0;
-  background: var(--color-background-soft);
+  bottom: var(--space-0);
+  background: var(--color-surface-soft);
   display: flex;
   justify-content: flex-end;
-  gap: 8px;
-  padding-top: 8px;
+  gap: var(--space-2);
+  padding-top: var(--space-2);
 }
 
 .sample-classification-pages {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  margin-block: 8px;
+  gap: var(--space-2);
+  margin-block: var(--space-2);
 }

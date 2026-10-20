@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import type { HTMLAttributes, JSX, RefObject } from 'react'
+import spacingTokens from '../../../../../../tokens/primitives/space.json'
 import './Popover.css'
 
 export type PopoverDismissReason = 'escape' | 'outside'
@@ -61,6 +62,17 @@ export function Popover({
         return
       }
       const rect = target.getBoundingClientRect()
+      const styles = getComputedStyle(document.documentElement)
+      const gapValue = Number.parseFloat(styles.getPropertyValue('--space-1'))
+      const gutterValue = Number.parseFloat(
+        styles.getPropertyValue('--space-2'),
+      )
+      const gap = Number.isFinite(gapValue)
+        ? gapValue
+        : spacingTokens.space['1'].$value.value
+      const gutter = Number.isFinite(gutterValue)
+        ? gutterValue
+        : spacingTokens.space['2'].$value.value
       if (matchAnchorWidth) {
         element.style.width = `${rect.width}px`
       }
@@ -69,13 +81,13 @@ export function Popover({
         : align === 'end'
           ? rect.right - element.offsetWidth
           : rect.left
-      const below = point ? point.y : rect.bottom + 4
+      const below = point ? point.y : rect.bottom + gap
       const top =
-        below + element.offsetHeight <= window.innerHeight - 8
+        below + element.offsetHeight <= window.innerHeight - gutter
           ? below
-          : (point ? point.y : rect.top - 4) - element.offsetHeight
-      element.style.left = `${Math.max(8, Math.min(left, window.innerWidth - element.offsetWidth - 8))}px`
-      element.style.top = `${Math.max(8, Math.min(top, window.innerHeight - element.offsetHeight - 8))}px`
+          : (point ? point.y : rect.top - gap) - element.offsetHeight
+      element.style.left = `${Math.max(gutter, Math.min(left, window.innerWidth - element.offsetWidth - gutter))}px`
+      element.style.top = `${Math.max(gutter, Math.min(top, window.innerHeight - element.offsetHeight - gutter))}px`
     }
 
     function outside(event: PointerEvent): void {

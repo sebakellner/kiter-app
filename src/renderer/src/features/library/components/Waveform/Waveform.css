@@ -1,14 +1,14 @@
 .sample-waveform {
   display: flex;
   align-items: center;
-  gap: 12px;
-  min-height: 64px;
+  gap: var(--space-3);
+  min-height: var(--space-16);
 }
 
 .sample-waveform canvas {
-  width: calc(100% - 80px);
-  height: 64px;
-  color: var(--color-accent);
+  width: calc(100% - var(--space-20));
+  height: var(--space-16);
+  color: var(--color-waveform-default);
 }
 
 .sample-duration {
@@ -21,19 +21,23 @@
 }
 
 .sample-waveform[data-compact] {
-  min-height: 28px;
-  gap: 8px;
-  font-size: var(--font-size-small);
+  min-height: var(--space-7);
+  gap: var(--space-2);
+  font-family: var(--typography-caption-font-family);
+  font-size: var(--typography-caption-font-size);
+  font-weight: var(--typography-caption-font-weight);
+  letter-spacing: var(--typography-caption-letter-spacing);
+  line-height: var(--typography-caption-line-height);
 }
 
 .sample-waveform[data-compact] canvas {
   flex: 1;
-  min-width: 0;
-  width: 0;
-  height: 28px;
+  min-width: var(--space-0);
+  width: var(--space-0);
+  height: var(--space-7);
 }
 
 .sample-waveform[data-compact] .sample-duration {
-  min-width: 0;
+  min-width: var(--space-0);
   flex-shrink: 0;
 }
