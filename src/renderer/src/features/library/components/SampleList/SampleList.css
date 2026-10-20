@@ -264,3 +264,34 @@
 .sample-drag-hint {
   color: var(--color-text-secondary);
 }
+
+@media (width > 1280px) {
+  @container (min-width: 1000px) {
+    .sample-list-name-column {
+      width: clamp(256px, 30cqi, 480px);
+    }
+
+    .sample-list-time-column {
+      width: clamp(var(--space-20), 6cqi, var(--space-24));
+    }
+
+    .sample-list-favorite-column {
+      width: clamp(var(--space-16), 5cqi, var(--space-20));
+    }
+
+    /* Absorb surplus after the final action, not between related Sample data. */
+    .sample-list-actions-column {
+      width: auto;
+    }
+
+    .sample-list-time-head,
+    .sample-row-time {
+      text-align: center;
+    }
+
+    .sample-list-actions-head,
+    .sample-row-actions {
+      text-align: left;
+    }
+  }
+}

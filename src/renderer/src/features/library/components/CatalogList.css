@@ -1,5 +1,6 @@
 .catalog-list {
-  /* Column proportions follow the workspace width, including inspector changes. */
+  /* Column proportions follow the available workspace, including the inspector. */
+  width: 100%;
   container-type: inline-size;
 }
 

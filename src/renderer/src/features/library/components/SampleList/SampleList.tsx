@@ -88,7 +88,7 @@ export function SampleList({
         <TableColumn className="sample-list-pack-column" />
         {order && <TableColumn className="sample-list-control-column" />}
         <TableColumn className="sample-list-control-column" />
-        <TableColumn />
+        <TableColumn className="sample-list-name-column" />
         <TableColumn className="sample-list-waveform-column" />
         <TableColumn className="sample-list-time-column" />
         <TableColumn className="sample-list-favorite-column" />
@@ -114,7 +114,9 @@ export function SampleList({
           <TableHead>Waveform</TableHead>
           <TableHead className="sample-list-time-head">Time</TableHead>
           <TableHead className="sample-list-control-head">Favorite</TableHead>
-          <TableHead className="sample-list-control-head">Actions</TableHead>
+          <TableHead className="sample-list-control-head sample-list-actions-head">
+            Actions
+          </TableHead>
         </TableRow>
       </TableHeader>
       <TableBody aria-label="Samples">
