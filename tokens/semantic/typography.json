@@ -1,0 +1,118 @@
+{
+  "typography": {
+    "$description": "DTCG composite text styles for Kiter's compact desktop workspace. Apply every property in each token together. Labels remain sentence case. Numeric audio metadata may additionally use font-variant-numeric: tabular-nums without introducing another font family.",
+    "caption": {
+      "$description": "Supporting metadata, durations and secondary descriptions; not primary Sample names or form inputs.",
+      "$type": "typography",
+      "$value": {
+        "fontFamily": "{font.family.instrument-sans}",
+        "fontSize": "{font.size.12}",
+        "fontWeight": "{font.weight.400}",
+        "letterSpacing": "{font.letter-spacing.normal}",
+        "lineHeight": "{font.line-height.normal}"
+      }
+    },
+    "control": {
+      "$description": "Buttons, compact inputs and selects. Native controls must retain sufficient height and must not clip text.",
+      "$type": "typography",
+      "$value": {
+        "fontFamily": "{font.family.instrument-sans}",
+        "fontSize": "{font.size.13}",
+        "fontWeight": "{font.weight.500}",
+        "letterSpacing": "{font.letter-spacing.normal}",
+        "lineHeight": "{font.line-height.normal}"
+      }
+    },
+    "body": {
+      "$description": "Default reading text, Sample names and navigation labels.",
+      "$type": "typography",
+      "$value": {
+        "fontFamily": "{font.family.instrument-sans}",
+        "fontSize": "{font.size.14}",
+        "fontWeight": "{font.weight.400}",
+        "letterSpacing": "{font.letter-spacing.normal}",
+        "lineHeight": "{font.line-height.normal}"
+      }
+    },
+    "body-strong": {
+      "$description": "Selected navigation and emphasized text at body size; not a larger heading.",
+      "$type": "typography",
+      "$value": {
+        "fontFamily": "{font.family.instrument-sans}",
+        "fontSize": "{font.size.14}",
+        "fontWeight": "{font.weight.600}",
+        "letterSpacing": "{font.letter-spacing.normal}",
+        "lineHeight": "{font.line-height.normal}"
+      }
+    },
+    "label": {
+      "$description": "Field labels and compact group headings, without all-caps styling.",
+      "$type": "typography",
+      "$value": {
+        "fontFamily": "{font.family.instrument-sans}",
+        "fontSize": "{font.size.12}",
+        "fontWeight": "{font.weight.500}",
+        "letterSpacing": "{font.letter-spacing.normal}",
+        "lineHeight": "{font.line-height.normal}"
+      }
+    },
+    "section": {
+      "$description": "Inspector, dialog and section headings.",
+      "$type": "typography",
+      "$value": {
+        "fontFamily": "{font.family.instrument-sans}",
+        "fontSize": "{font.size.18}",
+        "fontWeight": "{font.weight.600}",
+        "letterSpacing": "{font.letter-spacing.normal}",
+        "lineHeight": "{font.line-height.tight}"
+      }
+    },
+    "title": {
+      "$description": "One view title, using a compact 24px size with proportional leading.",
+      "$type": "typography",
+      "$value": {
+        "fontFamily": "{font.family.instrument-sans}",
+        "fontSize": "{font.size.24}",
+        "fontWeight": "{font.weight.600}",
+        "letterSpacing": "{font.letter-spacing.normal}",
+        "lineHeight": "{font.line-height.tight}"
+      }
+    },
+    "display": {
+      "$description": "Prominent Home introductions and Pack/Collection headers, not dense lists, controls or metadata. Choose a size based on available space, not HTML heading level. Keep one dominant heading per region and allow wrapping.",
+      "small": {
+        "$description": "Compact featured entity headers with a 32px font size and 40px computed line height.",
+        "$type": "typography",
+        "$value": {
+          "fontFamily": "{font.family.instrument-sans}",
+          "fontSize": "{font.size.32}",
+          "fontWeight": "{font.weight.600}",
+          "letterSpacing": "{font.letter-spacing.normal}",
+          "lineHeight": "{font.line-height.tight}"
+        }
+      },
+      "medium": {
+        "$description": "Featured entity or Home headers with a 40px font size and 50px computed line height.",
+        "$type": "typography",
+        "$value": {
+          "fontFamily": "{font.family.instrument-sans}",
+          "fontSize": "{font.size.40}",
+          "fontWeight": "{font.weight.600}",
+          "letterSpacing": "{font.letter-spacing.normal}",
+          "lineHeight": "{font.line-height.tight}"
+        }
+      },
+      "large": {
+        "$description": "A single prominent introduction in a spacious layout, with a 48px font size and 60px computed line height; not the default view title.",
+        "$type": "typography",
+        "$value": {
+          "fontFamily": "{font.family.instrument-sans}",
+          "fontSize": "{font.size.48}",
+          "fontWeight": "{font.weight.600}",
+          "letterSpacing": "{font.letter-spacing.normal}",
+          "lineHeight": "{font.line-height.tight}"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "shadow": {
+    "$description": "DTCG composite shadow values for overlay depth and inset selection markers. Primitives contain structured raw colors and dimensions, not CSS strings or semantic references.",
+    "black-28": {
+      "$value": {
+        "color": {
+          "colorSpace": "srgb",
+          "components": [0, 0, 0],
+          "alpha": 0.28
+        },
+        "offsetX": { "value": 0, "unit": "px" },
+        "offsetY": { "value": 12, "unit": "px" },
+        "blur": { "value": 36, "unit": "px" },
+        "spread": { "value": 0, "unit": "px" }
+      },
+      "$type": "shadow"
+    },
+    "inset-violet-400": {
+      "$value": {
+        "color": {
+          "colorSpace": "srgb",
+          "components": [
+            0.5843137254901961, 0.5254901960784314, 0.9450980392156862
+          ],
+          "hex": "#9586F1"
+        },
+        "offsetX": { "value": 3, "unit": "px" },
+        "offsetY": { "value": 0, "unit": "px" },
+        "blur": { "value": 0, "unit": "px" },
+        "spread": { "value": 0, "unit": "px" },
+        "inset": true
+      },
+      "$type": "shadow"
+    }
+  }
+}

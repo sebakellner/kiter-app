@@ -8,3 +8,4 @@ drizzle/
 test-results/
 playwright-report/
 .kiter-dev/
+src/styles/tokens.css

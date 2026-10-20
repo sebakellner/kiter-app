@@ -1,0 +1,8 @@
+{
+  "radius": {
+    "$description": "Raw corner radii in pixels. Components use semantic radius roles; radii are dimensions, not a separate token type or spacing multiplier.",
+    "0": { "$value": { "value": 0, "unit": "px" }, "$type": "dimension" },
+    "4": { "$value": { "value": 4, "unit": "px" }, "$type": "dimension" },
+    "8": { "$value": { "value": 8, "unit": "px" }, "$type": "dimension" }
+  }
+}

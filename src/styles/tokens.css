@@ -1,0 +1,141 @@
+/**
+ * Do not edit directly, this file was auto-generated.
+ */
+
+:root {
+  --color-slate-300: #bfc0c2;
+  --color-slate-500: #94969a;
+  --color-slate-700: #4b4f54;
+  --color-slate-800: #3e4248;
+  --color-slate-850: #34383e;
+  --color-slate-900: #292d34;
+  --color-slate-950: #21242a;
+  --color-white: #ffffff;
+  --color-yellow-400: #ffd333;
+  --color-yellow-500: #ffc800;
+  --color-pink-400: #fd8dbf;
+  --color-pink-500: #fd71af;
+  --color-cyan-500: #49ccf9;
+  --color-violet-400: #9586f1;
+  --color-violet-500: #7b68ee;
+  --color-violet-900: #3e3c63;
+  --color-black-alpha-28: rgba(0, 0, 0, 0.28);
+  --color-black-alpha-35: rgba(0, 0, 0, 0.35);
+  --color-black-alpha-48: rgba(0, 0, 0, 0.48);
+  --color-transparent: rgba(0, 0, 0, 0);
+  --color-action-primary: #ffc800;
+  --color-action-primary-hover: #ffd333;
+  --color-action-secondary: #34383e;
+  --color-action-secondary-hover: #3e4248;
+  --color-action-secondary-active: #3e3c63;
+  --color-action-ghost: rgba(0, 0, 0, 0);
+  --color-action-ghost-hover: #3e4248;
+  --color-text-default: #ffffff;
+  --color-text-secondary: #bfc0c2;
+  --color-text-on-action: #292d34;
+  --color-surface-page: #292d34;
+  --color-surface-soft: #34383e;
+  --color-surface-muted: #3e4248;
+  --color-surface-selection: #3e3c63;
+  --color-surface-field: #21242a;
+  --color-border-default: #4b4f54;
+  --color-border-control: #94969a;
+  --color-border-hover: #bfc0c2;
+  --color-border-danger: #fd71af;
+  --color-focus-ring: #49ccf9;
+  --color-selection-indicator: #9586f1;
+  --color-status-danger: #fd8dbf;
+  --color-backdrop-inspector: rgba(0, 0, 0, 0.35);
+  --color-backdrop-dialog: rgba(0, 0, 0, 0.48);
+  --radius-0: 0px;
+  --radius-4: 4px;
+  --radius-8: 8px;
+  --radius-none: 0px;
+  --radius-control: 4px;
+  --radius-surface: 8px;
+  --shadow-black-28: 0px 12px 36px 0px rgb(0% 0% 0% / 0.28);
+  --shadow-inset-violet-400: inset 3px 0px 0px 0px rgb(58.431% 52.549% 94.51%);
+  --space-0: 0px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 28px;
+  --space-8: 32px;
+  --space-9: 36px;
+  --space-10: 40px;
+  --space-11: 44px;
+  --space-12: 48px;
+  --space-14: 56px;
+  --space-16: 64px;
+  --space-20: 80px;
+  --space-24: 96px;
+  --space-32: 128px;
+  --font-size-12: 12px;
+  --font-size-13: 13px;
+  --font-size-14: 14px;
+  --font-size-18: 18px;
+  --font-size-24: 24px;
+  --font-size-32: 32px;
+  --font-size-40: 40px;
+  --font-size-48: 48px;
+  --font-family-instrument-sans: 'Instrument Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; /** Instrument Sans is the shared UI and display family, bundled locally from Fontsource as variable WOFF2 files. System fonts are fallback only. */
+  --font-weight-400: 400;
+  --font-weight-500: 500;
+  --font-weight-600: 600;
+  --font-line-height-tight: 1.25;
+  --font-line-height-normal: 1.5;
+  --font-letter-spacing-normal: 0px;
+  --typography-caption-font-family: 'Instrument Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; /** Supporting metadata, durations and secondary descriptions; not primary Sample names or form inputs. */
+  --typography-caption-font-size: 12px; /** Supporting metadata, durations and secondary descriptions; not primary Sample names or form inputs. */
+  --typography-caption-font-weight: 400; /** Supporting metadata, durations and secondary descriptions; not primary Sample names or form inputs. */
+  --typography-caption-letter-spacing: 0px; /** Supporting metadata, durations and secondary descriptions; not primary Sample names or form inputs. */
+  --typography-caption-line-height: 1.5; /** Supporting metadata, durations and secondary descriptions; not primary Sample names or form inputs. */
+  --typography-control-font-family: 'Instrument Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; /** Buttons, compact inputs and selects. Native controls must retain sufficient height and must not clip text. */
+  --typography-control-font-size: 13px; /** Buttons, compact inputs and selects. Native controls must retain sufficient height and must not clip text. */
+  --typography-control-font-weight: 500; /** Buttons, compact inputs and selects. Native controls must retain sufficient height and must not clip text. */
+  --typography-control-letter-spacing: 0px; /** Buttons, compact inputs and selects. Native controls must retain sufficient height and must not clip text. */
+  --typography-control-line-height: 1.5; /** Buttons, compact inputs and selects. Native controls must retain sufficient height and must not clip text. */
+  --typography-body-font-family: 'Instrument Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; /** Default reading text, Sample names and navigation labels. */
+  --typography-body-font-size: 14px; /** Default reading text, Sample names and navigation labels. */
+  --typography-body-font-weight: 400; /** Default reading text, Sample names and navigation labels. */
+  --typography-body-letter-spacing: 0px; /** Default reading text, Sample names and navigation labels. */
+  --typography-body-line-height: 1.5; /** Default reading text, Sample names and navigation labels. */
+  --typography-body-strong-font-family: 'Instrument Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; /** Selected navigation and emphasized text at body size; not a larger heading. */
+  --typography-body-strong-font-size: 14px; /** Selected navigation and emphasized text at body size; not a larger heading. */
+  --typography-body-strong-font-weight: 600; /** Selected navigation and emphasized text at body size; not a larger heading. */
+  --typography-body-strong-letter-spacing: 0px; /** Selected navigation and emphasized text at body size; not a larger heading. */
+  --typography-body-strong-line-height: 1.5; /** Selected navigation and emphasized text at body size; not a larger heading. */
+  --typography-label-font-family: 'Instrument Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; /** Field labels and compact group headings, without all-caps styling. */
+  --typography-label-font-size: 12px; /** Field labels and compact group headings, without all-caps styling. */
+  --typography-label-font-weight: 500; /** Field labels and compact group headings, without all-caps styling. */
+  --typography-label-letter-spacing: 0px; /** Field labels and compact group headings, without all-caps styling. */
+  --typography-label-line-height: 1.5; /** Field labels and compact group headings, without all-caps styling. */
+  --typography-section-font-family: 'Instrument Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; /** Inspector, dialog and section headings. */
+  --typography-section-font-size: 18px; /** Inspector, dialog and section headings. */
+  --typography-section-font-weight: 600; /** Inspector, dialog and section headings. */
+  --typography-section-letter-spacing: 0px; /** Inspector, dialog and section headings. */
+  --typography-section-line-height: 1.25; /** Inspector, dialog and section headings. */
+  --typography-title-font-family: 'Instrument Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; /** One view title, using a compact 24px size with proportional leading. */
+  --typography-title-font-size: 24px; /** One view title, using a compact 24px size with proportional leading. */
+  --typography-title-font-weight: 600; /** One view title, using a compact 24px size with proportional leading. */
+  --typography-title-letter-spacing: 0px; /** One view title, using a compact 24px size with proportional leading. */
+  --typography-title-line-height: 1.25; /** One view title, using a compact 24px size with proportional leading. */
+  --typography-display-small-font-family: 'Instrument Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; /** Compact featured entity headers with a 32px font size and 40px computed line height. */
+  --typography-display-small-font-size: 32px; /** Compact featured entity headers with a 32px font size and 40px computed line height. */
+  --typography-display-small-font-weight: 600; /** Compact featured entity headers with a 32px font size and 40px computed line height. */
+  --typography-display-small-letter-spacing: 0px; /** Compact featured entity headers with a 32px font size and 40px computed line height. */
+  --typography-display-small-line-height: 1.25; /** Compact featured entity headers with a 32px font size and 40px computed line height. */
+  --typography-display-medium-font-family: 'Instrument Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; /** Featured entity or Home headers with a 40px font size and 50px computed line height. */
+  --typography-display-medium-font-size: 40px; /** Featured entity or Home headers with a 40px font size and 50px computed line height. */
+  --typography-display-medium-font-weight: 600; /** Featured entity or Home headers with a 40px font size and 50px computed line height. */
+  --typography-display-medium-letter-spacing: 0px; /** Featured entity or Home headers with a 40px font size and 50px computed line height. */
+  --typography-display-medium-line-height: 1.25; /** Featured entity or Home headers with a 40px font size and 50px computed line height. */
+  --typography-display-large-font-family: 'Instrument Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; /** A single prominent introduction in a spacious layout, with a 48px font size and 60px computed line height; not the default view title. */
+  --typography-display-large-font-size: 48px; /** A single prominent introduction in a spacious layout, with a 48px font size and 60px computed line height; not the default view title. */
+  --typography-display-large-font-weight: 600; /** A single prominent introduction in a spacious layout, with a 48px font size and 60px computed line height; not the default view title. */
+  --typography-display-large-letter-spacing: 0px; /** A single prominent introduction in a spacious layout, with a 48px font size and 60px computed line height; not the default view title. */
+  --typography-display-large-line-height: 1.25; /** A single prominent introduction in a spacious layout, with a 48px font size and 60px computed line height; not the default view title. */
+}
