@@ -1,0 +1,12 @@
+{
+  "usesDtcg": true,
+  "source": ["tokens/**/*.json"],
+  "platforms": {
+    "css": {
+      "transformGroup": "css",
+      "expand": { "include": ["typography"] },
+      "buildPath": "src/styles/",
+      "files": [{ "destination": "tokens.css", "format": "css/variables" }]
+    }
+  }
+}

@@ -95,7 +95,21 @@ function AppLayoutContent({
 
   useLayoutEffect(() => {
     resetRestoration()
+    // Slow result loading or a delayed frame must not override newer user intent.
+    const yieldToInteraction = (): void => {
+      restored.current = true
+      if (frame.current !== null) {
+        cancelAnimationFrame(frame.current)
+        frame.current = null
+      }
+    }
+    document.addEventListener('focusin', yieldToInteraction, true)
+    document.addEventListener('pointerdown', yieldToInteraction, true)
+    document.addEventListener('keydown', yieldToInteraction, true)
     return () => {
+      document.removeEventListener('focusin', yieldToInteraction, true)
+      document.removeEventListener('pointerdown', yieldToInteraction, true)
+      document.removeEventListener('keydown', yieldToInteraction, true)
       if (frame.current !== null) {
         cancelAnimationFrame(frame.current)
         frame.current = null

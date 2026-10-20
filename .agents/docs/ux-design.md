@@ -31,6 +31,8 @@ panel; visual sizing and resizing remain pending. Samples/Favorites restore thei
 session context on history navigation and reuse the latest destination context
 for new visits, including pagination, the Samples Favorite filter, selection,
 inspector visibility, scroll, and focus after revalidating loaded results. The
+pending focus/scroll restoration yields to newer focus, pointer, or keyboard
+interaction rather than overriding a control the user has already reached. The
 renderer retains 100 history snapshots; older entries fall back to the latest
 destination context. Visual
 design now has an initial shared dark control/surface foundation and active

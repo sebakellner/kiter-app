@@ -1,0 +1,41 @@
+{
+  "font": {
+    "$description": "Raw typography values. Components should use semantic typography roles rather than assemble arbitrary size/weight/line-height combinations. Font sizes are not constrained to the spacing grid.",
+    "size": {
+      "12": { "$value": { "value": 12, "unit": "px" }, "$type": "dimension" },
+      "13": { "$value": { "value": 13, "unit": "px" }, "$type": "dimension" },
+      "14": { "$value": { "value": 14, "unit": "px" }, "$type": "dimension" },
+      "18": { "$value": { "value": 18, "unit": "px" }, "$type": "dimension" },
+      "24": { "$value": { "value": 24, "unit": "px" }, "$type": "dimension" },
+      "32": { "$value": { "value": 32, "unit": "px" }, "$type": "dimension" },
+      "40": { "$value": { "value": 40, "unit": "px" }, "$type": "dimension" },
+      "48": { "$value": { "value": 48, "unit": "px" }, "$type": "dimension" }
+    },
+    "family": {
+      "instrument-sans": {
+        "$description": "Instrument Sans is the shared UI and display family, bundled locally from Fontsource as variable WOFF2 files. System fonts are fallback only.",
+        "$value": [
+          "Instrument Sans",
+          "-apple-system",
+          "BlinkMacSystemFont",
+          "Segoe UI",
+          "sans-serif"
+        ],
+        "$type": "fontFamily"
+      }
+    },
+    "weight": {
+      "400": { "$value": 400, "$type": "fontWeight" },
+      "500": { "$value": 500, "$type": "fontWeight" },
+      "600": { "$value": 600, "$type": "fontWeight" }
+    },
+    "line-height": {
+      "$description": "Unitless font-size multipliers for DTCG typography.lineHeight. The 4px grid governs layout spacing, not text line boxes.",
+      "tight": { "$value": 1.25, "$type": "number" },
+      "normal": { "$value": 1.5, "$type": "number" }
+    },
+    "letter-spacing": {
+      "normal": { "$value": { "value": 0, "unit": "px" }, "$type": "dimension" }
+    }
+  }
+}
