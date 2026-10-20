@@ -414,6 +414,9 @@ Apply shared selection/draft transitions here when results change.
   checks retain their separate behavior. Narrow content uses the existing content
   scroller rather than silently hiding columns; final responsive priorities remain
   pending. The inline Info button is removed; Info remains in the Sample menu.
+- Catalog filters, table and pagination use the full available content width,
+  including in full-screen windows, without a maximum catalog width. Opening the
+  inspector constrains that available space without changing row behavior.
 - Wide Sample rows accommodate name, Play/Pause, Favorite, contextual menu,
   waveform, observed duration, format, origin Pack, direct Instruments, direct
   Authors, and relative source path. Include selection and distinct drag controls
