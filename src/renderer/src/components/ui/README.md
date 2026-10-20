@@ -16,9 +16,9 @@ semantic JSON files for Style Dictionary. They use `$value`, `$type` and
 `{token.path}` references. Run `pnpm tokens` from the repository root to generate
 [`src/styles/tokens.css`](../../../../../src/styles/tokens.css). This file is
 generated: edit the source JSON and regenerate rather than editing its CSS.
-The renderer does not import it yet; application consumption remains separate
-work, so the conventions below are not a claim that the current renderer already
-follows them. The JSON tokens are the source of truth for these design decisions.
+The renderer imports it after the legacy base styles. Button consumes the
+generated tokens; other components still use legacy variables and hardcoded
+values. The JSON tokens are the source of truth for these design decisions.
 
 The interchange format follows the DTCG 2025.10
 [Format Module](https://www.designtokens.org/tr/2025.10/format/) and
@@ -125,6 +125,25 @@ The restrained 4/8px pairing distinguishes controls from containers without
 rounding every region into a card. Do not add pill or circular radii until a
 specific component needs them. Radius is an independent scale; sharing values
 with spacing does not make spacing tokens appropriate for corner geometry.
+
+### Border and opacity: typed values with semantic roles
+
+[`primitives/border.json`](../../../../../tokens/primitives/border.json) defines
+`border.width.1` as a 1px `dimension` and `border.style.solid` as a `strokeStyle`.
+Borders are not layout spacing and need not follow the 4px grid.
+[`semantic/border.json`](../../../../../tokens/semantic/border.json) combines
+these with the control-border palette primitive in `border.control`, a DTCG
+`border` composite with `width`, `style` and `color` properties. CSS exports it as
+`--border-control`; variants can override its color with semantic action colors.
+
+[`primitives/opacity.json`](../../../../../tokens/primitives/opacity.json) defines
+`opacity.50` as the unitless number `0.5`; its numeric name expresses a percentage.
+[`semantic/opacity.json`](../../../../../tokens/semantic/opacity.json) aliases it
+as `opacity.disabled`, exported as `--opacity-disabled`. DTCG has no dedicated
+opacity type: use `number`, with values constrained by this system to 0–1.
+The disabled role preserves Button's existing whole-control opacity, including
+text and borders. It is not interchangeable with color alpha and does not imply
+that rendered accessibility contrast has been validated.
 
 ### Color: name the job, not the shade
 
