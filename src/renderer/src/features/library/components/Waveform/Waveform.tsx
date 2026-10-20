@@ -3,12 +3,18 @@ import '../../library.css'
 import './Waveform.css'
 import { loadWaveform, type WaveformData } from './waveformData'
 
-type Props = { audioUrl: string; name: string; compact?: boolean }
+type Props = {
+  audioUrl: string
+  name: string
+  compact?: boolean
+  onDurationLoaded?: (seconds: number) => void
+}
 
 export const Waveform = memo(function Waveform({
   audioUrl,
   name,
   compact = false,
+  onDurationLoaded,
 }: Props): React.JSX.Element {
   const container = useRef<HTMLDivElement>(null)
   const canvas = useRef<HTMLCanvasElement>(null)
@@ -54,6 +60,12 @@ export const Waveform = memo(function Waveform({
   }, [audioUrl, visible, data, error])
 
   useEffect(() => {
+    if (data) {
+      onDurationLoaded?.(data.duration)
+    }
+  }, [data, onDurationLoaded])
+
+  useEffect(() => {
     if (!data) {
       return
     }
@@ -90,19 +102,16 @@ export const Waveform = memo(function Waveform({
         role="img"
         aria-label={`Waveform of ${name}`}
       />
-      {data ? (
-        <span className="sample-duration" data-testid="sample-duration">
-          {data.duration.toFixed(2)} s
-        </span>
-      ) : error ? (
-        <span className="sample-error" role="alert">
-          {error}
-        </span>
-      ) : (
-        <span className="waveform-status">
-          {visible ? 'Calculating waveform...' : 'Waveform pending'}
-        </span>
-      )}
+      {!data &&
+        (error ? (
+          <span className="sample-error" role="alert">
+            {error}
+          </span>
+        ) : (
+          <span className="waveform-status">
+            {visible ? 'Calculating waveform...' : 'Waveform pending'}
+          </span>
+        ))}
     </div>
   )
 })

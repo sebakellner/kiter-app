@@ -8,7 +8,7 @@ export type ListSample = AudioSample | CatalogAudioSample
 
 type SampleListController = {
   previewSample: (sample: ListSample) => void
-  getRowProps: (index: number) => ComponentProps<'li'>
+  getRowProps: (index: number) => ComponentProps<'tr'>
   selectSample: (sample: ListSample) => void
 }
 
@@ -44,7 +44,7 @@ export function useSampleList(
     }
   }
 
-  function getRowProps(index: number): ComponentProps<'li'> {
+  function getRowProps(index: number): ComponentProps<'tr'> {
     const sample = samples[index]
     return {
       role: 'row',

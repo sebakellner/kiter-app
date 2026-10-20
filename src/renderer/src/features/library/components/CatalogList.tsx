@@ -38,7 +38,7 @@ export function CatalogList({
   onMembershipChanged?: () => void
 } & CatalogViewContext): React.JSX.Element {
   const { revision, updateFavorite, preview } = useLibrarySession()
-  const { setSample, openSample, open } = useSampleInspector()
+  const { setSample, openSample } = useSampleInspector()
   const [adding, setAdding] = useState<ListSample | null>(null)
   const [addingBatch, setAddingBatch] = useState<CollectionSample[] | null>(
     null,
@@ -60,6 +60,7 @@ export function CatalogList({
       `${ids.length} checked Samples are no longer in the source list and were removed from the selection.`,
     )
   }, [])
+  const container = useRef<HTMLDivElement>(null)
   const controls = useRef<HTMLDivElement>(null)
   const list = useRef<HTMLDivElement>(null)
   const focusIntent = useRef<string | null>(null)
@@ -73,6 +74,23 @@ export function CatalogList({
     context.search,
     collectionId,
   )
+  useLayoutEffect(() => {
+    const root = container.current
+    const toolbar = controls.current
+    if (!root || !toolbar) {
+      return
+    }
+    const updateHeaderOffset = (): void => {
+      root.style.setProperty(
+        '--sample-list-header-offset',
+        `${toolbar.getBoundingClientRect().height}px`,
+      )
+    }
+    updateHeaderOffset()
+    const observer = new ResizeObserver(updateHeaderOffset)
+    observer.observe(toolbar)
+    return () => observer.disconnect()
+  }, [])
   const visibleChecked =
     page?.items.filter((sample) => checkedIds.has(sample.id)).length ?? 0
   const select = useCallback(
@@ -182,7 +200,7 @@ export function CatalogList({
     onReady,
   ])
   return (
-    <>
+    <div ref={container} className="catalog-list">
       {adding && (
         <AddToCollection
           key={adding.id}
@@ -341,7 +359,6 @@ export function CatalogList({
                   preview={preview}
                   onSelectionChanged={setSample}
                   onInspect={openSample}
-                  inspectorOpen={open}
                   selection={{ id: context.selectedId, onChange: select }}
                   onRemoveFromCollection={
                     collectionId
@@ -422,6 +439,6 @@ export function CatalogList({
           </>
         )}
       </div>
-    </>
+    </div>
   )
 }

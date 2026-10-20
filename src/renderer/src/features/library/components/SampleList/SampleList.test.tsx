@@ -12,11 +12,13 @@ import {
   COLLECTION_REORDER_MIME,
 } from '@renderer/features/collections/hooks/useCollectionDrag'
 import { PreviewPlayer } from '../PreviewPlayer/PreviewPlayer'
+import { Waveform } from '../Waveform'
+import type { ListSample } from './useSampleList'
 
 vi.mock('../Waveform', () => ({
-  Waveform: ({ name }: { name: string }) => (
+  Waveform: vi.fn(({ name }: { name: string }) => (
     <span role="img" aria-label={`Waveform of ${name}`} />
-  ),
+  )),
 }))
 
 function transfer(): {
@@ -66,6 +68,137 @@ const snare = makeAudioSample({
   audioUrl: 'sample://audio/00000000-0000-4000-8000-000000000004',
 })
 
+function sampleRows(): HTMLElement[] {
+  return within(screen.getByRole('rowgroup', { name: 'Samples' })).getAllByRole(
+    'row',
+  )
+}
+
+function sampleRow(): HTMLElement {
+  return within(screen.getByRole('rowgroup', { name: 'Samples' })).getByRole(
+    'row',
+  )
+}
+
+test('SampleList composes a table with matching headers and cells, without an inline Info button', () => {
+  const { preview } = setup()
+  const { rerender } = render(
+    <SampleList
+      samples={[kick, snare]}
+      preview={preview}
+      onFavoriteChanged={vi.fn()}
+      onInspect={vi.fn()}
+      batch={{ ids: new Set(), onChange: vi.fn() }}
+    />,
+  )
+  const table = screen.getByRole('grid', { name: 'Audio files' })
+  expect(table.tagName).toBe('TABLE')
+  expect(
+    within(table)
+      .getAllByRole('columnheader')
+      .map((head) => head.textContent),
+  ).toEqual(['', 'Pack', '', 'Name', 'Waveform', 'Time', 'Favorite', 'Actions'])
+  expect(
+    screen.getByRole('columnheader', { name: 'Select samples' }),
+  ).toBeEmptyDOMElement()
+  expect(
+    screen.getByRole('columnheader', { name: 'Preview' }),
+  ).toBeEmptyDOMElement()
+  expect(
+    screen.queryByRole('columnheader', { name: 'Categories' }),
+  ).not.toBeInTheDocument()
+  for (const row of sampleRows()) {
+    expect(row.tagName).toBe('TR')
+    expect(within(row).getAllByRole('gridcell')).toHaveLength(8)
+    expect([...row.children].every((cell) => cell.tagName === 'TD')).toBe(true)
+    expect(
+      within(row).queryByRole('button', { name: /^Info:/ }),
+    ).not.toBeInTheDocument()
+    expect(
+      within(row).getByRole('button', { name: /^More actions:/ }),
+    ).toBeVisible()
+  }
+  const cells = within(sampleRows()[0]).getAllByRole('gridcell')
+  expect(within(cells[0]).getByRole('checkbox')).toBeVisible()
+  expect(
+    within(cells[1]).getByRole('img', { name: 'Pack cover placeholder' }),
+  ).toBeVisible()
+  expect(within(cells[2]).getByTestId('preview-toggle')).toBeVisible()
+  expect(within(cells[3]).getByTestId('sample-name')).toBeVisible()
+  expect(within(cells[3]).queryByRole('img')).not.toBeInTheDocument()
+  expect(
+    within(cells[4]).getByRole('img', { name: 'Waveform of kick.wav' }),
+  ).toBeVisible()
+  expect(within(cells[5]).getByLabelText('Duration unavailable')).toBeVisible()
+  expect(within(cells[6]).getByTestId('favorite-toggle')).toBeVisible()
+
+  rerender(
+    <SampleList
+      samples={[kick]}
+      preview={preview}
+      onFavoriteChanged={vi.fn()}
+    />,
+  )
+  expect(
+    screen.queryByRole('columnheader', { name: 'Select samples' }),
+  ).not.toBeInTheDocument()
+  expect(within(sampleRow()).getAllByRole('gridcell')).toHaveLength(7)
+  expect(within(sampleRow()).getAllByRole('gridcell')[0]).toContainElement(
+    screen.getByRole('img', { name: 'Pack cover placeholder' }),
+  )
+})
+
+test('Time displays waveform duration separately and rejects stale source measurements', () => {
+  const { preview } = setup()
+  const renderList = (sample: ListSample): React.JSX.Element => (
+    <SampleList
+      samples={[sample]}
+      preview={preview}
+      onFavoriteChanged={vi.fn()}
+    />
+  )
+  const { rerender } = render(renderList(kick))
+  const loaded = vi.mocked(Waveform).mock.lastCall?.[0].onDurationLoaded
+  if (!loaded) {
+    throw new Error('The waveform must report its measured duration.')
+  }
+  expect(screen.getByLabelText('Duration unavailable')).toBeVisible()
+  act(() => loaded(1.25))
+  const cells = within(sampleRow()).getAllByRole('gridcell')
+  expect(within(cells[4]).getByTestId('sample-duration')).toHaveTextContent(
+    '1.25 s',
+  )
+  expect(
+    within(cells[3]).queryByTestId('sample-duration'),
+  ).not.toBeInTheDocument()
+
+  rerender(renderList({ ...kick, audioUrl: snare.audioUrl }))
+  expect(screen.getByLabelText('Duration unavailable')).toBeVisible()
+  act(() => loaded(9))
+  expect(screen.queryByTestId('sample-duration')).not.toBeInTheDocument()
+  const reloaded = vi.mocked(Waveform).mock.lastCall?.[0].onDurationLoaded
+  if (!reloaded) {
+    throw new Error('The replacement waveform must report its duration.')
+  }
+  act(() => reloaded(0))
+  expect(screen.getByTestId('sample-duration')).toHaveTextContent('0.00 s')
+  act(() => loaded(9))
+  expect(screen.getByTestId('sample-duration')).toHaveTextContent('0.00 s')
+
+  rerender(
+    renderList({
+      ...kick,
+      audioUrl: null,
+      rootPath: '/fixtures',
+      sourceRevision: 1,
+      unavailableReason: 'Audio unavailable.',
+    }),
+  )
+  act(() => reloaded(5))
+  expect(screen.getByLabelText('Duration unavailable')).toBeVisible()
+  expect(screen.queryByTestId('sample-duration')).not.toBeInTheDocument()
+})
+
 test('batch checkboxes change only checked membership, independently of active selection and preview', async () => {
   const { api, preview } = setup()
   const user = userEvent.setup()
@@ -94,7 +227,7 @@ test('batch checkboxes change only checked membership, independently of active s
     )
   }
   render(<Harness />)
-  const [first, second] = screen.getAllByRole('row')
+  const [first, second] = sampleRows()
   await user.click(second)
   const checkbox = within(first).getByRole('checkbox', {
     name: 'Select kick.wav',
@@ -123,6 +256,12 @@ test('batch checkboxes change only checked membership, independently of active s
   fireEvent.dragStart(label)
   expect(api.library.startDrag).not.toHaveBeenCalled()
   expect(preview.togglePreview).toHaveBeenCalledTimes(1)
+  await user.click(
+    within(first).getByRole('img', { name: 'Pack cover placeholder' }),
+  )
+  expect(first).toHaveAttribute('aria-selected', 'true')
+  expect(checkbox).toBeChecked()
+  expect(preview.togglePreview).toHaveBeenCalledTimes(1)
 })
 
 test('rows display saved category badges and open Info for overflowing assignments without preview', async () => {
@@ -150,11 +289,15 @@ test('rows display saved category badges and open Info for overflowing assignmen
       onInspect={onInspect}
     />,
   )
-  const row = screen.getByRole('row')
+  const row = sampleRow()
   for (const label of ['Piano', 'Ambient', 'Loop']) {
     expect(within(row).getByText(label)).toBeVisible()
   }
-  const categories = within(row).getByRole('list', {
+  const nameCell = within(row).getAllByRole('gridcell')[2]
+  expect(within(nameCell).getByTestId('sample-name')).toHaveTextContent(
+    sample.name,
+  )
+  const categories = within(nameCell).getByRole('list', {
     name: 'Sample categories',
   })
   const badges = within(categories).getAllByRole('listitem')
@@ -223,7 +366,7 @@ test('category overflow remains explicit without Info and hides zero counts', ()
   ).toHaveLength(1)
 })
 
-test('Sample names lead row actions, waveforms and playback while paths remain secondary descriptions', async () => {
+test('Sample names lead row actions, waveforms and playback while paths remain hidden accessible descriptions', async () => {
   const { preview } = setup()
   const user = userEvent.setup()
   const sample = makeAudioSample({
@@ -243,11 +386,13 @@ test('Sample names lead row actions, waveforms and playback while paths remain s
       <PreviewPlayer preview={{ ...preview, selected: sample }} />
     </>,
   )
-  const row = screen.getByRole('row')
+  const row = sampleRow()
   expect(within(row).getByTestId('sample-name')).toHaveTextContent('Warm Kick')
   expect(within(row).getByTestId('sample-relative-path')).toHaveTextContent(
     sample.relativePath,
   )
+  expect(within(row).getByTestId('sample-relative-path')).not.toBeVisible()
+  expect(row.getAttribute('title')).toContain(sample.path)
   expect(
     within(row).getByRole('button', { name: 'Preview Warm Kick' }),
   ).toHaveAccessibleDescription(sample.relativePath)
@@ -255,8 +400,8 @@ test('Sample names lead row actions, waveforms and playback while paths remain s
     within(row).getByRole('button', { name: 'Add favorite: Warm Kick' }),
   ).toHaveAccessibleDescription(sample.relativePath)
   expect(
-    within(row).getByRole('button', { name: 'Info: Warm Kick' }),
-  ).toBeInTheDocument()
+    within(row).queryByRole('button', { name: 'Info: Warm Kick' }),
+  ).not.toBeInTheDocument()
   expect(
     within(row).getByRole('img', { name: 'Waveform of Warm Kick' }),
   ).toBeInTheDocument()
@@ -276,7 +421,7 @@ test('Sample names lead row actions, waveforms and playback while paths remain s
   expect(add).toHaveBeenCalledWith(sample)
 })
 
-test('homonymous Samples retain visible path and source context without replacing their primary names', () => {
+test('homonymous Samples retain hidden accessible source context without displaying paths below their names', () => {
   const { preview } = setup()
   const samples = [
     {
@@ -304,13 +449,14 @@ test('homonymous Samples retain visible path and source context without replacin
       onFavoriteChanged={vi.fn()}
     />,
   )
-  const rows = screen.getAllByRole('row')
+  const rows = sampleRows()
   for (const [index, row] of rows.entries()) {
     expect(within(row).getByTestId('sample-name')).toHaveTextContent('Kick')
     expect(within(row).getByTestId('sample-relative-path')).toHaveTextContent(
       samples[index].relativePath,
     )
-    expect(within(row).getByText(samples[index].rootPath)).toBeVisible()
+    expect(within(row).getByTestId('sample-relative-path')).not.toBeVisible()
+    expect(within(row).getByText(samples[index].rootPath)).not.toBeVisible()
     expect(
       within(row).getByRole('button', { name: 'Preview Kick' }),
     ).toHaveAccessibleDescription(`Drums/kick.wav ${samples[index].rootPath}`)
@@ -359,7 +505,7 @@ test('row selection is independent of preview, favorite and native dragging', as
       onFavoriteChanged={vi.fn()}
     />,
   )
-  const [first, second] = screen.getAllByRole('row')
+  const [first, second] = sampleRows()
   expect(api.library.onDragError).toHaveBeenCalledOnce()
   expect(first).toHaveAttribute('aria-selected', 'false')
   await user.click(second)
@@ -402,7 +548,7 @@ test('arrows select without playing, Enter previews and Space controls the loade
       onFavoriteChanged={vi.fn()}
     />,
   )
-  const [first, second] = screen.getAllByRole('row')
+  const [first, second] = sampleRows()
   first.focus()
   await user.keyboard('{ArrowDown}')
   expect(second).toHaveFocus()
@@ -432,7 +578,7 @@ test('one list subscription reports native errors only on their source row and i
       onFavoriteChanged={onFavoriteChanged}
     />,
   )
-  const [first, second] = screen.getAllByRole('row')
+  const [first, second] = sampleRows()
   act(() => {
     api.library.onDragError.mock.calls[0][0]({
       audioUrl: snare.audioUrl,
@@ -483,8 +629,8 @@ test('clears hidden selection without selecting a replacement and keeps unavaila
       onFavoriteChanged={vi.fn()}
     />,
   )
-  await user.click(screen.getAllByRole('row')[1])
-  expect(screen.getAllByRole('row')[1]).toHaveAttribute('aria-selected', 'true')
+  await user.click(sampleRows()[1])
+  expect(sampleRows()[1]).toHaveAttribute('aria-selected', 'true')
   await user.keyboard('{Enter}')
   expect(preview.togglePreview).not.toHaveBeenCalled()
   rerender(
@@ -494,7 +640,7 @@ test('clears hidden selection without selecting a replacement and keeps unavaila
       onFavoriteChanged={vi.fn()}
     />,
   )
-  expect(screen.getByRole('row')).toHaveAttribute('aria-selected', 'false')
+  expect(sampleRow()).toHaveAttribute('aria-selected', 'false')
   rerender(
     <SampleList
       samples={[kick, unavailable]}
@@ -502,10 +648,7 @@ test('clears hidden selection without selecting a replacement and keeps unavaila
       onFavoriteChanged={vi.fn()}
     />,
   )
-  expect(screen.getAllByRole('row')[1]).toHaveAttribute(
-    'aria-selected',
-    'false',
-  )
+  expect(sampleRows()[1]).toHaveAttribute('aria-selected', 'false')
 })
 
 test('controlled selection restores by ID, follows keyboard changes and stays cleared when a hidden row returns', async () => {
@@ -527,7 +670,7 @@ test('controlled selection restores by ID, follows keyboard changes and stays cl
     )
   }
   const { rerender } = render(<ControlledList samples={[kick, snare]} />)
-  const [first, second] = screen.getAllByRole('row')
+  const [first, second] = sampleRows()
   expect(second).toHaveAttribute('aria-selected', 'true')
   second.focus()
   await user.keyboard('{ArrowUp}')
@@ -535,9 +678,9 @@ test('controlled selection restores by ID, follows keyboard changes and stays cl
   expect(first).toHaveAttribute('aria-selected', 'true')
   expect(second).toHaveAttribute('aria-selected', 'false')
   rerender(<ControlledList samples={[snare]} />)
-  expect(screen.getByRole('row')).toHaveAttribute('aria-selected', 'false')
+  expect(sampleRow()).toHaveAttribute('aria-selected', 'false')
   rerender(<ControlledList samples={[kick, snare]} />)
-  for (const row of screen.getAllByRole('row')) {
+  for (const row of sampleRows()) {
     expect(row).toHaveAttribute('aria-selected', 'false')
   }
   expect(preview.togglePreview).not.toHaveBeenCalled()
@@ -554,7 +697,7 @@ test('a refreshed order preserves selection by identity without changing the loa
       onFavoriteChanged={onFavoriteChanged}
     />,
   )
-  await user.click(screen.getAllByRole('row')[1])
+  await user.click(sampleRows()[1])
   rerender(
     <SampleList
       samples={[snare, kick]}
@@ -562,7 +705,7 @@ test('a refreshed order preserves selection by identity without changing the loa
       onFavoriteChanged={onFavoriteChanged}
     />,
   )
-  const [first, second] = screen.getAllByRole('row')
+  const [first, second] = sampleRows()
   expect(first).toHaveTextContent('snare.wav')
   expect(first).toHaveAttribute('aria-selected', 'true')
   expect(second).toHaveAttribute('aria-selected', 'false')
@@ -589,7 +732,7 @@ test('row right-click and More actions share a menu without selecting, previewin
       onAddToCollection={onAddToCollection}
     />,
   )
-  const [first, second] = screen.getAllByRole('row')
+  const [first, second] = sampleRows()
   await user.click(second)
   fireEvent.contextMenu(first, { clientX: 120, clientY: 160 })
   expect(
@@ -645,7 +788,7 @@ test('unavailable Sample menus disable audio but keep Info usable and close when
       onInspect={onInspect}
     />,
   )
-  const row = screen.getAllByRole('row')[1]
+  const row = sampleRows()[1]
   row.focus()
   await user.keyboard('{Shift>}{F10}{/Shift}')
   expect(screen.getByRole('menuitem', { name: 'Play preview' })).toBeDisabled()
@@ -696,7 +839,11 @@ test('Collection handles reorder with internal drag data and a drop marker witho
     )
   }
   const { rerender } = render(<Ordered />)
-  const [first, second] = screen.getAllByRole('row')
+  expect(screen.getByRole('columnheader', { name: 'Order' })).toBeVisible()
+  expect(
+    screen.queryByRole('columnheader', { name: 'Select samples' }),
+  ).not.toBeInTheDocument()
+  const [first, second] = sampleRows()
   vi.spyOn(second, 'getBoundingClientRect').mockReturnValue({
     x: 0,
     y: 0,

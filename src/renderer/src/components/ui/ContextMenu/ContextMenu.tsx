@@ -28,8 +28,32 @@ export function ContextMenu({
     const focusTarget = initial ?? element
     focusTarget.focus({ preventScroll: true })
     search.current = { text: '', time: 0 }
+    // Scrolling a trigger into view can dispatch its scroll event after opening.
+    const openingOffsets = new Map<Element, { top: number; left: number }>()
+    for (
+      let ancestor: HTMLElement | null = target.anchor;
+      ancestor;
+      ancestor = ancestor.parentElement
+    ) {
+      openingOffsets.set(ancestor, {
+        top: ancestor.scrollTop,
+        left: ancestor.scrollLeft,
+      })
+    }
     function onScroll(event: Event): void {
       if (!(event.target instanceof Node) || !element.contains(event.target)) {
+        const scroller =
+          event.target === document ? document.scrollingElement : event.target
+        if (scroller instanceof Element) {
+          const openingOffset = openingOffsets.get(scroller)
+          if (
+            openingOffset &&
+            scroller.scrollTop === openingOffset.top &&
+            scroller.scrollLeft === openingOffset.left
+          ) {
+            return
+          }
+        }
         onDismiss('outside')
       }
     }

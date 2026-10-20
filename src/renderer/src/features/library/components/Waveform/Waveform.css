@@ -6,14 +6,9 @@
 }
 
 .sample-waveform canvas {
-  width: calc(100% - var(--space-20));
+  width: 100%;
   height: var(--space-16);
   color: var(--color-waveform-default);
-}
-
-.sample-duration {
-  min-width: 68px;
-  font-variant-numeric: tabular-nums;
 }
 
 .waveform-status {
@@ -35,9 +30,4 @@
   min-width: var(--space-0);
   width: var(--space-0);
   height: var(--space-7);
-}
-
-.sample-waveform[data-compact] .sample-duration {
-  min-width: var(--space-0);
-  flex-shrink: 0;
 }

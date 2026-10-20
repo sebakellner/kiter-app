@@ -29,7 +29,6 @@
 }
 
 .ui-table > thead > tr > th {
-  background: var(--color-surface-soft);
   color: var(--color-text-secondary);
   font-family: var(--typography-label-font-family);
   font-size: var(--typography-label-font-size);
@@ -38,10 +37,16 @@
   line-height: var(--typography-label-line-height);
 }
 
+.ui-table > thead > tr:first-child > th {
+  border-top: var(--border-width-1) var(--border-style-solid)
+    var(--color-border-default);
+}
+
 .ui-table[data-sticky-header] > thead {
   position: sticky;
   top: 0;
   z-index: 1;
+  background: var(--color-surface-page);
 }
 
 .ui-table > tbody > tr:hover,
