@@ -151,16 +151,28 @@ export function updateCollection(
   requireEntityId(input.id)
   const name = requirePresentationName(input.name)
   const description = requireCollectionDescription(input.description)
-  const row = db
-    .update(collections)
-    .set({ name, description })
-    .where(eq(collections.id, input.id))
-    .returning()
-    .get()
-  if (!row) {
-    throw new DbError('NOT_FOUND', 'The Collection no longer exists.')
-  }
-  return row
+  return db.transaction(
+    () => {
+      const current = getCollection(db, input.id)
+      if (
+        input.expected &&
+        (current.name !== input.expected.name ||
+          current.description !== input.expected.description)
+      ) {
+        throw new DbError(
+          'STALE_REVIEW',
+          'The Collection changed. Reload saved details before saving again.',
+        )
+      }
+      return db
+        .update(collections)
+        .set({ name, description })
+        .where(eq(collections.id, input.id))
+        .returning()
+        .get()!
+    },
+    { behavior: 'immediate' },
+  )
 }
 
 export function listCollections(

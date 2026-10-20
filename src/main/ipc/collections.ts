@@ -7,6 +7,8 @@ import {
   requireCollectionMembershipRequest,
   requireCollectionMoveRequest,
   requireCollectionPlaceRequest,
+  requireCollectionUpdateRequest,
+  requireCollectionRemovalRequest,
 } from '../../shared/ipc/collections'
 import { requireCollectionPage } from '../../shared/domain/collection'
 import type { DbClient } from '../db'
@@ -14,6 +16,53 @@ import { requireMainFrameWindow } from './authorize'
 import { invokeResult } from './result'
 
 export function registerCollectionsIpc(database: DbClient): void {
+  ipcMain.handle(COLLECTION_CHANNELS.update, (event, request: unknown) =>
+    invokeResult(
+      'collections.update',
+      {
+        code: 'STORAGE_FAILED',
+        message:
+          'Unable to save the Collection. Reload saved details before trying again.',
+      },
+      () => {
+        requireMainFrameWindow(event)
+        return database.updateCollection(
+          requireCollectionUpdateRequest(request),
+        )
+      },
+    ),
+  )
+  ipcMain.handle(COLLECTION_CHANNELS.reviewRemoval, (event, request: unknown) =>
+    invokeResult(
+      'collections.review-removal',
+      {
+        code: 'STORAGE_FAILED',
+        message: 'Unable to review the Collection. Try reviewing it again.',
+      },
+      () => {
+        requireMainFrameWindow(event)
+        return database.reviewCollectionRemoval(
+          requireCollectionGetRequest(request).id,
+        )
+      },
+    ),
+  )
+  ipcMain.handle(COLLECTION_CHANNELS.remove, (event, request: unknown) =>
+    invokeResult(
+      'collections.remove',
+      {
+        code: 'STORAGE_FAILED',
+        message:
+          'Unable to verify Collection deletion. Review it again before retrying.',
+      },
+      () => {
+        requireMainFrameWindow(event)
+        return database.removeCollection(
+          requireCollectionRemovalRequest(request),
+        )
+      },
+    ),
+  )
   ipcMain.handle(COLLECTION_CHANNELS.placeSample, (event, request: unknown) =>
     invokeResult(
       'collections.place-sample',

@@ -28,6 +28,54 @@ import { isDbReply, isDbRequest } from '../../protocol/messages.ts'
 
 const operations = { ...collectionOperations, ...removal }
 
+test('reviewed Collection edits reject changed presentation atomically without changing memberships or Favorites', (t) => {
+  const { db } = createMemoryDatabase(t)
+  const original = operations.createCollection(db, {
+    name: 'Original',
+    description: 'Saved',
+  })
+  const ids = fixture(db)
+  operations.setCollectionMembership(db, {
+    collectionId: original.id,
+    sampleId: ids[0],
+    assigned: true,
+  })
+  setFavorite(db, ids[0], true)
+  const expected = { name: original.name, description: original.description }
+  const updated = operations.updateCollection(db, {
+    id: original.id,
+    name: 'Renamed',
+    description: '',
+    expected,
+  })
+  assert.equal(updated.name, 'Renamed')
+  assert.equal(updated.description, null)
+  assert.throws(
+    () =>
+      operations.updateCollection(db, {
+        id: original.id,
+        name: 'Outdated write',
+        description: 'Lost',
+        expected,
+      }),
+    { code: 'STALE_REVIEW' },
+  )
+  assert.deepEqual(operations.getCollection(db, original.id), updated)
+  assert.equal(operations.listCollectionSamples(db, original.id).total, 1)
+  assert.equal(
+    db.select().from(samples).where(eq(samples.id, ids[0])).get()!.favorite,
+    true,
+  )
+  assert.equal(
+    isDbRequest({
+      requestId: 1,
+      action: 'update-collection',
+      input: { id: original.id, name: 'Name', expected: {} },
+    }),
+    false,
+  )
+})
+
 test('Collection summaries count memberships without transferring Samples and preserve homonyms and bounded order', (t) => {
   const { db } = createMemoryDatabase(t)
   const first = operations.createCollection(db, { name: 'Same' })
