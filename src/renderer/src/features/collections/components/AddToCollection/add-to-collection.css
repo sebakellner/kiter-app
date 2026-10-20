@@ -43,6 +43,11 @@
   overflow: auto;
 }
 
+.collection-picker [aria-label='Selected Samples'] {
+  max-height: 240px;
+  overflow: auto;
+}
+
 .collection-picker-options label {
   display: flex;
   gap: 8px;

@@ -11,9 +11,11 @@ import {
   collectionPickerSchema,
   type CollectionPickerValues,
 } from '../../schemas'
+import type { CollectionSample } from './useCheckedCollectionSamples'
 
 type Choice = Pick<Collection, 'id' | 'name'>
 export type MembershipOutcome = Choice & {
+  sample: CollectionSample
   status: 'added' | 'already-included' | 'failed'
   message?: string
   code?: string
@@ -39,7 +41,7 @@ type PickerController = {
 }
 
 export function useCollectionPicker(
-  sampleId: string,
+  samples: CollectionSample[],
   onCompleted: (outcomes: MembershipOutcome[]) => void,
 ): PickerController {
   const form = useForm<CollectionPickerValues>({
@@ -49,6 +51,7 @@ export function useCollectionPicker(
   const selectedIds = useWatch({ control: form.control, name: 'collectionIds' })
   const [choices, setChoices] = useState<Choice[]>([])
   const [request, setRequest] = useState({ search: '', offset: 0, version: 0 })
+  const sampleId = samples.length === 1 ? samples[0].id : undefined
   const key = JSON.stringify([sampleId, request])
   const [result, setResult] = useState<{
     key: string
@@ -150,32 +153,36 @@ export function useCollectionPicker(
     )
   }
 
-  async function apply(destinations: Choice[]): Promise<void> {
-    if (inFlight.current || destinations.length === 0) {
+  async function apply(
+    targets: { destination: Choice; sample: CollectionSample }[],
+  ): Promise<void> {
+    if (inFlight.current || targets.length === 0) {
       return
     }
     inFlight.current = true
     setPending(true)
     const next: MembershipOutcome[] = []
     try {
-      for (const destination of destinations) {
+      for (const { destination, sample } of targets) {
         if (!mounted.current) {
           break
         }
         try {
           const reply = await window.api.collections.setMembership({
             collectionId: destination.id,
-            sampleId,
+            sampleId: sample.id,
             assigned: true,
           })
           next.push(
             reply.ok
               ? {
                   ...destination,
+                  sample,
                   status: reply.data.changed ? 'added' : 'already-included',
                 }
               : {
                   ...destination,
+                  sample,
                   status: 'failed',
                   message: reply.error.message,
                   code: reply.error.code,
@@ -184,6 +191,7 @@ export function useCollectionPicker(
         } catch (reason) {
           next.push({
             ...destination,
+            sample,
             status: 'failed',
             message:
               reason instanceof Error
@@ -196,14 +204,17 @@ export function useCollectionPicker(
         onCompleted(next)
         setOutcomes((current) => [
           ...(current ?? []).filter(
-            ({ id }) => !next.some((item) => item.id === id),
+            ({ id, sample }) =>
+              !next.some(
+                (item) => item.id === id && item.sample.id === sample.id,
+              ),
           ),
           ...next,
         ])
         setRequest((current) => ({ ...current, version: current.version + 1 }))
         if (
           quitRequested.current &&
-          next.length === destinations.length &&
+          next.length === targets.length &&
           next.every(({ status }) => status !== 'failed')
         ) {
           allowExit.current = true
@@ -230,9 +241,26 @@ export function useCollectionPicker(
     error: loading ? null : (result?.error ?? null),
     pending,
     outcomes,
-    submit: form.handleSubmit(() => apply(selected)),
+    submit: form.handleSubmit(() => {
+      if (selected.length * samples.length > 1000) {
+        form.setError('collectionIds', {
+          message:
+            'Add at most 1,000 Sample/Collection references per batch. Choose fewer destinations or Samples.',
+        })
+        return
+      }
+      return apply(
+        selected.flatMap((destination) =>
+          samples.map((sample) => ({ destination, sample })),
+        ),
+      )
+    }),
     retryFailed: () =>
-      apply((outcomes ?? []).filter(({ status }) => status === 'failed')),
+      apply(
+        (outcomes ?? [])
+          .filter(({ status }) => status === 'failed')
+          .map((outcome) => ({ destination: outcome, sample: outcome.sample })),
+      ),
     canRetry:
       Boolean(outcomes?.some(({ status }) => status === 'failed')) &&
       !outcomes?.some(

@@ -32,7 +32,11 @@ afterEach(() => {
   Reflect.deleteProperty(HTMLDialogElement.prototype, 'close')
 })
 
-function setup(total = 2): {
+function setup(
+  total = 2,
+  samples?: (typeof sample)[],
+  available = samples,
+): {
   api: ReturnType<typeof createTestApi>
   router: ReturnType<typeof createMemoryRouter>
   onClose: ReturnType<typeof vi.fn>
@@ -56,6 +60,27 @@ function setup(total = 2): {
     ok: true,
     data: { items: [first, second], total, offset: 0, limit: 50 },
   })
+  if (samples && available) {
+    api.library.list.mockImplementation(async (request) => ({
+      ok: true,
+      data: {
+        items: available
+          .slice(request?.offset ?? 0, (request?.offset ?? 0) + 100)
+          .map((item) => ({
+            ...item,
+            path: `/fixtures/${item.relativePath}`,
+            rootPath: '/fixtures',
+            sourceRevision: 1,
+            favorite: false,
+            audioUrl: null,
+            unavailableReason: 'Audio unavailable.',
+          })),
+        total: available.length,
+        offset: request?.offset ?? 0,
+        limit: 100,
+      },
+    }))
+  }
   const onClose = vi.fn()
   const router = createMemoryRouter(
     [
@@ -64,7 +89,11 @@ function setup(total = 2): {
         element: (
           <>
             <Link to="/home">Home</Link>
-            <AddToCollection sample={sample} onClose={onClose} />
+            <AddToCollection
+              sample={samples ? undefined : sample}
+              samples={samples}
+              onClose={onClose}
+            />
           </>
         ),
       },
@@ -141,6 +170,134 @@ test('multi-destination additions distinguish existing members, retain partial r
     { collectionId: second.id, sampleId: sample.id, assigned: true },
     { collectionId: second.id, sampleId: sample.id, assigned: true },
   ])
+})
+
+test('review identifies missing selections and requires explicit confirmation of the remaining scope', async () => {
+  const other = {
+    ...sample,
+    id: '00000000-0000-4000-8000-000000000002',
+    name: 'Snare',
+  }
+  const { api, user } = setup(2, [sample, other], [other])
+  const missing = await screen.findByRole('region', {
+    name: 'Unavailable selections',
+  })
+  expect(missing).toHaveTextContent(
+    '1 selected Samples are no longer in the source list',
+  )
+  expect(missing).toHaveTextContent(sample.id)
+  expect(api.collections.setMembership).not.toHaveBeenCalled()
+  await user.click(
+    await screen.findByRole('checkbox', { name: new RegExp(first.id) }),
+  )
+  api.collections.setMembership.mockResolvedValue({
+    ok: true,
+    data: { assigned: true, changed: true },
+  })
+  await user.click(screen.getByRole('button', { name: 'Add Sample' }))
+  expect(
+    await screen.findByRole('region', { name: 'Collection results' }),
+  ).toHaveTextContent('1 added, 0 already included, 0 failed.')
+  expect(api.collections.setMembership).toHaveBeenCalledExactlyOnceWith({
+    collectionId: first.id,
+    sampleId: other.id,
+    assigned: true,
+  })
+})
+
+test('excessive Sample and destination combinations fail explicitly without truncating or starting writes', async () => {
+  const samples = Array.from({ length: 501 }, (_, index) => ({
+    ...sample,
+    id: `00000000-0000-4000-8000-${String(index).padStart(12, '0')}`,
+  }))
+  const { api, user } = setup(2, samples)
+  await user.click(
+    await screen.findByRole('checkbox', { name: new RegExp(first.id) }),
+  )
+  await user.click(
+    screen.getByRole('checkbox', { name: new RegExp(second.id) }),
+  )
+  await user.click(screen.getByRole('button', { name: 'Add 501 Samples' }))
+  expect(await screen.findByRole('alert')).toHaveTextContent(
+    'Add at most 1,000 Sample/Collection references per batch.',
+  )
+  expect(api.collections.setMembership).not.toHaveBeenCalled()
+  expect(
+    api.library.list.mock.calls.map(([request]) => request?.offset),
+  ).toEqual([0, 100, 200, 300, 400, 500])
+})
+
+test('checked Samples are reviewed in source order and independent pair failures retry without replaying successful references', async () => {
+  const other = {
+    ...sample,
+    id: '00000000-0000-4000-8000-000000000002',
+    name: 'Snare',
+    relativePath: 'Other/snare.wav',
+  }
+  const { api, user } = setup(2, [other, sample])
+  await user.click(await screen.findByText('Review selected Samples (2)'))
+  expect(
+    screen.getByRole('list', { name: 'Selected Samples' }),
+  ).toHaveTextContent('Snare')
+  expect(api.library.list).toHaveBeenCalledWith({
+    sampleIds: [other.id, sample.id],
+    limit: 100,
+    offset: 0,
+  })
+  await user.click(
+    await screen.findByRole('checkbox', { name: new RegExp(first.id) }),
+  )
+  await user.click(
+    screen.getByRole('checkbox', { name: new RegExp(second.id) }),
+  )
+  api.collections.setMembership
+    .mockResolvedValueOnce({
+      ok: true,
+      data: { assigned: true, changed: false },
+    })
+    .mockResolvedValueOnce({
+      ok: false,
+      error: { code: 'STORAGE_FAILED', message: 'Cannot save Kick.' },
+    })
+    .mockResolvedValueOnce({
+      ok: true,
+      data: { assigned: true, changed: true },
+    })
+    .mockResolvedValueOnce({
+      ok: true,
+      data: { assigned: true, changed: true },
+    })
+  await user.click(screen.getByRole('button', { name: 'Add 2 Samples' }))
+  const results = await screen.findByRole('region', {
+    name: 'Collection results',
+  })
+  expect(results).toHaveTextContent('2 added, 1 already included, 1 failed.')
+  expect(results).toHaveTextContent('Cannot save Kick.')
+  expect(
+    api.collections.setMembership.mock.calls.map(([request]) => [
+      request.collectionId,
+      request.sampleId,
+    ]),
+  ).toEqual([
+    [first.id, other.id],
+    [first.id, sample.id],
+    [second.id, other.id],
+    [second.id, sample.id],
+  ])
+  api.collections.setMembership.mockResolvedValueOnce({
+    ok: true,
+    data: { assigned: true, changed: true },
+  })
+  await user.click(screen.getByRole('button', { name: 'Retry failed' }))
+  await waitFor(() =>
+    expect(results).toHaveTextContent('3 added, 1 already included, 0 failed.'),
+  )
+  expect(api.collections.setMembership.mock.calls.at(-1)?.[0]).toEqual({
+    collectionId: first.id,
+    sampleId: sample.id,
+    assigned: true,
+  })
+  expect(api.collections.setMembership).toHaveBeenCalledTimes(5)
 })
 
 test('destination selection survives pages, stale searches and read failures without changing source identity', async () => {
