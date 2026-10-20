@@ -36,6 +36,11 @@ import {
 import { requireEntityId } from '../../shared/domain/validation'
 import type { DbReply } from './protocol/messages'
 import type {
+  ImportCatalogRequest,
+  ImportCatalogSnapshot,
+} from '../../shared/features/imports/schemas'
+import { isImportPreparationRequest } from './protocol/imports'
+import type {
   Author,
   Instrument,
   ClassificationAssignmentRequest,
@@ -137,6 +142,23 @@ import type {
 const UNEXPECTED_REPLY_MESSAGE = 'Unexpected database response'
 
 export class DbClient {
+  async readImportCatalog(
+    input: ImportCatalogRequest,
+  ): Promise<ImportCatalogSnapshot> {
+    this.transport.assertOpen()
+    const request = { action: 'read-import-catalog', input } as const
+    if (!isImportPreparationRequest(request)) {
+      throw new DomainValidationError(
+        'Invalid import catalog snapshot request.',
+      )
+    }
+    const reply = await this.transport.request(request)
+    if (reply.action !== 'read-import-catalog') {
+      throw new Error(UNEXPECTED_REPLY_MESSAGE)
+    }
+    return reply.result
+  }
+
   async readSampleType(input: SampleTypeRequest): Promise<SampleTypeSnapshot> {
     const reply = await this.recognitionRequest({
       action: 'read-sample-type',

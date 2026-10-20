@@ -4,6 +4,7 @@ import path from 'node:path'
 import type { AudioFile, LibrarySample } from '../../../shared/ipc'
 import type { DbClient } from '../../db'
 import type { DiscoveredAudioFile } from '../../../shared/domain/source'
+import { AUDIO_FILE_EXTENSIONS } from '../../../shared/domain/source.ts'
 import { IpcError } from '../../../shared/ipc/result.ts'
 import type { PackImportReview } from '../../../shared/domain/pack'
 import type {
@@ -53,7 +54,9 @@ export async function reincludeLibrarySource(
     const observation = await stat(input.canonicalPath)
     if (
       !observation.isFile() ||
-      !AUDIO_EXT.has(path.extname(input.canonicalPath).toLowerCase())
+      !AUDIO_FILE_EXTENSIONS.has(
+        path.extname(input.canonicalPath).toLowerCase(),
+      )
     ) {
       throw new Error('The source is not a supported audio file')
     }
@@ -73,8 +76,6 @@ export async function reincludeLibrarySource(
   }
   return database.reincludeSource(input, file)
 }
-
-const AUDIO_EXT = new Set(['.mp3', '.wav', '.flac', '.ogg', '.m4a', '.aac'])
 
 export async function importLibraryFolder(
   directory: string,
@@ -155,7 +156,7 @@ export async function readAudioDir(dirPath: string): Promise<AudioFile[]> {
         await collect(entryPath)
       } else if (
         entry.isFile() &&
-        AUDIO_EXT.has(path.extname(entry.name).toLowerCase())
+        AUDIO_FILE_EXTENSIONS.has(path.extname(entry.name).toLowerCase())
       ) {
         files.push({
           name: entry.name,
