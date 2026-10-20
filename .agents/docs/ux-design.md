@@ -22,7 +22,7 @@ text editing and reviewed deletion under
 [Catalog Organization](features/catalog-organization.md#implemented-collection-creation-and-browsing).
 Other sidebar destinations have navigable placeholder views; their workflows remain planned.
 Samples and Favorites have a read-only inspector opened explicitly with each
-Sample row's Info action, which selects that Sample and opens the panel,
+Sample menu's Info action, which selects that Sample and opens the panel,
 following list selection and showing an empty state when no row is selected.
 It supports Close/Escape with focus return, a side-by-side wide layout, and a
 compact workspace overlay that blocks underlying regions while preserving player
@@ -380,12 +380,13 @@ Apply shared selection/draft transitions here when results change.
   as supplied; do not derive a replacement from `relativePath`, strip extensions,
   or invent a new display-name fallback in each component.
 - Paths describe source locations, not Sample identity or primary display text.
-  Show relative paths as secondary context when they differ from the name or are
-  needed to distinguish displayed homonyms. Keep that context visible without
-  requiring hover. If displayed Samples also share the same relative path, show
-  their source-folder context; the complete source path may be used when needed
-  to resolve that ambiguity. Otherwise full paths belong in Info, tooltips and
-  workflows explicitly reviewing filesystem locations.
+  The table's Name column shows the name and saved badges without an inline
+  relative path or source-folder line. Retain secondary source context in
+  accessible descriptions when paths differ from names or distinguish homonyms,
+  including source-folder context when relative paths also collide. Full source
+  locations remain available in Info, row tooltips and workflows explicitly
+  reviewing filesystem locations. This does not remove visible path context from
+  destination pickers or filesystem reviews.
 - Accessible action names use the same Sample name as visible UI. Associate
   secondary path context through accessible descriptions rather than replacing
   the name with a path. Waveform and playback labels follow the same naming rule.
@@ -398,6 +399,18 @@ Apply shared selection/draft transitions here when results change.
 
 - Samples, Favorites, and Sample lists within Packs and Collections use rows,
   rather than an alternate card presentation.
+- Samples, Favorites and Collection members currently compose the shared table
+  primitives, with column headers and independent cells for existing controls,
+  identity and waveform content. Saved category badges sit below the Sample name;
+  the checkbox and preview columns have no visible headings. A Pack column next
+  to the checkbox currently shows a generic cover placeholder, not a resolved
+  origin Pack or its managed image. Time displays the existing lazy waveform
+  duration in seconds in a separate column, with unknown duration
+  left unmeasured rather than shown as zero. This is not persisted catalog analysis.
+  Selection, preview and batch
+  checks retain their separate behavior. Narrow content uses the existing content
+  scroller rather than silently hiding columns; final responsive priorities remain
+  pending. The inline Info button is removed; Info remains in the Sample menu.
 - Wide Sample rows accommodate name, Play/Pause, Favorite, contextual menu,
   waveform, observed duration, format, origin Pack, direct Instruments, direct
   Authors, and relative source path. Include selection and distinct drag controls
@@ -440,9 +453,10 @@ Apply shared selection/draft transitions here when results change.
 - If a selected field cannot fit, keep it checked in the visibility menu and
   explain that it is temporarily hidden for space. Restore it when space permits;
   responsive hiding must not rewrite the user's preference.
-- When Sample names collide, keep secondary relative-path context visible beside
-  the name even if the dedicated path field is hidden. Tooltip and inspector
-  provide full source context; do not rely on hover alone for disambiguation.
+- When Sample names collide, retain source context in accessible descriptions
+  and keep Info available without relying on hover. Name still omits inline paths;
+  the row tooltip and inspector provide full source context without replacing the
+  Sample's effective name.
 - Distinguish same-named Packs through their source-folder context, expanding
   the displayed path context enough to identify the root. Full location remains
   available through accessible supporting information and detail.

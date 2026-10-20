@@ -69,6 +69,8 @@ Compose tables explicitly with JSX. Import the primitives from this module's
   feature-level accessibility contract.
 
 The visual foundation retains Kiter's existing typography, neutral surfaces,
-separators and focus tokens. Native table layout aligns headers and cells; text
+separators and focus tokens. Headers use dividers rather than a contrasting fill;
+sticky headers retain the page surface so scrolling rows do not show through.
+Native table layout aligns headers and cells; text
 wraps instead of being silently clipped, and selected rows retain their selection
 surface on hover/focus. Sticky grouped headers move together as one header section.
