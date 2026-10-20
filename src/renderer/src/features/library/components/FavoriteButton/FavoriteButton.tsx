@@ -10,12 +10,14 @@ type Props = {
   file: LibrarySample
   onChanged: (state: FavoriteState) => void
   descriptionId?: string
+  compact?: boolean
 }
 
 export function FavoriteButton({
   file,
   onChanged,
   descriptionId,
+  compact = false,
 }: Props): React.JSX.Element {
   const { showToast } = useToast()
   const [pending, setPending] = useState(false)
@@ -84,7 +86,17 @@ export function FavoriteButton({
         }}
         onClick={() => void toggle()}
       >
-        {pending ? 'Saving...' : file.favorite ? 'Favorited' : 'Favorite'}
+        {compact ? (
+          <span aria-hidden="true">
+            {pending ? '…' : file.favorite ? '♥' : '♡'}
+          </span>
+        ) : pending ? (
+          'Saving...'
+        ) : file.favorite ? (
+          'Favorited'
+        ) : (
+          'Favorite'
+        )}
       </Button>
       {error && (
         <span role="alert" className="sample-error">

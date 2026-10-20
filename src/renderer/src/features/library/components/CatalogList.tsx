@@ -38,6 +38,8 @@ export function CatalogList({
   const { revision, updateFavorite, preview } = useLibrarySession()
   const { setSample, openSample, open } = useSampleInspector()
   const [adding, setAdding] = useState<ListSample | null>(null)
+  const [selecting, setSelecting] = useState(false)
+  const [checkedIds, setCheckedIds] = useState<ReadonlySet<string>>(new Set())
   const controls = useRef<HTMLDivElement>(null)
   const list = useRef<HTMLDivElement>(null)
   const focusIntent = useRef<string | null>(null)
@@ -51,6 +53,8 @@ export function CatalogList({
     context.search,
     collectionId,
   )
+  const visibleChecked =
+    page?.items.filter((sample) => checkedIds.has(sample.id)).length ?? 0
   const select = useCallback(
     (selectedId: string | null) => update({ selectedId }),
     [update],
@@ -207,6 +211,29 @@ export function CatalogList({
             update({ ...filters, offset: 0, scrollTop: 0 })
           }
         />
+        <div className="catalog-selection-controls">
+          <Button
+            variant="ghost"
+            disabled={order.pending}
+            aria-pressed={selecting}
+            onClick={() => {
+              setSelecting(!selecting)
+              setCheckedIds(new Set())
+            }}
+          >
+            {selecting ? 'Done' : 'Select'}
+          </Button>
+          {selecting && (
+            <>
+              <p role="status">
+                {checkedIds.size} selected
+                {checkedIds.size > visibleChecked &&
+                  ` (${checkedIds.size - visibleChecked} outside this page)`}
+              </p>
+              <p>Selection prototype. Batch actions are not available yet.</p>
+            </>
+          )}
+        </div>
         {order.pending && <p role="status">Saving Collection order…</p>}
         {order.error && (
           <p role="alert">
@@ -278,6 +305,24 @@ export function CatalogList({
                       : undefined
                   }
                   membershipPending={removal.pending || order.pending}
+                  batch={
+                    selecting
+                      ? {
+                          ids: checkedIds,
+                          onChange: (id, checked) => {
+                            setCheckedIds((current) => {
+                              const next = new Set(current)
+                              if (checked) {
+                                next.add(id)
+                              } else {
+                                next.delete(id)
+                              }
+                              return next
+                            })
+                          },
+                        }
+                      : undefined
+                  }
                   onAddToCollection={setAdding}
                   order={
                     collectionId

@@ -66,6 +66,163 @@ const snare = makeAudioSample({
   audioUrl: 'sample://audio/00000000-0000-4000-8000-000000000004',
 })
 
+test('batch checkboxes change only checked membership, independently of active selection and preview', async () => {
+  const { api, preview } = setup()
+  const user = userEvent.setup()
+  function Harness(): React.JSX.Element {
+    const [ids, setIds] = useState<ReadonlySet<string>>(new Set())
+    return (
+      <SampleList
+        samples={[kick, snare]}
+        preview={preview}
+        onFavoriteChanged={vi.fn()}
+        batch={{
+          ids,
+          onChange: (id, checked) => {
+            setIds((current) => {
+              const next = new Set(current)
+              if (checked) {
+                next.add(id)
+              } else {
+                next.delete(id)
+              }
+              return next
+            })
+          },
+        }}
+      />
+    )
+  }
+  render(<Harness />)
+  const [first, second] = screen.getAllByRole('row')
+  await user.click(second)
+  const checkbox = within(first).getByRole('checkbox', {
+    name: 'Select kick.wav',
+  })
+  await user.click(checkbox)
+  expect(checkbox).toBeChecked()
+  expect(second).toHaveAttribute('aria-selected', 'true')
+  expect(preview.togglePreview).not.toHaveBeenCalled()
+  fireEvent.dragStart(checkbox)
+  expect(api.library.startDrag).not.toHaveBeenCalled()
+  await user.click(within(first).getByTestId('preview-toggle'))
+  expect(preview.togglePreview).toHaveBeenCalledWith(kick)
+  expect(checkbox).toBeChecked()
+  expect(second).toHaveAttribute('aria-selected', 'true')
+  checkbox.focus()
+  await user.keyboard(' ')
+  expect(checkbox).not.toBeChecked()
+  expect(preview.togglePreview).toHaveBeenCalledTimes(1)
+  const label = checkbox.closest('label')
+  if (!label) {
+    throw new Error('The checkbox must have a larger clickable label.')
+  }
+  await user.click(label)
+  expect(checkbox).toBeChecked()
+  expect(second).toHaveAttribute('aria-selected', 'true')
+  fireEvent.dragStart(label)
+  expect(api.library.startDrag).not.toHaveBeenCalled()
+  expect(preview.togglePreview).toHaveBeenCalledTimes(1)
+})
+
+test('rows display saved category badges and open Info for overflowing assignments without preview', async () => {
+  const { preview } = setup()
+  const user = userEvent.setup()
+  const onInspect = vi.fn()
+  const sample = {
+    ...kick,
+    rootPath: null,
+    sourceRevision: 1,
+    unavailableReason: null,
+    classification: {
+      instruments: ['Piano'],
+      genres: ['Ambient'],
+      sampleType: 'loop' as const,
+      additionalInstrumentCount: 2,
+      additionalGenreCount: 1,
+    },
+  }
+  render(
+    <SampleList
+      samples={[sample]}
+      preview={preview}
+      onFavoriteChanged={vi.fn()}
+      onInspect={onInspect}
+    />,
+  )
+  const row = screen.getByRole('row')
+  for (const label of ['Piano', 'Ambient', 'Loop']) {
+    expect(within(row).getByText(label)).toBeVisible()
+  }
+  const categories = within(row).getByRole('list', {
+    name: 'Sample categories',
+  })
+  const badges = within(categories).getAllByRole('listitem')
+  expect(badges[0]).toHaveTextContent('Instrument: Piano')
+  expect(badges[1]).toHaveTextContent('Genre: Ambient')
+  expect(badges[2]).toHaveTextContent('Sample type: Loop')
+  expect(screen.queryByRole('checkbox')).not.toBeInTheDocument()
+  await user.click(
+    within(row).getByRole('button', {
+      name: 'View 2 more instruments: kick.wav',
+    }),
+  )
+  await user.click(
+    within(row).getByRole('button', { name: 'View 1 more genre: kick.wav' }),
+  )
+  expect(onInspect).toHaveBeenCalledTimes(2)
+  expect(onInspect).toHaveBeenCalledWith(sample, expect.any(HTMLElement))
+  expect(row).toHaveAttribute('aria-selected', 'true')
+  expect(preview.togglePreview).not.toHaveBeenCalled()
+})
+
+test('category overflow remains explicit without Info and hides zero counts', () => {
+  const { preview } = setup()
+  const sample = {
+    ...kick,
+    rootPath: null,
+    sourceRevision: 1,
+    unavailableReason: null,
+    classification: {
+      instruments: ['Piano'],
+      genres: [],
+      sampleType: null,
+      additionalInstrumentCount: 1,
+      additionalGenreCount: 0,
+    },
+  }
+  const { rerender } = render(
+    <SampleList
+      samples={[sample]}
+      preview={preview}
+      onFavoriteChanged={vi.fn()}
+    />,
+  )
+  expect(screen.getByText('1 more instrument')).toBeVisible()
+  expect(screen.queryByText(/more genres?/)).not.toBeInTheDocument()
+  rerender(
+    <SampleList
+      samples={[
+        {
+          ...sample,
+          classification: {
+            ...sample.classification,
+            additionalInstrumentCount: 0,
+          },
+        },
+      ]}
+      preview={preview}
+      onFavoriteChanged={vi.fn()}
+    />,
+  )
+  expect(screen.queryByText(/more instruments?/)).not.toBeInTheDocument()
+  expect(
+    within(
+      screen.getByRole('list', { name: 'Sample categories' }),
+    ).getAllByRole('listitem'),
+  ).toHaveLength(1)
+})
+
 test('Sample names lead row actions, waveforms and playback while paths remain secondary descriptions', async () => {
   const { preview } = setup()
   const user = userEvent.setup()

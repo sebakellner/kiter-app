@@ -3,11 +3,12 @@ import '../../library.css'
 import './Waveform.css'
 import { loadWaveform, type WaveformData } from './waveformData'
 
-type Props = { audioUrl: string; name: string }
+type Props = { audioUrl: string; name: string; compact?: boolean }
 
 export const Waveform = memo(function Waveform({
   audioUrl,
   name,
+  compact = false,
 }: Props): React.JSX.Element {
   const container = useRef<HTMLDivElement>(null)
   const canvas = useRef<HTMLCanvasElement>(null)
@@ -76,7 +77,11 @@ export const Waveform = memo(function Waveform({
   }, [data])
 
   return (
-    <div className="sample-waveform" ref={container}>
+    <div
+      className="sample-waveform"
+      data-compact={compact || undefined}
+      ref={container}
+    >
       <canvas
         ref={canvas}
         width={640}

@@ -9,11 +9,17 @@ import './sample-suggestions.css'
 
 export function SampleSuggestions({
   sampleId,
+  onChanged,
 }: {
   sampleId: string
+  onChanged?: () => void
 }): React.JSX.Element {
   const { groups, loading, pending, error, notice, refresh, apply } =
-    useSampleSuggestions(sampleId)
+    useSampleSuggestions(sampleId, onChanged)
+  function saved(): void {
+    refresh()
+    onChanged?.()
+  }
   const assigned = groups.filter(
     ({ item }) => item.kind === 'assigned' || item.alreadyAssigned,
   )
@@ -65,7 +71,7 @@ export function SampleSuggestions({
           sampleId={sampleId}
           anchor={typeAnchor}
           onClose={() => setTypeAnchor(null)}
-          onSaved={refresh}
+          onSaved={saved}
         />
       )}
       {genreAnchor && (
@@ -74,7 +80,7 @@ export function SampleSuggestions({
           sampleId={sampleId}
           anchor={genreAnchor}
           onClose={() => setGenreAnchor(null)}
-          onSaved={refresh}
+          onSaved={saved}
         />
       )}
       {instrumentAnchor && (
@@ -82,7 +88,7 @@ export function SampleSuggestions({
           sampleId={sampleId}
           anchor={instrumentAnchor}
           onClose={() => setInstrumentAnchor(null)}
-          onSaved={refresh}
+          onSaved={saved}
         />
       )}
       {loading && <p role="status">Loading suggestions...</p>}
