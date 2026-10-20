@@ -146,7 +146,18 @@ test('catalog search uses exactly the displayed relative path in pages and indiv
     )
     const page = listCatalogSamples(db, { search: row.relativePath })
     assert.equal(page.total, 1)
-    assert.deepEqual(page.items, [row])
+    assert.deepEqual(page.items, [
+      {
+        ...row,
+        classification: {
+          instruments: [],
+          genres: [],
+          sampleType: null,
+          additionalInstrumentCount: 0,
+          additionalGenreCount: 0,
+        },
+      },
+    ])
     assert.equal(
       listCatalogSamples(db, { search: 'cafe textures' }).total,
       registered ? 1 : 0,
