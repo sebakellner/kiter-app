@@ -1,0 +1,26 @@
+export {
+  Table,
+  TableScrollArea,
+  TableHeader,
+  TableBody,
+  TableFooter,
+  TableColumnGroup,
+  TableColumn,
+  TableRow,
+  TableHead,
+  TableCell,
+  TableCaption,
+} from './Table'
+export type {
+  TableProps,
+  TableScrollAreaProps,
+  TableHeaderProps,
+  TableBodyProps,
+  TableFooterProps,
+  TableColumnGroupProps,
+  TableColumnProps,
+  TableRowProps,
+  TableHeadProps,
+  TableCellProps,
+  TableCaptionProps,
+} from './Table'
