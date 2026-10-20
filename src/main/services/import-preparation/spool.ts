@@ -116,4 +116,10 @@ export class PreparationSpool {
   async dispose(): Promise<void> {
     await rm(this.directory, { recursive: true, force: true })
   }
+
+  async *batches(): AsyncGenerator<PreparationCandidate[]> {
+    for (let offset = 0; offset < this.count; offset += 100) {
+      yield await this.page(offset, 100)
+    }
+  }
 }

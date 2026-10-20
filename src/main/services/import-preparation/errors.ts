@@ -14,8 +14,19 @@ const DIAGNOSTIC_CODES = new Set<string>([
   'EEXIST',
 ])
 
+export type PreparationWorkStage =
+  | 'set-mode'
+  | 'set-selection'
+  | 'set-subtree-selection'
+  | 'set-destinations'
+  | 'set-origin-decisions'
+  | 'set-pack-details'
+  | 'remove-root'
+  | 'rescan-root'
+  | 'review'
+
 export function logPreparationFailure(
-  stage: 'prepare' | 'build' | 'read-page' | 'cleanup',
+  stage: 'prepare' | 'build' | 'read-page' | 'cleanup' | PreparationWorkStage,
   error: unknown,
 ): void {
   const code =

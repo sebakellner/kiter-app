@@ -23,6 +23,7 @@ export interface PreparationIssue {
     | 'LIMIT_EXCEEDED'
     | 'SOURCE_CHANGED'
     | 'REGISTRATION_INACTIVE'
+    | 'REVIEW_CHANGED'
   relativePath: string
 }
 
@@ -37,10 +38,61 @@ export interface PreparationCandidate {
 export interface ImportPreparation {
   id: string
   revision: number
-  state: 'ready' | 'blocked'
+  state: 'ready' | 'blocked' | 'editing' | 'reviewed'
   // Unique candidates retained in the spool, not a sum of root discoveries.
   candidateCount: number
   roots: PreparationRoot[]
+  mode: 'standalone' | 'pack' | null
+  packDetails: Record<string, PreparationPackDetails>
+}
+
+export interface PreparationPackDetails {
+  name: string
+  description: string | null
+  // A folder-name suggestion can be invalid without blocking draft editing.
+  nameIssue?: 'INVALID_NAME'
+}
+
+export interface CandidateChoice {
+  selected?: boolean
+  needsSelectionReview?: boolean
+  destinationRootId?: string
+  originResolution?: 'keep' | 'assign'
+}
+
+export interface ReviewCandidate extends PreparationCandidate {
+  selected: boolean
+  needsSelectionReview: boolean
+  destinationRootIds: string[]
+  destinationRootId: string | null
+  originConflict: boolean
+  originResolution: 'keep' | 'assign' | null
+}
+
+export interface PreparationReview {
+  contractVersion: 1
+  preparationId: string
+  revision: number
+  reviewToken: string
+  selectedCount: number
+  conflictCount: number
+}
+
+export interface PreparationRequest {
+  preparationId: string
+  revision: number
+}
+
+export interface PreparationPageRequest extends PreparationRequest {
+  cursor?: string
+  limit?: number
+}
+
+export interface PreparationCandidatePage {
+  items: ReviewCandidate[]
+  total: number
+  revision: number
+  nextCursor: string | null
 }
 
 // Safety ceilings for the internal prototype, not qualified performance budgets.
