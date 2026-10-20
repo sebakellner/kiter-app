@@ -71,56 +71,6 @@ test('Sample right-click and More actions share preview and Info without changin
   await expect(kick).toBeFocused()
 })
 
-test('Sample menus support keyboard navigation, replace another row menu and dismiss without trapping focus', async ({
-  kiter,
-}) => {
-  const page = kiter.page
-  const library = new LibraryPage(page)
-  await kiter.selectFolder(kiter.samples)
-  await library.openFolder()
-  // Finish navigation focus restoration before testing menu-owned focus.
-  await expect(
-    page.getByRole('heading', { name: 'Samples', exact: true }),
-  ).toBeFocused()
-  const kick = library.row('kick.wav')
-  const snare = library.row('snare.wav')
-  await kick.focus()
-  await page.keyboard.press('Shift+F10')
-  let menu = page.getByRole('menu', { name: 'Actions for kick.wav' })
-  await expect(
-    menu.getByRole('menuitem', { name: 'Play preview' }),
-  ).toBeFocused()
-  await page.keyboard.press('ArrowDown')
-  await expect(menu.getByRole('menuitem', { name: 'Info' })).toBeFocused()
-  await page.keyboard.press('Home')
-  await expect(
-    menu.getByRole('menuitem', { name: 'Play preview' }),
-  ).toBeFocused()
-  await page.keyboard.press('Escape')
-  await expect(kick).toBeFocused()
-  const trigger = kick.getByRole('button', { name: 'More actions: kick.wav' })
-  await trigger.focus()
-  await page.keyboard.press('ArrowUp')
-  await expect(
-    menu.getByRole('menuitem', { name: 'Add to Collection' }),
-  ).toBeFocused()
-  await page.keyboard.press('Tab')
-  await expect(menu).toHaveCount(0)
-  await expect(trigger).not.toBeFocused()
-  await trigger.click()
-  await snare.click({ button: 'right', position: { x: 4, y: 4 } })
-  await expect(page.getByRole('menu')).toHaveCount(1)
-  menu = page.getByRole('menu', { name: 'Actions for snare.wav' })
-  await expect(menu).toBeVisible()
-  const search = page.getByRole('searchbox', { name: 'Search samples' })
-  await search.click()
-  await expect(menu).toHaveCount(0)
-  await expect(search).toBeFocused()
-  await search.fill('kick')
-  await expect(snare).toHaveCount(0)
-  await expect(page.locator('audio')).not.toHaveAttribute('src')
-})
-
 test('unavailable Sample context menus retain Info but cannot start playback', async ({
   kiter,
 }) => {

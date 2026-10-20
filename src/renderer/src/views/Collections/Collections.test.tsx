@@ -72,6 +72,13 @@ function setup(initialEntry = '/collections'): {
   })
   const api = createTestApi()
   vi.stubGlobal('api', api)
+  vi.stubGlobal(
+    'ResizeObserver',
+    class {
+      observe = vi.fn()
+      disconnect = vi.fn()
+    },
+  )
   api.library.list.mockResolvedValue({
     ok: true,
     data: { items: [], total: 0, limit: 50, offset: 0 },
@@ -337,4 +344,142 @@ test('Collection list paginates and restores the selected page after returning f
   await user.click(screen.getByRole('button', { name: 'Previous page' }))
   await waitFor(() => expect(screen.getAllByRole('row')).toHaveLength(50))
   expect(screen.queryByRole('row', { selected: true })).not.toBeInTheDocument()
+})
+
+test('Collection search and type filters disable ordering even when every member still matches', async () => {
+  const { api, router, user } = setup()
+  await screen.findByText(/No Collections yet/)
+  const collection = makeCollectionSummary({ sampleCount: 1 })
+  const sample = {
+    ...makeAudioSample(),
+    audioUrl: null,
+    rootPath: '/fixtures',
+    sourceRevision: 1,
+    unavailableReason: 'Audio unavailable.',
+  }
+  api.library.onDragError.mockReturnValue(vi.fn())
+  api.collections.get.mockResolvedValue({ ok: true, data: collection })
+  api.library.list.mockResolvedValue({
+    ok: true,
+    data: {
+      items: [sample],
+      total: 1,
+      limit: 50,
+      offset: 0,
+      collectionOrderToken: 'a'.repeat(64),
+    },
+  })
+  await act(async () => {
+    await router.navigate(`/collections/${collection.id}`)
+  })
+  const handle = await screen.findByRole('button', { name: 'Reorder kick.wav' })
+  // Missing audio does not prevent organizing its catalog reference.
+  expect(handle).toBeEnabled()
+  await user.type(
+    screen.getByRole('searchbox', { name: 'Search samples' }),
+    'k',
+  )
+  expect(handle).toBeDisabled()
+  expect(
+    screen.getByText('Clear search and filters to change the saved order.'),
+  ).toBeVisible()
+  await user.click(screen.getByRole('button', { name: 'Clear search' }))
+  await waitFor(() => expect(handle).toBeEnabled())
+  await user.selectOptions(
+    screen.getByRole('combobox', { name: 'Sample type' }),
+    'unknown',
+  )
+  expect(handle).toBeDisabled()
+  await user.click(screen.getByRole('button', { name: 'Clear all' }))
+  await waitFor(() => expect(handle).toBeEnabled())
+  expect(api.collections.moveSample).not.toHaveBeenCalled()
+  expect(api.collections.placeSample).not.toHaveBeenCalled()
+})
+
+test('keyboard ordering follows the moved member across pages and a stale move refreshes without replay', async () => {
+  const { api, router, user } = setup()
+  await screen.findByText(/No Collections yet/)
+  const collection = makeCollectionSummary({ sampleCount: 52 })
+  const samples = Array.from({ length: 52 }, (_, index) => ({
+    ...makeAudioSample({
+      id: `00000000-0000-4000-8000-${String(index).padStart(12, '0')}`,
+      name: `sample-${index}.wav`,
+      relativePath: `sample-${index}.wav`,
+    }),
+    audioUrl: null,
+    rootPath: '/fixtures',
+    sourceRevision: 1,
+    unavailableReason: 'Audio unavailable.',
+  }))
+  let token = 'a'.repeat(64)
+  api.library.onDragError.mockReturnValue(vi.fn())
+  api.collections.get.mockResolvedValue({ ok: true, data: collection })
+  api.library.list.mockImplementation(async (request) => {
+    const offset = request?.offset ?? 0
+    return {
+      ok: true,
+      data: {
+        items: samples.slice(offset, offset + 50),
+        total: 52,
+        limit: 50,
+        offset,
+        collectionOrderToken: token,
+      },
+    }
+  })
+  api.collections.moveSample.mockImplementationOnce(async () => {
+    const previous = samples[49]
+    samples[49] = samples[50]
+    samples[50] = previous
+    token = 'b'.repeat(64)
+    return {
+      ok: true,
+      data: {
+        collectionId: collection.id,
+        sampleId: samples[50].id,
+        changed: true,
+        index: 50,
+        orderToken: token,
+      },
+    }
+  })
+  await act(async () => {
+    await router.navigate(`/collections/${collection.id}`)
+  })
+  const moving = (await screen.findAllByRole('row'))[49]
+  moving.focus()
+  await user.keyboard('{Shift>}{F10}{/Shift}')
+  await user.click(screen.getByRole('menuitem', { name: 'Move down' }))
+  await waitFor(() => expect(screen.getAllByRole('row')).toHaveLength(2))
+  const moved = screen.getAllByRole('row')[0]
+  expect(moved).toHaveTextContent('sample-49.wav')
+  expect(moved).toHaveAttribute('aria-selected', 'true')
+  await waitFor(() => expect(moved).toHaveFocus())
+  expect(api.collections.moveSample).toHaveBeenCalledExactlyOnceWith({
+    collectionId: collection.id,
+    sampleId: samples[50].id,
+    direction: 'down',
+    token: 'a'.repeat(64),
+  })
+
+  api.collections.moveSample.mockResolvedValueOnce({
+    ok: false,
+    error: { code: 'STALE_REVIEW', message: 'The Collection order changed.' },
+  })
+  token = 'c'.repeat(64)
+  await user.keyboard('{Shift>}{F10}{/Shift}')
+  await user.click(screen.getByRole('menuitem', { name: 'Move up' }))
+  expect(await screen.findByRole('alert')).toHaveTextContent(
+    'The Collection order changed.',
+  )
+  await waitFor(() =>
+    expect(api.library.list).toHaveBeenLastCalledWith({
+      collectionId: collection.id,
+      favoritesOnly: false,
+      offset: 50,
+    }),
+  )
+  expect(api.collections.moveSample).toHaveBeenCalledTimes(2)
+  expect(screen.getAllByRole('row')[0]).toHaveTextContent('sample-49.wav')
+  expect(screen.getAllByRole('row')[0]).toHaveAttribute('aria-selected', 'true')
 })

@@ -290,6 +290,38 @@ test('controlled selection restores by ID, follows keyboard changes and stays cl
   expect(preview.togglePreview).not.toHaveBeenCalled()
 })
 
+test('a refreshed order preserves selection by identity without changing the loaded preview', async () => {
+  const user = userEvent.setup()
+  const { preview } = setup()
+  const onFavoriteChanged = vi.fn()
+  const { rerender } = render(
+    <SampleList
+      samples={[kick, snare]}
+      preview={preview}
+      onFavoriteChanged={onFavoriteChanged}
+    />,
+  )
+  await user.click(screen.getAllByRole('row')[1])
+  rerender(
+    <SampleList
+      samples={[snare, kick]}
+      preview={preview}
+      onFavoriteChanged={onFavoriteChanged}
+    />,
+  )
+  const [first, second] = screen.getAllByRole('row')
+  expect(first).toHaveTextContent('snare.wav')
+  expect(first).toHaveAttribute('aria-selected', 'true')
+  expect(second).toHaveAttribute('aria-selected', 'false')
+  expect(within(second).getByTestId('preview-toggle')).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  )
+  expect(preview.togglePreview).not.toHaveBeenCalled()
+  expect(preview.stop).not.toHaveBeenCalled()
+  expect(preview.reset).not.toHaveBeenCalled()
+})
+
 test('row right-click and More actions share a menu without selecting, previewing or dragging; Info targets the clicked Sample', async () => {
   const user = userEvent.setup()
   const { api, preview } = setup()

@@ -17,8 +17,4 @@ export class LibraryPage {
         has: this.page.getByText(name, { exact: true }),
       })
   }
-
-  async filterFavorites(): Promise<void> {
-    await this.page.getByRole('checkbox', { name: 'Favorites only' }).check()
-  }
 }
