@@ -198,9 +198,12 @@
 
 .sample-list [role='row']:hover,
 .sample-list [role='row']:focus-visible,
-.sample-list [role='row']:has(:focus-visible),
+.sample-list [role='row']:has(:focus-visible) {
+  background: var(--color-surface-hover);
+}
+
 .sample-list [role='row'][aria-selected='true'] {
-  background: var(--color-surface-accent-subtle);
+  background: var(--color-surface-selection);
 }
 
 .sample-list [role='row']:focus-visible {

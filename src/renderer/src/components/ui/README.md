@@ -187,12 +187,16 @@ The opaque dark extension is slate 975 (`#15171A`), slate 990 (`#08090A`) and
 `color.black` (`#000000`, the 100% black endpoint). The existing semantic surface
 roles use slate 990 for `page`, slate 975 for `soft`, slate 950 for `muted` and
 opaque black for `field`. The `selection` surface uses neutral slate 950 so white
-text stays readable; its indicator uses yellow 500. Secondary active actions use
-slate 700. The selection inset shadow is exposed as `shadow.selection-indicator`.
-Sample rows use `surface.accent-subtle` for hover, keyboard focus and selection
-without a lateral selection marker. This role references yellow 900 (`#614C00`),
-a rounded sRGB mix of 38% yellow 500 and 62% pure black. Row keyboard focus retains
-its outline, and focused child controls retain their own focus indicators.
+text stays readable; its indicator uses yellow 500. Secondary actions use slate
+950 at rest, slate 850 on hover and slate 800 while pressed. Ghost actions use
+slate 900 on hover. The selection inset shadow is exposed as
+`shadow.selection-indicator`.
+Sample rows use `surface.hover` (slate 900, `#292D34`) for hover and keyboard
+focus, and `surface.selection` (slate 950, `#21242A`) for persistent selection
+without a lateral marker. Selected rows retain their selection surface on hover
+and focus. Row keyboard focus retains its outline, and focused child controls
+retain their own focus indicators. The optional `surface.accent-subtle` role
+remains available but is not used for general hover or Sample-row selection.
 Waveforms use `color.waveform.default`, referencing the existing slate 300
 (`#BFC0C2`) neutral rather than the primary-action accent.
 Unlike `color.black-alpha`, these colors are fully opaque and do not depend on

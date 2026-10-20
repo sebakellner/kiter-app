@@ -4,11 +4,11 @@
     "action": {
       "primary": { "$value": "{color.yellow.500}", "$type": "color" },
       "primary-hover": { "$value": "{color.yellow.400}", "$type": "color" },
-      "secondary": { "$value": "{color.slate.850}", "$type": "color" },
-      "secondary-hover": { "$value": "{color.slate.800}", "$type": "color" },
-      "secondary-active": { "$value": "{color.slate.700}", "$type": "color" },
+      "secondary": { "$value": "{color.slate.950}", "$type": "color" },
+      "secondary-hover": { "$value": "{color.slate.850}", "$type": "color" },
+      "secondary-active": { "$value": "{color.slate.800}", "$type": "color" },
       "ghost": { "$value": "{color.transparent}", "$type": "color" },
-      "ghost-hover": { "$value": "{color.slate.800}", "$type": "color" }
+      "ghost-hover": { "$value": "{color.slate.900}", "$type": "color" }
     },
     "text": {
       "default": { "$value": "{color.white}", "$type": "color" },
@@ -19,6 +19,7 @@
       "page": { "$value": "{color.slate.990}", "$type": "color" },
       "soft": { "$value": "{color.slate.975}", "$type": "color" },
       "muted": { "$value": "{color.slate.950}", "$type": "color" },
+      "hover": { "$value": "{color.slate.900}", "$type": "color" },
       "selection": { "$value": "{color.slate.950}", "$type": "color" },
       "accent-subtle": { "$value": "{color.yellow.900}", "$type": "color" },
       "field": { "$value": "{color.black}", "$type": "color" }
