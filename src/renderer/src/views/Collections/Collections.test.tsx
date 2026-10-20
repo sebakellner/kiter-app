@@ -663,8 +663,8 @@ test('Collection search and type filters disable ordering even when every member
   )
   expect(handle).toBeDisabled()
   expect(
-    screen.getByText('Clear search and filters to change the saved order.'),
-  ).toBeVisible()
+    screen.queryByRole('region', { name: 'Collection order' }),
+  ).not.toBeInTheDocument()
   await user.click(screen.getByRole('button', { name: 'Clear search' }))
   await waitFor(() => expect(handle).toBeEnabled())
   await user.selectOptions(

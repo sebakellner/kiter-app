@@ -19,7 +19,6 @@ import { AddToCollection } from '@renderer/features/collections/components/AddTo
 import { useRemoveCollectionSample } from '@renderer/features/collections/hooks/useRemoveCollectionSample'
 import { useMoveCollectionSample } from '@renderer/features/collections/hooks/useMoveCollectionSample'
 import { useCollectionDrag } from '@renderer/features/collections/hooks/useCollectionDrag'
-import { CollectionOrderFeedback } from '@renderer/features/collections/components/CollectionOrderFeedback/CollectionOrderFeedback'
 import './CatalogList.css'
 
 export function CatalogList({
@@ -39,7 +38,7 @@ export function CatalogList({
   const { revision, updateFavorite, preview } = useLibrarySession()
   const { setSample, openSample, open } = useSampleInspector()
   const [adding, setAdding] = useState<ListSample | null>(null)
-  const feedback = useRef<HTMLElement>(null)
+  const controls = useRef<HTMLDivElement>(null)
   const list = useRef<HTMLDivElement>(null)
   const focusIntent = useRef<string | null>(null)
   const { page, loading, error, load, refresh } = useCatalog(
@@ -124,14 +123,14 @@ export function CatalogList({
     if (
       active !== document.body &&
       !list.current?.contains(active) &&
-      !feedback.current?.contains(active)
+      !controls.current?.contains(active)
     ) {
       return
     }
     const row = list.current?.querySelector<HTMLElement>(
       `[role="row"][data-sample-id="${sampleId}"]`,
     )
-    const target = row ?? feedback.current
+    const target = row ?? controls.current
     target?.focus()
   }, [page, loading, error, order.pending, order.blocked, context.selectedId])
 
@@ -189,7 +188,7 @@ export function CatalogList({
         </p>
       )}
       {removal.notice && <p role="status">{removal.notice}</p>}
-      <div className="catalog-list-controls">
+      <div ref={controls} tabIndex={-1} className="catalog-list-controls">
         <SampleFilters
           disabled={order.pending}
           instruments={context.instruments}
@@ -208,17 +207,19 @@ export function CatalogList({
             update({ ...filters, offset: 0, scrollTop: 0 })
           }
         />
-        {collectionId && (
-          <CollectionOrderFeedback
-            panel={feedback}
-            manual={manualOrder}
-            pending={order.pending}
-            dragging={Boolean(drag.draggingId)}
-            error={order.error}
-            notice={order.notice}
-            dragNotice={drag.notice}
-            onRefresh={refresh}
-          />
+        {order.pending && <p role="status">Saving Collection order…</p>}
+        {order.error && (
+          <p role="alert">
+            {order.error}{' '}
+            <Button disabled={order.pending} onClick={refresh}>
+              Refresh order
+            </Button>
+          </p>
+        )}
+        {(order.notice || drag.notice) && (
+          <p role="status" className="catalog-order-announcement">
+            {drag.notice ?? order.notice}
+          </p>
         )}
       </div>
       {context.search.trim() && !effectiveCatalogSearch(context.search) && (

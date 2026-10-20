@@ -336,9 +336,11 @@ prototype, not a combined multi-field inspector Save.
   changes, while the permanent player remains available. Exit waits for persistence;
   failure keeps the app open. Errors reload current saved order and require a new
   explicit move; no failed direction is automatically replayed against another order.
-  Order help, pending/result notices and persistent errors share the list's sticky
-  filter region, keeping recovery actions visible while rows scroll without moving
-  focus away from the active Sample or player.
+  Pending state and persistent errors with Refresh order appear directly in the
+  list's sticky filter region. Successful moves and canceled drags retain
+  screen-reader announcements without visible instruction or result panels.
+  Recovery actions stay visible while rows scroll without moving focus away from
+  the active Sample or player.
 - Results identify the moved Sample's current zero-based index and a new token.
   The view follows a moved Sample across page boundaries by that index without
   selecting another Sample or loading the whole Collection. Focus follows that row
