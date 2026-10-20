@@ -19,12 +19,21 @@ marking favorites never move or modify the original files.
   in the dedicated Favorites view. Your marks survive restarting Kiter.
 - **Browse your library:** Samples lists audio from all folders you have added,
   with paginated results and an optional favorites filter.
+- **Find samples in a list:** search Samples, Favorites, or a Collection by name,
+  relative path, and saved Instrument/Genre names. Combine the query with
+  Instrument, Genre, Sample type, and Favorite filters.
+- **Build Collections:** create named selections with optional descriptions, add
+  a Sample to multiple Collections, remove references, and arrange members in a
+  saved manual order. Edit a Collection or delete it after reviewing the impact;
+  deleting a Collection keeps its Samples, Favorites, and original audio.
 - **Inspect samples:** select a row independently of playback and use **Info** to
   see its available catalog information.
-- **Apply classification suggestions:** Sample Info suggests Categories, Genres,
+- **Apply classification suggestions:** Sample Info suggests Instruments, Genres,
   and Sample type from cataloged paths and available Pack Genre evidence. Inspect
   the evidence, then apply one suggestion or all actionable suggestions for that
   Sample. Accepted classifications survive restarting Kiter.
+- **Edit classifications:** manually assign or clear a Sample's Instruments and
+  Genres, or set its type to Loop, One-Shot, or Unknown from Info.
 - **Pick up where you left off:** during the current session, navigation restores
   your page, favorites filter, selection, inspector, and scroll position.
 - **Drag into your DAW:** drag a sample's name or waveform to an application that
@@ -43,14 +52,21 @@ Waveforms load as you browse rather than analyzing the entire folder upfront.
 
 Open more folders to add their samples to the same library. Use **Samples** to
 browse the catalog or **Favorites** to see your saved picks across folders.
+
+Use a Sample's **More actions** menu to add it to a Collection, or open
+**Collections** to create and manage your selections. In a Collection, drag a
+dedicated reorder handle or use the move actions to arrange Samples; dragging a
+name or waveform still sends the original file to your DAW.
+
 Kiter starts on Home after restarting; your catalog and favorites remain available,
-while navigation context starts fresh.
+along with Collections and saved classifications, while navigation context starts
+fresh.
 
 ## Project Status
 
 Kiter is in active development. The current app focuses on library browsing,
-previewing, favorites, sample information and classification suggestions, and
-dragging samples into a DAW.
+previewing, favorites, ordered Collections, list search and filters, single-Sample
+classification editing and suggestions, and dragging samples into a DAW.
 
 The project targets macOS and Windows. Development checks have been validated
 locally on macOS; Windows, packaged releases, and actual DAW drops still need
@@ -60,11 +76,13 @@ validation.
 
 The following features are planned and are not yet available in the app:
 
-- **Packs and Collections:** keep imported sample packs recognizable and build
-  your own ordered selections without duplicating audio.
-- **Classification management and Author credits:** expand classification editing
-  and record who created sounds.
-- **Library-wide search:** find samples across your imported folders.
+- **Packs:** keep imported sample packs recognizable with their own information.
+- **Batch Collection workflows and covers:** organize multiple selected Samples
+  at once and personalize Collections with artwork.
+- **Classification management and Author credits:** manage the vocabulary beyond
+  single-Sample assignments and record who created sounds.
+- **Global search:** find multiple kinds of library items from one search entry,
+  beyond the current Sample-list search.
 - **Profile and settings:** personalize your local profile and preferences.
 - **Reviewed organization and export:** rename, relocate, or gather samples into
   a chosen folder, with a chance to review changes before they happen.
@@ -73,12 +91,16 @@ The following features are planned and are not yet available in the app:
 
 ### Current Limitations
 
-- Library-wide search and general catalog metadata editing are not available yet;
-  single-Sample classification suggestions can be applied from Info.
+- Global cross-entity search and general Sample/Pack metadata editing are not
+  available yet. Sample-list search, single-Sample classifications, and Collection
+  name/description editing are available.
+- Collection membership actions currently operate on one Sample at a time.
+  Manual ordering is available only without active list filters or search.
 - Navigation context is session-only. Up to 100 history snapshots are retained;
   older entries fall back to the latest context for that destination.
 - Files moved or renamed outside Kiter are not automatically reconnected.
-- Automatic backups and library recovery tools are not available yet.
+- Startup protects supported catalog migrations with a backup. User-facing
+  backup management and damaged-library recovery tools are not available yet.
 
 ## Run from Source
 

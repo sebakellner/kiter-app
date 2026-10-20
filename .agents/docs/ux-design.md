@@ -17,7 +17,8 @@ The first functional UX baseline is agreed. The sections marked Agreed describe
 the intended experience, not shipped capabilities or existing IPC contracts.
 The current renderer has a first shell prototype with Home and paginated,
 library-wide Samples and Favorites under a persistent player. Collections has
-creation, bounded browsing and stable-ID detail views under
+creation, bounded browsing, stable-ID detail, individual memberships, manual order,
+text editing and reviewed deletion under
 [Catalog Organization](features/catalog-organization.md#implemented-collection-creation-and-browsing).
 Other sidebar destinations have navigable placeholder views; their workflows remain planned.
 Samples and Favorites have a read-only inspector opened explicitly with each

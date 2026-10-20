@@ -77,7 +77,7 @@ For Drizzle Studio, set `KITER_DB_PATH` to the absolute path of
 
 The last opened folder remains session-scoped, while catalog browsing, sample UUIDs and favorites persist
 in SQLite under `userData`. Sample URLs are temporary capabilities, not durable
-sample identities. Entity types/schema exist, but there is no task journal, Pack/Collection editor, global search index,
+sample identities. Entity types/schema exist, but there is no task journal, Pack editor, global search index,
 automatic restore of the selected folder, or relocation/relinking workflow.
 See [Data Access](data-access.md#implemented-catalog-and-favorites) for storage,
 driver, schema, failure behavior, and backup limitations.
@@ -116,8 +116,9 @@ The renderer uses React Router with `createHashRouter` for compatibility with
 packaged file-based loading. `/home` is the default destination; `/samples`
 contains paginated library-wide browsing, with Favorites as a separate catalog
 destination. Unknown routes redirect to Home. Collections has creation, a bounded
-list and stable-ID detail routes under `/collections`; its remaining management
-workflows are planned. Packs, Instruments and Authors remain placeholder views
+list and stable-ID detail routes under `/collections`, with individual memberships,
+manual ordering, text editing and reviewed deletion. Covers and batch membership
+remain planned. Packs, Instruments and Authors remain placeholder views
 for sidebar navigation. Other destinations
 in UX Design are not registered yet.
 
