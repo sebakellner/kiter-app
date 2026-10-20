@@ -417,9 +417,11 @@ This delivers alias additions only, not general vocabulary-update management.
 serializable schemas for snapshots, subjects, evidence, proposal targets,
 rejections, review references, decisions, pages, and exported drafts.
 `ClassificationBatchReview` in `src/main/services/classification/` implements
-their internal session-only review behavior. This slice does **not** change the
-immediate inspector workflow, integrate import preparation, expose IPC/UI, read
-or write the catalog, or persist rejection memory. Authors and images are outside
+their internal session-only review behavior. The pure core does **not** change the
+immediate inspector workflow, expose IPC/UI, read or write the catalog, or persist
+rejection memory. Import now consumes its recognition, schemas and row/fingerprint
+preparation through the [spooled import adapter](import.md#implemented-internal-import-classification-drafts--block-2-integration).
+Authors and images are outside
 this contract and reject as unknown fields.
 
 Unlike the existing non-strict shared schemas, this versioned batch contract
@@ -529,9 +531,10 @@ rejection inputs also cap total evidence keys at 10,000 and serialized content a
 encoded draft Pack evidence to fit the 4,096-unit evidence-identifier limit.
 Limits reject explicitly;
 there is no truncation, streaming input, large-library throughput claim, or whole
-20,000-candidate import integration in this slice. Future import composition must
-define complete paged/spooled scope and group-token semantics rather than silently
-splitting a global Accept all across independent reviews. Serialized-byte limits
+20,000-candidate in-memory review in this slice. Import's implemented adapter
+composes bounded per-target chunks under its own complete spooled scope/token,
+never splitting a global Accept all across independent review references.
+Serialized-byte limits
 are not process-memory budgets; parsing, indexes and defensive copies add overhead.
 
 Pure tests cover serialization round trips, normalized evidence identity, independent
@@ -555,7 +558,7 @@ Validation is local on macOS, not Windows or a packaged Electron/DAW workflow.
   Preserve preview, Favorites, and authorized native dragging throughout.
 
 Remaining implementation contracts: future catalog updates, tokenization punctuation
-edge cases, catalog-backed batch snapshot adapters and rejection storage, persisted
+edge cases, standalone catalog-backed batch snapshot adapters and rejection storage, persisted
 draft-to-catalog identity promotion, execution conflict payloads, durable confirmation,
 dependency/result queries, IPC, and measured execution limits.
 Visual design/prototypes remain deferred. These open technical contracts do not
