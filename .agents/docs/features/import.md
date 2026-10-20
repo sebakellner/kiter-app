@@ -292,9 +292,12 @@ now advance revisions and invalidate any seal and prior cursors.
   Unexpected work failures name their actual edit/rescan/review operation, not a
   generic review stage; operation names and error codes remain allowlisted.
 
-**Remaining Block 2 integration:** Classification must define its shared batch
-decision/evidence serialization before import stages accept/reject decisions;
-the immediate single-Sample apply protocol is not reused as a batch draft protocol.
+**Remaining Block 2 integration:** Classification now defines a shared internal
+[batch decision/evidence contract and session review core](classification.md#implemented-shared-batch-contract-and-session-review-core).
+Import does not consume it yet. Integrate it through complete paged/spooled scope
+and stale-state contracts before import stages accept/reject decisions; its bounded
+in-memory review is not a drop-in replacement for the 20,000-candidate import spool.
+The immediate single-Sample apply protocol is not reused as a batch draft protocol.
 Staged cover ownership and explicit classification/Author-credit drafts are not
 implemented. Strict edit schemas do not silently accept these fields. No new UI,
 database migration or user-facing import path is delivered by this internal core.
@@ -318,9 +321,10 @@ the target design, while each implemented block must document its actual scope.
    remains.** Scope above covers file/subtree selection, root removal/rescan,
    Pack/standalone mode, name/description drafts, explicit overlap destinations,
    individual origin decisions, revisions and paged selection/origin seals.
-   Next resolve Classification's shared batch decision serialization, then integrate
-   classification/credits and staged cover ownership without catalog writes or a
-   parallel classification protocol. Do not treat this partial seal as confirmable.
+   Classification's shared batch serialization/session core is now defined separately.
+   Next integrate classification through bounded complete-scope review, then credits
+   and staged cover ownership without catalog writes or a parallel classification
+   protocol. Do not treat this partial seal as confirmable.
 3. **Durable confirmation and shared execution foundation — pending.** Resolve the
    shared operation state/storage API and migrations, immutable chunked plan
    publication, idempotent confirmation, queue-head revalidation, Needs review,
