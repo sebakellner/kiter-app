@@ -25,6 +25,7 @@ export interface CollectionCreateRequest {
 
 export interface CollectionUpdateRequest extends CollectionCreateRequest {
   id: string
+  expected?: Pick<Collection, 'name' | 'description'>
 }
 
 export type CollectionPageRequest = PageRequest
