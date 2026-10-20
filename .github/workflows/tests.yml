@@ -30,13 +30,17 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm typecheck
       - run: pnpm typecheck:tests
+        if: matrix.os == 'macos-latest'
       - run: pnpm lint
+        if: matrix.os == 'macos-latest'
       - run: pnpm format:check
+        if: matrix.os == 'macos-latest'
       - run: pnpm db:check
+        if: matrix.os == 'macos-latest'
       - run: pnpm test
       - run: pnpm test:ui
+      # Desktop builds type-check the app on each OS; do not duplicate that step.
       # Keep native ABI transitions sequential within this installation.
       - run: pnpm test:desktop
       - uses: actions/upload-artifact@v4

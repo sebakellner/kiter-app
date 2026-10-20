@@ -57,6 +57,9 @@ export async function verifyListing(ctx) {
 
 export async function verifyMainFrameAuthorization(ctx) {
   const { fixtures, execute, waitFor } = ctx
+  console.log(
+    'Expecting UNAUTHORIZED for subframe IPC and native drag requests',
+  )
   await ctx.open(fixtures.samples)
   await writeFile(
     path.join(fixtures.directory, 'ipc-frame.html'),
@@ -232,6 +235,14 @@ export async function verifyWaveformsAndDragging(ctx) {
         `!${ctx.rowCode(fixtures.validSample)}.querySelector("canvas[role=img]").hidden`,
       ),
     'waveform decoding',
+  )
+  // Canvas readiness precedes the effect that reports duration to the row.
+  await waitFor(
+    () =>
+      execute(
+        `!!${ctx.rowCode(fixtures.validSample)}.querySelector("[data-testid=sample-duration]")`,
+      ),
+    'measured duration after waveform decoding',
   )
   assert.equal(
     await execute(
@@ -511,6 +522,27 @@ export async function verifyFolderOutcomesAndRevocation(ctx) {
       'document.querySelector("[data-testid=library-error]") !== null',
     ),
     false,
+  )
+  const retainedId = ctx.sample(fixtures.validSample).id
+  await execute(
+    `${ctx.rowCode(fixtures.validSample)}.querySelector("[data-testid=favorite-toggle]").click()`,
+  )
+  await waitFor(
+    () =>
+      execute(
+        `${ctx.rowCode(fixtures.validSample)}.querySelector("[data-testid=favorite-toggle]").getAttribute("aria-pressed") === "true"`,
+      ),
+    'saved Favorite before adding another root',
+  )
+  await writeFile(path.join(fixtures.empty, 'added.wav'), fixtures.wav)
+  await ctx.open(fixtures.empty)
+  assert.deepEqual(await ctx.names(), ['added.wav', ...fixtures.expected])
+  assert.equal(ctx.sample(fixtures.validSample).id, retainedId)
+  assert.equal(
+    await execute(
+      `${ctx.rowCode(fixtures.validSample)}.querySelector("[data-testid=favorite-toggle]").getAttribute("aria-pressed")`,
+    ),
+    'true',
   )
   assert.equal(
     await execute(
