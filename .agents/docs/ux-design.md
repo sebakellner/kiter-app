@@ -401,7 +401,10 @@ Apply shared selection/draft transitions here when results change.
   rather than an alternate card presentation.
 - Samples, Favorites and Collection members currently compose the shared table
   primitives, with column headers and independent cells for existing controls,
-  identity and waveform content. Saved category badges sit below the Sample name;
+  identity and waveform content. The Sample name truncates with an ellipsis on one
+  line, with saved category badges on a single clipped line below it. Narrow Name
+  cells do not wrap either line or expand rows for names/categories. Full names
+  remain in tooltips and accessible action labels, with full categories in Info;
   the checkbox and preview columns have no visible headings. A Pack column next
   to the checkbox currently shows a generic cover placeholder, not a resolved
   origin Pack or its managed image. Time displays the existing lazy waveform
