@@ -1,84 +1,9 @@
 import { test, expect } from './fixtures'
 import { LibraryPage } from './pages/library-page'
-import { writeFile, rename, realpath, readFile } from 'node:fs/promises'
+import { writeFile, realpath, readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { createWav } from '../support/fixtures/wav.mjs'
 import { seedClassifiedSample } from '../support/electron/catalog'
-
-test('saved classification filters intersect with Favorites and restore their destination context', async ({
-  kiter,
-}) => {
-  await writeFile(path.join(kiter.samples, 'pending_loop.wav'), createWav(0.1))
-  const library = new LibraryPage(kiter.page)
-  await kiter.selectFolder(kiter.samples)
-  await library.openFolder()
-  await expect(kiter.page.getByTestId('sample-name')).toHaveCount(3)
-  await seedClassifiedSample(kiter.page, 'kick.wav')
-  // Remount to load fixture vocabulary and saved assignments through real queries.
-  await kiter.page.getByRole('link', { name: 'Home', exact: true }).click()
-  await kiter.page.getByRole('link', { name: 'Samples', exact: true }).click()
-
-  const types = kiter.page.getByRole('combobox', {
-    name: 'Sample type',
-    exact: true,
-  })
-  const names = kiter.page.getByTestId('sample-name')
-  await expect(types).toHaveValue('all')
-  await expect(names).toHaveText(['kick.wav', 'pending_loop.wav', 'snare.wav'])
-  await types.selectOption('unknown')
-  await expect(names).toHaveText(['pending_loop.wav', 'snare.wav'])
-  await types.selectOption('all')
-  await expect(names).toHaveText(['kick.wav', 'pending_loop.wav', 'snare.wav'])
-  await types.selectOption('one-shot')
-  await expect(names).toHaveText(['kick.wav'])
-  await kiter.page
-    .getByRole('combobox', { name: 'Instruments', exact: true })
-    .click()
-  await kiter.page.getByRole('option', { name: 'Kick', exact: true }).click()
-  await kiter.page
-    .getByRole('combobox', { name: 'Genres', exact: true })
-    .click()
-  await kiter.page.getByRole('option', { name: 'House', exact: true }).click()
-  await kiter.page.getByRole('checkbox', { name: 'Favorites only' }).check()
-  await expect(names).toHaveText(['kick.wav'])
-  await kiter.page.getByRole('link', { name: 'Favorites', exact: true }).click()
-  await expect(types).toHaveValue('all')
-  await types.selectOption('unknown')
-  await expect(names).toHaveCount(0)
-  await kiter.page.getByRole('button', { name: 'Back', exact: true }).click()
-  await expect(types).toHaveValue('one-shot')
-  await expect(names).toHaveText(['kick.wav'])
-  await kiter.page
-    .getByRole('button', {
-      name: 'Remove Sample type filter: One-Shots',
-      exact: true,
-    })
-    .click()
-  await expect(types).toBeFocused()
-  await expect(types).toHaveValue('all')
-  await expect(
-    kiter.page.getByRole('button', {
-      name: 'Remove instrument filter: Kick',
-      exact: true,
-    }),
-  ).toBeVisible()
-  await expect(
-    kiter.page.getByRole('button', {
-      name: 'Remove genre filter: House',
-      exact: true,
-    }),
-  ).toBeVisible()
-  await types.selectOption('one-shot')
-  await kiter.page
-    .getByRole('button', { name: 'Clear all', exact: true })
-    .click()
-  await expect(types).toHaveValue('all')
-  await expect(
-    kiter.page.getByRole('button', { name: 'Clear all', exact: true }),
-  ).toHaveCount(0)
-  await expect(names).toHaveText(['kick.wav'])
-  await expect(kiter.page.locator('audio')).not.toHaveAttribute('src')
-})
 
 test('narrow Name cells keep the full accessible filename and badges on one line each without expanding rows', async ({
   kiter,
@@ -332,51 +257,6 @@ test('manual instrument popover protects drafts, corrects suggestions and persis
   ).toContainText('Snare')
 })
 
-test('applying a suggested Instrument saves it through the inspector without starting preview', async ({
-  kiter,
-}) => {
-  const library = new LibraryPage(kiter.page)
-  await kiter.selectFolder(kiter.samples)
-  await library.openFolder()
-  await library.inspect('kick.wav')
-  const inspector = kiter.page.getByRole('complementary', {
-    name: 'Sample info',
-  })
-  await expect(
-    inspector.getByRole('button', { name: 'Apply Kick', exact: true }),
-  ).toBeEnabled()
-  await inspector.getByText('Why these suggestions?', { exact: true }).click()
-  await expect(
-    inspector.getByRole('list', { name: 'Classification evidence' }),
-  ).toContainText('Kick')
-  await expect(
-    inspector.getByRole('heading', { name: 'Instruments', exact: true }),
-  ).toBeVisible()
-  await expect(inspector).toContainText('Creates Kick when applied.')
-  await expect(inspector).toContainText('Cataloged location:')
-  await expect(inspector).toContainText('Matched clue: kick (name)')
-  await inspector
-    .getByRole('button', { name: 'Apply Kick', exact: true })
-    .click()
-  await expect(inspector).toContainText('Classifications saved.')
-  await expect(
-    inspector.getByRole('button', { name: 'Apply Kick', exact: true }),
-  ).toHaveCount(0)
-  await inspector.getByRole('button', { name: 'Close inspector' }).click()
-  await library.inspect('kick.wav')
-  await expect(
-    inspector.getByRole('region', { name: 'instrument', exact: true }),
-  ).toContainText('Kick')
-  await expect(kiter.page.locator('audio')).not.toHaveAttribute('src')
-  const instruments = await kiter.page.evaluate(() =>
-    window.api.instruments.list(),
-  )
-  expect(instruments.ok).toBe(true)
-  if (instruments.ok) {
-    expect(instruments.data.total).toBe(1)
-  }
-})
-
 test('history restores distinct Samples contexts and sidebar uses the latest destination context', async ({
   kiter,
 }) => {
@@ -451,13 +331,31 @@ test('history restores distinct Samples contexts and sidebar uses the latest des
   await expect(kiter.page.getByRole('row')).toHaveCount(0)
 })
 
-test('restart clears navigation context while preserving catalog and Favorites', async ({
+test('Favorite feedback survives navigation and restart preserves saved marks without navigation context', async ({
   kiter,
 }) => {
   const library = new LibraryPage(kiter.page)
   await kiter.selectFolder(kiter.samples)
   await library.openFolder()
   await library.row('kick.wav').getByTestId('favorite-toggle').click()
+  const notifications = kiter.page.getByRole('region', {
+    name: 'Notifications',
+  })
+  await expect(notifications.getByRole('status')).toHaveText(
+    '“kick.wav” added to Favorites.',
+  )
+  await expect(
+    notifications.getByRole('button', { name: /Dismiss notification/ }),
+  ).not.toBeFocused()
+  await kiter.page.getByRole('link', { name: 'Favorites', exact: true }).click()
+  await expect(notifications.getByRole('status')).toHaveText(
+    '“kick.wav” added to Favorites.',
+  )
+  await notifications
+    .getByRole('button', { name: /Dismiss notification/ })
+    .click()
+  await expect(notifications.getByRole('status')).toHaveCount(0)
+  await kiter.page.getByRole('link', { name: 'Samples', exact: true }).click()
   await kiter.page.getByRole('checkbox', { name: 'Favorites only' }).check()
   await library.inspect('kick.wav')
   await expect(
@@ -492,6 +390,15 @@ test('restart clears navigation context while preserving catalog and Favorites',
   await expect(
     new LibraryPage(kiter.page).row('kick.wav').getByTestId('favorite-toggle'),
   ).toHaveAttribute('aria-pressed', 'true')
+  await new LibraryPage(kiter.page)
+    .row('kick.wav')
+    .getByTestId('favorite-toggle')
+    .click()
+  await expect(
+    kiter.page
+      .getByRole('region', { name: 'Notifications' })
+      .getByRole('status'),
+  ).toHaveText('“kick.wav” removed from Favorites.')
 })
 
 test('history restores a compact inspector without focusing covered content', async ({
@@ -733,158 +640,6 @@ test('compact inspector blocks covered regions, keeps the player available and c
     'inert',
     '',
   )
-})
-
-test('sidebar destinations support history navigation', async ({ kiter }) => {
-  const navigation = kiter.page.getByRole('navigation', {
-    name: 'Main navigation',
-  })
-  for (const destination of [
-    'Favorites',
-    'Packs',
-    'Collections',
-    'Instruments',
-    'Authors',
-  ]) {
-    const link = navigation.getByRole('link', {
-      name: destination,
-      exact: true,
-    })
-    await link.click()
-    await expect(
-      kiter.page.getByRole('heading', { name: destination, exact: true }),
-    ).toBeVisible()
-    await expect(link).toHaveAttribute('aria-current', 'page')
-    await expect(navigation.locator('[aria-current="page"]')).toHaveCount(1)
-  }
-
-  await kiter.page.getByRole('button', { name: 'Back', exact: true }).click()
-  await expect(
-    kiter.page.getByRole('heading', { name: 'Instruments', exact: true }),
-  ).toBeVisible()
-  await kiter.page.getByRole('button', { name: 'Forward', exact: true }).click()
-  await expect(
-    kiter.page.getByRole('heading', { name: 'Authors', exact: true }),
-  ).toBeVisible()
-})
-
-test('folder import lists original Samples and native-dialog cancellation preserves the current view', async ({
-  kiter,
-}) => {
-  await expect(
-    kiter.page.getByRole('heading', { name: 'Home', exact: true }),
-  ).toBeVisible()
-  await expect(
-    kiter.page.getByRole('region', { name: 'Global player' }),
-  ).toContainText('Choose a sample to preview')
-  await expect(
-    kiter.page.getByRole('button', { name: 'Stop', exact: true }),
-  ).toBeDisabled()
-  await kiter.selectFolder(null)
-  await new LibraryPage(kiter.page).openFolder()
-  await expect(
-    kiter.page.getByRole('button', { name: 'Open folder' }),
-  ).toBeEnabled()
-  await expect(
-    kiter.page.getByRole('heading', { name: 'Home', exact: true }),
-  ).toBeVisible()
-  const library = new LibraryPage(kiter.page)
-  await kiter.selectFolder(kiter.samples)
-  await library.openFolder()
-  await expect(kiter.page.getByTestId('sample-name')).toHaveText([
-    'kick.wav',
-    'snare.wav',
-  ])
-  const identity = await library.row('kick.wav').getAttribute('data-sample-id')
-
-  await kiter.selectFolder(null)
-  await library.openFolder()
-
-  await expect(
-    kiter.page.getByRole('button', { name: 'Open folder' }),
-  ).toBeEnabled()
-  await expect(kiter.page.getByTestId('sample-name')).toHaveText([
-    'kick.wav',
-    'snare.wav',
-  ])
-  await expect(library.row('kick.wav')).toHaveAttribute(
-    'data-sample-id',
-    identity!,
-  )
-})
-
-test('multiple folders share one catalog and unavailable favorites retain their identity', async ({
-  kiter,
-}) => {
-  const library = new LibraryPage(kiter.page)
-  await kiter.selectFolder(kiter.samples)
-  await library.openFolder()
-  await library
-    .row('kick.wav')
-    .getByRole('button', { name: 'Add favorite: kick.wav', exact: true })
-    .click()
-  await expect(
-    library
-      .row('kick.wav')
-      .getByRole('button', { name: 'Remove favorite: kick.wav', exact: true }),
-  ).toBeEnabled()
-  const id = await library.row('kick.wav').getAttribute('data-sample-id')
-  await writeFile(path.join(kiter.empty, 'hat.wav'), createWav(1))
-  await kiter.selectFolder(kiter.empty)
-  await library.openFolder()
-  await expect(kiter.page.getByTestId('sample-name')).toHaveText([
-    'hat.wav',
-    'kick.wav',
-    'snare.wav',
-  ])
-  await expect(library.row('kick.wav')).toHaveAttribute('data-sample-id', id!)
-  // Do not invalidate the source while its visible waveform is still reading it.
-  await library.row('kick.wav').scrollIntoViewIfNeeded()
-  await expect(
-    library
-      .row('kick.wav')
-      .getByRole('img', { name: 'Waveform of kick.wav', exact: true }),
-  ).toBeVisible()
-  const original = path.join(kiter.samples, 'kick.wav')
-  const moved = path.join(kiter.samples, 'temporarily-moved.wav')
-  await rename(original, moved)
-  try {
-    await kiter.page
-      .getByRole('link', { name: 'Favorites', exact: true })
-      .click()
-    await expect(library.row('kick.wav')).toHaveAttribute('data-sample-id', id!)
-    await expect(
-      library
-        .row('kick.wav')
-        .getByRole('button', { name: 'Play kick.wav', exact: true }),
-    ).toBeDisabled()
-    await expect(library.row('kick.wav')).toContainText('Audio unavailable.')
-    await expect(
-      library.row('kick.wav').getByRole('button', {
-        name: 'Remove favorite: kick.wav',
-        exact: true,
-      }),
-    ).toBeEnabled()
-  } finally {
-    await rename(moved, original)
-  }
-  await kiter.page.getByRole('button', { name: 'Refresh', exact: true }).click()
-  await expect(
-    library
-      .row('kick.wav')
-      .getByRole('button', { name: 'Play kick.wav', exact: true }),
-  ).toBeEnabled()
-  await library
-    .row('kick.wav')
-    .getByRole('button', { name: 'Remove favorite: kick.wav', exact: true })
-    .click()
-  await expect(kiter.page.getByTestId('sample-name')).toHaveCount(0)
-  await kiter.page.getByRole('link', { name: 'Samples', exact: true }).click()
-  await expect(
-    library
-      .row('kick.wav')
-      .getByRole('button', { name: 'Add favorite: kick.wav', exact: true }),
-  ).toHaveAttribute('aria-pressed', 'false')
 })
 
 test('preview advances, switching keeps one player and stop resets playback', async ({

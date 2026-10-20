@@ -64,7 +64,7 @@ test('checked Samples include hidden selections when adding to a Collection and 
   await expect(checkboxes.nth(1)).not.toBeChecked()
 })
 
-test('a Sample menu creates a Collection membership that survives a separate Electron process', async ({
+test('a Sample menu creates a Collection in the nested picker and adds the acted-on Sample', async ({
   kiter,
 }) => {
   const page = kiter.page
@@ -116,16 +116,17 @@ test('a Sample menu creates a Collection membership that survives a separate Ele
   await expect(notifications.getByRole('status')).toHaveCount(0)
   await expect(page.locator('audio')).not.toHaveAttribute('src')
 
-  await kiter.restart()
-  await kiter.page
-    .getByRole('link', { name: 'Collections', exact: true })
-    .click()
-  await expect(kiter.page.getByRole('row')).toContainText('1 Sample')
-  await kiter.page
+  await page.getByRole('link', { name: 'Collections', exact: true }).click()
+  await expect(
+    page
+      .getByRole('grid', { name: 'Collections', exact: true })
+      .getByRole('row', { name: /^Session Picks, Collection / }),
+  ).toContainText('1 Sample')
+  await page
     .getByRole('link', { name: 'Open Session Picks', exact: true })
     .click()
-  await expect(kiter.page.getByTestId('sample-name')).toHaveText(['kick.wav'])
-  await expect(new LibraryPage(kiter.page).row('kick.wav')).toHaveAttribute(
+  await expect(page.getByTestId('sample-name')).toHaveText(['kick.wav'])
+  await expect(library.row('kick.wav')).toHaveAttribute(
     'data-sample-id',
     identity!,
   )

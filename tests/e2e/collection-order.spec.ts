@@ -62,6 +62,8 @@ test('Collection names and waveforms hand off original audio to native dragging 
       expectedDrags.push(file)
       await expect.poll(() => nativeDrags.jsonValue()).toEqual(expectedDrags)
     }
+    // Duration is reported to the row after decoding; do not infer it from the canvas.
+    await expect(row.getByTestId('sample-duration')).toHaveText('8.00 s')
     await page
       .getByRole('button', { name: 'Clear search', exact: true })
       .click()

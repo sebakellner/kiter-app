@@ -1,5 +1,14 @@
 import { isRecord } from './validation.ts'
 
+export const AUDIO_FILE_EXTENSIONS: ReadonlySet<string> = new Set([
+  '.mp3',
+  '.wav',
+  '.flac',
+  '.ogg',
+  '.m4a',
+  '.aac',
+])
+
 export interface AudioFile {
   name: string
   path: string

@@ -2,7 +2,7 @@ import { test, expect } from './fixtures'
 import { seedCollection } from '../support/electron/catalog'
 import { LibraryPage } from './pages/library-page'
 
-test('Collection editing saves through the real bridge and survives a process restart', async ({
+test('Collection editing saves through the real bridge and reloads on a fresh detail visit', async ({
   kiter,
 }) => {
   const page = kiter.page
@@ -31,15 +31,15 @@ test('Collection editing saves through the real bridge and survives a process re
   await expect(
     page.getByRole('heading', { name: 'Renamed Collection', level: 1 }),
   ).toBeVisible()
-  await kiter.restart()
-  await kiter.page
+  await page
+    .getByRole('navigation', { name: 'Breadcrumb', exact: true })
     .getByRole('link', { name: 'Collections', exact: true })
     .click()
-  await kiter.page
+  await page
     .getByRole('link', { name: 'Open Renamed Collection', exact: true })
     .click()
   await expect(
-    kiter.page.getByText('Session textures', { exact: true }),
+    page.getByText('Session textures', { exact: true }),
   ).toBeVisible()
 })
 

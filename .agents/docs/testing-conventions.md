@@ -101,6 +101,11 @@ native rebuilds concurrently with tests using that dependency.
 CI uses independent macOS and Windows jobs. Within each job Node suites finish
 before rebuilding for Electron. `test:app:built` and `test:e2e:built` reuse an
 unchanged build; they do not prepare native dependencies or rebuild source.
+Both jobs run Node, renderer, Electron integration and Playwright suites. Lint,
+format, migration-metadata validation and test type checks run once in the macOS
+job; they do not establish Windows runtime support. `test:desktop` invokes the
+production build, including application type checks on each OS, so CI does not
+run a duplicate standalone application type-check step before that build.
 
 Database tests import private connection/operation modules with explicit `.ts`
 extensions. Worker tests launch the actual worker source under Node's type
@@ -340,6 +345,12 @@ waits for Electron exit before removing it.
 - Organize long workflows into named sequential scenarios with explicit initial
   state. Report the failed scenario and stop rather than continuing with invalid
   shared state. Reuse the process, not implicit state left by an earlier scenario.
+- Wait for each observable result separately. A visible waveform canvas does not
+  prove that its parent row has received the measured duration: that callback
+  runs in a later React effect. Require the duration element before reading it;
+  retain the exact expected measurement assertion. Expected authorization checks
+  and deliberately invalid audio fixtures must not be confused with unexpected
+  renderer errors. Keep those checks, not silent catches or unconditional skips.
 - Use controlled gates for pending operations and delivery barriers for
   unsubscription checks. A fixed sleep does not prove an event was processed.
 - Fail on unexpected renderer console errors, uncaught exceptions, and unhandled
@@ -402,21 +413,48 @@ waits for Electron exit before removing it.
 
 Use this map when extending or simplifying the current journeys:
 
-| Risk                                                                           | Primary coverage                                                                                           | E2E responsibility                                                                                                                    |
-| ------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| Collection order, stale snapshots, rollback, reopen                            | `src/main/db/operations/collections/order.test.ts`, `useMoveCollectionSample.test.tsx`                     | One real handle drop; original-file name/waveform handoff remains separate                                                            |
-| Filtered ordering and keyboard moves across pages                              | `src/renderer/src/views/Collections/Collections.test.tsx`, `SampleList.test.tsx`                           | Browser focus after a real drop                                                                                                       |
-| Membership duplicates, multiple destinations, nested creation, partial results | `AddToCollection.test.tsx`, Collection DB operations                                                       | Create/add through the picker and recover after process restart; remove an unavailable reference without affecting another Collection |
-| Classification persistence and field isolation                                 | `src/main/db/operations/classification/sample-{instruments,genres,type}.test.ts`                           | Save each editor through the bridge; representative editor native close and restart                                                   |
-| Search matching and filter intersections                                       | Library DB tests, `useCatalog.test.tsx`, `SampleFilters.test.tsx`                                          | Saved metadata/path query, destination history, pagination and loaded-player continuity                                               |
-| Context-menu keyboard variants and dismissal                                   | `ContextMenu.test.tsx`, `SampleList.test.tsx`                                                              | Real right-click/preview/Info and unavailable audio after gated native selection                                                      |
-| Native dialogs, compact inspector focus/inert regions, navigation restoration  | Dialog/Popover components, `AppLayout.test.tsx` (controlled restoration frames) and navigation state tests | Retain browser/native scenarios: jsdom cannot establish modality, hit testing or actual layout                                        |
-| Favorites durability and shutdown                                              | `tests/integration/electron/favorites-restart.mjs`                                                         | One restart restores catalog/Favorite while clearing session context and closing old renderer windows                                 |
+| Risk                                                                           | Primary coverage                                                                                           | E2E responsibility                                                                                                                               |
+| ------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Collection order, stale snapshots, rollback, reopen                            | `src/main/db/operations/collections/order.test.ts`, `useMoveCollectionSample.test.tsx`                     | One real handle drop; original-file name/waveform handoff remains separate                                                                       |
+| Filtered ordering and keyboard moves across pages                              | `src/renderer/src/views/Collections/Collections.test.tsx`, `SampleList.test.tsx`                           | Browser focus after a real drop                                                                                                                  |
+| Membership duplicates, multiple destinations, nested creation, partial results | `AddToCollection.test.tsx`, Collection DB operations                                                       | Nested creation/addition and fresh detail reads; one checked-batch restart; remove an unavailable reference without affecting another Collection |
+| Classification persistence and field isolation                                 | `src/main/db/operations/classification/sample-{instruments,genres,type}.test.ts`                           | Save each editor through the bridge; representative editor native close and restart                                                              |
+| Search matching and filter intersections                                       | Library DB tests, `useCatalog.test.tsx`, `SampleFilters.test.tsx`                                          | Saved metadata/path query, destination history, pagination and loaded-player continuity                                                          |
+| Context-menu keyboard variants and dismissal                                   | `ContextMenu.test.tsx`, `SampleList.test.tsx`                                                              | Real right-click/preview/Info and unavailable audio after gated native selection                                                                 |
+| Native dialogs, compact inspector focus/inert regions, navigation restoration  | Dialog/Popover components, `AppLayout.test.tsx` (controlled restoration frames) and navigation state tests | Retain browser/native scenarios: jsdom cannot establish modality, hit testing or actual layout                                                   |
+| Favorites durability and shutdown                                              | `tests/integration/electron/favorites-restart.mjs`                                                         | One Favorite lifecycle journey covers toast feedback/navigation and restart with cleared context and closed renderer windows                     |
 
 The reduced journeys intentionally do not repeat all combinations across Electron
 processes. This map describes layered evidence, not equivalent native coverage for
 every removed combination. CI continues to run the retained E2E on both target OSes;
 moving unreliable tests to a scheduled job is not a stability fix.
+
+### Desktop Deduplication Boundary
+
+The current suite has 25 Playwright journeys, reduced from 31. The separate
+Electron integration runner retains its eight scenarios, including main-frame
+authorization, real decoding/streaming and lazy waveform behavior; it is not
+Playwright. Native-dialog, focus, original-file drag, actual playback and restart
+checks remain enabled on both CI platforms, with no added retries or exclusions.
+
+The six removed standalone journeys are accounted for here, rather than treating
+fewer tests or successful mocks as equivalent native coverage:
+
+| Removed standalone journey                                  | Retained coverage                                                                                                                                                                                                                                                                                                                                                |
+| ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Full classification-filter/Favorites combination matrix     | `SampleFilters.test.tsx`, `useCatalog.test.tsx`, `db/operations/samples/catalog{,-search}.test.ts`; real metadata/path search and each classification editor remain desktop journeys. The full filter cross-product is no longer a desktop permutation.                                                                                                          |
+| Apply one suggested Instrument in a separate process        | `SampleSuggestions.test.tsx`, classification apply DB tests; the retained manual Instrument journey first applies Kick through the real inspector before correcting its assignment.                                                                                                                                                                              |
+| Visit each sidebar placeholder heading                      | Retained Samples/Favorites/Collections and compact/wide history journeys exercise real routing and browser focus. Placeholder-only heading enumeration is intentionally not a separate desktop journey.                                                                                                                                                          |
+| Import/dialog cancellation in a separate Playwright process | Electron `verifyListing` and `verifyFolderOutcomesAndRevocation` retain native dialog/import outcomes and existing-source access. `useLibrary.test.tsx` owns pending/duplicate/canceled/failed request state.                                                                                                                                                    |
+| Multiple-folder and missing-Favorite permutation            | Electron folder outcomes now adds a second nonempty root and verifies the prior Sample ID/Favorite/access. Native unavailable-menu and Collection-removal journeys retain missing-file behavior; catalog/source-access and Favorite tests own identity/availability rules. The combined missing-Favorite permutation is not repeated as its own desktop process. |
+| Standalone Favorite-toast process                           | The retained Favorite lifecycle/restart journey checks saved add/remove notifications, navigation survival, dismissal and no toast focus stealing. `FavoriteButton`, `Toast` and `ToastProvider` tests own names, failures, timers and grouping.                                                                                                                 |
+
+Collection text editing and nested single-Sample additions now verify fresh
+detail queries without restarting Electron for each mutation. Their DB operations
+retain persistence coverage; checked-batch membership, reviewed deletion, the
+Instrument editor and Favorite lifecycle still exercise real process restarts.
+This is selective cross-process evidence, not a claim that a fresh route visit
+proves restart persistence for every field.
 
 ## Platform and Manual Validation
 

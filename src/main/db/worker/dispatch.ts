@@ -18,6 +18,7 @@ import { executeCollection } from './dispatch/collections.ts'
 import { executeClassification } from './dispatch/classification.ts'
 import { isRecognitionRequest } from '../protocol/recognition.ts'
 import { executeRecognition } from './dispatch/recognition.ts'
+import { readImportCatalog } from '../operations/sources/import-snapshot.ts'
 
 export function dispatchRequest(
   db: AppDatabase,
@@ -25,6 +26,12 @@ export function dispatchRequest(
 ): DbReply {
   const requestId = request.requestId
   switch (request.action) {
+    case 'read-import-catalog':
+      return {
+        requestId,
+        action: request.action,
+        result: readImportCatalog(db, request.input),
+      }
     case 'import':
       return {
         requestId,
