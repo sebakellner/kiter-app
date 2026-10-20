@@ -2,13 +2,14 @@ import { useId, type ComponentProps } from 'react'
 import { Button } from '@renderer/components/ui/Button'
 import { Checkbox } from '@renderer/components/ui/Checkbox/Checkbox'
 import { Badge } from '@renderer/components/ui/Badge/Badge'
+import { TableCell, TableRow } from '@renderer/components/ui/Table'
 import {
   ContextMenu,
   useContextMenu,
 } from '@renderer/components/ui/ContextMenu'
 import type { FavoriteState } from '@shared/ipc'
 import { FavoriteButton } from '../FavoriteButton'
-import { Waveform } from '../Waveform'
+import { SampleWaveformCells } from './SampleWaveformCells'
 import type { ListSample } from './useSampleList'
 import type { CollectionDragController } from '@renderer/features/collections/hooks/useCollectionDrag'
 import type { CollectionMoveRequest } from '@shared/domain/collection'
@@ -18,14 +19,13 @@ type Props = {
   sample: ListSample
   showRelativePath: boolean
   showSourceFolder: boolean
-  rowProps: ComponentProps<'li'>
+  rowProps: ComponentProps<'tr'>
   audioDragProps: SampleAudioDragProps
   playing: boolean
   dragError: string | null
   onPreview: () => void
   onFavoriteChanged: (state: FavoriteState) => void
   onInspect?: (opener: HTMLElement) => void
-  inspectorOpen: boolean
   onAddToCollection?: () => void
   onRemoveFromCollection?: () => void
   membershipPending: boolean
@@ -50,7 +50,6 @@ export function SampleListRow({
   onPreview,
   onFavoriteChanged,
   onInspect,
-  inspectorOpen,
   onAddToCollection,
   onRemoveFromCollection,
   membershipPending,
@@ -64,7 +63,7 @@ export function SampleListRow({
   const classification =
     'classification' in sample ? sample.classification : undefined
   return (
-    <li
+    <TableRow
       {...rowProps}
       {...audioDragProps}
       draggable={order ? false : audioDragProps.draggable}
@@ -98,50 +97,56 @@ export function SampleListRow({
       data-sample-id={sample.id}
       aria-describedby={descriptionId}
     >
-      <div role="gridcell" className="sample-row-layout">
-        <div className="sample-row-leading">
-          {batch && (
-            <label
-              className="sample-row-check"
-              onClick={(event) => event.stopPropagation()}
-              onDragStart={(event) => {
-                event.preventDefault()
-                event.stopPropagation()
-              }}
-            >
-              <Checkbox
-                checked={batch.checked}
-                aria-label={`Select ${sample.name}`}
-                aria-describedby={descriptionId}
-                onChange={(event) =>
-                  batch.onChange(event.currentTarget.checked)
-                }
-              />
-            </label>
-          )}
-          {order && (
-            <Button
-              variant="ghost"
-              className="sample-order-handle"
-              aria-label={`Reorder ${sample.name}`}
+      {batch && (
+        <TableCell role="gridcell" className="sample-row-control">
+          <label
+            className="sample-row-check"
+            onClick={(event) => event.stopPropagation()}
+            onDragStart={(event) => {
+              event.preventDefault()
+              event.stopPropagation()
+            }}
+          >
+            <Checkbox
+              checked={batch.checked}
+              aria-label={`Select ${sample.name}`}
               aria-describedby={descriptionId}
-              title="Drag to reorder. Keyboard moves are in the Sample menu."
-              disabled={!order.drag.enabled}
-              draggable={order.drag.enabled}
-              onClick={order.select}
-              onDragStart={(event) => order.drag.start(event, sample)}
-              onDragEnd={(event) => {
-                event.stopPropagation()
-                order.drag.end()
-              }}
-            >
-              <span aria-hidden="true">⠿</span>
-            </Button>
-          )}
+              onChange={(event) => batch.onChange(event.currentTarget.checked)}
+            />
+          </label>
+        </TableCell>
+      )}
+      <TableCell role="gridcell" className="sample-row-pack">
+        <div
+          className="sample-row-pack-cover"
+          role="img"
+          aria-label="Pack cover placeholder"
+        >
+          <span aria-hidden="true">♪</span>
         </div>
-        <div className="sample-row-cover" aria-hidden="true">
-          ♪
-        </div>
+      </TableCell>
+      {order && (
+        <TableCell role="gridcell" className="sample-row-control">
+          <Button
+            variant="ghost"
+            className="sample-order-handle"
+            aria-label={`Reorder ${sample.name}`}
+            aria-describedby={descriptionId}
+            title="Drag to reorder. Keyboard moves are in the Sample menu."
+            disabled={!order.drag.enabled}
+            draggable={order.drag.enabled}
+            onClick={order.select}
+            onDragStart={(event) => order.drag.start(event, sample)}
+            onDragEnd={(event) => {
+              event.stopPropagation()
+              order.drag.end()
+            }}
+          >
+            <span aria-hidden="true">⠿</span>
+          </Button>
+        </TableCell>
+      )}
+      <TableCell role="gridcell" className="sample-row-control">
         <Button
           variant="ghost"
           draggable={false}
@@ -159,6 +164,8 @@ export function SampleListRow({
         >
           <span aria-hidden="true">{playing ? 'Ⅱ' : '▶'}</span>
         </Button>
+      </TableCell>
+      <TableCell role="gridcell">
         <div className="sample-row-identity">
           <Button
             {...audioDragProps}
@@ -246,7 +253,7 @@ export function SampleListRow({
             </div>
           ) : null}
           {descriptionId && (
-            <div id={sourceId} className="sample-source-context">
+            <div id={sourceId} hidden>
               {showRelativePath && (
                 <p data-testid="sample-relative-path">{sample.relativePath}</p>
               )}
@@ -259,119 +266,98 @@ export function SampleListRow({
               )}
             </div>
           )}
+          <div className="sample-row-feedback">
+            {'unavailableReason' in sample && sample.unavailableReason && (
+              <p role="status">{sample.unavailableReason}</p>
+            )}
+            {dragError && (
+              <p role="alert" className="sample-error sample-drag-error">
+                {dragError}
+              </p>
+            )}
+          </div>
         </div>
-        <div className="sample-row-waveform">
-          {sample.audioUrl ? (
-            <div className="sample-waveform-drag" {...audioDragProps}>
-              <Waveform
-                key={sample.audioUrl}
-                audioUrl={sample.audioUrl}
-                name={sample.name}
-                compact
-              />
-            </div>
-          ) : (
-            <span className="sample-row-unavailable">Preview unavailable</span>
-          )}
-        </div>
-        <div className="sample-row-actions">
-          <FavoriteButton
-            file={sample}
-            compact
-            onChanged={onFavoriteChanged}
-            descriptionId={descriptionId}
-          />
-          {onInspect && (
-            <Button
-              variant="ghost"
-              className="sample-row-info"
-              draggable={false}
-              aria-label={`Info: ${sample.name}`}
-              aria-describedby={descriptionId}
-              aria-controls="sample-inspector"
-              aria-expanded={
-                inspectorOpen && rowProps['aria-selected'] === true
-              }
-              onDragStart={(event) => {
-                event.preventDefault()
-                event.stopPropagation()
-              }}
-              onClick={(event) => onInspect(event.currentTarget)}
-            >
-              Info
-            </Button>
-          )}
-          <Button
-            variant="ghost"
-            {...menu.triggerProps}
-            aria-label={`More actions: ${sample.name}`}
-            aria-describedby={descriptionId}
-          >
-            <span aria-hidden="true">⋯</span>
-          </Button>
-        </div>
-        <div className="sample-row-feedback">
-          {'unavailableReason' in sample && sample.unavailableReason && (
-            <p role="status">{sample.unavailableReason}</p>
-          )}
-          {dragError && (
-            <p role="alert" className="sample-error sample-drag-error">
-              {dragError}
-            </p>
-          )}
-        </div>
-      </div>
-      <ContextMenu
-        {...menu.menuProps}
-        label={`Actions for ${sample.name}`}
-        items={[
-          {
-            id: 'preview',
-            label: playing ? 'Pause preview' : 'Play preview',
-            disabled: !sample.audioUrl,
-            onSelect: onPreview,
-          },
-          ...(onInspect
-            ? [{ id: 'info', label: 'Info', onSelect: onInspect }]
-            : []),
-          ...(order
-            ? [
-                {
-                  id: 'move-up',
-                  label: 'Move up',
-                  disabled: !order.canMoveUp,
-                  onSelect: () => order.move('up'),
-                },
-                {
-                  id: 'move-down',
-                  label: 'Move down',
-                  disabled: !order.canMoveDown,
-                  onSelect: () => order.move('down'),
-                },
-              ]
-            : []),
-          ...(onAddToCollection
-            ? [
-                {
-                  id: 'add-to-collection',
-                  label: 'Add to Collection',
-                  disabled: membershipPending,
-                  onSelect: onAddToCollection,
-                },
-              ]
-            : []),
-          ...(onRemoveFromCollection
-            ? [
-                {
-                  id: 'remove-from-collection',
-                  label: 'Remove from Collection',
-                  disabled: membershipPending,
-                  onSelect: onRemoveFromCollection,
-                },
-              ]
-            : []),
-        ]}
+      </TableCell>
+      <SampleWaveformCells
+        key={sample.audioUrl ?? 'unavailable'}
+        sample={sample}
+        audioDragProps={audioDragProps}
       />
-    </li>
+      <TableCell
+        role="gridcell"
+        className="sample-row-control sample-row-favorite"
+      >
+        <FavoriteButton
+          file={sample}
+          compact
+          onChanged={onFavoriteChanged}
+          descriptionId={descriptionId}
+        />
+      </TableCell>
+      <TableCell
+        role="gridcell"
+        className="sample-row-control sample-row-actions"
+      >
+        <Button
+          variant="ghost"
+          {...menu.triggerProps}
+          aria-label={`More actions: ${sample.name}`}
+          aria-describedby={descriptionId}
+        >
+          <span aria-hidden="true">⋯</span>
+        </Button>
+        <ContextMenu
+          {...menu.menuProps}
+          label={`Actions for ${sample.name}`}
+          items={[
+            {
+              id: 'preview',
+              label: playing ? 'Pause preview' : 'Play preview',
+              disabled: !sample.audioUrl,
+              onSelect: onPreview,
+            },
+            ...(onInspect
+              ? [{ id: 'info', label: 'Info', onSelect: onInspect }]
+              : []),
+            ...(order
+              ? [
+                  {
+                    id: 'move-up',
+                    label: 'Move up',
+                    disabled: !order.canMoveUp,
+                    onSelect: () => order.move('up'),
+                  },
+                  {
+                    id: 'move-down',
+                    label: 'Move down',
+                    disabled: !order.canMoveDown,
+                    onSelect: () => order.move('down'),
+                  },
+                ]
+              : []),
+            ...(onAddToCollection
+              ? [
+                  {
+                    id: 'add-to-collection',
+                    label: 'Add to Collection',
+                    disabled: membershipPending,
+                    onSelect: onAddToCollection,
+                  },
+                ]
+              : []),
+            ...(onRemoveFromCollection
+              ? [
+                  {
+                    id: 'remove-from-collection',
+                    label: 'Remove from Collection',
+                    disabled: membershipPending,
+                    onSelect: onRemoveFromCollection,
+                  },
+                ]
+              : []),
+          ]}
+        />
+      </TableCell>
+    </TableRow>
   )
 }

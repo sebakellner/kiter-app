@@ -80,6 +80,74 @@ test('saved classification filters intersect with Favorites and restore their de
   await expect(kiter.page.locator('audio')).not.toHaveAttribute('src')
 })
 
+test('narrow Name cells keep the full accessible filename and badges on one line each without expanding rows', async ({
+  kiter,
+}) => {
+  const name =
+    'Deep_Kick_with_a_long_filename_that_must_not_wrap_in_a_narrow_table.wav'
+  await writeFile(path.join(kiter.empty, name), createWav(0.1))
+  await writeFile(path.join(kiter.empty, 'short.wav'), createWav(0.1))
+  const page = kiter.page
+  const library = new LibraryPage(page)
+  await kiter.selectFolder(kiter.empty)
+  await library.openFolder()
+  await expect(page.getByTestId('sample-name')).toHaveCount(2)
+  await seedClassifiedSample(page, name)
+  await page.getByRole('button', { name: 'Refresh', exact: true }).click()
+  const row = library.row(name)
+  const categories = row.getByRole('list', { name: 'Sample categories' })
+  await expect(categories.getByRole('listitem')).toHaveCount(3)
+  await kiter.application.evaluate(({ BrowserWindow }) =>
+    BrowserWindow.getAllWindows()[0].setContentSize(900, 680),
+  )
+  await expect.poll(() => page.evaluate(() => innerWidth)).toBe(900)
+  await expect(page.getByTestId('sample-duration')).toHaveCount(2)
+
+  const layout = await row.evaluate((element) => {
+    const filename = element.querySelector<HTMLElement>(
+      '[data-testid="sample-name"]',
+    )
+    const badges = element.querySelector<HTMLElement>(
+      '[aria-label="Sample categories"]',
+    )
+    if (!filename || !badges) {
+      throw new Error(
+        'The Sample must expose its filename and saved categories.',
+      )
+    }
+    const text = document.createRange()
+    text.selectNodeContents(filename)
+    const badgeTops = Array.from(
+      badges.children,
+      (badge) => badge.getBoundingClientRect().top,
+    )
+    return {
+      filenameLines: new Set(
+        Array.from(text.getClientRects(), (rect) => Math.round(rect.top)),
+      ).size,
+      filenameClipped: filename.scrollWidth > filename.clientWidth,
+      badgesClipped: badges.scrollWidth > badges.clientWidth,
+      badgeLineSpread: Math.max(...badgeTops) - Math.min(...badgeTops),
+      rowHeight: element.getBoundingClientRect().height,
+    }
+  })
+  expect(layout.filenameLines).toBe(1)
+  expect(layout.filenameClipped).toBe(true)
+  expect(layout.badgesClipped).toBe(true)
+  expect(layout.badgeLineSpread).toBeLessThan(1)
+  const shortHeight = await library
+    .row('short.wav')
+    .evaluate((element) => element.getBoundingClientRect().height)
+  expect(layout.rowHeight).toBe(shortHeight)
+  await expect(
+    row.getByRole('button', { name: `Preview ${name}`, exact: true }),
+  ).toHaveAttribute('title', name)
+  await library.inspect(name)
+  await expect(
+    page.getByRole('complementary', { name: 'Sample info' }),
+  ).toContainText(name)
+})
+
 test('saving a manual Sample type overrides suggestions and Unknown allows fresh proposals', async ({
   kiter,
 }) => {
@@ -87,10 +155,7 @@ test('saving a manual Sample type overrides suggestions and Unknown allows fresh
   const library = new LibraryPage(kiter.page)
   await kiter.selectFolder(kiter.empty)
   await library.openFolder()
-  await library
-    .row('kick_loop.wav')
-    .getByRole('button', { name: 'Info: kick_loop.wav', exact: true })
-    .click()
+  await library.inspect('kick_loop.wav')
   const inspector = kiter.page.getByRole('complementary', {
     name: 'Sample info',
   })
@@ -151,10 +216,7 @@ test('the Genre editor saves and clears assignments without changing other Sampl
   await library.openFolder()
   await expect(kiter.page.getByTestId('sample-name')).toHaveCount(2)
   await seedClassifiedSample(kiter.page, 'kick.wav')
-  await library
-    .row('kick.wav')
-    .getByRole('button', { name: 'Info: kick.wav', exact: true })
-    .click()
+  await library.inspect('kick.wav')
   const inspector = kiter.page.getByRole('complementary', {
     name: 'Sample info',
   })
@@ -213,10 +275,7 @@ test('manual instrument popover protects drafts, corrects suggestions and persis
   const library = new LibraryPage(kiter.page)
   await kiter.selectFolder(kiter.samples)
   await library.openFolder()
-  await library
-    .row('kick.wav')
-    .getByRole('button', { name: 'Info: kick.wav', exact: true })
-    .click()
+  await library.inspect('kick.wav')
   const inspector = kiter.page.getByRole('complementary', {
     name: 'Sample info',
   })
@@ -264,10 +323,7 @@ test('manual instrument popover protects drafts, corrects suggestions and persis
   await kiter.restart()
   await kiter.page.getByRole('link', { name: 'Samples', exact: true }).click()
   const restartedLibrary = new LibraryPage(kiter.page)
-  await restartedLibrary
-    .row('kick.wav')
-    .getByRole('button', { name: 'Info: kick.wav', exact: true })
-    .click()
+  await restartedLibrary.inspect('kick.wav')
   const restartedInspector = kiter.page.getByRole('complementary', {
     name: 'Sample info',
   })
@@ -282,10 +338,7 @@ test('applying a suggested Instrument saves it through the inspector without sta
   const library = new LibraryPage(kiter.page)
   await kiter.selectFolder(kiter.samples)
   await library.openFolder()
-  await library
-    .row('kick.wav')
-    .getByRole('button', { name: 'Info: kick.wav', exact: true })
-    .click()
+  await library.inspect('kick.wav')
   const inspector = kiter.page.getByRole('complementary', {
     name: 'Sample info',
   })
@@ -310,10 +363,7 @@ test('applying a suggested Instrument saves it through the inspector without sta
     inspector.getByRole('button', { name: 'Apply Kick', exact: true }),
   ).toHaveCount(0)
   await inspector.getByRole('button', { name: 'Close inspector' }).click()
-  await library
-    .row('kick.wav')
-    .getByRole('button', { name: 'Info: kick.wav', exact: true })
-    .click()
+  await library.inspect('kick.wav')
   await expect(
     inspector.getByRole('region', { name: 'instrument', exact: true }),
   ).toContainText('Kick')
@@ -340,9 +390,7 @@ test('history restores distinct Samples contexts and sidebar uses the latest des
   await kiter.selectFolder(kiter.empty)
   await library.openFolder()
   const first = library.row('sample-10.wav')
-  await first
-    .getByRole('button', { name: 'Info: sample-10.wav', exact: true })
-    .click()
+  await library.inspect('sample-10.wav')
   const main = kiter.page.locator('#main-content')
   await main.evaluate((element) => {
     element.scrollTop = 400
@@ -411,10 +459,7 @@ test('restart clears navigation context while preserving catalog and Favorites',
   await library.openFolder()
   await library.row('kick.wav').getByTestId('favorite-toggle').click()
   await kiter.page.getByRole('checkbox', { name: 'Favorites only' }).check()
-  await library
-    .row('kick.wav')
-    .getByRole('button', { name: 'Info: kick.wav', exact: true })
-    .click()
+  await library.inspect('kick.wav')
   await expect(
     kiter.page.getByRole('complementary', { name: 'Sample info' }),
   ).toContainText('kick.wav')
@@ -455,10 +500,7 @@ test('history restores a compact inspector without focusing covered content', as
   const library = new LibraryPage(kiter.page)
   await kiter.selectFolder(kiter.samples)
   await library.openFolder()
-  await library
-    .row('snare.wav')
-    .getByRole('button', { name: 'Info: snare.wav', exact: true })
-    .click()
+  await library.inspect('snare.wav')
   await kiter.page.getByRole('link', { name: 'Home', exact: true }).click()
   await kiter.application.evaluate(({ BrowserWindow }) =>
     BrowserWindow.getAllWindows()[0].setContentSize(900, 650),
@@ -488,9 +530,7 @@ test('restoring Favorites revalidates selection and leaves an open inspector emp
   const kick = library.row('kick.wav')
   await kick.getByTestId('favorite-toggle').click()
   await kiter.page.getByRole('link', { name: 'Favorites', exact: true }).click()
-  await kick
-    .getByRole('button', { name: 'Info: kick.wav', exact: true })
-    .click()
+  await library.inspect('kick.wav')
   await kiter.page.getByRole('link', { name: 'Samples', exact: true }).click()
   await kick.getByTestId('favorite-toggle').click()
   await kiter.page.getByRole('button', { name: 'Back', exact: true }).click()
@@ -516,8 +556,7 @@ test('the inspector follows selection, clears hidden rows and restores focus wit
     name: 'Sample info',
   })
   await expect(inspector).toHaveCount(0)
-  const info = kick.getByRole('button', { name: 'Info: kick.wav', exact: true })
-  await info.click()
+  await library.inspect('kick.wav')
   await expect(kick).toBeFocused()
   await kick.press('ArrowDown')
   await expect(snare).toBeFocused()
@@ -570,11 +609,7 @@ test('the inspector follows selection, clears hidden rows and restores focus wit
   await inspector.getByRole('button', { name: 'Close inspector' }).click()
   await expect(snare).toBeFocused()
   await expect(snare).toHaveAttribute('aria-selected', 'true')
-  const snareInfo = snare.getByRole('button', {
-    name: 'Info: snare.wav',
-    exact: true,
-  })
-  await snareInfo.click()
+  await library.inspect('snare.wav')
   await expect(snare).toHaveAttribute('aria-selected', 'true')
   await kiter.page.getByRole('checkbox', { name: 'Favorites only' }).check()
   await expect(inspector).toContainText(
@@ -599,10 +634,7 @@ test('compact inspector blocks covered regions, keeps the player available and c
   await kiter.application.evaluate(({ BrowserWindow }) =>
     BrowserWindow.getAllWindows()[0].setContentSize(900, 650),
   )
-  const info = library
-    .row('snare.wav')
-    .getByRole('button', { name: 'Info: snare.wav', exact: true })
-  await info.click()
+  await library.inspect('snare.wav')
   const inspector = kiter.page.getByRole('complementary', {
     name: 'Sample info',
   })

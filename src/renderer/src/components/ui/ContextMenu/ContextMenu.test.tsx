@@ -171,3 +171,29 @@ test('ContextMenu replaces a menu on another target and removes portals when its
   unmount()
   expect(screen.queryByRole('menu')).not.toBeInTheDocument()
 })
+
+test('ContextMenu ignores queued ancestor scroll events but closes on a new vertical or horizontal scroll', async () => {
+  const user = userEvent.setup()
+  render(
+    <div role="region" aria-label="Results">
+      <Example items={makeItems()} />
+    </div>,
+  )
+  const results = screen.getByRole('region', { name: 'Results' })
+  const trigger = screen.getByRole('button', { name: 'More Example actions' })
+  results.scrollTop = 40
+  await user.click(trigger)
+  fireEvent.scroll(results)
+  expect(screen.getByRole('menu')).toBeVisible()
+
+  results.scrollTop = 80
+  fireEvent.scroll(results)
+  expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+  await user.click(trigger)
+  fireEvent.scroll(results)
+  expect(screen.getByRole('menu')).toBeVisible()
+
+  results.scrollLeft = 20
+  fireEvent.scroll(results)
+  expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+})

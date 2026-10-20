@@ -8,6 +8,15 @@ import type { ListSample } from './useSampleList'
 import type { CollectionDragController } from '@renderer/features/collections/hooks/useCollectionDrag'
 import type { CollectionMoveRequest } from '@shared/domain/collection'
 import { useSampleAudioDrag } from '../../hooks/useSampleAudioDrag'
+import {
+  Table,
+  TableBody,
+  TableColumn,
+  TableColumnGroup,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@renderer/components/ui/Table'
 
 type Props = {
   samples: ListSample[]
@@ -15,7 +24,6 @@ type Props = {
   preview: PreviewController
   onSelectionChanged?: (sample: ListSample | null) => void
   onInspect?: (sample: ListSample, opener: HTMLElement) => void
-  inspectorOpen?: boolean
   selection?: { id: string | null; onChange: (id: string | null) => void }
   onRemoveFromCollection?: (sample: ListSample) => void
   membershipPending?: boolean
@@ -41,7 +49,6 @@ export function SampleList({
   preview,
   onSelectionChanged,
   onInspect,
-  inspectorOpen = false,
   selection,
   onRemoveFromCollection,
   membershipPending = false,
@@ -70,8 +77,49 @@ export function SampleList({
   }
 
   return (
-    <>
-      <ul className="sample-list" role="grid" aria-label="Audio files">
+    <Table
+      className="sample-list"
+      role="grid"
+      aria-label="Audio files"
+      stickyHeader
+    >
+      <TableColumnGroup>
+        {batch && <TableColumn className="sample-list-control-column" />}
+        <TableColumn className="sample-list-pack-column" />
+        {order && <TableColumn className="sample-list-control-column" />}
+        <TableColumn className="sample-list-control-column" />
+        <TableColumn className="sample-list-name-column" />
+        <TableColumn className="sample-list-waveform-column" />
+        <TableColumn className="sample-list-time-column" />
+        <TableColumn className="sample-list-favorite-column" />
+        <TableColumn className="sample-list-actions-column" />
+      </TableColumnGroup>
+      <TableHeader>
+        <TableRow>
+          {batch && (
+            <TableHead
+              className="sample-list-control-head"
+              aria-label="Select samples"
+            />
+          )}
+          <TableHead className="sample-list-pack-head">Pack</TableHead>
+          {order && (
+            <TableHead className="sample-list-control-head">Order</TableHead>
+          )}
+          <TableHead
+            className="sample-list-control-head"
+            aria-label="Preview"
+          />
+          <TableHead>Name</TableHead>
+          <TableHead>Waveform</TableHead>
+          <TableHead className="sample-list-time-head">Time</TableHead>
+          <TableHead className="sample-list-control-head">Favorite</TableHead>
+          <TableHead className="sample-list-control-head sample-list-actions-head">
+            Actions
+          </TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody aria-label="Samples">
         {samples.map((sample, index) => (
           <SampleListRow
             key={sample.id}
@@ -125,7 +173,6 @@ export function SampleList({
                   }
                 : undefined
             }
-            inspectorOpen={inspectorOpen}
             onInspect={
               onInspect
                 ? (opener) => {
@@ -136,7 +183,7 @@ export function SampleList({
             }
           />
         ))}
-      </ul>
-    </>
+      </TableBody>
+    </Table>
   )
 }

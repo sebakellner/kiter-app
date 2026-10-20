@@ -12,9 +12,17 @@ export class LibraryPage {
   row(name: string): Locator {
     return this.page
       .getByRole('grid', { name: 'Audio files' })
+      .getByRole('rowgroup', { name: 'Samples' })
       .getByRole('row')
       .filter({
         has: this.page.getByText(name, { exact: true }),
       })
+  }
+
+  async inspect(name: string): Promise<void> {
+    await this.row(name)
+      .getByRole('button', { name: `More actions: ${name}`, exact: true })
+      .click()
+    await this.page.getByRole('menuitem', { name: 'Info', exact: true }).click()
   }
 }

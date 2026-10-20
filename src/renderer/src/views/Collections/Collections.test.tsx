@@ -42,6 +42,28 @@ afterEach(() => {
 
 const onReady = (): void => {}
 
+test('catalog releases its header sizing observer when leaving the view', async () => {
+  const { router } = setup()
+  await screen.findByText(/No Collections yet/)
+  const observe = vi.fn()
+  const disconnect = vi.fn()
+  vi.stubGlobal(
+    'ResizeObserver',
+    class {
+      observe = observe
+      disconnect = disconnect
+    },
+  )
+  await act(async () => {
+    await router.navigate('/samples')
+  })
+  expect(observe).toHaveBeenCalledExactlyOnceWith(expect.any(HTMLElement))
+  await act(async () => {
+    await router.navigate('/home')
+  })
+  expect(disconnect).toHaveBeenCalledOnce()
+})
+
 test.each(['samples', 'favorites', 'collection'] as const)(
   '%s adds checked Samples from different pages and hidden results, not the inspected row',
   async (destination) => {
@@ -186,7 +208,7 @@ test('always-visible checkboxes retain checks through filters, clear explicitly 
   await act(async () => {
     await router.navigate(`/collections/${collection.id}`)
   })
-  await screen.findByRole('row')
+  await screen.findByRole('row', { name: /kick.wav/ })
   expect(
     screen.getByRole('checkbox', { name: 'Select kick.wav' }),
   ).toBeVisible()
@@ -198,7 +220,10 @@ test('always-visible checkboxes retain checks through filters, clear explicitly 
   ).not.toBeInTheDocument()
   await user.click(screen.getByRole('checkbox', { name: 'Select kick.wav' }))
   expect(screen.getByText('1 selected')).toBeVisible()
-  expect(screen.getByRole('row')).toHaveAttribute('aria-selected', 'false')
+  expect(screen.getByRole('row', { name: /kick.wav/ })).toHaveAttribute(
+    'aria-selected',
+    'false',
+  )
   const search = screen.getByRole('searchbox', { name: 'Search samples' })
   await user.type(search, 'zz')
   expect(
@@ -222,7 +247,7 @@ test('always-visible checkboxes retain checks through filters, clear explicitly 
   await act(async () => {
     await router.navigate(-1)
   })
-  await screen.findByRole('row')
+  await screen.findByRole('row', { name: /kick.wav/ })
   expect(
     screen.getByRole('checkbox', { name: 'Select kick.wav' }),
   ).not.toBeChecked()
@@ -232,7 +257,7 @@ test('always-visible checkboxes retain checks through filters, clear explicitly 
   await act(async () => {
     await router.navigate('/samples')
   })
-  await screen.findByRole('row')
+  await screen.findByRole('row', { name: /kick.wav/ })
   await user.click(screen.getByRole('checkbox', { name: 'Select kick.wav' }))
   const favorites = screen.getByRole('checkbox', { name: 'Favorites only' })
   await user.click(favorites)
@@ -759,7 +784,13 @@ test('Collection list keeps cards on refresh failure and supports selection inde
     within(row).getByRole('link', { name: 'Open Session Picks' }),
   )
   await screen.findByRole('heading', { name: collection.name, level: 1 })
-  await waitFor(() => expect(screen.getAllByRole('row')).toHaveLength(2))
+  await waitFor(() =>
+    expect(
+      within(screen.getByRole('rowgroup', { name: 'Samples' })).getAllByRole(
+        'row',
+      ),
+    ).toHaveLength(2),
+  )
   expect(screen.queryByText(/This Collection is empty/)).not.toBeInTheDocument()
 })
 
@@ -935,12 +966,20 @@ test('keyboard ordering follows the moved member across pages and a stale move r
   await act(async () => {
     await router.navigate(`/collections/${collection.id}`)
   })
-  const moving = (await screen.findAllByRole('row'))[49]
+  const moving = await screen.findByRole('row', { name: /sample-49.wav/ })
   moving.focus()
   await user.keyboard('{Shift>}{F10}{/Shift}')
   await user.click(screen.getByRole('menuitem', { name: 'Move down' }))
-  await waitFor(() => expect(screen.getAllByRole('row')).toHaveLength(2))
-  const moved = screen.getAllByRole('row')[0]
+  await waitFor(() =>
+    expect(
+      within(screen.getByRole('rowgroup', { name: 'Samples' })).getAllByRole(
+        'row',
+      ),
+    ).toHaveLength(2),
+  )
+  const moved = within(
+    screen.getByRole('rowgroup', { name: 'Samples' }),
+  ).getAllByRole('row')[0]
   expect(moved).toHaveTextContent('sample-49.wav')
   expect(moved).toHaveAttribute('aria-selected', 'true')
   await waitFor(() => expect(moved).toHaveFocus())
@@ -969,6 +1008,9 @@ test('keyboard ordering follows the moved member across pages and a stale move r
     }),
   )
   expect(api.collections.moveSample).toHaveBeenCalledTimes(2)
-  expect(screen.getAllByRole('row')[0]).toHaveTextContent('sample-49.wav')
-  expect(screen.getAllByRole('row')[0]).toHaveAttribute('aria-selected', 'true')
+  const first = within(
+    screen.getByRole('rowgroup', { name: 'Samples' }),
+  ).getAllByRole('row')[0]
+  expect(first).toHaveTextContent('sample-49.wav')
+  expect(first).toHaveAttribute('aria-selected', 'true')
 })

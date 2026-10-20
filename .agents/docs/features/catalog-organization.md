@@ -103,6 +103,9 @@ and reinclusion UI remains planned.
 - SampleListRow exposes the same actions through right-click and an explicit
   More actions button. Opening preserves current selection, playback and Favorites;
   it does not begin native audio dragging. Keyboard context gestures are supported.
+- Info is reached through this menu rather than a separate inline row button.
+  The table row keeps the menu inside its actions cell and retains the same stable
+  Sample identity and focus-return behavior.
 - Actions include Play/Pause preview, Info where inspection is
   available. Preview uses the existing global controller without selecting the
   Sample. Info selects and inspects the acted-on Sample with a stable focus-return

@@ -1,3 +1,9 @@
+.catalog-list {
+  /* Column proportions follow the available workspace, including the inspector. */
+  width: 100%;
+  container-type: inline-size;
+}
+
 .catalog-list-controls {
   position: sticky;
   top: var(--space-0);
