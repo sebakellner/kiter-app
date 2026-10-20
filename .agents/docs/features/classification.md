@@ -411,19 +411,6 @@ edited, reassigned, and deleted supplied aliases are not restored. Retired targe
 are excluded. Terms already in use appear blocked rather than being overwritten.
 This delivers alias additions only, not general vocabulary-update management.
 
-### Remaining Workflow Delivery
-
-- Pure recognition combines included vocabulary, library names, and aliases into
-  proposals/evidence; it never writes assignments.
-- Renderer presents preparation/staged choices; main coordinates authoritative
-  preparation, revalidation, and execution. Validate renderer decisions against
-  reviewed state through narrow typed preload operations. DB worker owns bounded
-  reads and transactional writes under [Architecture](../architecture.md).
-- Deliver Genre operations/aliases/pure recognition, then standalone review and
-  execution, then integration with reviewed import and the shared queue. Each
-  executable workflow must include its agreed persistence/recovery guarantees.
-  Preserve preview, Favorites, and authorized native dragging throughout.
-
 ### Implemented Shared Batch Contract and Session Review Core
 
 `src/shared/features/classification/batch-schemas.ts` owns strict, version-1
@@ -434,6 +421,11 @@ their internal session-only review behavior. This slice does **not** change the
 immediate inspector workflow, integrate import preparation, expose IPC/UI, read
 or write the catalog, or persist rejection memory. Authors and images are outside
 this contract and reject as unknown fields.
+
+Unlike the existing non-strict shared schemas, this versioned batch contract
+deliberately uses `z.strictObject` to reject unknown fields rather than silently
+strip them. Future extensions must explicitly declare supported fields in the
+owning schemas and validate their behavior; do not relax strictness for reuse.
 
 #### Identities and Caller Responsibilities
 
@@ -548,6 +540,19 @@ rejection override, atomic groups, whole-scope Accept all beyond a loaded page,
 type replacements, preserved assignments, stale/foreign references, refresh and
 discard, Pack dependencies, detached outputs, strict schemas and resource limits.
 Validation is local on macOS, not Windows or a packaged Electron/DAW workflow.
+
+### Remaining Workflow Delivery
+
+- Pure recognition combines included vocabulary, library names, and aliases into
+  proposals/evidence; it never writes assignments.
+- Renderer presents preparation/staged choices; main coordinates authoritative
+  preparation, revalidation, and execution. Validate renderer decisions against
+  reviewed state through narrow typed preload operations. DB worker owns bounded
+  reads and transactional writes under [Architecture](../architecture.md).
+- Deliver Genre operations/aliases/pure recognition, then standalone review and
+  execution, then integration with reviewed import and the shared queue. Each
+  executable workflow must include its agreed persistence/recovery guarantees.
+  Preserve preview, Favorites, and authorized native dragging throughout.
 
 Remaining implementation contracts: future catalog updates, tokenization punctuation
 edge cases, catalog-backed batch snapshot adapters and rejection storage, persisted
