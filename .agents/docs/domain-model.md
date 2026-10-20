@@ -35,7 +35,8 @@ catalog and from questions that still require agreement.
   idempotent append/removal of memberships, atomic full-sequence reorder, and
   impact-checked deletion through the worker/client. Creation, summary list/detail,
   individual memberships, manual ordering, text editing and reviewed deletion
-  have IPC and UI. Batch membership and Collection cover UI remain planned. See
+  have IPC and UI, including checked-batch additions. Batch membership removal and
+  Collection cover UI remain planned. See
   [Catalog Organization](features/catalog-organization.md) for executable scope.
 - **Implemented internal Pack slice:** reviewed registration/reimport from scanned
   roots, bounded Pack/member/candidate queries, presentation edits, manual origin

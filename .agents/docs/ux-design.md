@@ -205,22 +205,26 @@ shortcuts. Selection uses stable Sample IDs, clears when the selected row leaves
 the loaded results, and never automatically chooses a replacement. Keyboard
 traversal is limited to the loaded page. Favorite and native dragging do not change
 selection. Catalog selection is retained in session navigation context and
-revalidated on return. The prototype now has an explicit Select/Done checkbox
-mode with independent checked IDs, a selected count and an outside-page count.
-Checks survive filtering and pagination within the mounted view and clear on Done
-or navigation; Select all and batch operations remain planned. Inspector editing
+revalidated on return. Sample-list checkboxes are always visible, with independent
+checked IDs, a selected count and an outside-page count. Checking a Sample reveals
+batch actions and Clear selection without a separate Select/Done mode.
+Checks survive filtering and pagination within the mounted view and clear on
+Clear selection or navigation. Checked-batch Add to Collection is implemented under
+[Catalog Organization](features/catalog-organization.md#implemented-checked-sample-collection-additions);
+Select all and other batch actions remain planned. Inspector editing
 also remains planned.
 The full conventions below
 describe the agreed target.
 
-- Normal interaction selects one Sample. Multiple selection requires entering
-  an explicit mode with checkboxes; it is not the default interaction mode.
-- A Select action enters this mode. Only checkboxes change batch membership;
+- Normal row interaction selects one Sample for inspection. Always-visible
+  checkboxes enable multiple selection directly, without entering another mode.
+- Only checkboxes change batch membership;
   clicking a row changes the inspected Sample independently, even if that Sample
-  is not checked. Done exits the mode and clears the batch.
+  is not checked. Clear selection clears the batch without hiding checkboxes.
+  Show the selected count and batch actions once at least one Sample is checked.
 - Preserve checked Sample IDs across filtering, searching, and sorting within
   the same view. Show how many checked Samples are outside the current results.
-  Navigating to another view exits multiple-selection mode and clears the batch.
+  Navigating to another view clears the batch.
 - Clicking a Sample name starts its preview. Clicking the rest of its row
   selects it. Provide an explicit Play control as well.
 - Clicking the name of the currently loaded Sample toggles pause/resume; if
@@ -231,7 +235,7 @@ describe the agreed target.
   current player Sample independently of selection.
 - Transport modes, end behavior, and sequence invalidation follow
   [Playback](features/playback.md#sequence-semantics).
-- In multiple-selection mode, the inspector shows the independently active
+- With checked Samples, the inspector shows the independently active
   Sample, indicates the batch selection, and does not become a bulk metadata
   editor. The inspected Sample need not belong to the checked batch; batch
   actions target checked Samples, not the inspector's active Sample.
@@ -261,7 +265,7 @@ Select all follow the rules below.
   before applying the transition, then clear individual selection and leave an
   open inspector empty. Do not select or preview the first result automatically.
   Checked batch membership remains independent and can contain hidden Samples.
-- In multiple-selection mode, Select all covers every result matching the current
+- When delivered, Select all covers every result matching the current
   filters and search, including unloaded pages. Communicate its total scope and
   resolve membership through bounded queries rather than eagerly loading the
   entire catalog into the renderer.
@@ -274,8 +278,8 @@ Select all follow the rules below.
 - Each tab retains its own search, filters, and position during the session;
   switching tabs does not transfer incompatible filters between entity types.
   Also restore each tab's individual selection and inspector open/closed state,
-  resolving dirty drafts before switching. Switching tabs exits multiple-selection
-  mode and clears the departing batch; returning does not restore checked items.
+  resolving dirty drafts before switching. Switching tabs clears the departing
+  batch; returning does not restore checked items.
 - Context restoration is session-only. Restarting opens Home and initializes
   views with default contexts. This does not reset the separately agreed
   persistent preferences, Collection recency, or operation history.

@@ -372,24 +372,54 @@ prototype, not a combined multi-field inspector Save.
   Native name/waveform dragging still supplies the original file to the receiving
   application, not an internal reorder gesture. Large-library latency is unqualified.
 
+## Implemented Checked-Sample Collection Additions
+
+- Samples, Favorites and Collection members expose always-visible checkboxes,
+  without a Select/Done mode. Checking a Sample reveals Add to Collection, a count
+  and Clear selection. Checks are independent of inspection/preview, survive local
+  filters and pagination, and clear on Clear selection/navigation. Result-wide Select all
+  remains planned.
+- Review includes every checked identity, including hidden selections, with
+  consultable names, paths and full IDs. `library:list` accepts 1–1,000 unique
+  `sampleIds`, validated in main/worker, with the existing bounded pages. Review
+  omits current filters/Favorites: Samples/Favorites use the full catalog's
+  effective-name/canonical-path/UUID order; Collection sources use saved order.
+  Mixed search/filter selections use that underlying sequence, not search rank or
+  checkbox click order. Changed Collection tokens between review pages require
+  fresh review before any write.
+- Missing source-list identities are named, removed from checked selection and
+  excluded from execution. Confirm the remaining scope explicitly or cancel.
+  Missing audio alone does not exclude a cataloged Sample. Failed reads permit
+  review retry without membership writes.
+- Reuses searchable, paginated multi-destination selection and nested creation.
+  `collections:destinations` optionally omits `sampleId` for batch discovery,
+  returning actual Collection counts without claiming whole-batch membership.
+- Serial pair transactions run per destination in reviewed source order. Existing
+  members retain position; new members append. Continue independent failures,
+  report added/already-included/failed pairs with Sample/destination identities,
+  and paginate details by 50. Retry failed pairs only. Missing/invalid identities
+  require fresh scope review and explicit confirmation.
+- Limits are visible: 1,000 checked Samples, up to 100 destinations, and at most
+  1,000 Sample/Collection references per submission. Reject excess scope instead
+  of truncating. Pending writes block duplicate actions, dismissal/navigation and
+  wait on native exit; failure keeps the app open.
+- Memberships persist, but these bounded foreground additions are not durable
+  operation plans/history: interruption keeps committed pairs and does not resume
+  automatically. Running-batch cancellation remains unavailable in this slice.
+  No migration, Favorite/origin change or source-audio mutation is involved.
+
 ## Remaining Collection Membership and Ordering UI
 
-- Add samples from individual menu, checked batch, Collection catalog picker, or
-  internal dragging onto sidebar shortcut. Add references, not audio copies;
-  do not change origin or Favorites.
-- Picker searches/creates and selects multiple Collections. Apply destinations
-  independently, continue failures, report per Collection, and retry failed ones.
-- Creation returns to picker with new Collection selected rather than opening its
-  detail. Add still needs confirmation; cancel does not delete the created entity.
-- Existing memberships keep position and are skipped/count-reported. New members
-  append in source-list order over the complete checked batch, including hidden
-  Samples. Stable tie-breakers/unknown ordering require exact bounded queries.
-- Normal manual list has dedicated reorder handles and keyboard Move actions,
-  not a separate reorder mode. Save each movement; failure restores stored order.
-  Stale sequence rejects/reloads and requires repeating the movement, never replay
-  against another order. Reordering is separate from metadata Save/Cancel.
+- Add Samples from a catalog picker inside Collection detail or internal dragging
+  onto a sidebar shortcut. Individual-menu and checked-batch additions are delivered.
+- Checked-batch Remove from Collection with independent outcomes and failed-only
+  retry remains planned; only individual membership removal is connected.
+- Result-wide Select all needs a bounded membership snapshot, catalog-deletion
+  revalidation and clear total scope, not just loaded visible rows.
 - Alternate display sorts (name, observed duration) never replace stored order.
   Reorder only in manual sort without filters/local search.
+- Covers, persisted Home recency and Home recent links remain planned. Text editing,
+  reviewed deletion and manual ordering are delivered above.
 - Sidebar Collection shortcuts are alphabetical with duplicate-name disambiguation
   under [List Presentation](../ux-design.md#list-and-card-presentation--agreed).
 - Internal Sample drag, Collection reorder, and native DAW drag have distinct
@@ -401,6 +431,31 @@ prototype, not a combined multi-field inspector Save.
   without a second confirmation and reports completion/existing members/failures.
 - Retry with deleted Sample/Collection updates scope and requires confirmation of
   remaining targets/destinations, never name-based identity substitution.
+
+## Remaining Samples and Favorites UI
+
+- Both destinations share bounded reads, local name/path/direct-classification
+  search, Instrument/Genre/type filters, selection/Info, unavailable-audio rows,
+  persistent Favorite controls/feedback, global preview, native single-file drag
+  and checked-batch Collection additions. Favorites is a filtered view of the
+  same Sample identities, not another Collection or named list. Separate Favorite
+  entity CRUD and batch Favorite editing are not approved workflows.
+- Shared selection gaps: result-wide Select all and ongoing deletion revalidation
+  outside action review. Catalog removal (individual/batch), its impact review,
+  Excluded files and reinclusion UI remain planned under Catalog Removal above;
+  existing worker operations alone do not deliver them.
+- Presentation-name/notes editing, Author credits, combined atomic metadata drafts
+  and origin correction remain planned. Individual Instrument/Genre/type editors
+  are delivered. Multi-Sample classification follows [Classification](classification.md),
+  not implicit bulk inspector editing.
+- Source-folder and remaining entity/musical filters, global cross-entity search,
+  persisted duration/musical analysis and extended playback follow [Search](search.md),
+  [Duration Analysis](duration-analysis.md), [Musical Analysis](musical-analysis.md)
+  and [Playback](playback.md). Source relinking/registration UI is separate below.
+- Shared presentation still needs agreed metadata fields, persistent field
+  visibility and compact/wide accessibility validation under
+  [UX Design](../ux-design.md#list-and-card-presentation--agreed), not additional
+  Favorite-specific workflows.
 
 ## Pack, Instrument, and Author Views
 

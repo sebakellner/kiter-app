@@ -117,8 +117,8 @@ packaged file-based loading. `/home` is the default destination; `/samples`
 contains paginated library-wide browsing, with Favorites as a separate catalog
 destination. Unknown routes redirect to Home. Collections has creation, a bounded
 list and stable-ID detail routes under `/collections`, with individual memberships,
-manual ordering, text editing and reviewed deletion. Covers and batch membership
-remain planned. Packs, Instruments and Authors remain placeholder views
+manual ordering, text editing, reviewed deletion and checked-batch additions.
+Covers and batch membership removal remain planned. Packs, Instruments and Authors remain placeholder views
 for sidebar navigation. Other destinations
 in UX Design are not registered yet.
 
