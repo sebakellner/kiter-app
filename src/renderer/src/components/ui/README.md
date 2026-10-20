@@ -20,6 +20,12 @@ in these primitives.
   custom keyboard behavior.
 - `Dialog` and `Popover` share the panel surface, border and overlay shadow.
   Their existing modality, focus and dismissal behavior is unchanged.
+- `Alert` composes `Dialog` for controlled confirmation with two footer buttons.
+  Supply a title, description, explicit confirmation label and confirm/cancel
+  callbacks. Optional children hold review details or feature-owned feedback.
+  Cancel receives initial focus; Escape cancels and outside clicks do not dismiss.
+  `pending` blocks both actions and dismissal; `confirmDisabled` blocks confirmation
+  only. The caller owns async work, errors and closing after confirmed success.
 - `Card` uses a quiet panel surface; selected cards and active sidebar links use
   the selection color. `Badge` is supporting information, not a primary action.
 

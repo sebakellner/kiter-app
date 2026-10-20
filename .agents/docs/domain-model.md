@@ -33,9 +33,10 @@ catalog and from questions that still require agreement.
   all classification UI remain pending.
 - **Implemented internal Collection slice:** create/edit/read, bounded lists,
   idempotent append/removal of memberships, atomic full-sequence reorder, and
-  impact-checked deletion through the worker/client. Creation, summary list/detail
-  IPC and UI are implemented; membership/editing/deletion UI and Collection cover
-  publication/physical cleanup are not exposed yet.
+  impact-checked deletion through the worker/client. Creation, summary list/detail,
+  individual memberships, manual ordering, text editing and reviewed deletion
+  have IPC and UI. Batch membership and Collection cover UI remain planned. See
+  [Catalog Organization](features/catalog-organization.md) for executable scope.
 - **Implemented internal Pack slice:** reviewed registration/reimport from scanned
   roots, bounded Pack/member/candidate queries, presentation edits, manual origin
   corrections, and impact-checked removal through the worker/client. Import

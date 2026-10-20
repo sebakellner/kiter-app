@@ -34,6 +34,17 @@ export const collectionGetSchema = z.object({
   id: z.string().refine(isEntityId, 'Invalid Collection identifier.'),
 })
 
+export const collectionUpdateSchema = collectionCreateSchema.extend({
+  id: collectionGetSchema.shape.id,
+  expected: collectionCreateSchema.extend({
+    description: collectionCreateSchema.shape.description.unwrap(),
+  }),
+})
+
+export const collectionRemovalSchema = collectionGetSchema.extend({
+  token: z.string().regex(/^[a-f0-9]{64}$/u, 'Review the Collection again.'),
+})
+
 export const collectionMembershipSchema = z.object({
   collectionId: collectionGetSchema.shape.id,
   sampleId: z.string().refine(isEntityId, 'Invalid Sample identifier.'),

@@ -329,10 +329,14 @@ replaces memberships with contiguous positions, avoiding transient unique-index
 collisions. Removal review hashes presentation and exact Sample IDs/positions in
 bounded batches; removal rechecks inside an immediate transaction. Final cover
 references become `cleanup_pending` only after checking all three reference
-owners. Creation and bounded summary list/detail reads are exposed through typed
-Collection IPC/preload and connected UI; membership, metadata editing and removal
-IPC/UI remain pending. Main performs recoverable image cleanup. See
-[Collection creation and browsing](features/catalog-organization.md#implemented-collection-creation-and-browsing).
+owners. Creation, bounded summary list/detail reads, single-Sample memberships,
+anchored/adjacent ordering, metadata editing and reviewed removal are exposed
+through typed Collection IPC/preload and connected UI. Renderer metadata updates
+require the expected saved name/description, compared transactionally before
+writing; stale or uncertain outcomes require reload without automatic replay.
+Main performs recoverable image cleanup. See
+[Catalog Organization](features/catalog-organization.md#implemented-collection-editing-and-deletion)
+for delivered UI scope and remaining batch/cover workflows.
 
 | Command                  | Required behavior                                                                                                                   |
 | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
@@ -447,7 +451,8 @@ domain entity or catch-all catalog service. Current UI remains folder-scoped.
 Internal profile/volume operations are not exposed to settings UI or applied to
 the player. Instrument list/create/rename are available through preload; remaining
 classification and Pack operations are internal to `DbClient`. Collections exposes
-creation and bounded summary reads; its other operations remain internal.
+creation, bounded summary reads, individual memberships, anchored/adjacent order,
+text editing and reviewed deletion under Catalog Organization.
 Other entity tables await their complete operations and UI.
 
 ## Basic Rules

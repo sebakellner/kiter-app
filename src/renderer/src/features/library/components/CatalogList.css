@@ -6,3 +6,12 @@
   border-bottom: 1px solid var(--color-border);
   background: var(--color-background);
 }
+
+.catalog-order-announcement {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

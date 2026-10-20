@@ -1,14 +1,31 @@
 import { useEffect, useState } from 'react'
-import { Link, useLocation, useParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { Button } from '@renderer/components/ui/Button'
 import { useCollectionDetail } from '@renderer/features/collections/hooks/useCollectionDetail'
 import { useCatalogViewContext } from '@renderer/routes/navigationContext'
 import './collection-detail.css'
 import { CatalogList } from '@renderer/features/library/components/CatalogList'
+import { CollectionForm } from '@renderer/features/collections/components/CollectionForm/CollectionForm'
+import { DeleteCollection } from '@renderer/features/collections/components/DeleteCollection/DeleteCollection'
 
 export function CollectionDetail(): React.JSX.Element {
   const { id = '' } = useParams()
   const { key } = useLocation()
+  // Route identities own their overlays and requests, never another detail's state.
+  return <Detail key={`${id}:${key}`} id={id} historyKey={key} />
+}
+
+function Detail({
+  id,
+  historyKey,
+}: {
+  id: string
+  historyKey: string
+}): React.JSX.Element {
+  const navigate = useNavigate()
+  const [editing, setEditing] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [notice, setNotice] = useState<string | null>(null)
   const [membershipRevision, setMembershipRevision] = useState(0)
   const { collection, loading, error, unavailable, refresh } =
     useCollectionDetail(id)
@@ -46,6 +63,19 @@ export function CollectionDetail(): React.JSX.Element {
             {collection.sampleCount === 1 ? 'Sample' : 'Samples'}
           </p>
           <Button
+            disabled={loading || editing || deleting}
+            onClick={() => setEditing(true)}
+          >
+            Edit Collection
+          </Button>
+          <Button
+            disabled={loading || editing || deleting}
+            onClick={() => setDeleting(true)}
+          >
+            Delete Collection
+          </Button>
+          {notice && <p role="status">{notice}</p>}
+          <Button
             disabled={loading}
             onClick={() => {
               refresh()
@@ -55,12 +85,34 @@ export function CollectionDetail(): React.JSX.Element {
             Refresh Collection
           </Button>
           <CatalogList
-            key={`${id}:${key}`}
+            key={`${id}:${historyKey}`}
             {...view}
             collectionId={id}
             membershipRevision={membershipRevision}
             onMembershipChanged={refresh}
           />
+          {editing && (
+            <CollectionForm
+              collection={collection}
+              onClose={() => setEditing(false)}
+              onSaved={() => {
+                setEditing(false)
+                setNotice('Collection saved.')
+                refresh()
+              }}
+            />
+          )}
+          {deleting && (
+            <DeleteCollection
+              id={id}
+              onClose={() => setDeleting(false)}
+              onDeleted={() => {
+                void navigate('/collections', {
+                  state: { collectionDeleted: true },
+                })
+              }}
+            />
+          )}
         </>
       )}
     </section>

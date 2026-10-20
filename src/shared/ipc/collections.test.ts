@@ -14,8 +14,59 @@ import {
   requireCollectionMoveRequest,
   isCollectionMoveResult,
   requireCollectionPlaceRequest,
+  requireCollectionUpdateRequest,
+  requireCollectionRemovalRequest,
+  isCollectionRemovalReview,
+  isCollectionRemovalResult,
 } from './collections.ts'
 import { requireCollectionPage } from '../domain/collection.ts'
+
+test('Collection editing requires saved presentation and deletion requires a reviewed token', () => {
+  const collection = makeCollectionSummary()
+  const input = {
+    id: collection.id,
+    name: ' New name ',
+    description: '',
+    expected: { name: collection.name, description: collection.description },
+  }
+  assert.deepEqual(requireCollectionUpdateRequest(input), {
+    ...input,
+    name: 'New name',
+    description: null,
+  })
+  for (const invalid of [
+    null,
+    {},
+    { ...input, id: '/path' },
+    { ...input, expected: undefined },
+    { ...input, expected: { name: 'Saved' } },
+    { ...input, name: ' ' },
+  ]) {
+    assert.throws(() => requireCollectionUpdateRequest(invalid), {
+      code: 'INVALID_INPUT',
+    })
+  }
+  const request = { id: collection.id, token: 'a'.repeat(64) }
+  assert.deepEqual(requireCollectionRemovalRequest(request), request)
+  for (const invalid of [
+    { ...request, id: 'no' },
+    { ...request, token: '' },
+    { id: collection.id },
+  ]) {
+    assert.throws(() => requireCollectionRemovalRequest(invalid), {
+      code: 'INVALID_INPUT',
+    })
+  }
+  const review = { entity: collection, sampleCount: 2, token: request.token }
+  assert.equal(isCollectionRemovalReview(review), true)
+  assert.equal(isCollectionRemovalReview({ ...review, sampleCount: -1 }), false)
+  assert.equal(
+    isCollectionRemovalReview({ ...review, token: 'invalid' }),
+    false,
+  )
+  assert.equal(isCollectionRemovalResult({ id: collection.id }), true)
+  assert.equal(isCollectionRemovalResult({ id: '/file' }), false)
+})
 
 test('Collection IPC creation reuses Unicode name/description rules and rejects malformed input', () => {
   assert.deepEqual(

@@ -11,6 +11,9 @@ import type {
   CollectionMoveRequest,
   CollectionMoveResult,
   CollectionPlaceRequest,
+  CollectionUpdateRequest,
+  CollectionRemovalReview,
+  CollectionRemovalRequest,
 } from '../domain/collection.ts'
 import { requireCollectionPage } from '../domain/collection.ts'
 import {
@@ -29,10 +32,15 @@ import {
   collectionMoveSchema,
   collectionOrderTokenSchema,
   collectionPlaceSchema,
+  collectionUpdateSchema,
+  collectionRemovalSchema,
 } from '../features/collections/schemas.ts'
 import type { IpcResult } from './result.ts'
 
 export const COLLECTION_CHANNELS = {
+  update: 'collections:update',
+  reviewRemoval: 'collections:review-removal',
+  remove: 'collections:remove',
   create: 'collections:create',
   list: 'collections:list',
   get: 'collections:get',
@@ -47,6 +55,17 @@ export interface CollectionGetRequest {
 }
 
 export interface CollectionsApi {
+  update: (
+    request: CollectionUpdateRequest & {
+      expected: NonNullable<CollectionUpdateRequest['expected']>
+    },
+  ) => Promise<IpcResult<Collection>>
+  reviewRemoval: (
+    request: CollectionGetRequest,
+  ) => Promise<IpcResult<CollectionRemovalReview>>
+  remove: (
+    request: CollectionRemovalRequest,
+  ) => Promise<IpcResult<{ id: string }>>
   create: (request: CollectionCreateRequest) => Promise<IpcResult<Collection>>
   list: (
     request?: CollectionPageRequest,
@@ -64,6 +83,47 @@ export interface CollectionsApi {
   placeSample: (
     request: CollectionPlaceRequest,
   ) => Promise<IpcResult<CollectionMoveResult>>
+}
+
+export function requireCollectionUpdateRequest(
+  value: unknown,
+): CollectionUpdateRequest {
+  const parsed = collectionUpdateSchema.safeParse(value, { jitless: true })
+  if (!parsed.success) {
+    throw new DomainValidationError(parsed.error.issues[0].message)
+  }
+  return { ...parsed.data, ...requireCollectionCreateRequest(parsed.data) }
+}
+
+export function requireCollectionRemovalRequest(
+  value: unknown,
+): CollectionRemovalRequest {
+  const parsed = collectionRemovalSchema.safeParse(value, { jitless: true })
+  if (!parsed.success) {
+    throw new DomainValidationError(
+      'Invalid Collection removal. Review it again.',
+    )
+  }
+  return parsed.data
+}
+
+export function isCollectionRemovalReview(
+  value: unknown,
+): value is CollectionRemovalReview {
+  return (
+    isRecord(value) &&
+    isCollection(value.entity) &&
+    typeof value.sampleCount === 'number' &&
+    Number.isSafeInteger(value.sampleCount) &&
+    value.sampleCount >= 0 &&
+    isCollectionOrderToken(value.token)
+  )
+}
+
+export function isCollectionRemovalResult(
+  value: unknown,
+): value is { id: string } {
+  return isRecord(value) && isEntityId(value.id)
 }
 
 export function requireCollectionPlaceRequest(

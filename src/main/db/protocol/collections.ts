@@ -38,6 +38,7 @@ import {
   requireCollectionMoveRequest,
   isCollectionMoveResult,
   requireCollectionPlaceRequest,
+  requireCollectionUpdateRequest,
 } from '../../../shared/ipc/collections.ts'
 
 export type CollectionRequest =
@@ -112,6 +113,10 @@ export function isCollectionRequest(
         requireCollectionCreateRequest(input)
         return true
       case 'update-collection':
+        if (isRecord(input) && input.expected !== undefined) {
+          requireCollectionUpdateRequest(input)
+          return true
+        }
         if (!isRecord(input) || !isEntityId(input.id)) {
           return false
         }

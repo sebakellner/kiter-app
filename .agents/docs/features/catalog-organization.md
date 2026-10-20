@@ -30,6 +30,11 @@ The current worker/client operations are narrower than the planned UI below:
   memberships transactionally, returning `STALE_REVIEW` on change. Final image
   reference cleanup checks all Packs/Collections/profile avatars and delegates
   physical cleanup recoverably to main's managed-image service.
+- Collection text updates may supply the expected saved name/description. The
+  worker compares them inside the same immediate transaction as the update and
+  rejects changed presentation with `STALE_REVIEW`, preserving the current record.
+  Renderer updates always require this baseline; unrelated membership/cover edits
+  do not conflict with the text draft.
 - Sample removal review hashes presentation, Favorite/origin, source observation/
   revision, and exact Collection/Instrument/Author/root references in 500-item
   batches. Reference reads use UUID pages of 50, maximum 100. Immediate transaction
@@ -45,7 +50,10 @@ The current worker/client operations are narrower than the planned UI below:
   do not establish unchanged impact. Tokens prove reviewed state, not UI consent
   or authorization. Genre/aliases are future extensions, not current operations.
 
-### Reviewed Workflow — Planned
+### Reviewed Workflow — Agreed Contracts
+
+Collection detail deletion is implemented below; the remaining entity removal
+and reinclusion UI remains planned.
 
 - In Collection menus distinguish Remove from Collection (membership only) from
   Remove from Library. Membership removal is immediate without confirmation or
@@ -193,10 +201,49 @@ prototype, not a combined multi-field inspector Save.
   authorize main-frame callers and validate requests. Preload validates saved
   responses; worker summary queries count memberships without transferring them.
   Existing internal Collection operations remain available independently.
-- Collection metadata editing/deletion, covers, sidebar shortcuts and
-  Home recency remain planned. Member contents and individual membership actions
+- Covers, sidebar shortcuts and Home recency remain planned. Metadata editing,
+  deletion, member contents and individual membership actions
   are implemented as described below. No schema migration or source-audio writes
   are needed.
+
+## Implemented Collection Editing and Deletion
+
+- Detail exposes Edit Collection and Delete Collection. Editing reuses creation's
+  modal form, shared domain/Zod validation, React Hook Form, Save/Cancel,
+  Cmd/Ctrl+Enter, dirty Save/Discard/Stay review, navigation blocking and native
+  quit protection. Editing changes only name/description, not the stable ID,
+  memberships, manual order, independently managed cover or source audio.
+- The form module's `useCollectionForm` owns React Hook Form, bridge requests,
+  reload/baseline state, dirty review and navigation/quit protection. The component
+  retains presentation, accessible field wiring and focus placement.
+- `collections:update` requires expected saved name/description. Stale, failed
+  or uncertain saves retain the draft and require Reload saved details before
+  another explicit save. Reload preserves intended edits, updates the saved
+  baseline for dirty tracking, and exposes saved values for comparison. A
+  successful save closes the form, refreshes detail and announces Saved.
+- Delete prepares fresh impact through `collections:review-removal`, then shows
+  the saved Collection name, reference count, irreversible consequences and
+  explicit preservation of Samples, Favorites, other Collections and audio.
+  Expandable reference details use bounded, unfiltered Collection catalog pages
+  of 50 with full Sample identities and paths. Audio unavailability does not
+  prevent removal of Collection references.
+- The shared UI `Alert` composes `Dialog` with alertdialog semantics, a described
+  decision and two footer actions. Cancel receives initial focus; Escape requests
+  cancel, outside clicks do not dismiss, and pending work blocks both actions
+  and dismissal. Feature owners supply content, callbacks and async state.
+- `collections:remove` revalidates exact reviewed state transactionally. Any
+  failed/uncertain removal invalidates the displayed review. Review again must
+  succeed before a new explicit Delete; no automatic replay or confirmation
+  against changed impact. Cancel never sends removal.
+- A pending deletion blocks navigation and waits for native quit. Success may
+  finish the requested quit; failure keeps the app open with recovery feedback.
+  Successful deletion otherwise navigates to Collections and announces retained
+  Samples/audio. Returning to deleted detail shows unavailable with recovery.
+  Current surviving audio remains loaded/playing; this slice introduces no
+  playback sequence or managed-cover UI.
+- All three IPC handlers authorize main-frame callers and validate requests;
+  preload validates returned data. Existing unused-cover cleanup scheduling is
+  preserved. No schema migration or source-file mutation is needed.
 
 ## Implemented Single-Sample Collection Membership
 
@@ -289,9 +336,11 @@ prototype, not a combined multi-field inspector Save.
   changes, while the permanent player remains available. Exit waits for persistence;
   failure keeps the app open. Errors reload current saved order and require a new
   explicit move; no failed direction is automatically replayed against another order.
-  Order help, pending/result notices and persistent errors share the list's sticky
-  filter region, keeping recovery actions visible while rows scroll without moving
-  focus away from the active Sample or player.
+  Pending state and persistent errors with Refresh order appear directly in the
+  list's sticky filter region. Successful moves and canceled drags retain
+  screen-reader announcements without visible instruction or result panels.
+  Recovery actions stay visible while rows scroll without moving focus away from
+  the active Sample or player.
 - Results identify the moved Sample's current zero-based index and a new token.
   The view follows a moved Sample across page boundaries by that index without
   selecting another Sample or loading the whole Collection. Focus follows that row

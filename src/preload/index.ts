@@ -25,6 +25,8 @@ import {
   isCollectionDestinationPage,
   isCollectionMembershipResult,
   isCollectionMoveResult,
+  isCollectionRemovalReview,
+  isCollectionRemovalResult,
 } from '@shared/ipc/collections'
 import {
   isAliasUpdatePage,
@@ -44,6 +46,21 @@ import {
 // Custom APIs for renderer
 const api: Api = {
   collections: {
+    update: async (request) =>
+      requireIpcResult(
+        await ipcRenderer.invoke(COLLECTION_CHANNELS.update, request),
+        isCollection,
+      ),
+    reviewRemoval: async (request) =>
+      requireIpcResult(
+        await ipcRenderer.invoke(COLLECTION_CHANNELS.reviewRemoval, request),
+        isCollectionRemovalReview,
+      ),
+    remove: async (request) =>
+      requireIpcResult(
+        await ipcRenderer.invoke(COLLECTION_CHANNELS.remove, request),
+        isCollectionRemovalResult,
+      ),
     placeSample: async (request) =>
       requireIpcResult(
         await ipcRenderer.invoke(COLLECTION_CHANNELS.placeSample, request),

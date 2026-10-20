@@ -3,6 +3,9 @@ import type { Api } from '../../../src/shared/ipc/index.ts'
 
 export function createTestApi(): {
   collections: {
+    update: ReturnType<typeof vi.fn<Api['collections']['update']>>
+    reviewRemoval: ReturnType<typeof vi.fn<Api['collections']['reviewRemoval']>>
+    remove: ReturnType<typeof vi.fn<Api['collections']['remove']>>
     create: ReturnType<typeof vi.fn<Api['collections']['create']>>
     list: ReturnType<typeof vi.fn<Api['collections']['list']>>
     get: ReturnType<typeof vi.fn<Api['collections']['get']>>
@@ -57,6 +60,9 @@ export function createTestApi(): {
 } {
   return {
     collections: {
+      update: vi.fn<Api['collections']['update']>(),
+      reviewRemoval: vi.fn<Api['collections']['reviewRemoval']>(),
+      remove: vi.fn<Api['collections']['remove']>(),
       create: vi.fn<Api['collections']['create']>(),
       list: vi.fn<Api['collections']['list']>(),
       get: vi.fn<Api['collections']['get']>(),
