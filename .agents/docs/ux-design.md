@@ -205,7 +205,11 @@ shortcuts. Selection uses stable Sample IDs, clears when the selected row leaves
 the loaded results, and never automatically chooses a replacement. Keyboard
 traversal is limited to the loaded page. Favorite and native dragging do not change
 selection. Catalog selection is retained in session navigation context and
-revalidated on return; inspector editing and multiple selection remain planned.
+revalidated on return. The prototype now has an explicit Select/Done checkbox
+mode with independent checked IDs, a selected count and an outside-page count.
+Checks survive filtering and pagination within the mounted view and clear on Done
+or navigation; Select all and batch operations remain planned. Inspector editing
+also remains planned.
 The full conventions below
 describe the agreed target.
 
