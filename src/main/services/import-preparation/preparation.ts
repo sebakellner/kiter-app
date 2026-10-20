@@ -2,25 +2,47 @@ import { randomUUID } from 'node:crypto'
 import { mkdtemp } from 'node:fs/promises'
 import path from 'node:path'
 import type { DbClient } from '../../db'
+import { IMPORT_PREPARATION_MAX_ROOTS } from '../../../shared/features/imports/schemas.ts'
 import {
-  IMPORT_PREPARATION_MAX_ROOTS,
-  IMPORT_SNAPSHOT_BATCH_SIZE,
-  importCatalogSnapshotSchema,
-} from '../../../shared/features/imports/schemas.ts'
-import type { DiscoveredAudioFile } from '../../../shared/domain/source.ts'
-import { requirePage } from '../../../shared/domain/pagination.ts'
-import { DomainValidationError } from '../../../shared/domain/validation.ts'
+  DomainValidationError,
+  requirePresentationName,
+} from '../../../shared/domain/validation.ts'
+import { requireDescription } from '../../../shared/domain/presentation.ts'
 import { IpcError } from '../../../shared/ipc/result.ts'
-import { canonicalRoot, discoverImportRoot } from './discovery.ts'
-import { PreparationSpool, PreparationLimitError } from './spool.ts'
-import { cursorSchema, candidatePageRequestSchema } from './schemas.ts'
-import { logPreparationFailure, preparationFailure } from './errors.ts'
+import { PreparationSpool } from './spool.ts'
+import { addPreparationIssue, discoverPreparationRoots } from './builder.ts'
 import {
-  PREPARATION_LIMITS,
-  type ImportPreparation,
-  type PreparationRoot,
-  type PreparationIssue,
-  type PreparationCandidate,
+  candidatePageRequestSchema,
+  reviewPageRequestSchema,
+  preparationRequestSchema,
+  selectionRequestSchema,
+  subtreeRequestSchema,
+  modeRequestSchema,
+  destinationsRequestSchema,
+  originDecisionsRequestSchema,
+  rootRequestSchema,
+  packDetailsRequestSchema,
+} from './schemas.ts'
+import { reviewCandidate, type PreparationDraft } from './selection.ts'
+import { changedReviewRoots } from './revalidation.ts'
+import { sealReview } from './review.ts'
+import { readPreparationPage } from './paging.ts'
+import {
+  logPreparationFailure,
+  preparationFailure,
+  type PreparationWorkStage,
+} from './errors.ts'
+import { suggestPackDetails } from './pack-details.ts'
+import { requireSubtreeScope } from './subtree.ts'
+import type {
+  ImportPreparation,
+  PreparationRoot,
+  PreparationCandidate,
+  PreparationRequest,
+  PreparationReview,
+  PreparationPageRequest,
+  PreparationCandidatePage,
+  CandidateChoice,
 } from './types.ts'
 
 interface Session {
@@ -28,6 +50,7 @@ interface Session {
   spool: PreparationSpool
   invalidated: boolean
   disposing: Promise<void> | null
+  draft: PreparationDraft
 }
 
 // Instantiate once per owner in main. No renderer paths or audio capabilities.
@@ -36,6 +59,7 @@ export class ImportPreparationService {
   private pending: Promise<ImportPreparation> | null = null
   private closed = false
   private cleanupPending: PreparationSpool | null = null
+  private work: Promise<unknown> | null = null
   private readonly database: Pick<DbClient, 'readImportCatalog'>
   private readonly temporaryParent: string
 
@@ -71,7 +95,10 @@ export class ImportPreparationService {
         'Select between 1 and 32 absolute source folders.',
       )
     }
-    this.pending = this.build(directories)
+    this.pending = this.build([...directories]).then((session) => {
+      this.session = session
+      return structuredClone(session.summary)
+    })
     try {
       return await this.pending
     } catch (error) {
@@ -92,87 +119,625 @@ export class ImportPreparationService {
     return structuredClone(this.requireSession(preparationId).summary)
   }
 
-  async listCandidates(input: {
-    preparationId: string
-    revision: number
-    cursor?: string
-    limit?: number
-  }): Promise<{
-    items: PreparationCandidate[]
-    total: number
-    revision: number
-    nextCursor: string | null
-  }> {
-    const parsed = candidatePageRequestSchema.safeParse(input)
-    if (!parsed.success) {
-      throw new DomainValidationError('Invalid import preparation page.')
-    }
-    const session = this.requireSession(input.preparationId, input.revision)
-    const { limit } = requirePage({ limit: input.limit })
-    let offset = 0
-    if (input.cursor !== undefined) {
-      let cursor: unknown
-      try {
-        cursor = JSON.parse(
-          Buffer.from(input.cursor, 'base64url').toString('utf8'),
-        )
-      } catch {
-        throw new DomainValidationError('Invalid import preparation cursor.')
+  async listCandidates(
+    input: PreparationPageRequest,
+  ): Promise<PreparationCandidatePage> {
+    return this.readPage(this.parse(candidatePageRequestSchema, input))
+  }
+
+  async setMode(
+    input: PreparationRequest & { mode: 'standalone' | 'pack' },
+  ): Promise<ImportPreparation> {
+    const request = this.parse(modeRequestSchema, input)
+    return this.edit(request, 'set-mode', async (summary, choices) => {
+      if (summary.mode !== request.mode) {
+        for (const choice of choices.values()) {
+          delete choice.destinationRootId
+          delete choice.originResolution
+        }
       }
-      const parsedCursor = cursorSchema.safeParse(cursor)
-      if (!parsedCursor.success) {
-        throw new DomainValidationError('Invalid import preparation cursor.')
+      summary.mode = request.mode
+      for (const root of summary.roots) {
+        if (!root.catalog?.pack && !summary.packDetails[root.id]) {
+          summary.packDetails[root.id] = suggestPackDetails(root.location)
+        }
+      }
+    })
+  }
+
+  async setSelection(
+    input: PreparationRequest & {
+      choices: { candidateId: string; selected: boolean }[]
+    },
+  ): Promise<ImportPreparation> {
+    const request = this.parse(selectionRequestSchema, input)
+    return this.edit(
+      request,
+      'set-selection',
+      async (_summary, choices, session) => {
+        this.requireDistinct(request.choices)
+        for (const entry of request.choices) {
+          const candidate = await this.requireCandidate(
+            session,
+            entry.candidateId,
+          )
+          if (candidate.catalog.excluded && entry.selected) {
+            throw new DomainValidationError(
+              'Excluded files cannot be selected for import.',
+            )
+          }
+          const choice = choices.get(candidate.id) ?? {}
+          choices.set(candidate.id, {
+            ...choice,
+            selected: entry.selected,
+            needsSelectionReview: false,
+          })
+        }
+      },
+    )
+  }
+
+  async setSubtreeSelection(
+    input: PreparationRequest & {
+      rootId: string
+      relativePath: string
+      selected: boolean
+    },
+  ): Promise<ImportPreparation> {
+    const request = this.parse(subtreeRequestSchema, input)
+    return this.edit(
+      request,
+      'set-subtree-selection',
+      async (summary, choices, session) => {
+        this.requireRoot(summary, request.rootId)
+        const scope = requireSubtreeScope(request.relativePath)
+        let found = scope === ''
+        for await (const batch of session.spool.batches()) {
+          for (const candidate of batch) {
+            const matches = candidate.occurrences.some(
+              (item) =>
+                item.rootId === request.rootId &&
+                (scope === '' ||
+                  item.relativePath.startsWith(`${scope}${path.sep}`)),
+            )
+            if (matches) {
+              found = true
+              const choice = choices.get(candidate.id) ?? {}
+              choices.set(candidate.id, {
+                ...choice,
+                selected: request.selected && !candidate.catalog.excluded,
+                needsSelectionReview: false,
+              })
+            }
+          }
+        }
+        if (!found) {
+          throw new DomainValidationError(
+            'The folder is not in the discovery snapshot.',
+          )
+        }
+      },
+    )
+  }
+
+  async setDestinations(
+    input: PreparationRequest & {
+      choices: { candidateId: string; destinationRootId: string }[]
+    },
+  ): Promise<ImportPreparation> {
+    const request = this.parse(destinationsRequestSchema, input)
+    return this.edit(
+      request,
+      'set-destinations',
+      async (summary, choices, session) => {
+        if (summary.mode !== 'pack') {
+          throw new DomainValidationError(
+            'Choose Pack mode before selecting destinations.',
+          )
+        }
+        this.requireDistinct(request.choices)
+        for (const entry of request.choices) {
+          const candidate = await this.requireCandidate(
+            session,
+            entry.candidateId,
+          )
+          if (
+            candidate.catalog.excluded ||
+            !candidate.occurrences.some(
+              (item) => item.rootId === entry.destinationRootId,
+            )
+          ) {
+            throw new DomainValidationError(
+              'Select a containing root for this candidate.',
+            )
+          }
+          const choice = choices.get(candidate.id) ?? {}
+          if (
+            reviewCandidate(summary, candidate, choices).destinationRootId !==
+            entry.destinationRootId
+          ) {
+            delete choice.originResolution
+          }
+          choices.set(candidate.id, {
+            ...choice,
+            destinationRootId: entry.destinationRootId,
+          })
+        }
+      },
+    )
+  }
+
+  async setOriginDecisions(
+    input: PreparationRequest & {
+      choices: {
+        candidateId: string
+        destinationRootId: string
+        resolution: 'keep' | 'assign'
+      }[]
+    },
+  ): Promise<ImportPreparation> {
+    const request = this.parse(originDecisionsRequestSchema, input)
+    return this.edit(
+      request,
+      'set-origin-decisions',
+      async (summary, choices, session) => {
+        this.requireDistinct(request.choices)
+        for (const entry of request.choices) {
+          const candidate = reviewCandidate(
+            summary,
+            await this.requireCandidate(session, entry.candidateId),
+            choices,
+          )
+          if (
+            !candidate.selected ||
+            !candidate.originConflict ||
+            candidate.destinationRootId !== entry.destinationRootId
+          ) {
+            throw new DomainValidationError(
+              'Review an individual selected origin conflict at its chosen destination.',
+            )
+          }
+          choices.set(candidate.id, {
+            ...choices.get(candidate.id),
+            originResolution: entry.resolution,
+          })
+        }
+      },
+    )
+  }
+
+  async setPackDetails(
+    input: PreparationRequest & {
+      rootId: string
+      name: string
+      description?: string | null
+    },
+  ): Promise<ImportPreparation> {
+    const request = this.parse(packDetailsRequestSchema, input)
+    return this.edit(request, 'set-pack-details', async (summary) => {
+      const root = this.requireRoot(summary, request.rootId)
+      if (summary.mode !== 'pack' || root.catalog?.pack) {
+        throw new DomainValidationError(
+          'Only new Pack presentation can be edited during import.',
+        )
+      }
+      summary.packDetails[root.id] = {
+        name: requirePresentationName(request.name),
+        description: requireDescription(request.description),
+      }
+    })
+  }
+
+  async removeRoot(
+    input: PreparationRequest & { rootId: string },
+  ): Promise<ImportPreparation> {
+    const request = this.parse(rootRequestSchema, input)
+    return this.runWork(request, 'remove-root', async (session) => {
+      this.requireRoot(session.summary, request.rootId)
+      const summary = structuredClone(session.summary)
+      summary.roots = summary.roots.filter((root) => root.id !== request.rootId)
+      delete summary.packDetails[request.rootId]
+      const spool = new PreparationSpool(
+        await mkdtemp(
+          path.join(this.temporaryParent, 'kiter-import-preparation-'),
+        ),
+        summary.id,
+      )
+      const choices = new Map<string, CandidateChoice>()
+      try {
+        for await (const batch of session.spool.batches()) {
+          for (const candidate of batch) {
+            const affected = candidate.occurrences.some(
+              (item) => item.rootId === request.rootId,
+            )
+            candidate.occurrences = candidate.occurrences.filter(
+              (item) => item.rootId !== request.rootId,
+            )
+            if (candidate.occurrences.length > 0) {
+              await spool.write(candidate, null)
+              const choice = session.draft.choices.get(candidate.id)
+              if (affected) {
+                choices.set(candidate.id, {
+                  selected: false,
+                  needsSelectionReview: true,
+                })
+              } else if (choice) {
+                choices.set(candidate.id, { ...choice })
+              }
+            }
+          }
+        }
+        summary.candidateCount = spool.count
+        return await this.replace(session, {
+          ...session,
+          summary,
+          spool,
+          draft: { choices, seal: null },
+        })
+      } catch (error) {
+        if (this.session?.spool !== spool) {
+          await this.cleanupReplacement(spool, error)
+        }
+        throw error
+      }
+    })
+  }
+
+  async rescanRoot(
+    input: PreparationRequest & { rootId: string },
+  ): Promise<ImportPreparation> {
+    const request = this.parse(rootRequestSchema, input)
+    return this.runWork(request, 'rescan-root', async (session) => {
+      this.requireRoot(session.summary, request.rootId)
+      // Rediscover overlaps together so a changed first observation cannot poison
+      // the refreshed root. Retain decisions only for exact, unaffected inputs.
+      const refreshed = await this.build(
+        session.summary.roots.map((root) => root.location),
+        session,
+      )
+      try {
+        const changedRoots = new Set(
+          refreshed.summary.roots
+            .filter((root) => {
+              const previous = session.summary.roots.find(
+                (item) => item.id === root.id,
+              )
+              return (
+                !previous ||
+                previous.state === 'blocked' ||
+                previous.discoveredCount !== root.discoveredCount ||
+                previous.skippedSymlinks !== root.skippedSymlinks ||
+                JSON.stringify(previous.catalog) !==
+                  JSON.stringify(root.catalog)
+              )
+            })
+            .map((root) => root.id),
+        )
+        for await (const batch of refreshed.spool.batches()) {
+          for (const candidate of batch) {
+            const previous = await session.spool.read(candidate.id)
+            if (
+              !previous ||
+              JSON.stringify(previous) !== JSON.stringify(candidate)
+            ) {
+              for (const occurrence of candidate.occurrences) {
+                changedRoots.add(occurrence.rootId)
+              }
+            }
+          }
+        }
+        // A same-count replacement can leave every retained candidate unchanged.
+        // Detect removed locations before retaining any decisions for their roots.
+        for await (const batch of session.spool.batches()) {
+          for (const candidate of batch) {
+            if (!(await refreshed.spool.read(candidate.id))) {
+              for (const occurrence of candidate.occurrences) {
+                changedRoots.add(occurrence.rootId)
+              }
+            }
+          }
+        }
+        changedRoots.add(request.rootId)
+        for await (const batch of refreshed.spool.batches()) {
+          for (const candidate of batch) {
+            const affected = candidate.occurrences.some((item) =>
+              changedRoots.has(item.rootId),
+            )
+            const choice = session.draft.choices.get(candidate.id)
+            if (affected) {
+              refreshed.draft.choices.set(candidate.id, {
+                selected: false,
+                needsSelectionReview: true,
+              })
+            } else if (choice) {
+              refreshed.draft.choices.set(candidate.id, { ...choice })
+            }
+          }
+        }
+        return await this.replace(session, refreshed)
+      } catch (error) {
+        if (this.session?.spool !== refreshed.spool) {
+          await this.cleanupReplacement(refreshed.spool, error)
+        }
+        throw error
+      }
+    })
+  }
+
+  async review(input: PreparationRequest): Promise<PreparationReview> {
+    const request = this.parse(preparationRequestSchema.strict(), input)
+    return this.runWork(request, 'review', async (session) => {
+      const { summary } = session
+      session.draft.seal = null
+      if (summary.state === 'reviewed') {
+        summary.state = 'editing'
       }
       if (
-        parsedCursor.data.preparationId !== input.preparationId ||
-        parsedCursor.data.revision !== input.revision
+        !summary.mode ||
+        summary.roots.length === 0 ||
+        summary.roots.some((root) => root.state === 'blocked')
       ) {
-        throw new IpcError(
-          'STALE_REVIEW',
-          'Reload the current import preparation.',
+        throw new DomainValidationError(
+          'Choose an import mode and complete discovery for every selected root.',
         )
       }
-      offset = parsedCursor.data.offset
+      const changed = await changedReviewRoots(
+        this.database,
+        summary,
+        session.spool,
+      )
+      this.requireSession(request.preparationId, request.revision)
+      if (changed.size > 0) {
+        for (const root of summary.roots) {
+          if (changed.has(root.id)) {
+            addPreparationIssue(root, {
+              code: 'REVIEW_CHANGED',
+              relativePath: '',
+            })
+          }
+        }
+        this.advance(session)
+        throw new IpcError(
+          'STALE_REVIEW',
+          'Import inputs changed. Rescan the affected folders and review their selection again.',
+        )
+      }
+      const seal = await sealReview(
+        summary,
+        session.spool,
+        session.draft.choices,
+      )
+      this.requireSession(request.preparationId, request.revision)
+      session.draft.seal = seal
+      summary.state = 'reviewed'
+      return structuredClone(seal)
+    })
+  }
+
+  async listReview(
+    input: PreparationPageRequest & { reviewToken: string },
+  ): Promise<PreparationCandidatePage> {
+    const request = this.parse(reviewPageRequestSchema, input)
+    const session = this.requireSession(request.preparationId, request.revision)
+    const seal = session.draft.seal
+    if (!seal || seal.reviewToken !== request.reviewToken) {
+      throw new IpcError(
+        'STALE_REVIEW',
+        'Seal the current import review again.',
+      )
     }
-    let items: PreparationCandidate[]
+    return this.readPage(request, seal)
+  }
+
+  private async readPage(
+    request: PreparationPageRequest,
+    seal?: PreparationReview,
+  ): Promise<PreparationCandidatePage> {
+    const session = this.requireSession(request.preparationId, request.revision)
     try {
-      items = await session.spool.page(offset, limit)
+      const page = await readPreparationPage(
+        session.spool,
+        session.summary,
+        session.draft.choices,
+        request,
+        seal,
+      )
+      // Neither edits, rescan, discard nor resealing may publish an obsolete page.
+      this.requireSession(request.preparationId, request.revision)
+      if (seal && session.draft.seal !== seal) {
+        throw new IpcError('STALE_REVIEW', 'Reload the sealed import review.')
+      }
+      return page
     } catch (error) {
-      this.requireSession(input.preparationId, input.revision)
+      this.requireSession(request.preparationId, request.revision)
+      if (error instanceof IpcError || error instanceof DomainValidationError) {
+        throw error
+      }
       logPreparationFailure('read-page', error)
       throw preparationFailure(
         'Unable to read import preparation storage. Discard and prepare the folders again.',
         error,
       )
     }
-    // A concurrent discard must not return a page from an invalidated session.
-    this.requireSession(input.preparationId, input.revision)
-    const next = offset + items.length
-    return {
-      items,
-      total: session.summary.candidateCount,
-      revision: input.revision,
-      nextCursor:
-        next < session.summary.candidateCount
-          ? Buffer.from(
-              JSON.stringify({
-                preparationId: input.preparationId,
-                revision: input.revision,
-                offset: next,
-              }),
-            ).toString('base64url')
-          : null,
+  }
+
+  private parse<T>(
+    schema: {
+      safeParse: (
+        value: unknown,
+      ) => { success: true; data: T } | { success: false }
+    },
+    input: unknown,
+  ): T {
+    const parsed = schema.safeParse(input)
+    if (!parsed.success) {
+      throw new DomainValidationError('Invalid import preparation request.')
+    }
+    return parsed.data
+  }
+
+  private requireRoot(
+    summary: ImportPreparation,
+    rootId: string,
+  ): PreparationRoot {
+    const root = summary.roots.find((item) => item.id === rootId)
+    if (!root) {
+      throw new DomainValidationError(
+        'The selected root is not in this preparation.',
+      )
+    }
+    return root
+  }
+
+  private requireDistinct(entries: { candidateId: string }[]): void {
+    if (
+      new Set(entries.map((entry) => entry.candidateId)).size !== entries.length
+    ) {
+      throw new DomainValidationError(
+        'Repeated candidate decisions are not allowed.',
+      )
+    }
+  }
+
+  private async requireCandidate(
+    session: Session,
+    candidateId: string,
+  ): Promise<PreparationCandidate> {
+    const candidate = await session.spool.read(candidateId)
+    if (!candidate) {
+      throw new DomainValidationError(
+        'The candidate is not in this preparation.',
+      )
+    }
+    return candidate
+  }
+
+  private advance(session: Session): void {
+    session.summary.revision++
+    session.summary.state = session.summary.roots.some(
+      (root) => root.state === 'blocked',
+    )
+      ? 'blocked'
+      : 'editing'
+    session.draft.seal = null
+  }
+
+  private edit(
+    request: PreparationRequest,
+    stage: PreparationWorkStage,
+    action: (
+      summary: ImportPreparation,
+      choices: Map<string, CandidateChoice>,
+      session: Session,
+    ) => Promise<void>,
+  ): Promise<ImportPreparation> {
+    return this.runWork(request, stage, async (session) => {
+      const summary = structuredClone(session.summary)
+      const choices = new Map(
+        [...session.draft.choices].map(([id, choice]) => [id, { ...choice }]),
+      )
+      await action(summary, choices, session)
+      this.requireSession(request.preparationId, request.revision)
+      session.summary = summary
+      session.draft.choices = choices
+      this.advance(session)
+      return structuredClone(summary)
+    })
+  }
+
+  private runWork<T>(
+    request: PreparationRequest,
+    stage: PreparationWorkStage,
+    action: (session: Session) => Promise<T>,
+  ): Promise<T> {
+    if (this.closed) {
+      return Promise.reject(
+        new IpcError('CLOSING', 'Import preparation is closed.'),
+      )
+    }
+    if (this.work || this.cleanupPending) {
+      return Promise.reject(
+        new DomainValidationError(
+          'Wait for the current preparation work or retry cleanup.',
+        ),
+      )
+    }
+    const work = (async (): Promise<T> => {
+      try {
+        return await action(
+          this.requireSession(request.preparationId, request.revision),
+        )
+      } catch (error) {
+        if (
+          error instanceof IpcError ||
+          error instanceof DomainValidationError
+        ) {
+          throw error
+        }
+        logPreparationFailure(stage, error)
+        throw preparationFailure(
+          'Unable to edit or review import preparation. Check access and retry.',
+          error,
+        )
+      }
+    })()
+    this.work = work
+    void work
+      .finally(() => {
+        if (this.work === work) {
+          this.work = null
+        }
+      })
+      .catch(() => undefined)
+    return work
+  }
+
+  private async replace(
+    previous: Session,
+    replacement: Session,
+  ): Promise<ImportPreparation> {
+    this.requireSession(previous.summary.id, previous.summary.revision)
+    replacement.summary.revision = previous.summary.revision
+    this.advance(replacement)
+    this.session = replacement
+    this.cleanupPending = previous.spool
+    await this.cleanup(previous.spool)
+    this.cleanupPending = null
+    return structuredClone(replacement.summary)
+  }
+
+  private async cleanupReplacement(
+    spool: PreparationSpool,
+    error: unknown,
+  ): Promise<void> {
+    this.cleanupPending = spool
+    try {
+      await this.cleanup(spool)
+      this.cleanupPending = null
+    } catch (cleanupError) {
+      throw preparationFailure(
+        'Unable to edit import preparation and clean temporary storage. Retry close.',
+        new AggregateError([error, cleanupError]),
+      )
     }
   }
 
   async discard(preparationId: string, revision: number): Promise<void> {
     const session = this.requireSession(preparationId, revision, true)
     session.invalidated = true
+    await this.work?.then(
+      () => undefined,
+      () => undefined,
+    )
     if (!session.disposing) {
       session.disposing = this.cleanup(session.spool)
     }
     try {
       await session.disposing
+      if (this.cleanupPending) {
+        await this.cleanup(this.cleanupPending)
+        this.cleanupPending = null
+      }
       if (this.session === session) {
         this.session = null
       }
@@ -191,6 +756,10 @@ export class ImportPreparationService {
         () => undefined,
       )
     }
+    await this.work?.then(
+      () => undefined,
+      () => undefined,
+    )
     if (this.session) {
       await this.discard(this.session.summary.id, this.session.summary.revision)
     }
@@ -224,109 +793,49 @@ export class ImportPreparationService {
     return this.session
   }
 
-  private async build(directories: string[]): Promise<ImportPreparation> {
-    const id = randomUUID()
+  private async build(
+    directories: string[],
+    previous?: Session,
+  ): Promise<Session> {
+    const id = previous?.summary.id ?? randomUUID()
     const directory = await mkdtemp(
       path.join(this.temporaryParent, 'kiter-import-preparation-'),
     )
     const spool = new PreparationSpool(directory, id)
     try {
-      const roots: PreparationRoot[] = []
-      for (const location of directories) {
-        const root: PreparationRoot = {
-          id: randomUUID(),
-          location,
-          state: 'completed',
-          catalog: null,
-          discoveredCount: 0,
-          skippedSymlinks: 0,
-          issueCount: 0,
-          issues: [],
-        }
-        try {
-          root.location = await canonicalRoot(location)
-          if (roots.some((other) => other.location === root.location)) {
-            continue
-          }
-        } catch {
-          this.addIssue(root, { code: 'UNSAFE_LOCATION', relativePath: '' })
-        }
-        roots.push(root)
-      }
-      const snapshot = importCatalogSnapshotSchema.parse(
-        await this.database.readImportCatalog({
-          roots: roots
-            .filter((root) => root.state === 'completed')
-            .map((root) => root.location),
-          paths: [],
-        }),
+      const roots = await discoverPreparationRoots(
+        this.database,
+        directories,
+        spool,
+        previous?.summary,
       )
-      for (const root of roots) {
-        root.catalog =
-          snapshot.roots.find((item) => item.canonicalPath === root.location) ??
-          null
-        if (root.issues.length === 0 && !root.catalog) {
-          throw new IpcError(
-            'PROTOCOL_ERROR',
-            'Import root observation is incomplete.',
-          )
-        }
-        if (root.catalog?.registration?.registered === false) {
-          // Inactive roots can be inspected, never implicitly reactivated here.
-          this.addIssue(root, {
-            code: 'REGISTRATION_INACTIVE',
-            relativePath: '',
-          })
-        }
-        if (root.issues.some((issue) => issue.code === 'UNSAFE_LOCATION')) {
-          continue
-        }
-        let batch: DiscoveredAudioFile[] = []
-        let limited = false
-        const flush = async (): Promise<void> => {
-          if (batch.length === 0) {
-            return
-          }
-          try {
-            await this.storeBatch(root, batch, spool)
-          } catch (error) {
-            if (!(error instanceof PreparationLimitError)) {
-              throw error
-            }
-            this.addIssue(root, { code: 'LIMIT_EXCEEDED', relativePath: '' })
-            limited = true
-          }
-          batch = []
-        }
-        for await (const event of discoverImportRoot(root.location)) {
-          if (event.kind === 'issue') {
-            this.addIssue(root, event.issue)
-          } else if (event.kind === 'symlink') {
-            root.skippedSymlinks++
-          } else {
-            root.discoveredCount++
-            batch.push(event.file)
-            if (batch.length === IMPORT_SNAPSHOT_BATCH_SIZE) {
-              await flush()
-            }
-          }
-          if (limited) {
-            break
-          }
-        }
-        await flush()
-      }
       const summary: ImportPreparation = {
         id,
-        revision: 1,
+        revision: previous ? previous.summary.revision + 1 : 1,
         state: roots.some((root) => root.state === 'blocked')
           ? 'blocked'
           : 'ready',
         candidateCount: spool.count,
         roots,
+        mode: previous?.summary.mode ?? null,
+        packDetails: previous
+          ? structuredClone(previous.summary.packDetails)
+          : {},
       }
-      this.session = { summary, spool, invalidated: false, disposing: null }
-      return structuredClone(summary)
+      if (summary.mode === 'pack') {
+        for (const root of roots) {
+          if (!root.catalog?.pack && !summary.packDetails[root.id]) {
+            summary.packDetails[root.id] = suggestPackDetails(root.location)
+          }
+        }
+      }
+      return {
+        summary,
+        spool,
+        invalidated: false,
+        disposing: null,
+        draft: { choices: new Map(), seal: null },
+      }
     } catch (error) {
       this.cleanupPending = spool
       try {
@@ -355,68 +864,6 @@ export class ImportPreparationService {
         'Unable to clean import preparation storage. Check access and retry discard or close.',
         error,
       )
-    }
-  }
-
-  private addIssue(root: PreparationRoot, issue: PreparationIssue): void {
-    root.state = 'blocked'
-    root.issueCount++
-    if (root.issues.length < PREPARATION_LIMITS.issuesPerRoot) {
-      root.issues.push(issue)
-    }
-  }
-
-  private async storeBatch(
-    root: PreparationRoot,
-    files: DiscoveredAudioFile[],
-    spool: PreparationSpool,
-  ): Promise<void> {
-    const snapshot = importCatalogSnapshotSchema.parse(
-      await this.database.readImportCatalog({
-        roots: [],
-        paths: files.map((file) => file.path),
-      }),
-    )
-    const catalog = new Map(
-      snapshot.candidates.map((candidate) => [
-        candidate.canonicalPath,
-        candidate,
-      ]),
-    )
-    for (const file of files) {
-      const observed = catalog.get(file.path)
-      if (!observed) {
-        throw new IpcError(
-          'PROTOCOL_ERROR',
-          'Import catalog observation is incomplete.',
-        )
-      }
-      const id = spool.candidateId(file.path)
-      const existing = await spool.read(id)
-      if (
-        existing &&
-        (existing.file.observedSizeBytes !== file.observedSizeBytes ||
-          existing.file.observedMtimeMs !== file.observedMtimeMs)
-      ) {
-        this.addIssue(root, {
-          code: 'SOURCE_CHANGED',
-          relativePath: file.relativePath,
-        })
-      }
-      const candidate: PreparationCandidate = existing
-        ? structuredClone(existing)
-        : { id, file, occurrences: [], catalog: observed }
-      if (
-        !candidate.occurrences.some(
-          (occurrence) => occurrence.rootId === root.id,
-        )
-      ) {
-        candidate.occurrences.push({
-          rootId: root.id,
-          relativePath: file.relativePath,
-        })
-      }
-      await spool.write(candidate, existing)
     }
   }
 }

@@ -26,4 +26,91 @@ export const cursorSchema = z.object({
   preparationId: z.string().uuid(),
   revision: z.number().int().positive(),
   offset: z.number().int().nonnegative().max(PREPARATION_LIMITS.candidates),
+  kind: z.enum(['candidates', 'review']),
+  reviewToken: z.string().max(128).optional(),
 })
+
+export const reviewPageRequestSchema = candidatePageRequestSchema
+  .extend({
+    reviewToken: z.string().min(1).max(128),
+  })
+  .strict()
+
+export const preparationRequestSchema = z.object({
+  preparationId: z.string().uuid(),
+  revision: z
+    .number()
+    .int()
+    .positive()
+    .max(Number.MAX_SAFE_INTEGER - 1),
+})
+
+const candidateId = z.string().regex(/^[a-f0-9]{64}$/u)
+export const selectionRequestSchema = preparationRequestSchema
+  .extend({
+    choices: z
+      .array(z.object({ candidateId, selected: z.boolean() }).strict())
+      .min(1)
+      .max(100),
+  })
+  .strict()
+
+export const subtreeRequestSchema = preparationRequestSchema
+  .extend({
+    rootId: z.string().uuid(),
+    relativePath: z
+      .string()
+      .max(32768)
+      .refine((value) => !value.includes('\0')),
+    selected: z.boolean(),
+  })
+  .strict()
+
+export const modeRequestSchema = preparationRequestSchema
+  .extend({
+    mode: z.enum(['standalone', 'pack']),
+  })
+  .strict()
+
+export const destinationsRequestSchema = preparationRequestSchema
+  .extend({
+    choices: z
+      .array(
+        z
+          .object({ candidateId, destinationRootId: z.string().uuid() })
+          .strict(),
+      )
+      .min(1)
+      .max(100),
+  })
+  .strict()
+
+export const originDecisionsRequestSchema = preparationRequestSchema
+  .extend({
+    choices: z
+      .array(
+        z
+          .object({
+            candidateId,
+            destinationRootId: z.string().uuid(),
+            resolution: z.enum(['keep', 'assign']),
+          })
+          .strict(),
+      )
+      .min(1)
+      .max(100),
+  })
+  .strict()
+
+export const rootRequestSchema = preparationRequestSchema
+  .extend({
+    rootId: z.string().uuid(),
+  })
+  .strict()
+
+export const packDetailsRequestSchema = rootRequestSchema
+  .extend({
+    name: z.string(),
+    description: z.string().nullable().optional(),
+  })
+  .strict()

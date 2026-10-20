@@ -14,7 +14,8 @@ before confirmation; canceling that existing confirmation does not roll them
 back. Adapt or complement it before delivering selection-before-write behavior.
 UI shape is agreed where recorded; visual design/prototypes remain deferred.
 
-Internal read-only preparation is implemented as described below. It does not
+Internal read-only preparation and the selection/origin-review core of Block 2
+are implemented as described below. They do not
 replace current folder browsing or the older internal Pack preparation, and is
 not connected to Electron IPC, native folder selection, or UI yet.
 
@@ -209,6 +210,103 @@ first-observation preservation through source changes and fresh discovery, and
 the real private-worker command. Automated local validation is
 on macOS; Windows, packaged Electron, UI, and actual DAW reception are unvalidated.
 
+## Implemented Internal Selection and Review — Block 2 Core
+
+The same `ImportPreparationService` now supports session-local editing and a
+selection/origin-review seal. It remains catalog-read-only and is not connected
+to IPC, native selection, renderer UI, confirmation, or execution. The immutable
+revision-1 behavior above describes the original Block 1 slice; successful edits
+now advance revisions and invalidate any seal and prior cursors.
+
+- `setMode` explicitly chooses `standalone` or `pack`; preparation initially has
+  no mode. Standalone preserves all existing origins. Mode changes clear dependent
+  destinations/origin decisions without discarding new-Pack presentation drafts.
+- `setSelection` accepts 1–100 distinct candidate choices atomically. Excluded
+  files start unchecked and cannot be selected. `setSubtreeSelection` applies one
+  root-relative folder scope (empty string for the whole root) to the server-held
+  discovery snapshot, including unloaded pages. It changes each shared file once;
+  traversal, absolute and unknown nonempty scopes reject. Windows accepts both
+  slash spellings, normalizing them to native snapshot separators; drive-relative
+  and UNC scopes reject. POSIX preserves literal backslashes in folder names.
+  Repeated/trailing separators normalize without collapsing traversal components.
+- `listCandidates` includes selected state, pending fresh-selection review,
+  containing destination root IDs, chosen destination, origin conflict and staged
+  individual resolution. Candidate pages and `listReview` remain 50/default,
+  100/max. Cursor kind, preparation, revision and review token are pinned; these
+  query types cannot exchange cursors. Returned data is detached from service state.
+- `setDestinations` accepts 1–100 distinct candidates and only their verified
+  containing roots in Pack mode. Overlap needs an explicit destination; changing
+  it clears that candidate's origin resolution. No arbitrary existing Pack can be
+  supplied. Grouped multiroot Pack reimport is explicitly unsupported.
+- `setOriginDecisions` accepts 1–100 distinct selected conflicts, each naming its
+  chosen destination and `keep` or `assign`. Other-Pack and manually standalone
+  origins conflict; matching manual Pack origins do not. Unrelated, repeated,
+  foreign and wrong-destination decisions reject without partially editing drafts.
+- `setPackDetails` stages only name/description for a new-Pack root, using existing
+  domain validation. It cannot change an existing Pack's stored presentation.
+  Names default to the selected folder's name; sealing requires at least one
+  prospective associated Sample for every new Pack, not merely a kept conflict.
+  Suggested names are validated immediately: valid suggestions use domain
+  normalization, while invalid ones retain their exact text and expose
+  `nameIssue: INVALID_NAME` in that root's draft. Entering Pack mode remains
+  possible so `setPackDetails` can explicitly correct the name and clear the issue.
+  Standalone review does not depend on unused Pack-name suggestions.
+- `removeRoot` publishes a replacement spool without rediscovering other roots.
+  Unique candidates from that root disappear; shared candidate IDs survive once.
+  Shared candidates lose dependent choices and require explicit fresh selection.
+  Removing all roots is allowed as an empty draft, but it cannot be sealed.
+- `rescanRoot` currently rediscovers **all retained roots** into a replacement
+  spool to reconcile overlapping first observations safely. Preparation/root IDs
+  and canonical-location candidate IDs survive. Presentation is retained;
+  unaffected exact candidate/root inputs retain choices. Candidates in the requested
+  root, previously blocked/changed root contexts, new candidates and changed
+  observations start unchecked and need explicit fresh selection, even when the
+  intended choice is to leave them unchecked. Their destinations and origin
+  resolutions are not replayed. Exclusions never require or permit selection.
+- `review` rediscovers complete roots and compares filesystem size/mtime,
+  containment/readability/symlink policy, file occurrence counts, skipped links,
+  and bounded catalog snapshots. Relevant changes increment revision, block the
+  affected roots with `REVIEW_CHANGED`, revoke the seal and require rescan/review.
+  Favorite/Collection changes are outside this snapshot and do not invalidate it.
+  Reopening through `review` revokes an earlier seal even if revalidation fails.
+- The internal `contractVersion: 1` seal hashes root snapshots, mode, presentation,
+  exact candidate/selection/destination/origin observations and discovery order in
+  batches of at most 100. `listReview` pages selected candidates under that seal.
+  This is **not** the complete proposed execution plan or its final target order:
+  no confirmation method consumes it, no new entity IDs are reserved, and it does
+  not bind classifications, credits, staged images or full existing-Pack metadata.
+  Filesystem/catalog reads are not one atomic snapshot and stat equality is not
+  content verification. Durable confirmation must extend/version the plan and
+  independently revalidate it before any write.
+- At most one edit/rescan/review runs per service; concurrent work rejects instead
+  of accumulating an unbounded queue. These internal APIs are asynchronous
+  promises, not renderer progress handles. Sparse choices are bounded by the
+  20,000-candidate ceiling, with copy-before-publication draft updates. Candidate
+  payloads stay paged on disk. Replacement retains at most two 64-MiB serialized
+  spools; these limits still do not measure filesystem overhead or responsiveness.
+- Failed replacement construction preserves prior input and cleans its own spool.
+  Failed old-generation cleanup after publication reports failure while leaving
+  the new revision inspectable; further edits block until discard/close cleanup.
+  Discard invalidates reads, drains in-flight work and retries all owned resources.
+  Wrapped failures retain non-enumerable local causes and sanitized diagnostics.
+  Unexpected work failures name their actual edit/rescan/review operation, not a
+  generic review stage; operation names and error codes remain allowlisted.
+
+**Remaining Block 2 integration:** Classification must define its shared batch
+decision/evidence serialization before import stages accept/reject decisions;
+the immediate single-Sample apply protocol is not reused as a batch draft protocol.
+Staged cover ownership and explicit classification/Author-credit drafts are not
+implemented. Strict edit schemas do not silently accept these fields. No new UI,
+database migration or user-facing import path is delivered by this internal core.
+
+Coverage includes unloaded subtree selection, atomic invalid-choice rejection,
+revision/cursor/token invalidation, overlap destinations, manual/other-Pack origins,
+new-Pack prospective membership, existing-Pack presentation preservation, relevant
+versus unrelated catalog changes, changed/added/missing sources, rescan/root removal,
+concurrent work, close/discard draining, failed replacement cleanup and cause/log
+privacy. Automated validation is on macOS; Windows, packaged Electron, UI, large
+library performance and DAW reception remain unvalidated for this workflow.
+
 ## Delivery Blocks and Next Work
 
 Keep this sequence as the handoff reference; the technical proposal below owns
@@ -216,13 +314,13 @@ the target design, while each implemented block must document its actual scope.
 
 1. **Read-only discovery/preparation — implemented internally.** Scope above;
    no selection editing, mode choice, decisions, confirmation, migrations, or UI.
-2. **Selection and versioned review — next.** Add file/subtree selection, root
-   removal/rescan, Pack/standalone mode, new-Pack presentation drafts, explicit
-   overlap destinations, individual keep/assign origin decisions, and paged sealed
-   review. Increment revisions on mutations, reject stale writes, preserve valid
-   input on relevant-state changes, and keep all preparation catalog-read-only.
-   Define classification decision serialization with Classification before staging
-   its accept/reject changes; do not invent a parallel classification protocol.
+2. **Selection and versioned review — core implemented internally; integration
+   remains.** Scope above covers file/subtree selection, root removal/rescan,
+   Pack/standalone mode, name/description drafts, explicit overlap destinations,
+   individual origin decisions, revisions and paged selection/origin seals.
+   Next resolve Classification's shared batch decision serialization, then integrate
+   classification/credits and staged cover ownership without catalog writes or a
+   parallel classification protocol. Do not treat this partial seal as confirmable.
 3. **Durable confirmation and shared execution foundation — pending.** Resolve the
    shared operation state/storage API and migrations, immutable chunked plan
    publication, idempotent confirmation, queue-head revalidation, Needs review,
