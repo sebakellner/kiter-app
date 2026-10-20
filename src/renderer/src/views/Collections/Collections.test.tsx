@@ -18,6 +18,7 @@ import {
 import { Collections } from './Collections'
 import { CollectionDetail } from '../CollectionDetail/CollectionDetail'
 import { Samples } from '../Samples/Samples'
+import { Favorites } from '../Favorites/Favorites'
 import { useNavigationContext } from '@renderer/routes/navigationContext'
 import { useNavigationStore } from '@renderer/stores/useNavigationStore'
 import { createTestApi } from '../../../../../tests/support/ui/bridge'
@@ -41,7 +42,125 @@ afterEach(() => {
 
 const onReady = (): void => {}
 
-test('explicit batch selection survives empty filters, clears on Done and is not restored after leaving the view', async () => {
+test.each(['samples', 'favorites', 'collection'] as const)(
+  '%s adds checked Samples from different pages and hidden results, not the inspected row',
+  async (destination) => {
+    const { api, router, user } = setup()
+    await screen.findByText(/No Collections yet/)
+    const collection = makeCollectionSummary({ sampleCount: 51 })
+    const other = makeCollectionSummary({
+      id: '22222222-2222-4222-8222-222222222222',
+      name: 'Destination',
+    })
+    const samples = ['a.wav', 'z.wav', 'inspected.wav'].map((name, index) => ({
+      ...makeAudioSample({
+        id: `00000000-0000-4000-8000-${String(index).padStart(12, '0')}`,
+        name,
+        relativePath: name,
+      }),
+      audioUrl: null,
+      rootPath: '/fixtures',
+      sourceRevision: 1,
+      unavailableReason: 'Audio unavailable.',
+    }))
+    api.library.onDragError.mockReturnValue(vi.fn())
+    api.collections.get.mockResolvedValue({ ok: true, data: collection })
+    api.collections.destinations.mockResolvedValue({
+      ok: true,
+      data: {
+        items: [{ ...other, assigned: false }],
+        total: 1,
+        limit: 50,
+        offset: 0,
+      },
+    })
+    api.library.list.mockImplementation(async (request) => ({
+      ok: true,
+      data: {
+        items: request?.sampleIds
+          ? samples.slice(0, 2)
+          : request?.search
+            ? []
+            : request?.offset
+              ? [samples[0]]
+              : [samples[1], samples[2]],
+        total: request?.sampleIds ? 2 : request?.search ? 0 : 51,
+        offset: request?.offset ?? 0,
+        limit: request?.limit ?? 50,
+        ...(destination === 'collection'
+          ? { collectionOrderToken: 'a'.repeat(64) }
+          : {}),
+      },
+    }))
+    await act(async () =>
+      router.navigate(
+        destination === 'collection'
+          ? `/collections/${collection.id}`
+          : `/${destination}`,
+      ),
+    )
+    await screen.findByRole('row', { name: /z.wav/ })
+    expect(
+      screen.queryByRole('button', { name: 'Select' }),
+    ).not.toBeInTheDocument()
+    await user.click(screen.getByRole('checkbox', { name: 'Select z.wav' }))
+    await user.click(screen.getByRole('row', { name: /inspected.wav/ }))
+    await user.click(screen.getByRole('button', { name: 'Next page' }))
+    await user.click(
+      await screen.findByRole('checkbox', { name: 'Select a.wav' }),
+    )
+    await user.type(
+      screen.getByRole('searchbox', { name: 'Search samples' }),
+      'zz',
+    )
+    await screen.findByText('2 selected (2 outside this page)')
+    await user.click(screen.getByRole('button', { name: 'Add to Collection' }))
+    const dialog = await screen.findByRole('dialog', {
+      name: 'Add to Collection',
+    })
+    await user.click(
+      await within(dialog).findByText('Review selected Samples (2)'),
+    )
+    const review = within(dialog).getByRole('list', {
+      name: 'Selected Samples',
+    })
+    expect(
+      within(review)
+        .getAllByRole('listitem')
+        .map((item) => item.textContent),
+    ).toEqual([
+      expect.stringContaining('a.wav'),
+      expect.stringContaining('z.wav'),
+    ])
+    expect(review).not.toHaveTextContent('inspected.wav')
+    expect(api.library.list).toHaveBeenLastCalledWith({
+      sampleIds: [samples[1].id, samples[0].id],
+      limit: 100,
+      offset: 0,
+      ...(destination === 'collection' ? { collectionId: collection.id } : {}),
+    })
+    await user.click(
+      within(dialog).getByRole('checkbox', { name: new RegExp(other.id) }),
+    )
+    api.collections.setMembership.mockResolvedValue({
+      ok: true,
+      data: { assigned: true, changed: true },
+    })
+    await user.click(
+      within(dialog).getByRole('button', { name: 'Add 2 Samples' }),
+    )
+    expect(
+      await within(dialog).findByRole('region', { name: 'Collection results' }),
+    ).toHaveTextContent('2 added, 0 already included, 0 failed.')
+    expect(
+      api.collections.setMembership.mock.calls.map(
+        ([request]) => request.sampleId,
+      ),
+    ).toEqual([samples[0].id, samples[1].id])
+  },
+)
+
+test('always-visible checkboxes retain checks through filters, clear explicitly and reset after leaving the view', async () => {
   const { api, router, user } = setup()
   await screen.findByText(/No Collections yet/)
   const collection = makeCollectionSummary({ sampleCount: 1 })
@@ -68,13 +187,15 @@ test('explicit batch selection survives empty filters, clears on Done and is not
     await router.navigate(`/collections/${collection.id}`)
   })
   await screen.findByRole('row')
-  expect(screen.queryByRole('checkbox')).not.toBeInTheDocument()
-  await user.click(screen.getByRole('button', { name: 'Select' }))
   expect(
-    screen.getByText(
-      'Selection prototype. Batch actions are not available yet.',
-    ),
+    screen.getByRole('checkbox', { name: 'Select kick.wav' }),
   ).toBeVisible()
+  expect(
+    screen.queryByRole('button', { name: 'Select' }),
+  ).not.toBeInTheDocument()
+  expect(
+    screen.queryByRole('button', { name: 'Add to Collection' }),
+  ).not.toBeInTheDocument()
   await user.click(screen.getByRole('checkbox', { name: 'Select kick.wav' }))
   expect(screen.getByText('1 selected')).toBeVisible()
   expect(screen.getByRole('row')).toHaveAttribute('aria-selected', 'false')
@@ -87,14 +208,10 @@ test('explicit batch selection survives empty filters, clears on Done and is not
   expect(
     await screen.findByRole('checkbox', { name: 'Select kick.wav' }),
   ).toBeChecked()
-  await user.click(screen.getByRole('button', { name: 'Done' }))
+  await user.click(screen.getByRole('button', { name: 'Clear selection' }))
   expect(
-    screen.queryByText(
-      'Selection prototype. Batch actions are not available yet.',
-    ),
+    screen.queryByRole('button', { name: 'Add to Collection' }),
   ).not.toBeInTheDocument()
-  expect(screen.queryByRole('checkbox')).not.toBeInTheDocument()
-  await user.click(screen.getByRole('button', { name: 'Select' }))
   expect(
     screen.getByRole('checkbox', { name: 'Select kick.wav' }),
   ).not.toBeChecked()
@@ -106,13 +223,16 @@ test('explicit batch selection survives empty filters, clears on Done and is not
     await router.navigate(-1)
   })
   await screen.findByRole('row')
-  expect(screen.queryByRole('checkbox')).not.toBeInTheDocument()
-  expect(screen.getByRole('button', { name: 'Select' })).toBeVisible()
+  expect(
+    screen.getByRole('checkbox', { name: 'Select kick.wav' }),
+  ).not.toBeChecked()
+  expect(
+    screen.queryByRole('button', { name: 'Add to Collection' }),
+  ).not.toBeInTheDocument()
   await act(async () => {
     await router.navigate('/samples')
   })
   await screen.findByRole('row')
-  await user.click(screen.getByRole('button', { name: 'Select' }))
   await user.click(screen.getByRole('checkbox', { name: 'Select kick.wav' }))
   const favorites = screen.getByRole('checkbox', { name: 'Favorites only' })
   await user.click(favorites)
@@ -470,6 +590,7 @@ function setup(initialEntry = '/collections'): {
           { path: '/collections', element: <Collections /> },
           { path: '/collections/:id', element: <CollectionDetail /> },
           { path: '/samples', element: <Samples /> },
+          { path: '/favorites', element: <Favorites /> },
           { path: '/home', element: <h1>Home</h1> },
         ],
       },

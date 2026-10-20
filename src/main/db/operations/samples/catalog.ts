@@ -68,6 +68,7 @@ function buildSearchFilter(search: string | undefined): SQL | undefined {
 }
 
 function buildCatalogFilter({
+  sampleIds,
   search,
   favoritesOnly,
   instrumentIds,
@@ -76,6 +77,7 @@ function buildCatalogFilter({
   collectionId,
 }: LibraryListRequest): SQL | undefined {
   return and(
+    sampleIds ? inArray(samples.id, sampleIds) : undefined,
     collectionId
       ? sql`exists (select 1 from ${collectionSamples} where ${collectionSamples.sampleId} = ${samples.id} and ${collectionSamples.collectionId} = ${collectionId})`
       : undefined,

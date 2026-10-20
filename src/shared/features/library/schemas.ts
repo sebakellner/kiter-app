@@ -3,6 +3,13 @@ import { isEntityId } from '../../domain/validation.ts'
 import { sampleTypeSelectionSchema } from '../classification/schemas.ts'
 import { MAX_CATALOG_SEARCH_LENGTH, normalizeCatalogSearch } from './search.ts'
 
+export const MAX_CHECKED_SAMPLES = 1000
+export const checkedSampleIdsSchema = z
+  .array(z.string().refine(isEntityId))
+  .min(1)
+  .max(MAX_CHECKED_SAMPLES)
+  .refine((ids) => new Set(ids).size === ids.length)
+
 export const catalogSearchSchema = z
   .string()
   .max(MAX_CATALOG_SEARCH_LENGTH, 'Use at most 500 characters to search.')

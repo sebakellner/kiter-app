@@ -86,6 +86,7 @@ export function listCollectionDestinations(
   } = requireCollectionDestinationsRequest(request)
   return db.transaction(() => {
     if (
+      sampleId &&
       !db
         .select({ id: samples.id })
         .from(samples)
@@ -100,7 +101,9 @@ export function listCollectionDestinations(
     const rows = db
       .select({
         ...summaryFields,
-        assigned: sql<number>`exists (select 1 from ${collectionSamples} where ${collectionSamples.collectionId} = ${collections.id} and ${collectionSamples.sampleId} = ${sampleId})`,
+        assigned: sampleId
+          ? sql<number>`exists (select 1 from ${collectionSamples} where ${collectionSamples.collectionId} = ${collections.id} and ${collectionSamples.sampleId} = ${sampleId})`
+          : sql<number>`0`,
       })
       .from(collections)
       .where(filter)

@@ -4,6 +4,66 @@ import { rename } from 'node:fs/promises'
 import path from 'node:path'
 import { seedCollection } from '../support/electron/catalog'
 
+test('checked Samples include hidden selections when adding to a Collection and memberships survive restart', async ({
+  kiter,
+}) => {
+  const page = kiter.page
+  const library = new LibraryPage(page)
+  await kiter.selectFolder(kiter.samples)
+  await library.openFolder()
+  await expect(page.getByTestId('sample-name')).toHaveCount(2)
+  await seedCollection(page, 'Batch Picks', ['kick.wav'])
+  await page
+    .getByRole('checkbox', { name: 'Select snare.wav', exact: true })
+    .check()
+  await page
+    .getByRole('checkbox', { name: 'Select kick.wav', exact: true })
+    .check()
+  await page
+    .getByRole('searchbox', { name: 'Search samples', exact: true })
+    .fill('snare')
+  await expect(
+    page.getByText('2 selected (1 outside this page)', { exact: true }),
+  ).toBeVisible()
+  await page
+    .getByRole('button', { name: 'Add to Collection', exact: true })
+    .click()
+  const picker = page.getByRole('dialog', {
+    name: 'Add to Collection',
+    exact: true,
+  })
+  await picker.getByText('Review selected Samples (2)', { exact: true }).click()
+  await expect(
+    picker
+      .getByRole('list', { name: 'Selected Samples' })
+      .getByRole('listitem'),
+  ).toHaveCount(2)
+  await picker.getByRole('checkbox', { name: /Batch Picks/ }).check()
+  await picker
+    .getByRole('button', { name: 'Add 2 Samples', exact: true })
+    .click()
+  await expect(
+    picker.getByRole('region', { name: 'Collection results' }),
+  ).toContainText('1 added, 1 already included, 0 failed.')
+  await picker.getByRole('button', { name: 'Done', exact: true }).click()
+  await expect(page.locator('audio')).not.toHaveAttribute('src')
+  await kiter.restart()
+  await kiter.page
+    .getByRole('link', { name: 'Collections', exact: true })
+    .click()
+  await kiter.page
+    .getByRole('link', { name: 'Open Batch Picks', exact: true })
+    .click()
+  await expect(kiter.page.getByTestId('sample-name')).toHaveText([
+    'kick.wav',
+    'snare.wav',
+  ])
+  const checkboxes = kiter.page.getByRole('checkbox', { name: /^Select / })
+  await expect(checkboxes).toHaveCount(2)
+  await expect(checkboxes.nth(0)).not.toBeChecked()
+  await expect(checkboxes.nth(1)).not.toBeChecked()
+})
+
 test('a Sample menu creates a Collection membership that survives a separate Electron process', async ({
   kiter,
 }) => {

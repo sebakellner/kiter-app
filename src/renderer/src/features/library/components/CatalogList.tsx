@@ -20,6 +20,8 @@ import { useRemoveCollectionSample } from '@renderer/features/collections/hooks/
 import { useMoveCollectionSample } from '@renderer/features/collections/hooks/useMoveCollectionSample'
 import { useCollectionDrag } from '@renderer/features/collections/hooks/useCollectionDrag'
 import './CatalogList.css'
+import { MAX_CHECKED_SAMPLES } from '@shared/features/library/schemas'
+import type { CollectionSample } from '@renderer/features/collections/components/AddToCollection/useCheckedCollectionSamples'
 
 export function CatalogList({
   favoritesOnly = false,
@@ -38,8 +40,26 @@ export function CatalogList({
   const { revision, updateFavorite, preview } = useLibrarySession()
   const { setSample, openSample, open } = useSampleInspector()
   const [adding, setAdding] = useState<ListSample | null>(null)
-  const [selecting, setSelecting] = useState(false)
-  const [checkedIds, setCheckedIds] = useState<ReadonlySet<string>>(new Set())
+  const [addingBatch, setAddingBatch] = useState<CollectionSample[] | null>(
+    null,
+  )
+  const [checkedSamples, setCheckedSamples] = useState<
+    ReadonlyMap<string, CollectionSample>
+  >(new Map())
+  const [selectionError, setSelectionError] = useState<string | null>(null)
+  const checkedIds = new Set(checkedSamples.keys())
+  const removeUnavailableChecks = useCallback((ids: string[]) => {
+    setCheckedSamples((current) => {
+      const next = new Map(current)
+      for (const id of ids) {
+        next.delete(id)
+      }
+      return next
+    })
+    setSelectionError(
+      `${ids.length} checked Samples are no longer in the source list and were removed from the selection.`,
+    )
+  }, [])
   const controls = useRef<HTMLDivElement>(null)
   const list = useRef<HTMLDivElement>(null)
   const focusIntent = useRef<string | null>(null)
@@ -176,6 +196,20 @@ export function CatalogList({
           }}
         />
       )}
+      {addingBatch && (
+        <AddToCollection
+          samples={addingBatch}
+          sourceCollectionId={collectionId}
+          onUnavailable={removeUnavailableChecks}
+          onClose={() => {
+            setAddingBatch(null)
+            if (collectionId) {
+              refresh()
+              onMembershipChanged?.()
+            }
+          }}
+        />
+      )}
       {removal.pending && (
         <>
           <PendingMembershipGuard />
@@ -212,27 +246,37 @@ export function CatalogList({
           }
         />
         <div className="catalog-selection-controls">
-          <Button
-            variant="ghost"
-            disabled={order.pending}
-            aria-pressed={selecting}
-            onClick={() => {
-              setSelecting(!selecting)
-              setCheckedIds(new Set())
-            }}
-          >
-            {selecting ? 'Done' : 'Select'}
-          </Button>
-          {selecting && (
+          {checkedIds.size > 0 && (
             <>
               <p role="status">
                 {checkedIds.size} selected
                 {checkedIds.size > visibleChecked &&
                   ` (${checkedIds.size - visibleChecked} outside this page)`}
               </p>
-              <p>Selection prototype. Batch actions are not available yet.</p>
+              <Button
+                disabled={
+                  checkedIds.size === 0 || removal.pending || order.pending
+                }
+                onClick={() => setAddingBatch([...checkedSamples.values()])}
+              >
+                Add to Collection
+              </Button>
+              <Button
+                variant="ghost"
+                disabled={removal.pending || order.pending}
+                onClick={() => {
+                  setCheckedSamples(new Map())
+                  setSelectionError(null)
+                }}
+              >
+                Clear selection
+              </Button>
+              {checkedIds.size >= MAX_CHECKED_SAMPLES && (
+                <p>Select up to 1,000 Samples per batch.</p>
+              )}
             </>
           )}
+          {selectionError && <p role="alert">{selectionError}</p>}
         </div>
         {order.pending && <p role="status">Saving Collection order…</p>}
         {order.error && (
@@ -305,24 +349,35 @@ export function CatalogList({
                       : undefined
                   }
                   membershipPending={removal.pending || order.pending}
-                  batch={
-                    selecting
-                      ? {
-                          ids: checkedIds,
-                          onChange: (id, checked) => {
-                            setCheckedIds((current) => {
-                              const next = new Set(current)
-                              if (checked) {
-                                next.add(id)
-                              } else {
-                                next.delete(id)
-                              }
-                              return next
-                            })
-                          },
+                  batch={{
+                    ids: checkedIds,
+                    onChange: (id, checked) => {
+                      const sample = page.items.find((item) => item.id === id)
+                      if (
+                        checked &&
+                        checkedSamples.size >= MAX_CHECKED_SAMPLES
+                      ) {
+                        setSelectionError(
+                          'Select up to 1,000 Samples per batch. Uncheck a Sample before adding another.',
+                        )
+                        return
+                      }
+                      setSelectionError(null)
+                      setCheckedSamples((current) => {
+                        const next = new Map(current)
+                        if (checked && sample) {
+                          next.set(id, {
+                            id,
+                            name: sample.name,
+                            relativePath: sample.relativePath,
+                          })
+                        } else {
+                          next.delete(id)
                         }
-                      : undefined
-                  }
+                        return next
+                      })
+                    },
+                  }}
                   onAddToCollection={setAdding}
                   order={
                     collectionId
