@@ -144,9 +144,33 @@ import type {
   ImportClassificationContext,
 } from '../../shared/features/classification/import-context-schemas'
 
+import type {
+  PackOrganizationCatalogRequest,
+  PackOrganizationCatalogPage,
+} from '../../shared/features/imports/pack-organization-schemas'
+
 const UNEXPECTED_REPLY_MESSAGE = 'Unexpected database response'
 
 export class DbClient {
+  async readImportPackOrganizationCatalog(
+    input: PackOrganizationCatalogRequest,
+  ): Promise<PackOrganizationCatalogPage> {
+    this.transport.assertOpen()
+    const request = {
+      action: 'read-import-pack-organization-catalog',
+      input,
+    } as const
+    if (!isImportPreparationRequest(request)) {
+      throw new DomainValidationError(
+        'Invalid Pack organization catalog request.',
+      )
+    }
+    const reply = await this.transport.request(request)
+    if (reply.action !== request.action) {
+      throw new Error(UNEXPECTED_REPLY_MESSAGE)
+    }
+    return reply.result
+  }
   async readImportClassificationContext(
     input: ImportClassificationContextRequest,
   ): Promise<ImportClassificationContext> {

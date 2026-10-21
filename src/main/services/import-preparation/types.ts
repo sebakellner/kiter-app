@@ -1,4 +1,5 @@
 import type { DiscoveredAudioFile } from '../../../shared/domain/source.ts'
+import type { PackOrganizationDraft } from '../../../shared/features/imports/pack-organization-schemas.ts'
 import type {
   ImportCandidateSnapshot,
   ImportRootSnapshot,
@@ -44,6 +45,7 @@ export interface ImportPreparation {
   roots: PreparationRoot[]
   mode: 'standalone' | 'pack' | null
   packDetails: Record<string, PreparationPackDetails>
+  packOrganizations?: Record<string, PackOrganizationDraft>
 }
 
 export interface PreparationPackDetails {
@@ -78,6 +80,11 @@ export type PreparationReview = {
 } & (
   | { contractVersion: 1; classificationDigest?: never }
   | { contractVersion: 2; classificationDigest: string }
+  | {
+      contractVersion: 3
+      classificationDigest?: string
+      organizationDigest: string
+    }
 )
 
 export interface PreparationRequest {

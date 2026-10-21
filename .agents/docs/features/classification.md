@@ -19,7 +19,9 @@ pending.
 
 - Suggest Instruments and Genres from filenames and folder names. Sample type
   has the separate rules below; Author credits and musical BPM/key hints are
-  outside this delivery. No audio analysis is used for classification.
+  outside this recognition engine. New-Pack credit drafts and approved root-name
+  Author hints belong to [Import](import.md#approved-root-name-author-hints), not
+  Sample classification. No audio analysis is used for classification.
 - Recognition is local and deterministic, not approximate library search.
 - Reuse matching library entries or propose creating missing recognized entries
   with their assignments. Create nothing before confirmed execution.
@@ -421,8 +423,13 @@ their internal session-only review behavior. The pure core does **not** change t
 immediate inspector workflow, expose IPC/UI, read or write the catalog, or persist
 rejection memory. Import now consumes its recognition, schemas and row/fingerprint
 preparation through the [spooled import adapter](import.md#implemented-internal-import-classification-drafts--block-2-integration).
-Authors and images are outside
-this contract and reject as unknown fields.
+Author credits and images are outside this contract and reject as unknown fields.
+Explicit new-Pack Instrument/Genre drafts compose through optional `draftAssignments`;
+matching proposals are marked `draftAssigned`, not persisted `assigned`. Sample
+Genre dependencies can bind those explicit Pack intents even without a Pack path
+proposal. Shared draft exports retain them in `explicitAssignments`. Only new
+import Pack subjects and existing Instrument/Genre identities are allowed here;
+Author drafts remain owned by Import's separate credit contract.
 
 Unlike the existing non-strict shared schemas, this versioned batch contract
 deliberately uses `z.strictObject` to reject unknown fields rather than silently

@@ -271,6 +271,7 @@ export class ClassificationSpool {
               remembered: row.remembered,
               reviewable: row.reviewable,
               assigned: row.assigned,
+              ...(row.draftAssigned ? { draftAssigned: true } : {}),
               decision: row.decision,
             }),
           ),

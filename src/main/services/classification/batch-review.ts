@@ -182,6 +182,29 @@ function normalizeSnapshot(value: unknown): ClassificationBatchSnapshot {
       invalid()
     }
     ordered(item.assignments)
+    const manual = item.draftAssignments ?? []
+    if (
+      manual.length &&
+      (item.subject.kind !== 'pack' || item.subject.identity.kind !== 'import')
+    ) {
+      invalid()
+    }
+    if (new Set(manual.map(targetKey)).size !== manual.length) {
+      invalid()
+    }
+    ordered(manual)
+    for (const target of manual) {
+      if (target.dimension === 'sample-type' || target.entityId === null) {
+        invalid()
+      }
+      const identity = targetKey(target)
+      const binding = serialize(target)
+      const previous = bindings.get(identity)
+      if (previous && previous !== binding) {
+        invalid()
+      }
+      bindings.set(identity, binding)
+    }
     const proposals = new Set<string>()
     let types = 0
     for (const proposal of item.proposals) {
@@ -308,11 +331,15 @@ function normalizeSnapshot(value: unknown): ClassificationBatchSnapshot {
             candidate.target.dimension === 'genre' &&
             candidate.target.key === dependency.genreKey,
         )
+        const manualGenre = pack?.draftAssignments?.some(
+          (target) =>
+            target.dimension === 'genre' && target.key === dependency.genreKey,
+        )
         if (
           item.subject.kind !== 'sample' ||
           dependency.subject.kind !== 'pack' ||
           proposal.target.dimension !== 'genre' ||
-          !genre ||
+          (!genre && !manualGenre) ||
           dependency.genreKey !== proposal.target.key ||
           !proposal.evidence.some(
             (evidence) =>
@@ -372,7 +399,14 @@ function makeRows(
     memory.set(key, keys)
   }
   const rows: ReviewRow[] = []
+  const manualFingerprints = new Map<string, string>()
   for (const item of snapshot.targets) {
+    for (const target of item.draftAssignments ?? []) {
+      manualFingerprints.set(
+        proposalKey(item.subject, target),
+        digest([item.subject, item.stateToken, target]),
+      )
+    }
     for (const proposal of item.proposals) {
       const key = proposalKey(item.subject, proposal.target)
       const evidenceKeys = [
@@ -387,6 +421,9 @@ function makeRows(
           : item.assignments.some(
               (target) => targetKey(target) === targetKey(proposal.target),
             )
+      const draftAssigned = (item.draftAssignments ?? []).some(
+        (target) => targetKey(target) === targetKey(proposal.target),
+      )
       rows.push({
         ...proposal,
         proposalKey: key,
@@ -400,13 +437,16 @@ function makeRows(
         evidenceKeys,
         remembered,
         assigned,
-        reviewable: !assigned && (!remembered || includeRejected),
+        ...(draftAssigned ? { draftAssigned: true } : {}),
+        reviewable:
+          !assigned && !draftAssigned && (!remembered || includeRejected),
         decision: 'unreviewed',
         fingerprint: digest([
           item.stateToken,
           item.assignments,
           item.currentType,
           proposal,
+          ...(item.draftAssignments?.length ? [item.draftAssignments] : []),
         ]),
       })
     }
@@ -422,7 +462,13 @@ function makeRows(
               dimension: 'genre',
               key: dependency.genreKey,
             }),
-          )?.fingerprint,
+          )?.fingerprint ??
+          manualFingerprints.get(
+            proposalKey(dependency.subject, {
+              dimension: 'genre',
+              key: dependency.genreKey,
+            }),
+          ),
       ),
     ])
   }
@@ -443,6 +489,7 @@ function publicRow(row: ReviewRow): ClassificationReviewRow {
     remembered: row.remembered,
     reviewable: row.reviewable,
     assigned: row.assigned,
+    ...(row.draftAssigned ? { draftAssigned: true } : {}),
     decision: row.decision,
   })
 }
@@ -673,7 +720,18 @@ export class ClassificationBatchReview {
                 key: dependency.genreKey,
               }),
             )
-            return !upstream?.assigned && upstream?.decision !== 'accept'
+            const manual = this.snapshot.targets.some(
+              (target) =>
+                subjectKey(target.subject) === subjectKey(dependency.subject) &&
+                target.draftAssignments?.some(
+                  (assignment) =>
+                    assignment.dimension === 'genre' &&
+                    assignment.key === dependency.genreKey,
+                ),
+            )
+            return (
+              !manual && !upstream?.assigned && upstream?.decision !== 'accept'
+            )
           })
           .map((dependency) => ({ proposalKey: row.proposalKey, dependency })),
       )
@@ -688,6 +746,18 @@ export class ClassificationBatchReview {
     return structuredClone({
       ...this.reference(),
       contractVersion: 1 as const,
+      ...(this.snapshot.targets.some(
+        (target) => target.draftAssignments?.length,
+      )
+        ? {
+            explicitAssignments: this.snapshot.targets
+              .filter((target) => target.draftAssignments?.length)
+              .map((target) => ({
+                subject: target.subject,
+                assignments: target.draftAssignments ?? [],
+              })),
+          }
+        : {}),
       // Neither this flag nor the review token is an execution capability.
       dependenciesSatisfied: dependencyBlocks.length === 0,
       dependencyBlocks,

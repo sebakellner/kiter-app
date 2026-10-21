@@ -15,6 +15,8 @@ const DIAGNOSTIC_CODES = new Set<string>([
 ])
 
 export type PreparationWorkStage =
+  | 'prepare-pack-organization'
+  | 'set-pack-organization'
   | 'prepare-classifications'
   | 'stage-classifications'
   | 'accept-all-classifications'

@@ -398,6 +398,42 @@ export async function buildImportClassifications(
               )
             : undefined,
         )
+        const organization = summary.packOrganizations?.[root.id]
+        if (!root.catalog?.pack && organization) {
+          if (organization.needsReview) {
+            throw new IpcError(
+              'STALE_REVIEW',
+              'Review the new Pack organization choices.',
+            )
+          }
+          const manual = [...organization.instruments, ...organization.genres]
+          snapshot.draftAssignments = manual.map((entry) => {
+            if (
+              !catalog.vocabulary.some(
+                (current) =>
+                  current.state === 'active' &&
+                  current.dimension === entry.kind &&
+                  current.key === entry.key &&
+                  current.entityId === entry.id &&
+                  current.name === entry.name,
+              )
+            ) {
+              throw new IpcError(
+                'STALE_REVIEW',
+                'A manual Pack classification changed. Review its assignment.',
+              )
+            }
+            return {
+              dimension: entry.kind,
+              key: entry.key,
+              name: entry.name,
+              entityId: entry.id,
+            }
+          })
+          if (manual.length) {
+            snapshot.stateToken = hash([input, snapshot.draftAssignments])
+          }
+        }
         const record = recordFor(root.id, snapshot)
         await generation.append(record)
         packStates.set(classificationPackEvidenceId(owner), {
@@ -458,6 +494,11 @@ export async function buildImportClassifications(
             .filter((entry) => entry.dimension === 'genre')
             .map((entry) => entry.key),
         )
+        for (const assignment of packState?.snapshot.draftAssignments ?? []) {
+          if (assignment.dimension === 'genre') {
+            genres.add(assignment.key)
+          }
+        }
         for (const row of packState?.rows ?? []) {
           if (row.target.dimension === 'genre' && row.decision === 'accept') {
             genres.add(row.target.key)

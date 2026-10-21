@@ -87,7 +87,7 @@ export const classificationProposalTargetSchema = z.discriminatedUnion(
 const proposal = z.strictObject({
   target: classificationProposalTargetSchema,
   evidence: z.array(classificationEvidenceSchema).min(1).max(1000),
-  // Only staged Pack Genre acceptance can supply a classification dependency.
+  // A staged Pack Genre acceptance or explicit new-Pack Genre can supply a dependency.
   dependencies: z
     .array(
       z.strictObject({
@@ -108,6 +108,10 @@ export const classificationBatchSnapshotSchema = z.strictObject({
         stateToken: token,
         currentType: sampleType.nullable(),
         assignments: z.array(recognitionTarget).max(1000),
+        draftAssignments: z
+          .array(classificationProposalTargetSchema)
+          .max(200)
+          .optional(),
         proposals: z.array(proposal).max(CLASSIFICATION_BATCH_LIMITS.proposals),
         ambiguities: z
           .array(
@@ -174,12 +178,22 @@ export const classificationReviewRowSchema = proposal.extend({
   remembered: z.boolean(),
   reviewable: z.boolean(),
   assigned: z.boolean(),
+  draftAssigned: z.boolean().optional(),
   decision: z.enum(['accept', 'reject', 'unreviewed']),
 })
 
 export const classificationBatchDraftSchema = z.strictObject({
   ...reviewReference,
   contractVersion: z.literal(1),
+  explicitAssignments: z
+    .array(
+      z.strictObject({
+        subject: classificationSubjectSchema,
+        assignments: z.array(classificationProposalTargetSchema).max(200),
+      }),
+    )
+    .max(CLASSIFICATION_BATCH_LIMITS.targets)
+    .optional(),
   dependenciesSatisfied: z.boolean(),
   dependencyBlocks: z
     .array(

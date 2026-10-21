@@ -294,9 +294,10 @@ now advance revisions and invalidate any seal and prior cursors.
   generic review stage; operation names and error codes remain allowlisted.
 
 **Remaining Block 2 integration:** Suggested classification decisions now use the
-shared protocol through the spooled integration below. Explicit manual assignment/
-Author-credit drafts and staged cover ownership remain unimplemented. Strict edit
-schemas do not silently accept these fields. No UI, database migration or
+shared protocol through the spooled integration below. Explicit new-Pack assignment/
+Author-credit drafts are also implemented below; Sample/existing-Pack manual edits
+and staged cover ownership remain outside this slice. Strict edit schemas do not
+silently accept cover fields. No UI, database migration or
 user-facing import path is delivered by these internal slices.
 
 Coverage includes unloaded subtree selection, atomic invalid-choice rejection,
@@ -367,6 +368,7 @@ storage, execution, Electron IPC, or renderer UI in this slice.
   `classificationDigest` and all staged decisions. Preparations that never enable
   classification retain the version-1 selection/origin seal. Neither is confirmable
   without the remaining execution/credits/image contracts and revalidation.
+  Preparations with explicit new-Pack organization use the version-3 extension below.
 - Generations live beneath the exclusively owned candidate spool and retain
   per-record content hashes. Pages fail explicitly on tampering or missing storage.
   Failed builds preserve prior published input. Failed post-publication cleanup
@@ -388,6 +390,95 @@ audio preservation, and the real worker command. Automated checks are local on
 macOS; Windows, packaged Electron/UI/DAW behavior and full-capacity performance
 remain unvalidated.
 
+## Implemented Internal New-Pack Organization and Credits
+
+This internal slice allows explicit Instruments, Genres and Author credits for
+**new Packs only**. It does not edit existing Packs or selected Samples, create
+catalog/vocabulary/Author records, mutate audio, or add Electron IPC/UI. Authors may
+be selected from the catalog or explicitly prepared as new session-local identities.
+Cover staging and durable execution remain separate delivery work.
+
+- `preparePackOrganization` accepts preparation/revision/root identity, reads a
+  catalog snapshot and returns an `organizationToken` plus the retained draft.
+  `listPackOrganizationOptions` pages Instruments, Genres, Authors, existing Author
+  drafts, or Author suggestions; pages default to 50 and cap at 100. Queries can
+  filter names by literal NFC/case-insensitive substring, preserving accents.
+- The private `readImportPackOrganizationCatalog` worker command returns 100-row
+  pages under a complete catalog token. It reads existing entity identities/names
+  and active Instrument/Genre vocabulary mappings transactionally, with 10,000 rows
+  per catalog dimension/vocabulary and an 8-MiB complete catalog ceiling. Main rejects
+  incomplete, duplicate or mixed-token pages. No managed paths or renderer-supplied
+  files participate in the command.
+- `setPackOrganization` replaces one new Pack's complete explicit selection under
+  its current revision/root/catalog reference. Instruments/Genres select existing
+  identities only; offered vocabulary can still be accepted through Classification.
+  Author names use the domain's trimmed NFC, 1–120-code-point policy. The request
+  accepts at most 100 choices per dimension and 480 UTF-16 units per raw credit name;
+  all organization drafts together cap serialized content at 4 MiB. Unknown fields
+  and duplicate identities reject atomically without replacing prior drafts.
+- New Authors receive main-owned preparation-local `draftId`s, not reserved catalog
+  UUIDs. An explicitly referenced draft can be reused by several new Packs. Unknown
+  draft IDs and silent renames reject. Creating another Author with a matching name
+  requires the exact current catalog homonym IDs in `acknowledgedAuthorIds` and any
+  already retained matching draft IDs in `acknowledgedDraftIds`. Catalog matching
+  uses the domain name policy (case/outer-space insensitive NFC, preserving accents
+  and internal spacing). More than 100 required matches block rather than truncate.
+  Pending-draft acknowledgments document the explicit duplicate-creation warning,
+  not execution dependencies; they never merge identities. Independent homonymous
+  drafts are created in separate reviewed steps so their IDs are consultable first.
+- `clearPackOrganization` explicitly drops a root's manual choices. Root removal
+  drops only that root's references; rescans and mode switches retain entered drafts.
+  Standalone mode never executes or seals those inactive Pack intents. New Authors
+  shared by surviving drafts keep their temporary identity; unreferenced drafts are
+  not catalog records and cannot be reused through forged or expired handles.
+- `review` reloads current catalog data and compares selected identities, names,
+  mappings and acknowledged catalog homonyms. Renamed/deleted selections or newly
+  matching Authors mark affected drafts `needsReview`, advance the revision once,
+  revoke the seal and return `STALE_REVIEW`. Intended choices remain inspectable;
+  explicit restaging with a fresh reference or clearing is required. Unrelated
+  catalog changes do not require restaging unchanged selections. A source that has
+  since become an existing Pack requires clearing unsupported new-Pack intents.
+- With active organization drafts, the internal seal is `contractVersion: 3` and
+  includes `organizationDigest`, plus `classificationDigest` when classification is
+  enabled. It binds new-Author identities/names, explicit choices and duplicate
+  acknowledgments, not consent to execute. Future per-target commits must resolve
+  shared temporary Authors to actual identities atomically without merging by name.
+- Manual Instruments/Genres take precedence over matching recognition suggestions
+  for that Pack. Shared review snapshots carry explicit `draftAssignments`; matching
+  rows are `draftAssigned`, not catalog `assigned`, and are not separately actionable.
+  Shared draft exports retain those explicit intents without inventing path evidence.
+  Clearing a manual choice makes its suggestion reviewable again. Manual Genres can
+  supply dependency-bound Sample suggestions even when the Pack name contains no
+  matching clue. Assignment still requires separate Sample acceptance; neither
+  Instruments nor Author credits propagate to Samples or the local profile.
+
+### Approved Root-Name Author Hints
+
+Credit hints are a scoped addition to new-Pack import, not Author inference in the
+general classification engine or any Sample workflow. Looking at hints writes
+nothing and never preselects a credit or creates an Author draft.
+
+- Match existing Author names as complete token phrases inside the selected root's
+  own folder name, with NFC/case-boundary and equivalent separator normalization.
+  There are no Author aliases, spelling guesses, provider catalogs or remote calls.
+  Homonyms remain separate existing-identity offers with matched-name/root evidence.
+- A valid prefix before the first whitespace-delimited hyphen, en dash or em dash
+  in `Author - Pack name` can offer creation of that prefix as a new Author. Both
+  prefix and remaining title must be nonempty. Invalid/overlong names are not
+  truncated. A prefix already matching a known Author's complete normalized phrase
+  offers existing identities rather than a redundant creation hint.
+- Free titles with no clear delimiter only match known Authors. Unknown Authors
+  can be entered manually; do not guess a boundary between an unknown credit and
+  Pack title. Pack presentation edits and filenames/ancestor folders do not retarget
+  these hints. Every credit still requires explicit selection or creation review.
+
+Tests cover read-only catalog paging/worker dispatch, hints and homonyms, explicit
+creation/reuse, atomic/stale requests, manual Genre dependencies, no Sample credit/
+Instrument inheritance, preserved source audio/catalog serialization, rename/delete/
+new-homonym review, root lifecycle and discard draining. Validation is local on
+macOS; Windows, packaged Electron/UI/DAW behavior and full-capacity performance
+remain unvalidated. No unconfirmed draft restart recovery is provided.
+
 ## Delivery Blocks and Next Work
 
 Keep this sequence as the handoff reference; the technical proposal below owns
@@ -400,8 +491,9 @@ the target design, while each implemented block must document its actual scope.
    Pack/standalone mode, name/description drafts, explicit overlap destinations,
    individual origin decisions, revisions and paged selection/origin seals.
    Suggested classification now integrates through complete-scope spooled review.
-   Next deliver explicit assignment/credit drafts and staged cover ownership without
-   catalog writes. Do not treat this partial seal as confirmable.
+   Explicit new-Pack assignment/credit drafts and scoped Author hints are implemented.
+   Next deliver staged cover ownership without catalog writes. Do not treat this
+   partial seal as confirmable.
 3. **Durable confirmation and shared execution foundation — pending.** Resolve the
    shared operation state/storage API and migrations, immutable chunked plan
    publication, idempotent confirmation, queue-head revalidation, Needs review,
