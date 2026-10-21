@@ -14,8 +14,8 @@ before confirmation; canceling that existing confirmation does not roll them
 back. Adapt or complement it before delivering selection-before-write behavior.
 UI shape is agreed where recorded; visual design/prototypes remain deferred.
 
-Internal read-only preparation and the selection/origin-review core of Block 2
-are implemented as described below. They do not
+Internal read-only preparation, selection/origin review, and spooled classification
+drafts for Block 2 are implemented as described below. They do not
 replace current folder browsing or the older internal Pack preparation, and is
 not connected to Electron IPC, native folder selection, or UI yet.
 
@@ -269,12 +269,13 @@ now advance revisions and invalidate any seal and prior cursors.
   affected roots with `REVIEW_CHANGED`, revoke the seal and require rescan/review.
   Favorite/Collection changes are outside this snapshot and do not invalidate it.
   Reopening through `review` revokes an earlier seal even if revalidation fails.
-- The internal `contractVersion: 1` seal hashes root snapshots, mode, presentation,
+- The original internal `contractVersion: 1` seal hashes root snapshots, mode, presentation,
   exact candidate/selection/destination/origin observations and discovery order in
   batches of at most 100. `listReview` pages selected candidates under that seal.
   This is **not** the complete proposed execution plan or its final target order:
   no confirmation method consumes it, no new entity IDs are reserved, and it does
   not bind classifications, credits, staged images or full existing-Pack metadata.
+  Classification-enabled preparations now use the version-2 extension below.
   Filesystem/catalog reads are not one atomic snapshot and stat equality is not
   content verification. Durable confirmation must extend/version the plan and
   independently revalidate it before any write.
@@ -292,15 +293,11 @@ now advance revisions and invalidate any seal and prior cursors.
   Unexpected work failures name their actual edit/rescan/review operation, not a
   generic review stage; operation names and error codes remain allowlisted.
 
-**Remaining Block 2 integration:** Classification now defines a shared internal
-[batch decision/evidence contract and session review core](classification.md#implemented-shared-batch-contract-and-session-review-core).
-Import does not consume it yet. Integrate it through complete paged/spooled scope
-and stale-state contracts before import stages accept/reject decisions; its bounded
-in-memory review is not a drop-in replacement for the 20,000-candidate import spool.
-The immediate single-Sample apply protocol is not reused as a batch draft protocol.
-Staged cover ownership and explicit classification/Author-credit drafts are not
-implemented. Strict edit schemas do not silently accept these fields. No new UI,
-database migration or user-facing import path is delivered by this internal core.
+**Remaining Block 2 integration:** Suggested classification decisions now use the
+shared protocol through the spooled integration below. Explicit manual assignment/
+Author-credit drafts and staged cover ownership remain unimplemented. Strict edit
+schemas do not silently accept these fields. No UI, database migration or
+user-facing import path is delivered by these internal slices.
 
 Coverage includes unloaded subtree selection, atomic invalid-choice rejection,
 revision/cursor/token invalidation, overlap destinations, manual/other-Pack origins,
@@ -309,6 +306,87 @@ versus unrelated catalog changes, changed/added/missing sources, rescan/root rem
 concurrent work, close/discard draining, failed replacement cleanup and cause/log
 privacy. Automated validation is on macOS; Windows, packaged Electron, UI, large
 library performance and DAW reception remain unvalidated for this workflow.
+
+## Implemented Internal Import Classification Drafts — Block 2 Integration
+
+`ImportPreparationService` now composes Classification's
+[shared batch contract and review rules](classification.md#implemented-shared-batch-contract-and-session-review-core)
+with the full selected import scope. The immediate inspector/apply protocol remains
+unchanged. There are no catalog writes, audio changes, classification/rejection
+storage, execution, Electron IPC, or renderer UI in this slice.
+
+- `prepareClassifications({ preparationId, revision })` requires complete discovery,
+  reviewed selection, mode/destinations/origin decisions, and valid prospective Pack
+  membership under the existing preparation rules. It streams selected candidates
+  into a new immutable temporary generation, with Packs first. Unchecked/excluded
+  candidates supply no proposals. Standalone mode still preserves existing origins.
+- Sample evidence combines eligible selected containing-root names, descendants and
+  filename, independently of destination. Physical folder occurrences deduplicate
+  across overlapping roots. Pack evidence uses only its supplying root name, never
+  its edited presentation name or aggregated members. Retained and assigned origins
+  supply their own saved Genres; only explicitly accepted staged Pack Genres become
+  additional Sample evidence/dependencies. Pack Instruments/Authors are not inherited.
+- A private `DbClient.readImportClassificationContext` command reads vocabulary,
+  effective aliases, direct assignments and saved type without writes. Requests use
+  at most 100 catalog target identities; vocabulary/alias pages advance by 100 raw
+  rows under a SHA-256 vocabulary token. Each worker read is transactional, with
+  10,000-row vocabulary/alias ceilings, at most 1,000 combined assignments per target
+  and an 8-MiB response ceiling. Deleted aliases never contribute terms. Missing
+  identities or vocabulary changes during a generation fail rather than publishing
+  mixed observations. Several worker reads are not one catalog/filesystem snapshot.
+- Import reuses Classification's pure recognition and validated row/fingerprint
+  preparation, not a second accept/reject or evidence-key format. It composes at
+  most one Sample and its origin Pack per recognition chunk; the pure core's
+  100-target in-memory limit does not cap the overall import preparation.
+- `getClassificationSummary` reports the entire current scope, including target/
+  proposal/ambiguity counts, required vocabulary creations, saved-type replacements,
+  and accepted/rejected counts. `listClassifications` accepts the preparation
+  revision, `classificationToken`, optional offset/limit, and `kind` of `proposals`,
+  `ambiguities`, or `decisions`. Pages default to 50, maximum 100. Decision pages
+  include only explicit choices and retain shared evidence keys for later atomic
+  assignment/rejection execution; they are not execution authorization.
+- `stageClassifications` validates 1–100 unique current proposal keys as a group,
+  supporting accept/reject/unreviewed. `acceptAllClassifications` requires the
+  complete current classification reference and stages all its reviewable proposals,
+  including unloaded pages. There is no page/filter-local interpretation. Both build
+  and publish a replacement generation before returning a new preparation revision.
+- Accepting a Pack Genre can introduce or change Sample evidence. Newly derived
+  suggestions, and decisions invalidated by that evidence change, require fresh
+  review; the same Accept all does not silently extend to suggestions that were not
+  in its reviewed scope. Unchanged Instrument/type proposals can retain decisions
+  when only Genre evidence changes. Mutation results report invalidated decisions.
+- Selection/destination/origin edits invalidate affected candidate choices, including
+  deselect/reselect cycles. Rescans/root removal preserve only unaffected decisions.
+  A dirty generation cannot serve current pages until rebuilt. Refresh retains
+  choices only for exact shared fingerprints; unrelated Favorite/Collection edits
+  do not invalidate them. Rejection choices remain drafts, not persisted memory.
+- `review` revalidates discovery/origins as before, then rebuilds active classification
+  inputs. Changed classification scope publishes the refreshed revision and returns
+  `STALE_REVIEW` for fresh inspection. Unreviewed/ambiguous suggestions do not block
+  sealing. Enabled preparations use `contractVersion: 2`, binding the complete
+  `classificationDigest` and all staged decisions. Preparations that never enable
+  classification retain the version-1 selection/origin seal. Neither is confirmable
+  without the remaining execution/credits/image contracts and revalidation.
+- Generations live beneath the exclusively owned candidate spool and retain
+  per-record content hashes. Pages fail explicitly on tampering or missing storage.
+  Failed builds preserve prior published input. Failed post-publication cleanup
+  leaves the new revision inspectable but blocks further edits; parent discard/close
+  drains work and cleans all nested resources, including failed-build cleanup.
+
+Additional conservative ceilings are 20,032 target records, 100,000 proposals,
+500,000 evidence rows including ambiguity evidence, 8 MiB per target record, and
+256 MiB serialized classification content per generation. A retained generation
+and its replacement can coexist while building; indexes/choice metadata remain
+bounded by these counts. Limits fail explicitly without truncated scope. These are
+not measured memory/disk-allocation budgets or qualified large-library throughput.
+
+Coverage includes whole-scope acceptance beyond 100 targets, overlap evidence,
+retained/reassigned origins, staged Pack dependencies, explicit type replacements,
+selection/rescan/root-removal invalidation, stale/foreign scope, vocabulary edits,
+partial build/cleanup failures, corruption, bounded records, detached pages, catalog/
+audio preservation, and the real worker command. Automated checks are local on
+macOS; Windows, packaged Electron/UI/DAW behavior and full-capacity performance
+remain unvalidated.
 
 ## Delivery Blocks and Next Work
 
@@ -321,10 +399,9 @@ the target design, while each implemented block must document its actual scope.
    remains.** Scope above covers file/subtree selection, root removal/rescan,
    Pack/standalone mode, name/description drafts, explicit overlap destinations,
    individual origin decisions, revisions and paged selection/origin seals.
-   Classification's shared batch serialization/session core is now defined separately.
-   Next integrate classification through bounded complete-scope review, then credits
-   and staged cover ownership without catalog writes or a parallel classification
-   protocol. Do not treat this partial seal as confirmable.
+   Suggested classification now integrates through complete-scope spooled review.
+   Next deliver explicit assignment/credit drafts and staged cover ownership without
+   catalog writes. Do not treat this partial seal as confirmable.
 3. **Durable confirmation and shared execution foundation — pending.** Resolve the
    shared operation state/storage API and migrations, immutable chunked plan
    publication, idempotent confirmation, queue-head revalidation, Needs review,

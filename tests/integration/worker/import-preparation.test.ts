@@ -54,7 +54,40 @@ test('worker import snapshots reuse catalog identities and never catalog new can
       candidates: [{ canonicalPath: newPath, excluded: false, sample: null }],
     },
   })
+  const vocabulary = await exchange(worker, {
+    action: 'read-import-classification-context',
+    requestId: 4,
+    input: {},
+  })
+  assert.equal(vocabulary.action, 'read-import-classification-context')
+  if (vocabulary.action !== 'read-import-classification-context') {
+    assert.fail('Expected import classification vocabulary')
+  }
+  assert.ok(
+    vocabulary.result.vocabulary.some(
+      (entry) => entry.key === 'instrument:kick',
+    ),
+  )
+  const context = await exchange(worker, {
+    action: 'read-import-classification-context',
+    requestId: 5,
+    input: {
+      token: vocabulary.result.token,
+      targets: [{ kind: 'sample', id: imported.result[0].id }],
+    },
+  })
+  assert.equal(context.action, 'read-import-classification-context')
+  if (context.action !== 'read-import-classification-context') {
+    assert.fail('Expected saved import classification context')
+  }
+  assert.deepEqual(context.result.targets, [
+    {
+      target: { kind: 'sample', id: imported.result[0].id },
+      currentType: null,
+      assignments: [],
+    },
+  ])
   const exit = once(worker, 'exit')
-  await exchange(worker, { action: 'close', requestId: 4 })
+  await exchange(worker, { action: 'close', requestId: 6 })
   await exit
 })

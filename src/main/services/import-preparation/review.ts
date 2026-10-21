@@ -12,17 +12,19 @@ import type {
   PreparationReview,
 } from './types.ts'
 
-// Internal selection/origin seal only: not a confirmed plan, execution order,
-// classification protocol, filesystem proof, or permission to import.
+// Internal draft-review seal, optionally binding spooled classification content.
+// Not a confirmed plan, execution order, filesystem proof, or permission to import.
 export async function sealReview(
   summary: ImportPreparation,
   spool: PreparationSpool,
   choices: ReadonlyMap<string, CandidateChoice>,
+  classificationDigest?: string,
 ): Promise<PreparationReview> {
   const hash = createHash('sha256')
   hash.update(
     JSON.stringify({
-      contractVersion: 1,
+      contractVersion: classificationDigest ? 2 : 1,
+      classificationDigest,
       preparationId: summary.id,
       revision: summary.revision,
       mode: summary.mode,
@@ -93,12 +95,14 @@ export async function sealReview(
       }
     }
   }
-  return {
-    contractVersion: 1,
+  const result = {
     preparationId: summary.id,
     revision: summary.revision,
     reviewToken: hash.digest('hex'),
     selectedCount,
     conflictCount,
   }
+  return classificationDigest
+    ? { ...result, contractVersion: 2, classificationDigest }
+    : { ...result, contractVersion: 1 }
 }
