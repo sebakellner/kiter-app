@@ -371,6 +371,11 @@ one. Do not merge Authors by name.
 Sample and Pack credits are independent. Do not infer Sample authorship from
 Pack credits, a profile link, file import, or Collection membership.
 
+[Import](features/import.md#implemented-internal-new-pack-organization-and-credits)
+owns new-Pack credit drafts and optional root-name Author hints. These hints require
+explicit identity selection or reviewed creation; they never establish Sample
+authorship or create/assign credits automatically.
+
 ### Managed Image Asset
 
 Packs and Collections optionally reference validated image copies managed by

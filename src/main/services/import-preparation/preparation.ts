@@ -25,6 +25,8 @@ import {
   classificationReferenceSchema,
   classificationPageSchema,
   classificationStageSchema,
+  packOrganizationSetSchema,
+  packOrganizationOptionsSchema,
 } from './schemas.ts'
 import { reviewCandidate, type PreparationDraft } from './selection.ts'
 import { changedReviewRoots } from './revalidation.ts'
@@ -48,6 +50,24 @@ import type {
   StagedClassification,
 } from './classification-spool.ts'
 import type { ClassificationDecisionRequest } from '../../../shared/features/classification/batch-schemas.ts'
+import {
+  changedPackOrganizations,
+  emptyPackOrganization,
+  loadPackOrganizationCatalog,
+  organizationReference,
+  stagePackOrganization,
+  type PackOrganizationCatalog,
+  type PackOrganizationReference,
+} from './pack-organization.ts'
+import {
+  suggestPackAuthors,
+  type PackAuthorSuggestion,
+} from './author-suggestions.ts'
+import type {
+  PackOrganizationDraft,
+  PackOrganizationEntry,
+  PackOrganizationSelection,
+} from '../../../shared/features/imports/pack-organization-schemas.ts'
 import type {
   ImportPreparation,
   PreparationRoot,
@@ -66,6 +86,7 @@ interface Session {
   disposing: Promise<void> | null
   draft: PreparationDraft
   classification: ImportClassificationState
+  organizationCatalog?: PackOrganizationCatalog
 }
 
 // Instantiate once per owner in main. No renderer paths or audio capabilities.
@@ -76,12 +97,23 @@ export class ImportPreparationService {
   private cleanupPending: PreparationSpool | null = null
   private work: Promise<unknown> | null = null
   private readonly database: Pick<DbClient, 'readImportCatalog'> &
-    Partial<Pick<DbClient, 'readImportClassificationContext'>>
+    Partial<
+      Pick<
+        DbClient,
+        'readImportClassificationContext' | 'readImportPackOrganizationCatalog'
+      >
+    >
   private readonly temporaryParent: string
 
   constructor(
     database: Pick<DbClient, 'readImportCatalog'> &
-      Partial<Pick<DbClient, 'readImportClassificationContext'>>,
+      Partial<
+        Pick<
+          DbClient,
+          | 'readImportClassificationContext'
+          | 'readImportPackOrganizationCatalog'
+        >
+      >,
     temporaryParent: string,
   ) {
     this.database = database
@@ -134,6 +166,194 @@ export class ImportPreparationService {
 
   get(preparationId: string): ImportPreparation {
     return structuredClone(this.requireSession(preparationId).summary)
+  }
+
+  async preparePackOrganization(
+    input: PreparationRequest & { rootId: string },
+  ): Promise<PackOrganizationReference & { draft: PackOrganizationDraft }> {
+    const request = this.parse(rootRequestSchema, input)
+    return this.runWork(
+      request,
+      'prepare-pack-organization',
+      async (session) => {
+        this.requireNewPackRoot(session.summary, request.rootId)
+        const catalog = await this.loadOrganizationCatalog()
+        this.requireSession(request.preparationId, request.revision)
+        session.organizationCatalog = catalog
+        return {
+          ...organizationReference(
+            request.preparationId,
+            request.revision,
+            request.rootId,
+            catalog,
+          ),
+          draft: structuredClone(
+            session.summary.packOrganizations?.[request.rootId] ??
+              emptyPackOrganization(),
+          ),
+        }
+      },
+    )
+  }
+
+  listPackOrganizationOptions(
+    input: PackOrganizationReference & {
+      kind:
+        'instrument' | 'genre' | 'author' | 'draft-author' | 'suggested-author'
+      search?: string
+      offset?: number
+      limit?: number
+    },
+  ): {
+    items: (
+      | PackOrganizationEntry
+      | PackAuthorSuggestion
+      | { kind: 'draft-author'; draftId: string; name: string }
+    )[]
+    total: number
+    nextOffset: number | null
+  } {
+    const request = this.parse(packOrganizationOptionsSchema, input)
+    const session = this.requireSession(request.preparationId, request.revision)
+    const root = this.requireNewPackRoot(session.summary, request.rootId)
+    const catalog = this.checkOrganizationReference(session, request)
+    const search = request.search.trim().normalize('NFC').toLowerCase()
+    const pending = [
+      ...new Map(
+        Object.values(session.summary.packOrganizations ?? {}).flatMap(
+          (draft) =>
+            draft.authors.flatMap((author) =>
+              author.kind === 'new'
+                ? [
+                    [
+                      author.draftId,
+                      {
+                        kind: 'draft-author' as const,
+                        draftId: author.draftId,
+                        name: author.name,
+                      },
+                    ] as const,
+                  ]
+                : [],
+            ),
+        ),
+      ).values(),
+    ]
+    const offers = suggestPackAuthors(
+      path.basename(root.location),
+      catalog.items.filter((entry) => entry.kind === 'author'),
+    )
+    const items =
+      request.kind === 'draft-author'
+        ? pending
+        : request.kind === 'suggested-author'
+          ? offers
+          : catalog.items.filter((entry) => entry.kind === request.kind)
+    const filtered = items.filter((item) =>
+      ('name' in item ? item.name : item.author.name)
+        .toLowerCase()
+        .includes(search),
+    )
+    const end = request.offset + request.limit
+    return {
+      items: structuredClone(filtered.slice(request.offset, end)),
+      total: filtered.length,
+      nextOffset: end < filtered.length ? end : null,
+    }
+  }
+
+  async setPackOrganization(
+    input: PackOrganizationReference & PackOrganizationSelection,
+  ): Promise<ImportPreparation> {
+    const request = this.parse(packOrganizationSetSchema, input)
+    return this.edit(
+      request,
+      'set-pack-organization',
+      async (summary, _choices, session) => {
+        this.requireNewPackRoot(summary, request.rootId)
+        const priorCatalog = this.checkOrganizationReference(session, request)
+        const catalog = await this.loadOrganizationCatalog(priorCatalog.token)
+        const draft = stagePackOrganization(
+          catalog,
+          summary.packOrganizations ?? {},
+          request.rootId,
+          request,
+        )
+        summary.packOrganizations = {
+          ...summary.packOrganizations,
+          [request.rootId]: draft,
+        }
+        if (
+          Buffer.byteLength(JSON.stringify(summary.packOrganizations)) >
+          4 * 1024 * 1024
+        ) {
+          throw new DomainValidationError(
+            'Pack organization drafts exceed their safety limit.',
+          )
+        }
+      },
+    )
+  }
+
+  async clearPackOrganization(
+    input: PreparationRequest & { rootId: string },
+  ): Promise<ImportPreparation> {
+    const request = this.parse(rootRequestSchema, input)
+    return this.edit(request, 'set-pack-organization', async (summary) => {
+      this.requireRoot(summary, request.rootId)
+      delete summary.packOrganizations?.[request.rootId]
+    })
+  }
+
+  private requireNewPackRoot(
+    summary: ImportPreparation,
+    rootId: string,
+  ): PreparationRoot {
+    const root = this.requireRoot(summary, rootId)
+    if (summary.mode !== 'pack' || root.catalog?.pack) {
+      throw new DomainValidationError(
+        'Manual organization is limited to new Packs during import.',
+      )
+    }
+    return root
+  }
+
+  private checkOrganizationReference(
+    session: Session,
+    request: PackOrganizationReference,
+  ): PackOrganizationCatalog {
+    const catalog = session.organizationCatalog
+    if (
+      !catalog ||
+      organizationReference(
+        request.preparationId,
+        request.revision,
+        request.rootId,
+        catalog,
+      ).organizationToken !== request.organizationToken
+    ) {
+      throw new IpcError(
+        'STALE_REVIEW',
+        'Prepare current Pack organization choices again.',
+      )
+    }
+    return catalog
+  }
+
+  private async loadOrganizationCatalog(
+    token?: string,
+  ): Promise<PackOrganizationCatalog> {
+    const read = this.database.readImportPackOrganizationCatalog
+    if (!read) {
+      throw new IpcError(
+        'PROTOCOL_ERROR',
+        'Pack organization catalog access is unavailable.',
+      )
+    }
+    return loadPackOrganizationCatalog(
+      { readImportPackOrganizationCatalog: read.bind(this.database) },
+      token,
+    )
   }
 
   async prepareClassifications(
@@ -611,6 +831,7 @@ export class ImportPreparationService {
       const summary = structuredClone(session.summary)
       summary.roots = summary.roots.filter((root) => root.id !== request.rootId)
       delete summary.packDetails[request.rootId]
+      delete summary.packOrganizations?.[request.rootId]
       const spool = new PreparationSpool(
         await mkdtemp(
           path.join(this.temporaryParent, 'kiter-import-preparation-'),
@@ -781,6 +1002,38 @@ export class ImportPreparationService {
           'STALE_REVIEW',
           'Import inputs changed. Rescan the affected folders and review their selection again.',
         )
+      }
+      if (
+        summary.mode === 'pack' &&
+        Object.keys(summary.packOrganizations ?? {}).length
+      ) {
+        const catalog = await this.loadOrganizationCatalog()
+        this.requireSession(request.preparationId, request.revision)
+        const organizations = summary.packOrganizations ?? {}
+        const changed = new Set(
+          changedPackOrganizations(catalog, organizations),
+        )
+        for (const root of summary.roots) {
+          if (root.catalog?.pack && organizations[root.id]) {
+            changed.add(root.id)
+          }
+        }
+        if (changed.size) {
+          const alreadyFlagged = [...changed].every(
+            (id) => organizations[id]?.needsReview,
+          )
+          summary.packOrganizations = structuredClone(organizations)
+          for (const id of changed) {
+            summary.packOrganizations[id].needsReview = true
+          }
+          if (!alreadyFlagged) {
+            this.advance(session)
+          }
+          throw new IpcError(
+            'STALE_REVIEW',
+            'Pack organization changed. Review the retained draft and current catalog choices.',
+          )
+        }
       }
       if (session.classification.active) {
         const previous = session.classification.generation
@@ -1163,6 +1416,9 @@ export class ImportPreparationService {
         packDetails: previous
           ? structuredClone(previous.summary.packDetails)
           : {},
+        packOrganizations: structuredClone(
+          previous?.summary.packOrganizations ?? {},
+        ),
       }
       if (summary.mode === 'pack') {
         for (const root of roots) {

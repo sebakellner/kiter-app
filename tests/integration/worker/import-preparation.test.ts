@@ -88,6 +88,20 @@ test('worker import snapshots reuse catalog identities and never catalog new can
     },
   ])
   const exit = once(worker, 'exit')
-  await exchange(worker, { action: 'close', requestId: 6 })
+  const organization = await exchange(worker, {
+    action: 'read-import-pack-organization-catalog',
+    requestId: 6,
+    input: {},
+  })
+  assert.equal(organization.action, 'read-import-pack-organization-catalog')
+  if (organization.action !== 'read-import-pack-organization-catalog') {
+    assert.fail('Expected Pack organization catalog')
+  }
+  assert.equal(
+    organization.result.items.filter((entry) => entry.kind === 'genre').length,
+    26,
+  )
+  assert.ok(organization.result.items.every((entry) => entry.kind !== 'author'))
+  await exchange(worker, { action: 'close', requestId: 7 })
   await exit
 })

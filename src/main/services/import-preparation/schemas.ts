@@ -3,6 +3,7 @@ import { importCandidateSnapshotSchema } from '../../../shared/features/imports/
 import { isDiscoveredAudioFile } from '../../../shared/domain/source.ts'
 import { PREPARATION_LIMITS } from './types.ts'
 import { IMPORT_PREPARATION_MAX_ROOTS } from '../../../shared/features/imports/schemas.ts'
+import { packOrganizationSelectionSchema } from '../../../shared/features/imports/pack-organization-schemas.ts'
 import {
   classificationDecisionsSchema,
   classificationBatchSnapshotSchema,
@@ -117,6 +118,31 @@ export const packDetailsRequestSchema = rootRequestSchema
   .extend({
     name: z.string(),
     description: z.string().nullable().optional(),
+  })
+  .strict()
+
+export const packOrganizationReferenceSchema = rootRequestSchema
+  .extend({
+    organizationToken: z.string().regex(/^[a-f0-9]{64}$/u),
+  })
+  .strict()
+export const packOrganizationSetSchema = packOrganizationReferenceSchema
+  .extend({
+    ...packOrganizationSelectionSchema.shape,
+  })
+  .strict()
+export const packOrganizationOptionsSchema = packOrganizationReferenceSchema
+  .extend({
+    kind: z.enum([
+      'instrument',
+      'genre',
+      'author',
+      'draft-author',
+      'suggested-author',
+    ]),
+    search: z.string().max(120).default(''),
+    offset: z.int().min(0).max(30000).default(0),
+    limit: z.int().min(1).max(100).default(50),
   })
   .strict()
 

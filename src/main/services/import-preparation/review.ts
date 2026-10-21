@@ -4,6 +4,7 @@ import {
   requirePresentationName,
 } from '../../../shared/domain/validation.ts'
 import { requireDescription } from '../../../shared/domain/presentation.ts'
+import { IpcError } from '../../../shared/ipc/result.ts'
 import { reviewCandidate } from './selection.ts'
 import type { PreparationSpool } from './spool.ts'
 import type {
@@ -20,10 +21,32 @@ export async function sealReview(
   choices: ReadonlyMap<string, CandidateChoice>,
   classificationDigest?: string,
 ): Promise<PreparationReview> {
+  const organizations =
+    summary.mode === 'pack' ? (summary.packOrganizations ?? {}) : {}
+  if (Object.values(organizations).some((draft) => draft.needsReview)) {
+    throw new IpcError(
+      'STALE_REVIEW',
+      'Review stale Pack organization choices first.',
+    )
+  }
+  const organizationDigest = Object.keys(organizations).length
+    ? createHash('sha256')
+        .update(
+          JSON.stringify(
+            Object.fromEntries(
+              Object.entries(organizations).sort(([a], [b]) =>
+                a < b ? -1 : a > b ? 1 : 0,
+              ),
+            ),
+          ),
+        )
+        .digest('hex')
+    : undefined
   const hash = createHash('sha256')
   hash.update(
     JSON.stringify({
-      contractVersion: classificationDigest ? 2 : 1,
+      contractVersion: organizationDigest ? 3 : classificationDigest ? 2 : 1,
+      organizationDigest,
       classificationDigest,
       preparationId: summary.id,
       revision: summary.revision,
@@ -102,7 +125,14 @@ export async function sealReview(
     selectedCount,
     conflictCount,
   }
-  return classificationDigest
-    ? { ...result, contractVersion: 2, classificationDigest }
-    : { ...result, contractVersion: 1 }
+  return organizationDigest
+    ? {
+        ...result,
+        contractVersion: 3,
+        organizationDigest,
+        ...(classificationDigest ? { classificationDigest } : {}),
+      }
+    : classificationDigest
+      ? { ...result, contractVersion: 2, classificationDigest }
+      : { ...result, contractVersion: 1 }
 }

@@ -855,3 +855,41 @@ test('snapshot consistency and resource ceilings fail explicitly without replaci
     assert.equal(review.getSummary().accepted, 1)
   }
 })
+
+test('explicit new-Pack Genres supply dependency-bound Sample proposals without fabricated Pack path proposals', () => {
+  const packSubject: ClassificationSubject = {
+    kind: 'pack',
+    identity: { kind: 'import', preparationId: 'p1', id: 'root1' },
+  }
+  const packTarget = target([], packSubject)
+  const selectedGenre = genre([
+    {
+      kind: 'pack-genre',
+      packId: classificationPackEvidenceId(packSubject),
+      genreKey: 'genre:house',
+    },
+  ])
+  packTarget.draftAssignments = [selectedGenre.target]
+  selectedGenre.dependencies = [
+    { subject: packSubject, genreKey: 'genre:house' },
+  ]
+  const review = new ClassificationBatchReview(
+    snapshot([packTarget, target([selectedGenre])]),
+  )
+  review.acceptAll(review.getReference())
+  const draft = review.exportDraft(review.getReference())
+  assert.equal(draft.dependenciesSatisfied, true)
+  assert.equal(draft.decisions.length, 1)
+  assert.equal(draft.decisions[0].subject.kind, 'sample')
+  assert.deepEqual(draft.explicitAssignments, [
+    { subject: packSubject, assignments: [selectedGenre.target] },
+  ])
+  assert.deepEqual(
+    classificationBatchDraftSchema.parse(JSON.parse(JSON.stringify(draft))),
+    draft,
+  )
+  packTarget.subject = pack
+  assert.throws(() => new ClassificationBatchReview(snapshot([packTarget])), {
+    code: 'INVALID_INPUT',
+  })
+})

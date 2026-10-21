@@ -20,6 +20,7 @@ import { isRecognitionRequest } from '../protocol/recognition.ts'
 import { executeRecognition } from './dispatch/recognition.ts'
 import { readImportCatalog } from '../operations/sources/import-snapshot.ts'
 import { readImportClassificationContext } from '../operations/classification/import-context.ts'
+import { readImportPackOrganizationCatalog } from '../operations/classification/pack-organization.ts'
 
 export function dispatchRequest(
   db: AppDatabase,
@@ -27,6 +28,12 @@ export function dispatchRequest(
 ): DbReply {
   const requestId = request.requestId
   switch (request.action) {
+    case 'read-import-pack-organization-catalog':
+      return {
+        requestId,
+        action: request.action,
+        result: readImportPackOrganizationCatalog(db, request.input),
+      }
     case 'read-import-classification-context':
       return {
         requestId,
