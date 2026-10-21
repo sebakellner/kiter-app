@@ -340,7 +340,9 @@ test('new Author draft identities can be explicitly reused across Packs but not 
 
 test('renames require fresh manual review while retaining the intended draft', async (t) => {
   for (const kind of ['author', 'instrument', 'genre'] as const) {
-    const { db, service, preparation } = await fixture(t, [`${kind} Pack`])
+    const { db, native, service, preparation } = await fixture(t, [
+      `${kind} Pack`,
+    ])
     const author = createAuthor(db, { name: 'Producer A' })
     const instrument = createInstrument(db, { name: 'Piano' })
     const genre = createGenre(db, { name: 'Custom Style' })
@@ -374,6 +376,13 @@ test('renames require fresh manual review while retaining the intended draft', a
       staged.packOrganizations?.[prepared.rootId].authors[0].name,
       'Producer A',
     )
+    const beforeClassification = structuredClone(staged)
+    const catalogBeforeClassification = native.serialize()
+    await assert.rejects(service.prepareClassifications(request(staged)), {
+      code: 'STALE_REVIEW',
+    })
+    assert.deepEqual(service.get(staged.id), beforeClassification)
+    assert.deepEqual(native.serialize(), catalogBeforeClassification)
     await assert.rejects(
       service.listReview({ ...request(staged), reviewToken: seal.reviewToken }),
       { code: 'STALE_REVIEW' },
