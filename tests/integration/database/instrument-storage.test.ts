@@ -78,7 +78,7 @@ test('the fresh baseline uses Instrument SQL names and recognition identities wi
       )
       .run(),
   )
-  assert.equal(native.pragma('user_version', { simple: true }), 1)
+  assert.equal(native.pragma('user_version', { simple: true }), 2)
 })
 
 test('Instrument assignments, custom vocabulary keys and aliases persist directly in the current SQL schema', async (t) => {

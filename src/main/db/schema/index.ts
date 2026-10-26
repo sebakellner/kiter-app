@@ -19,3 +19,4 @@ export {
   recognitionVocabulary,
   recognitionAliases,
 } from './recognition.ts'
+export { classificationRejections } from './rejections.ts'

@@ -8,6 +8,10 @@ import {
   readSampleInstruments,
   saveSampleInstruments,
 } from '../../operations/classification/sample-instruments.ts'
+import {
+  applyClassificationRejections,
+  readClassificationRejections,
+} from '../../operations/classification/rejections.ts'
 
 export function executeClassification(
   db: AppDatabase,
@@ -121,6 +125,16 @@ export function executeClassification(
       return {
         action: request.action,
         result: classification.removeInstrument(db, request.input),
+      }
+    case 'read-classification-rejections':
+      return {
+        action: request.action,
+        result: readClassificationRejections(db, request.input),
+      }
+    case 'apply-classification-rejections':
+      return {
+        action: request.action,
+        result: applyClassificationRejections(db, request.input),
       }
   }
 }

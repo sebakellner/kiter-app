@@ -27,6 +27,17 @@ import {
   requireSampleInstrumentsSaveRequest,
   isSampleInstrumentsSnapshot,
 } from '../../../shared/ipc/sampleInstruments.ts'
+import {
+  applyClassificationRejectionsRequestSchema,
+  classificationRejectionMemoryRequestSchema,
+  classificationRejectionMemorySnapshotSchema,
+} from '../../../shared/features/classification/rejection-schemas.ts'
+import type {
+  ApplyClassificationRejectionsRequest,
+  ClassificationRejectionApplyResult,
+  ClassificationRejectionMemoryRequest,
+  ClassificationRejectionMemorySnapshot,
+} from '../../../shared/features/classification/rejection-schemas.ts'
 
 export type ClassificationRequest =
   | { action: 'read-sample-instruments'; input: SampleInstrumentsRequest }
@@ -62,6 +73,14 @@ export type ClassificationRequest =
       input: ClassificationUsesRequest
     }
   | {
+      action: 'read-classification-rejections'
+      input: ClassificationRejectionMemoryRequest
+    }
+  | {
+      action: 'apply-classification-rejections'
+      input: ApplyClassificationRejectionsRequest
+    }
+  | {
       action: 'remove-author' | 'remove-instrument'
       input: ClassificationRemovalRequest
     }
@@ -91,6 +110,14 @@ export type ClassificationReply =
   | {
       action: 'review-author-removal' | 'review-instrument-removal'
       result: ClassificationRemovalReview
+    }
+  | {
+      action: 'read-classification-rejections'
+      result: ClassificationRejectionMemorySnapshot
+    }
+  | {
+      action: 'apply-classification-rejections'
+      result: ClassificationRejectionApplyResult
     }
   | { action: 'remove-author' | 'remove-instrument'; result: { id: string } }
   | {
@@ -172,6 +199,10 @@ export function isClassificationRequest(
     case 'remove-author':
     case 'remove-instrument':
       return isRecord(input) && isEntityId(input.id) && isToken(input.token)
+    case 'read-classification-rejections':
+      return classificationRejectionMemoryRequestSchema.safeParse(input).success
+    case 'apply-classification-rejections':
+      return applyClassificationRejectionsRequestSchema.safeParse(input).success
     default:
       return false
   }
@@ -227,6 +258,19 @@ export function isClassificationReply(
     case 'remove-author':
     case 'remove-instrument':
       return isRecord(result) && isEntityId(result.id)
+    case 'read-classification-rejections':
+      return classificationRejectionMemorySnapshotSchema.safeParse(result)
+        .success
+    case 'apply-classification-rejections':
+      return (
+        isRecord(result) &&
+        typeof result.applied === 'number' &&
+        Number.isSafeInteger(result.applied) &&
+        result.applied >= 0 &&
+        typeof result.forgotten === 'number' &&
+        Number.isSafeInteger(result.forgotten) &&
+        result.forgotten >= 0
+      )
     case 'review-author-removal':
     case 'review-instrument-removal':
       return (

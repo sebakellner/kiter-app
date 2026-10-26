@@ -13,7 +13,8 @@ export const CLASSIFICATION_BATCH_LIMITS = {
 const identifier = z.string().min(1).max(4096)
 const opaqueId = z.string().min(1).max(256)
 const entityId = z.string().refine(isEntityId)
-const token = z.string().regex(/^[a-f0-9]{64}$/u)
+export const classificationTokenSchema = z.string().regex(/^[a-f0-9]{64}$/u)
+const token = classificationTokenSchema
 const dimension = z.enum(['instrument', 'genre', 'sample-type'])
 const sampleType = z.enum(['loop', 'one-shot'])
 const name = z
@@ -40,7 +41,11 @@ export const classificationSubjectSchema = z.strictObject({
   ]),
 })
 
-const recognitionTarget = z.strictObject({ dimension, key: identifier })
+export const classificationRecognitionTargetSchema = z.strictObject({
+  dimension,
+  key: identifier,
+})
+const recognitionTarget = classificationRecognitionTargetSchema
 
 export const classificationEvidenceSchema = z.discriminatedUnion('kind', [
   z.strictObject({
@@ -138,7 +143,7 @@ export const classificationBatchSnapshotSchema = z.strictObject({
 export const classificationRejectionSchema = z.strictObject({
   contractVersion: z.literal(1),
   subject: classificationSubjectSchema,
-  target: recognitionTarget,
+  target: classificationRecognitionTargetSchema,
   // Scoped to stable classification identity, not its current name or aliases.
   evidenceKeys: z.array(token).min(1).max(1000),
 })
@@ -146,6 +151,11 @@ export const classificationRejectionSchema = z.strictObject({
 export const classificationRejectionsSchema = z
   .array(classificationRejectionSchema)
   .max(CLASSIFICATION_BATCH_LIMITS.evidence)
+
+export const classificationRejectionForgetSchema = z.strictObject({
+  subject: classificationSubjectSchema,
+  target: classificationRecognitionTargetSchema,
+})
 
 const reviewReference = {
   reviewId: opaqueId,
@@ -212,12 +222,7 @@ export const classificationBatchDraftSchema = z.strictObject({
       .array(classificationRejectionSchema)
       .max(CLASSIFICATION_BATCH_LIMITS.proposals),
     forget: z
-      .array(
-        z.strictObject({
-          subject: classificationSubjectSchema,
-          target: recognitionTarget,
-        }),
-      )
+      .array(classificationRejectionForgetSchema)
       .max(CLASSIFICATION_BATCH_LIMITS.proposals),
   }),
 })
@@ -243,6 +248,12 @@ export type ClassificationBatchSnapshot = z.infer<
 >
 export type ClassificationRejection = z.infer<
   typeof classificationRejectionSchema
+>
+export type ClassificationRejectionForget = z.infer<
+  typeof classificationRejectionForgetSchema
+>
+export type ClassificationRecognitionTarget = z.infer<
+  typeof classificationRecognitionTargetSchema
 >
 export type ClassificationDecisionRequest = z.infer<
   typeof classificationDecisionsSchema
