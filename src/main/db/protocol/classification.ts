@@ -38,6 +38,14 @@ import type {
   ClassificationRejectionMemoryRequest,
   ClassificationRejectionMemorySnapshot,
 } from '../../../shared/features/classification/rejection-schemas.ts'
+import {
+  standaloneClassificationContextRequestSchema,
+  standaloneClassificationContextSchema,
+} from '../../../shared/features/classification/standalone-context-schemas.ts'
+import type {
+  StandaloneClassificationContextRequest,
+  StandaloneClassificationContext,
+} from '../../../shared/features/classification/standalone-context-schemas.ts'
 
 export type ClassificationRequest =
   | { action: 'read-sample-instruments'; input: SampleInstrumentsRequest }
@@ -81,6 +89,10 @@ export type ClassificationRequest =
       input: ApplyClassificationRejectionsRequest
     }
   | {
+      action: 'read-standalone-classification-context'
+      input: StandaloneClassificationContextRequest
+    }
+  | {
       action: 'remove-author' | 'remove-instrument'
       input: ClassificationRemovalRequest
     }
@@ -118,6 +130,10 @@ export type ClassificationReply =
   | {
       action: 'apply-classification-rejections'
       result: ClassificationRejectionApplyResult
+    }
+  | {
+      action: 'read-standalone-classification-context'
+      result: StandaloneClassificationContext
     }
   | { action: 'remove-author' | 'remove-instrument'; result: { id: string } }
   | {
@@ -203,6 +219,9 @@ export function isClassificationRequest(
       return classificationRejectionMemoryRequestSchema.safeParse(input).success
     case 'apply-classification-rejections':
       return applyClassificationRejectionsRequestSchema.safeParse(input).success
+    case 'read-standalone-classification-context':
+      return standaloneClassificationContextRequestSchema.safeParse(input)
+        .success
     default:
       return false
   }
@@ -261,6 +280,8 @@ export function isClassificationReply(
     case 'read-classification-rejections':
       return classificationRejectionMemorySnapshotSchema.safeParse(result)
         .success
+    case 'read-standalone-classification-context':
+      return standaloneClassificationContextSchema.safeParse(result).success
     case 'apply-classification-rejections':
       return (
         isRecord(result) &&

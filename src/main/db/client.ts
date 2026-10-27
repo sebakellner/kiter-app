@@ -152,6 +152,11 @@ import type {
 } from '../../shared/features/classification/rejection-schemas'
 
 import type {
+  StandaloneClassificationContextRequest,
+  StandaloneClassificationContext,
+} from '../../shared/features/classification/standalone-context-schemas'
+
+import type {
   PackOrganizationCatalogRequest,
   PackOrganizationCatalogPage,
 } from '../../shared/features/imports/pack-organization-schemas'
@@ -217,6 +222,19 @@ export class DbClient {
       input,
     })
     if (reply.action !== 'apply-classification-rejections') {
+      throw new Error(UNEXPECTED_REPLY_MESSAGE)
+    }
+    return reply.result
+  }
+
+  async readStandaloneClassificationContext(
+    input: StandaloneClassificationContextRequest,
+  ): Promise<StandaloneClassificationContext> {
+    const reply = await this.classificationRequest({
+      action: 'read-standalone-classification-context',
+      input,
+    })
+    if (reply.action !== 'read-standalone-classification-context') {
       throw new Error(UNEXPECTED_REPLY_MESSAGE)
     }
     return reply.result
