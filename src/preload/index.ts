@@ -37,6 +37,14 @@ import {
   isClassificationPreparationPage,
   isClassificationApplyResult,
 } from '@shared/ipc/classification'
+import { STANDALONE_REVIEW_CHANNELS } from '@shared/ipc/standaloneReview'
+import {
+  isStandaloneReviewAmbiguityPage,
+  isStandaloneReviewDiscardResult,
+  isStandaloneReviewPreparation,
+  isStandaloneReviewProposalPage,
+  isStandaloneReviewSummary,
+} from '@shared/ipc/standaloneReviewResponses'
 import {
   INSTRUMENT_CHANNELS,
   isInstrument,
@@ -167,6 +175,44 @@ const api: Api = {
           request,
         ),
         isClassificationPreparationPage,
+      ),
+  },
+  standaloneReview: {
+    prepare: async (request) =>
+      requireIpcResult(
+        await ipcRenderer.invoke(STANDALONE_REVIEW_CHANNELS.prepare, request),
+        isStandaloneReviewPreparation,
+      ),
+    listProposals: async (request) =>
+      requireIpcResult(
+        await ipcRenderer.invoke(
+          STANDALONE_REVIEW_CHANNELS.listProposals,
+          request,
+        ),
+        isStandaloneReviewProposalPage,
+      ),
+    listAmbiguities: async (request) =>
+      requireIpcResult(
+        await ipcRenderer.invoke(
+          STANDALONE_REVIEW_CHANNELS.listAmbiguities,
+          request,
+        ),
+        isStandaloneReviewAmbiguityPage,
+      ),
+    stage: async (request) =>
+      requireIpcResult(
+        await ipcRenderer.invoke(STANDALONE_REVIEW_CHANNELS.stage, request),
+        isStandaloneReviewSummary,
+      ),
+    acceptAll: async (request) =>
+      requireIpcResult(
+        await ipcRenderer.invoke(STANDALONE_REVIEW_CHANNELS.acceptAll, request),
+        isStandaloneReviewSummary,
+      ),
+    discard: async (request) =>
+      requireIpcResult(
+        await ipcRenderer.invoke(STANDALONE_REVIEW_CHANNELS.discard, request),
+        isStandaloneReviewDiscardResult,
       ),
   },
   instruments: {

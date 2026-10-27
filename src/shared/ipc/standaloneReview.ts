@@ -120,22 +120,22 @@ export function requireStandaloneReviewDiscardRequest(
 }
 
 export interface StandaloneReviewApi {
-  prepareStandaloneReview: (
+  prepare: (
     request: StandaloneReviewPrepareRequest,
   ) => Promise<IpcResult<StandaloneReviewPreparation>>
-  listStandaloneReviewProposals: (
+  listProposals: (
     request: StandaloneReviewPageRequest,
   ) => Promise<IpcResult<ClassificationReviewPage<ClassificationReviewRow>>>
-  listStandaloneReviewAmbiguities: (
+  listAmbiguities: (
     request: StandaloneReviewPageRequest,
   ) => Promise<IpcResult<ClassificationReviewPage<ClassificationAmbiguityRow>>>
-  stageStandaloneReview: (
+  stage: (
     request: StandaloneReviewDecisionsRequest,
   ) => Promise<IpcResult<ClassificationReviewSummary>>
-  acceptAllStandaloneReview: (
+  acceptAll: (
     request: StandaloneReviewAcceptAllRequest,
   ) => Promise<IpcResult<ClassificationReviewSummary>>
-  discardStandaloneReview: (
+  discard: (
     request: StandaloneReviewDiscardRequest,
   ) => Promise<IpcResult<{ reviewId: string }>>
 }
