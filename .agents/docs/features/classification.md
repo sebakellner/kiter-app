@@ -12,19 +12,28 @@ The reviewed classification workflow below is only partly delivered. Suggestions
 remain distinct from confirmed user organization, and accepted decisions cannot be
 executed yet.
 
-Delivered: a pure recognition engine with initial in-code vocabulary and aliases;
-the immediate single-Sample inspector workflow (Suggest classifications, Apply,
-Apply all, the manual Sample-type editor, and explicit alias updates); the shared
-version-1 batch contract with its session review core; rejection memory in the
-worker; the bounded standalone catalog snapshot adapter; and the standalone review
-IPC contract with preload validation and app-session retention.
+Delivered:
 
-Pending: every write that would carry a reviewed decision into the catalog. The
-standalone review can be prepared, paged, staged, accepted in full and discarded,
-but no execution transaction consumes an accepted decision, no renderer surface
-consumes that API, imported drafts are never promoted to catalog identities, and
-rejection `remember`/`forget` intents have no writer. General supplied-vocabulary
-updates and their incorporation UI also remain pending.
+- Pure recognition with the initial in-code vocabulary and aliases.
+- The immediate single-Sample inspector workflow: Suggest classifications, Apply,
+  Apply all, the manual Sample-type editor, and explicit alias updates.
+- The shared version-1 batch contract with its session review core.
+- Rejection memory in the worker.
+- The bounded standalone catalog snapshot adapter.
+- The standalone review IPC contract with preload validation and app-session
+  retention.
+
+Pending:
+
+- Any write that carries a reviewed decision into the catalog. A standalone review can
+  be prepared, paged, staged, accepted in full and discarded, but no execution
+  transaction consumes an accepted decision.
+- A renderer surface that consumes the standalone review API.
+- Draft-to-catalog identity promotion for imported drafts.
+- A writer for rejection `remember`/`forget` intents.
+- General supplied-vocabulary updates and their incorporation UI.
+
+The reviewed workflow these slices serve:
 
 - Suggest Instruments and Genres from filenames and folder names. Sample type
   has the separate rules below; Author credits and musical BPM/key hints are
@@ -356,9 +365,9 @@ single-Sample preview.
 - This first preview caps root associations at 100 and vocabulary/alias reads at
   10,000 each, failing explicitly rather than truncating recognition. These are
   implementation limits, not measured large-library performance guarantees.
-- Multi-Sample scopes are prepared, paged and staged by the standalone adapter and
-  IPC contract below, which read rejection memory. Confirmed execution/recovery
-  remains pending.
+- Multi-Sample scopes are prepared, paged and staged by the standalone snapshot
+  adapter and its IPC contract below; both read rejection memory. Confirmed
+  execution/recovery remains pending.
 
 ### Direct Single-Sample Suggestions — Adopted Simplified Workflow
 
