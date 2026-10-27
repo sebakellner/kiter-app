@@ -8,6 +8,15 @@ export {
   prepareClassificationReviewRows,
 } from './batch-review.ts'
 export type { ClassificationReviewRow } from './batch-review.ts'
+export {
+  prepareStandaloneReview,
+  refreshStandaloneReview,
+} from './standalone-batch.ts'
+export type {
+  StandaloneReview,
+  StandaloneReviewDatabase,
+  StandaloneReviewSubject,
+} from './standalone-batch.ts'
 export type {
   RecognitionComponent,
   RecognitionDimension,
