@@ -233,6 +233,44 @@ export const classificationReviewPageSchema = z.strictObject({
   limit: z.int().min(1).max(CLASSIFICATION_BATCH_LIMITS.page).default(50),
 })
 
+// A page carries its complete review reference, so a renderer rejects a stale
+// review before trusting any row.
+const reviewPage = {
+  ...reviewReference,
+  total: z.int().nonnegative(),
+  nextOffset: z.int().nonnegative().nullable(),
+}
+
+export const classificationReviewSummarySchema = z.strictObject({
+  ...reviewReference,
+  contractVersion: z.literal(1),
+  targets: z.int().nonnegative(),
+  proposals: z.int().nonnegative(),
+  reviewable: z.int().nonnegative(),
+  remembered: z.int().nonnegative(),
+  ambiguities: z.int().nonnegative(),
+  requiredCreations: z.int().nonnegative(),
+  typeReplacements: z.int().nonnegative(),
+  accepted: z.int().nonnegative(),
+  rejected: z.int().nonnegative(),
+})
+
+export const classificationProposalPageSchema = z.strictObject({
+  ...reviewPage,
+  items: z.array(classificationReviewRowSchema),
+})
+
+export const classificationAmbiguityRowSchema = z.strictObject({
+  subject: classificationSubjectSchema,
+  ...classificationBatchSnapshotSchema.shape.targets.element.shape.ambiguities
+    .element.shape,
+})
+
+export const classificationAmbiguityPageSchema = z.strictObject({
+  ...reviewPage,
+  items: z.array(classificationAmbiguityRowSchema),
+})
+
 export type ClassificationSubject = z.infer<typeof classificationSubjectSchema>
 export type ClassificationReviewRow = z.infer<
   typeof classificationReviewRowSchema
