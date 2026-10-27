@@ -12,6 +12,8 @@ export {
   prepareStandaloneReview,
   refreshStandaloneReview,
 } from './standalone-batch.ts'
+export { createStandaloneReviewSession } from './standalone-session.ts'
+export type { StandaloneReviewSession } from './standalone-session.ts'
 export type {
   StandaloneReview,
   StandaloneReviewDatabase,
