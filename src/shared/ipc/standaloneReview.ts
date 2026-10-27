@@ -23,13 +23,14 @@ export const STANDALONE_REVIEW_CHANNELS = {
 } as const
 
 // Selected existing catalog identity, never an import-local preparation handle.
-const subject = z.strictObject({
+// Response guards reuse this schema so both sides agree on the accepted scope.
+export const standaloneReviewSubjectSchema = z.strictObject({
   kind: z.enum(['sample', 'pack']),
   id: z.string().refine(isEntityId),
 })
 
 export const standaloneReviewPrepareSchema = z.strictObject({
-  subjects: z.array(subject).min(1).max(100),
+  subjects: z.array(standaloneReviewSubjectSchema).min(1).max(100),
 })
 
 const reviewId = z.string().min(1).max(256)
@@ -50,7 +51,9 @@ export const standaloneReviewDecisionsRequestSchema =
 export const standaloneReviewAcceptAllRequestSchema =
   classificationAcceptAllSchema
 
-export type StandaloneReviewSubject = z.infer<typeof subject>
+export type StandaloneReviewSubject = z.infer<
+  typeof standaloneReviewSubjectSchema
+>
 
 /** The complete target scope a preparation owns, so the renderer can show
  * Accept all scope without extra reads. */
