@@ -5,8 +5,10 @@ import type { ClassificationApi } from './classification.ts'
 import type { GenresApi } from './genres.ts'
 import type { LifecycleApi } from './lifecycle.ts'
 import type { CollectionsApi } from './collections.ts'
+import type { StandaloneReviewApi } from './standaloneReview.ts'
 
 export interface Api {
+  standaloneReview: StandaloneReviewApi
   collections: CollectionsApi
   genres: GenresApi
   lifecycle: LifecycleApi

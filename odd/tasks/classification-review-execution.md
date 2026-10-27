@@ -67,7 +67,8 @@ T1 | S4 | main/db: additive migration for rejection memory (schema + worker read
 T2 | S3 | main/services: standalone catalog-backed batch snapshot adapter (bounded worker read command + service composition over ClassificationBatchReview + tests) | DONE — merged to main via PR #53 (squash 22d66e9; branch commits 16b12ea, 587d4c1)
 T3a | S1 | shared: narrow typed IPC contract for standalone review (channels + request guards for prepare/summary/pages/stage/acceptAll/discard composing batch schemas) + guard tests | DONE — `feat/classification-standalone-review-contract` (PR A)
 T3b | S1 S5 | main: standalone review session service over ClassificationBatchReview (prepare/list/stage/acceptAll/discard; in-memory session retention; no catalog writes) + tests | DONE — stacks on T3a (PR B)
-T3c | S1 | main+preload: IPC handlers + preload exposure + renderer api types + tests | PR C ≤500, stacks on A+B
+T3c | S1 | shared: strict response schemas and preload guards for standalone review (summary, preparation scope, proposal/ambiguity pages, discard result) + base page/summary/ambiguity schemas in batch-schemas + tests | DONE — stacks on T3b (PR C)
+T3d | S1 | main+preload: standalone review IPC handlers (guard-validated at the boundary), preload exposure, namespaced Api type | DONE — stacks on T3c (PR D)
 T4 | S6 S7 S8 S9 | main/db: confirmed execution slice (per-target transactions: vocabulary creation, assignments, type, rejection remember/forget; conflict payloads; dependency-blocked outcomes; durable results + queries) + tests | re-slice into ≤500 PRs when reached
 T5 | S1 | renderer: standalone review UI (preparation, staged choices, accept all, ambiguity views, execution + per-target results) + tests | re-slice into ≤500 PRs when reached
 T6 | S2 S10 | integration with reviewed import and the shared confirmed queue — blocked on Operation Execution delivery | commit: separate work once unblocked
@@ -134,4 +135,22 @@ NOT_FOUND, and tests prove preparation, staging and discard leave the catalog by
 identical. T3b turned out to depend on T3a's contract, so the two are a chain
 (T3b stacks on T3a) rather than parallel work. Slice 300 authored lines; focused
 tests 4/4; full suite 315/315; typecheck, typecheck:tests and lint clean. Remaining
-T3 work: T3c IPC handlers + preload + renderer api types.
+T3 work: T3c response guards and T3d IPC handlers + preload.
+L12 — T3c done: response guards. Strict schemas for the review summary, preparation
+scope, proposal and ambiguity pages, and the discard result now live beside their
+request schemas (`classificationReviewSummarySchema`,
+`classificationProposalPageSchema`, `classificationAmbiguityRowSchema`,
+`classificationAmbiguityPageSchema`), so the wire contract is declared once instead
+of restated per consumer. Every preload guard interprets jitlessly. Fixtures made two
+contract facts explicit: review rows carry the internal catalog identity while the
+preparation scope carries the renderer-facing subject, and path evidence uses
+`component`/`availability`/`text`/`rule`/`ruleVersion`/`span`. Slice 301 authored
+lines; response tests 6/6; full suite 321/321; typecheck, typecheck:tests and lint
+clean.
+L13 — T3d done: IPC + preload. `registerStandaloneReviewIpc` creates the session once
+per registered app (so a review survives navigation) and validates every request
+with the contract guards at the boundary, then calls the typed service; preload
+exposes the six operations under a `standaloneReview` namespace and validates each
+response, and the shared `Api` type declares it. No handler writes the catalog or
+grants execution. T3 is complete as a four-PR chain: T3a 374, T3b 313, T3c 301,
+T3d ~185 authored lines. Next: T4 confirmed execution, re-sliced into <=500 PRs.
