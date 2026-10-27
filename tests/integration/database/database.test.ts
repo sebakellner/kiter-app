@@ -37,12 +37,12 @@ test('fresh initialization creates strict typed tables, migration history and on
       native.pragma('application_id', { simple: true }),
       DB_APPLICATION_ID,
     )
-    assert.equal(native.pragma('user_version', { simple: true }), 1)
+    assert.equal(native.pragma('user_version', { simple: true }), 2)
     assert.equal(native.pragma('foreign_keys', { simple: true }), 1)
     const tables = native
       .prepare<[], { name: string; strict: number }>('PRAGMA table_list')
       .all()
-    assert.equal(Object.keys(schema).length, 22)
+    assert.equal(Object.keys(schema).length, 23)
     for (const table of Object.values(schema)) {
       const config = getTableConfig(table)
       assert.ok(
@@ -92,7 +92,7 @@ test('fresh initialization creates strict typed tables, migration history and on
           'SELECT count(*) AS count FROM __drizzle_migrations',
         )
         .get()?.count,
-      1,
+      2,
     )
     assert.deepEqual(native.prepare('PRAGMA foreign_key_check').all(), [])
   } finally {
@@ -241,7 +241,7 @@ test('Sample IDs, Favorites and zero preview volume survive reopening and overla
         'SELECT count(*) AS count FROM __drizzle_migrations',
       )
       .get()?.count,
-    1,
+    2,
   )
 })
 
@@ -427,7 +427,7 @@ test('pending migrations apply once and preserve existing data; older applicatio
       try {
         assert.equal(
           upgraded.native.pragma('user_version', { simple: true }),
-          2,
+          3,
         )
         assert.deepEqual(readLocalProfile(upgraded.db), profile)
         assert.deepEqual(importFolder(upgraded.db, dir, [fileAt(dir)]), [
@@ -439,7 +439,7 @@ test('pending migrations apply once and preserve existing data; older applicatio
               'SELECT count(*) AS count FROM __drizzle_migrations',
             )
             .get()?.count,
-          2,
+          3,
         )
       } finally {
         upgraded.close()
@@ -503,7 +503,7 @@ test('vocabulary initialization reuses saved Instruments and offers missing Genr
   }
   const upgraded = open(filename)
   try {
-    assert.equal(upgraded.native.pragma('user_version', { simple: true }), 1)
+    assert.equal(upgraded.native.pragma('user_version', { simple: true }), 2)
     assert.deepEqual(
       upgraded.native.prepare('SELECT id, favorite FROM samples').get(),
       { id: sampleId, favorite: 1 },
@@ -557,7 +557,7 @@ test('failed migrations and bootstrap roll back SQL, migration history and versi
     const reopened = open(filename)
     try {
       assert.deepEqual(readLocalProfile(reopened.db), profile)
-      assert.equal(reopened.native.pragma('user_version', { simple: true }), 1)
+      assert.equal(reopened.native.pragma('user_version', { simple: true }), 2)
       assert.equal(
         reopened.native
           .prepare("SELECT name FROM sqlite_schema WHERE name = 'rolled_back'")

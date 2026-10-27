@@ -551,6 +551,40 @@ type replacements, preserved assignments, stale/foreign references, refresh and
 discard, Pack dependencies, detached outputs, strict schemas and resource limits.
 Validation is local on macOS, not Windows or a packaged Electron/DAW workflow.
 
+### Implemented Standalone Catalog Snapshot Adapter
+
+`src/main/db/operations/classification/standalone-context.ts` implements the bounded
+worker read `read-standalone-classification-context`, and
+`src/main/services/classification/standalone-batch.ts` composes it with rejection
+memory and the session review core. `prepareStandaloneReview` and
+`refreshStandaloneReview` build an authoritative catalog snapshot for 1–100 selected
+existing Samples/Packs; they perform no catalog writes and grant no execution
+capability. IPC, the renderer review surface, and execution remain future slices.
+
+- One read returns the complete requested targets plus a bounded vocabulary/alias
+  page. Vocabulary and aliases page at 100 rows over at most 10,000 rows each; the
+  first page's token pins them across later pages. Pages after the first require the
+  token, and the adapter checks that each page owes every remaining row.
+- Every page echoes the complete target scope, so the adapter detects a catalog or
+  vocabulary change between the first and final page and answers `STALE_REVIEW`
+  instead of publishing a mixed snapshot. An incomplete or malformed page answers
+  `PROTOCOL_ERROR`; missing targets and unsafe scopes keep their own errors.
+- Sample evidence uses each registered root association's stored source location:
+  root, folder and filename components carry `cataloged` availability, overlapping
+  roots contribute one clue per physical location, and unregistered roots supply
+  nothing. Packs contribute their supplying root name only, which keeps Pack
+  proposals root-scoped.
+- A Sample's origin Pack saved Genres become Pack Genre evidence bound to the catalog
+  Pack identity, so remembered rejections and existing assignments apply unchanged.
+  Because those Genres are saved before review, standalone Pack decisions never make
+  a Sample depend on another target in the same review; ordered Pack-before-Sample
+  execution stays with the execution slice.
+- The service reads rejection memory for the selected subjects and passes it to the
+  review, so remembered rejections stay non-reviewable without hiding new evidence.
+  Each target snapshot carries a read-state token over its scope, type, assignments,
+  sources and origin evidence, and the returned preparation token binds the complete
+  built state; refresh revalidates all of it before preserving an unchanged decision.
+
 ### Remaining Workflow Delivery
 
 - Pure recognition combines included vocabulary, library names, and aliases into
@@ -565,8 +599,8 @@ Validation is local on macOS, not Windows or a packaged Electron/DAW workflow.
   Preserve preview, Favorites, and authorized native dragging throughout.
 
 Remaining implementation contracts: future catalog updates, tokenization punctuation
-edge cases, standalone catalog-backed batch snapshot adapters and rejection storage, persisted
+edge cases, standalone review/execution IPC and renderer review, persisted
 draft-to-catalog identity promotion, execution conflict payloads, durable confirmation,
-dependency/result queries, IPC, and measured execution limits.
+dependency/result queries, and measured execution limits.
 Visual design/prototypes remain deferred. These open technical contracts do not
 reopen the business rules above or establish shipped capabilities.

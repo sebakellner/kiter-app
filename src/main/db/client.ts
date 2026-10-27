@@ -145,6 +145,18 @@ import type {
 } from '../../shared/features/classification/import-context-schemas'
 
 import type {
+  ApplyClassificationRejectionsRequest,
+  ClassificationRejectionApplyResult,
+  ClassificationRejectionMemoryRequest,
+  ClassificationRejectionMemorySnapshot,
+} from '../../shared/features/classification/rejection-schemas'
+
+import type {
+  StandaloneClassificationContextRequest,
+  StandaloneClassificationContext,
+} from '../../shared/features/classification/standalone-context-schemas'
+
+import type {
   PackOrganizationCatalogRequest,
   PackOrganizationCatalogPage,
 } from '../../shared/features/imports/pack-organization-schemas'
@@ -188,6 +200,46 @@ export class DbClient {
     }
     return reply.result
   }
+
+  async readClassificationRejections(
+    input: ClassificationRejectionMemoryRequest,
+  ): Promise<ClassificationRejectionMemorySnapshot> {
+    const reply = await this.classificationRequest({
+      action: 'read-classification-rejections',
+      input,
+    })
+    if (reply.action !== 'read-classification-rejections') {
+      throw new Error(UNEXPECTED_REPLY_MESSAGE)
+    }
+    return reply.result
+  }
+
+  async applyClassificationRejections(
+    input: ApplyClassificationRejectionsRequest,
+  ): Promise<ClassificationRejectionApplyResult> {
+    const reply = await this.classificationRequest({
+      action: 'apply-classification-rejections',
+      input,
+    })
+    if (reply.action !== 'apply-classification-rejections') {
+      throw new Error(UNEXPECTED_REPLY_MESSAGE)
+    }
+    return reply.result
+  }
+
+  async readStandaloneClassificationContext(
+    input: StandaloneClassificationContextRequest,
+  ): Promise<StandaloneClassificationContext> {
+    const reply = await this.classificationRequest({
+      action: 'read-standalone-classification-context',
+      input,
+    })
+    if (reply.action !== 'read-standalone-classification-context') {
+      throw new Error(UNEXPECTED_REPLY_MESSAGE)
+    }
+    return reply.result
+  }
+
   async readImportCatalog(
     input: ImportCatalogRequest,
   ): Promise<ImportCatalogSnapshot> {
