@@ -8,14 +8,32 @@ owns Instrument, Genre, and Sample-type meanings and validation;
 
 ## Status and Scope
 
-The reviewed classification workflow below is agreed but not implemented. A pure
-recognition engine and initial in-code vocabulary are implemented as described
-under Architecture and Delivery. Current Author/Instrument DB operations and
-Instrument list/create/rename IPC do not deliver the reviewed workflow. Suggestions
-remain distinct from confirmed user organization.
-The shared batch contract and session review core are also implemented internally;
-catalog-backed batch preparation, rejection storage and confirmed execution remain
-pending.
+The reviewed classification workflow below is only partly delivered. Suggestions
+remain distinct from confirmed user organization, and accepted decisions cannot be
+executed yet.
+
+Delivered:
+
+- Pure recognition with the initial in-code vocabulary and aliases.
+- The immediate single-Sample inspector workflow: Suggest classifications, Apply,
+  Apply all, the manual Sample-type editor, and explicit alias updates.
+- The shared version-1 batch contract with its session review core.
+- Rejection memory in the worker.
+- The bounded standalone catalog snapshot adapter.
+- The standalone review IPC contract with preload validation and app-session
+  retention.
+
+Pending:
+
+- Any write that carries a reviewed decision into the catalog. A standalone review can
+  be prepared, paged, staged, accepted in full and discarded, but no execution
+  transaction consumes an accepted decision.
+- A renderer surface that consumes the standalone review API.
+- Draft-to-catalog identity promotion for imported drafts.
+- A writer for rejection `remember`/`forget` intents.
+- General supplied-vocabulary updates and their incorporation UI.
+
+The reviewed workflow these slices serve:
 
 - Suggest Instruments and Genres from filenames and folder names. Sample type
   has the separate rules below; Author credits and musical BPM/key hints are
@@ -312,11 +330,17 @@ Genre evidence, and explicit ambiguous matches without reading or writing data.
 - `loadCatalogRecognizer` compiles effective names and aliases through bounded
   worker pages. It recognizes offered terms for later explicit creation, omits
   retired entries, and preserves stable vocabulary keys for linked records.
-- Future vocabulary updates, voluntary incorporation UI, authoritative review
-  snapshots, rejected-proposal memory, and confirmed assignment execution remain
-  pending. The adapter is not a stale-safe preparation/execution token.
+- Future supplied vocabulary updates, voluntary incorporation UI, and confirmed
+  assignment execution remain pending. Rejection memory and authoritative review
+  snapshots are delivered by the review slices below. This adapter is not a
+  stale-safe preparation/execution token.
 
 ### Implemented Single-Sample Preparation Preview
+
+This is the earlier prototype for the selected Sample. The user-facing workflow is
+now the simpler Direct Single-Sample Suggestions below, and multi-Sample batch
+preparation runs through the standalone adapter below rather than through this
+single-Sample preview.
 
 - Samples/Favorites expose Suggest classifications in the selected Sample's
   read-only inspector. It explicitly prepares one existing Sample and displays
@@ -341,8 +365,9 @@ Genre evidence, and explicit ambiguous matches without reading or writing data.
 - This first preview caps root associations at 100 and vocabulary/alias reads at
   10,000 each, failing explicitly rather than truncating recognition. These are
   implementation limits, not measured large-library performance guarantees.
-- Multi-Sample scopes, rejection memory, and confirmed execution/recovery remain
-  pending.
+- Multi-Sample scopes are prepared, paged and staged by the standalone snapshot
+  adapter and its IPC contract below; both read rejection memory. Confirmed
+  execution/recovery remains pending.
 
 ### Direct Single-Sample Suggestions — Adopted Simplified Workflow
 
@@ -559,7 +584,8 @@ worker read `read-standalone-classification-context`, and
 memory and the session review core. `prepareStandaloneReview` and
 `refreshStandaloneReview` build an authoritative catalog snapshot for 1–100 selected
 existing Samples/Packs; they perform no catalog writes and grant no execution
-capability. IPC, the renderer review surface, and execution remain future slices.
+capability. The IPC contract below serves this adapter; the renderer review surface
+and execution remain future slices.
 
 - One read returns the complete requested targets plus a bounded vocabulary/alias
   page. Vocabulary and aliases page at 100 rows over at most 10,000 rows each; the
@@ -585,6 +611,41 @@ capability. IPC, the renderer review surface, and execution remain future slices
   sources and origin evidence, and the returned preparation token binds the complete
   built state; refresh revalidates all of it before preserving an unchanged decision.
 
+### Implemented Standalone Review IPC Contract
+
+`src/shared/ipc/standaloneReview.ts` owns the channels and strict request guards;
+`src/main/ipc/standaloneReview.ts` registers the handlers behind main-frame
+authorization; `src/main/services/classification/standalone-session.ts` retains the
+prepared reviews. Six channels exist:
+`classification:prepare-standalone-review`, `classification:list-standalone-review-proposals`,
+`classification:list-standalone-review-ambiguities`, `classification:stage-standalone-review`,
+`classification:accept-all-standalone-review`, and `classification:discard-standalone-review`.
+
+- Preparation accepts 1–100 selected existing Sample/Pack identities and nothing
+  else: never import-local preparation handles, renderer paths, vocabulary or
+  decisions. It builds one fresh bounded snapshot through the adapter and answers
+  the complete review summary plus its `subjectScope`, so a renderer can show what
+  Accept all covers without another read. No separate refresh channel exists; a
+  stale review is replaced by preparing again.
+- Page, stage, Accept all and discard requests carry the complete review reference,
+  and main rejects a stale or foreign reference before answering. Staleness and
+  unknown reviews reuse the shared error codes `STALE_REVIEW` and `NOT_FOUND`
+  instead of returning mixed state or partial results.
+- The session keeps prepared reviews in memory for this app session: staged choices
+  survive navigation, discard releases the review, and a restart drops them rather
+  than recovering drafts that no explicit confirmation backed. Nothing is written to
+  the catalog, the workspace or disk.
+- `src/shared/ipc/standaloneReviewResponses.ts` guards every response in preload, and
+  the shared `Api` exposes the namespaced `standaloneReview` surface (`prepare`,
+  `listProposals`, `listAmbiguities`, `stage`, `acceptAll`, `discard`). These guards
+  interpret with `jitless` because preload cannot compile generated validators.
+- This slice moves a staged decision set between renderer and main and nothing more:
+  no assignments, types or vocabulary are written, no rejection `remember`/`forget`
+  intent is applied, and no operation is queued or durably confirmed. Accepted
+  decisions therefore have no execution route yet.
+- No renderer surface consumes this API yet, so the contract is reachable and tested
+  but not user-visible.
+
 ### Remaining Workflow Delivery
 
 - Pure recognition combines included vocabulary, library names, and aliases into
@@ -593,13 +654,16 @@ capability. IPC, the renderer review surface, and execution remain future slices
   preparation, revalidation, and execution. Validate renderer decisions against
   reviewed state through narrow typed preload operations. DB worker owns bounded
   reads and transactional writes under [Architecture](../architecture.md).
-- Deliver Genre operations/aliases/pure recognition, then standalone review and
-  execution, then integration with reviewed import and the shared queue. Each
-  executable workflow must include its agreed persistence/recovery guarantees.
-  Preserve preview, Favorites, and authorized native dragging throughout.
+- Genre operations, aliases and pure recognition are delivered, and standalone
+  review is delivered up to staging. The next executable step is execution, then
+  integration with reviewed import and the shared queue. Each executable workflow
+  must include its agreed persistence/recovery guarantees. Preserve preview,
+  Favorites, and authorized native dragging throughout.
 
-Remaining implementation contracts: future catalog updates, tokenization punctuation
-edge cases, standalone review/execution IPC and renderer review, persisted
+Remaining implementation contracts: the renderer standalone review surface, confirmed
+execution of accepted decisions (per-target transactions that create vocabulary, save
+assignments and type, and apply rejection `remember`/`forget` atomically), future
+catalog/vocabulary updates, tokenization punctuation edge cases, persisted
 draft-to-catalog identity promotion, execution conflict payloads, durable confirmation,
 dependency/result queries, and measured execution limits.
 Visual design/prototypes remain deferred. These open technical contracts do not
