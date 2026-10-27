@@ -10,3 +10,6 @@ out
 test-results/
 playwright-report/
 .kiter-dev/
+
+# Local-only ODD tracking docs (see AGENTS.md)
+odd/

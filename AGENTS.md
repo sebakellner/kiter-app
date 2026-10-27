@@ -101,6 +101,9 @@ pnpm db:check        # Validate migration metadata
 Use focused validation from [Testing Conventions](.agents/docs/testing-conventions.md);
 development checks alone do not establish release support.
 
+Keep ODD working documents under `odd/` local-only: the directory is
+git-ignored and never committed, pushed, or included in PRs.
+
 ## Repository-Wide Constraints
 
 - Keep core audio and organization workflows local; remote services require
