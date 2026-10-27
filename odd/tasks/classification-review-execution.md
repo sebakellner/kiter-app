@@ -63,11 +63,13 @@ belongs to Operation Execution; standalone execution reuses its contracts.
 
 ## Tasks
 
-T1 | S4 | main/db: additive migration for rejection memory (schema + worker read/remember/forget commands + tests) | DONE — 5fe2018 feat(db): add classification rejection memory storage (generated drizzle/meta/0001_snapshot.json accounts for most counted lines; authored code ~700)
-T2 | S3 | main/services: standalone catalog-backed batch snapshot adapter (bounded worker read command + service composition over ClassificationBatchReview + tests) | DONE in two slices — 2a db read `16b12ea` (795 authored lines: strict schemas, worker read, tests); 2b service adapter 464 lines + 324-line test + docs/tracker (this commit)
-T3 | S1 S5 | main+shared: authoritative standalone preparation/review service + narrow typed IPC (prepare/list/stage/acceptAll/discard, no writes) + tests | commit: feature branch slice 3
-T4 | S6 S7 S8 S9 | main/db: confirmed execution slice (per-target transactions: vocabulary creation, assignments, type, rejection remember/forget; conflict payloads; dependency-blocked outcomes; durable results + queries) + tests | commit: feature branch slice 4
-T5 | S1 | renderer: standalone review UI (preparation, staged choices, accept all, ambiguity views, execution + per-target results) + tests | commit: feature branch slice 5
+T1 | S4 | main/db: additive migration for rejection memory (schema + worker read/remember/forget commands + tests) | DONE — merged to main via PR #53 (squash 22d66e9; branch commits 5fe2018)
+T2 | S3 | main/services: standalone catalog-backed batch snapshot adapter (bounded worker read command + service composition over ClassificationBatchReview + tests) | DONE — merged to main via PR #53 (squash 22d66e9; branch commits 16b12ea, 587d4c1)
+T3a | S1 | shared: narrow typed IPC contract for standalone review (channels + request guards for prepare/summary/pages/stage/acceptAll/discard composing batch schemas) + guard tests | DONE — `feat/classification-standalone-review-contract` (PR A)
+T3b | S1 S5 | main: standalone review session service over ClassificationBatchReview (prepare/list/stage/acceptAll/discard; in-memory session retention; no catalog writes) + tests | PR B ≤500, parallel with A
+T3c | S1 | main+preload: IPC handlers + preload exposure + renderer api types + tests | PR C ≤500, stacks on A+B
+T4 | S6 S7 S8 S9 | main/db: confirmed execution slice (per-target transactions: vocabulary creation, assignments, type, rejection remember/forget; conflict payloads; dependency-blocked outcomes; durable results + queries) + tests | re-slice into ≤500 PRs when reached
+T5 | S1 | renderer: standalone review UI (preparation, staged choices, accept all, ambiguity views, execution + per-target results) + tests | re-slice into ≤500 PRs when reached
 T6 | S2 S10 | integration with reviewed import and the shared confirmed queue — blocked on Operation Execution delivery | commit: separate work once unblocked
 
 ## Log
@@ -107,3 +109,20 @@ L8 — slice boundary record: slice 2a (795 lines) and 2b (837 lines) each excee
 ~400 authored-line guidance because strict schemas and their tests dominate the
 diff; the remaining tasks stay one slice each (T3 preparation/review service + IPC,
 T4 confirmed execution, T5 renderer review UI).
+L9 — delivery correction and re-slice: T1/T2 had already merged to main via PR #53
+(squash 22d66e9, 2026-10-27); the feature-branch tree matches main, so nothing
+written is reordered. User directive going forward: PRs of at most 500 authored
+lines, fully ordered, stacked to main; when a cohesive unit with its tests exceeds
+the budget, code and tests ship as separate stacked PRs. T3 re-sliced into T3a
+(shared IPC contract), T3b (session service, parallel with T3a), T3c (IPC +
+preload, stacks on both). T4/T5 get the same slicing when reached. Future drizzle
+snapshots get linguist-generated marking so generated lines never count toward
+review budgets.
+L10 — T3a done: shared standalone review IPC contract. `src/shared/ipc/standaloneReview.ts`
+owns six channels plus zod request guards (jitless, as preload requires) for
+prepare (1-100 catalog-only subjects, import-local handles rejected), paged
+listing, atomic staged decisions, Accept all reference, and discard; response types
+reuse the existing batch-schemas review types instead of duplicating them. Slice
+344 authored lines (180 test + 156 impl + tracker); guard tests 8/8; full suite
+311/311; typecheck, typecheck:tests and lint clean. Remaining T3 work: T3b session
+service (parallel) and T3c IPC handlers + preload + renderer api types.
