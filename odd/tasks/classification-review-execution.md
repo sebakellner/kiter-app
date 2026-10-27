@@ -66,7 +66,7 @@ belongs to Operation Execution; standalone execution reuses its contracts.
 T1 | S4 | main/db: additive migration for rejection memory (schema + worker read/remember/forget commands + tests) | DONE — merged to main via PR #53 (squash 22d66e9; branch commits 5fe2018)
 T2 | S3 | main/services: standalone catalog-backed batch snapshot adapter (bounded worker read command + service composition over ClassificationBatchReview + tests) | DONE — merged to main via PR #53 (squash 22d66e9; branch commits 16b12ea, 587d4c1)
 T3a | S1 | shared: narrow typed IPC contract for standalone review (channels + request guards for prepare/summary/pages/stage/acceptAll/discard composing batch schemas) + guard tests | DONE — `feat/classification-standalone-review-contract` (PR A)
-T3b | S1 S5 | main: standalone review session service over ClassificationBatchReview (prepare/list/stage/acceptAll/discard; in-memory session retention; no catalog writes) + tests | PR B ≤500, parallel with A
+T3b | S1 S5 | main: standalone review session service over ClassificationBatchReview (prepare/list/stage/acceptAll/discard; in-memory session retention; no catalog writes) + tests | DONE — stacks on T3a (PR B)
 T3c | S1 | main+preload: IPC handlers + preload exposure + renderer api types + tests | PR C ≤500, stacks on A+B
 T4 | S6 S7 S8 S9 | main/db: confirmed execution slice (per-target transactions: vocabulary creation, assignments, type, rejection remember/forget; conflict payloads; dependency-blocked outcomes; durable results + queries) + tests | re-slice into ≤500 PRs when reached
 T5 | S1 | renderer: standalone review UI (preparation, staged choices, accept all, ambiguity views, execution + per-target results) + tests | re-slice into ≤500 PRs when reached
@@ -126,3 +126,12 @@ reuse the existing batch-schemas review types instead of duplicating them. Slice
 344 authored lines (180 test + 156 impl + tracker); guard tests 8/8; full suite
 311/311; typecheck, typecheck:tests and lint clean. Remaining T3 work: T3b session
 service (parallel) and T3c IPC handlers + preload + renderer api types.
+L11 — T3b done: standalone review session service. `createStandaloneReviewSession`
+retains each prepared review in this app session, answers paged proposal/ambiguity
+listing, atomic staged decisions and Accept all, and releases on discard; every
+request is validated before a stored review is touched, unknown review ids answer
+NOT_FOUND, and tests prove preparation, staging and discard leave the catalog bytes
+identical. T3b turned out to depend on T3a's contract, so the two are a chain
+(T3b stacks on T3a) rather than parallel work. Slice 300 authored lines; focused
+tests 4/4; full suite 315/315; typecheck, typecheck:tests and lint clean. Remaining
+T3 work: T3c IPC handlers + preload + renderer api types.
