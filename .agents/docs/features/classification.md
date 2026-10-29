@@ -31,9 +31,12 @@ Delivered:
 
 Pending:
 
-- Execution from the review surface. The channel and the per-target results are
-  delivered and tested, but no screen consumes them yet.
-- Draft-to-catalog identity promotion for imported drafts, which belongs to the
+- Proposals whose evidence is entirely covered by remembered rejections cannot be
+  surfaced on request yet. The review core supports including them, but the
+  standalone preparation never asks for it and the surface has no way to show them.
+- Execution results carry no display name, so the surface identifies a target by a
+  shortened catalog identity.
+- Draft-to-catalog identity transfer for imported drafts, which belongs to the
   reviewed import workflow rather than standalone execution.
 - General supplied-vocabulary updates and their incorporation UI.
 - Durable confirmation, field-level conflict payloads and queued execution for the
