@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom'
 import type {
   StandaloneExecutionOutcome,
   StandaloneExecutionResult,
-  StandaloneExecutionSubject,
+  StandaloneExecutionTargetResult,
 } from '@shared/features/classification/execution-schemas'
 
 // A committed target alone is success. Every other outcome wrote nothing, so the
@@ -26,8 +26,12 @@ const OUTCOME_EXPLANATIONS: Record<StandaloneExecutionOutcome, string> = {
 // Execution results carry the catalog identity only, never a display name, so the
 // label shortens the identifier instead of inventing one. The full identity stays
 // available on the row for anyone who needs to reach the target.
-function subjectLabel(subject: StandaloneExecutionSubject): string {
-  return `${subject.kind === 'pack' ? 'Pack' : 'Sample'} ${shortId(subject.id)}`
+function subjectLabel(item: StandaloneExecutionTargetResult): string {
+  if (item.label) {
+    return item.label
+  }
+  const kind = item.subject.kind === 'pack' ? 'Pack' : 'Sample'
+  return `${kind} ${shortId(item.subject.id)}`
 }
 
 function shortId(id: string): string {
@@ -101,10 +105,10 @@ export function StandaloneExecutionResults({
         {result.results.map((item) => (
           <li
             key={`${item.subject.kind}:${item.subject.id}`}
-            aria-label={subjectLabel(item.subject)}
+            aria-label={subjectLabel(item)}
             title={item.subject.id}
           >
-            <h3>{subjectLabel(item.subject)}</h3>
+            <h3>{subjectLabel(item)}</h3>
             <p>{OUTCOME_LABELS[item.outcome]}</p>
             <p>{OUTCOME_EXPLANATIONS[item.outcome]}</p>
             <ul>

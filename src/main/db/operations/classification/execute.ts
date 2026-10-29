@@ -13,6 +13,7 @@ import { createGenre, setGenreAssignment } from './genres.ts'
 import { applyClassificationRejections } from './rejections.ts'
 import { readStandaloneClassificationContext } from './standalone-context.ts'
 import { targetStateToken } from './target-state.ts'
+import { readClassificationTargetLabel } from './target-label.ts'
 
 function requireExecution(value: unknown): StandaloneExecutionTargetRequest {
   const parsed = standaloneExecutionTargetRequestSchema.safeParse(value)
@@ -70,8 +71,10 @@ export function executeStandaloneClassificationTarget(
       if (!target) {
         throw new DbError('PROTOCOL_ERROR', 'Classification target is missing.')
       }
+      const label = readClassificationTargetLabel(db, subject)
       const result: StandaloneExecutionTargetResult = {
         subject,
+        ...(label === null ? {} : { label }),
         outcome: 'committed',
         assignments: 0,
         created: { instruments: 0, genres: 0 },

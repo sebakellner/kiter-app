@@ -28,15 +28,14 @@ Delivered:
   existing execution `forget` path.
 - Confirmed standalone execution: one transaction per target that creates required
   vocabulary, saves accepted assignments and Sample type, and applies rejection
-  `remember`/`forget` together, with per-target outcomes.
+  `remember`/`forget` together, with per-target outcomes that carry the target's own
+  display label.
 - The renderer review surface: a route reached from a batch action on the checked
   Samples, with preparation, paged proposals, staged choices, Accept all with its
   complete scope, ambiguity views and discard. It writes nothing yet.
 
 Pending:
 
-- Execution results carry no display name, so the surface identifies a target by a
-  shortened catalog identity.
 - Draft-to-catalog identity transfer for imported drafts, which belongs to the
   reviewed import workflow rather than standalone execution.
 - General supplied-vocabulary updates and their incorporation UI.
@@ -784,6 +783,11 @@ the only path that turns an accepted decision into catalog state.
   (`committed`, `stale`, `blocked`, `failed`), assignment and creation counts,
   type/rejection changes and a bounded message, plus totals. A `stale`, `blocked` or
   `failed` target has zero counts because it wrote nothing.
+- A result carries the target's display label, resolved by the same rule the rest of
+  the app uses: a Sample shows its display name and otherwise its source file name, a
+  Pack shows its own name. The label is absent when the worker could not read the
+  target — a blocked target is never opened — and the surface then falls back to a
+  shortened catalog identity rather than inventing a name.
 - Not promised by this slice: durable confirmation, restart recovery, a persisted
   intent journal, dependency/result history queries, or field-level conflict
   descriptions. A crash mid-batch leaves each target's own transaction committed or

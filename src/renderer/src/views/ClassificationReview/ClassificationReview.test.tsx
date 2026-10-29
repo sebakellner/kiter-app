@@ -1267,3 +1267,57 @@ test('a confirmation does not reappear when the accepted count returns to its ol
   expect(screen.queryByRole('button', { name: 'Save to catalog' })).toBeNull()
   expect(api.standaloneReview.execute).not.toHaveBeenCalled()
 })
+
+test('execution results show the target label when main supplies one', async () => {
+  const api = createTestApi()
+  api.standaloneReview.prepare.mockResolvedValue({
+    ok: true,
+    data: preparation({ accepted: 1 }),
+  })
+  api.standaloneReview.listProposals.mockResolvedValue({
+    ok: true,
+    data: proposalPage([row({ decision: 'accept' })]),
+  })
+  api.standaloneReview.execute.mockResolvedValue({
+    ok: true,
+    data: executionResult([
+      {
+        subject: { kind: 'sample', id: SAMPLE_A },
+        label: 'kick.wav',
+        outcome: 'committed',
+        assignments: 1,
+        created: { instruments: 1, genres: 0 },
+        typeChanged: false,
+        remembered: 0,
+        forgotten: 0,
+      },
+      {
+        // A target main could not name still renders, by shortened identity.
+        subject: { kind: 'sample', id: SAMPLE_B },
+        outcome: 'stale',
+        assignments: 0,
+        created: { instruments: 0, genres: 0 },
+        typeChanged: false,
+        remembered: 0,
+        forgotten: 0,
+        message: 'Reviewed state changed.',
+      },
+    ]),
+  })
+  mount(api, { subjects: SUBJECTS })
+  const user = userEvent.setup()
+
+  await confirmExecution(user)
+
+  const results = await screen.findByRole('region', {
+    name: 'Execution results',
+  })
+  expect(
+    within(results).getByRole('listitem', { name: 'kick.wav' }),
+  ).toBeVisible()
+  expect(
+    within(results).getByRole('listitem', {
+      name: `Sample ${SAMPLE_B.slice(0, 8)}…`,
+    }),
+  ).toBeVisible()
+})
