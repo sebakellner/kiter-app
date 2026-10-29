@@ -8,9 +8,9 @@ owns Instrument, Genre, and Sample-type meanings and validation;
 
 ## Status and Scope
 
-The reviewed classification workflow below is only partly delivered. Suggestions
-remain distinct from confirmed user organization, and accepted decisions cannot be
-executed yet.
+The reviewed classification workflow is delivered for existing catalog Samples and
+Packs up to confirmed execution. Suggestions remain distinct from confirmed user
+organization, and nothing is saved before an explicit execution request.
 
 Delivered:
 
@@ -18,20 +18,23 @@ Delivered:
 - The immediate single-Sample inspector workflow: Suggest classifications, Apply,
   Apply all, the manual Sample-type editor, and explicit alias updates.
 - The shared version-1 batch contract with its session review core.
-- Rejection memory in the worker.
+- Rejection memory in the worker, written only by confirmed execution.
 - The bounded standalone catalog snapshot adapter.
 - The standalone review IPC contract with preload validation and app-session
   retention.
+- Confirmed standalone execution: one transaction per target that creates required
+  vocabulary, saves accepted assignments and Sample type, and applies rejection
+  `remember`/`forget` together, with per-target outcomes.
 
 Pending:
 
-- Any write that carries a reviewed decision into the catalog. A standalone review can
-  be prepared, paged, staged, accepted in full and discarded, but no execution
-  transaction consumes an accepted decision.
-- A renderer surface that consumes the standalone review API.
-- Draft-to-catalog identity promotion for imported drafts.
-- A writer for rejection `remember`/`forget` intents.
+- A renderer surface that consumes the standalone review and execution API. The
+  contract is reachable and tested but no screen drives it yet.
+- Draft-to-catalog identity promotion for imported drafts, which belongs to the
+  reviewed import workflow rather than standalone execution.
 - General supplied-vocabulary updates and their incorporation UI.
+- Durable confirmation, field-level conflict payloads and queued execution for the
+  shared confirmed-operation workflow.
 
 The reviewed workflow these slices serve:
 
@@ -616,10 +619,11 @@ and execution remain future slices.
 `src/shared/ipc/standaloneReview.ts` owns the channels and strict request guards;
 `src/main/ipc/standaloneReview.ts` registers the handlers behind main-frame
 authorization; `src/main/services/classification/standalone-session.ts` retains the
-prepared reviews. Six channels exist:
+prepared reviews. Seven channels exist:
 `classification:prepare-standalone-review`, `classification:list-standalone-review-proposals`,
 `classification:list-standalone-review-ambiguities`, `classification:stage-standalone-review`,
-`classification:accept-all-standalone-review`, and `classification:discard-standalone-review`.
+`classification:accept-all-standalone-review`, `classification:discard-standalone-review`,
+and `classification:execute-standalone-review`.
 
 - Preparation accepts 1–100 selected existing Sample/Pack identities and nothing
   else: never import-local preparation handles, renderer paths, vocabulary or
@@ -637,14 +641,61 @@ prepared reviews. Six channels exist:
   the catalog, the workspace or disk.
 - `src/shared/ipc/standaloneReviewResponses.ts` guards every response in preload, and
   the shared `Api` exposes the namespaced `standaloneReview` surface (`prepare`,
-  `listProposals`, `listAmbiguities`, `stage`, `acceptAll`, `discard`). These guards
-  interpret with `jitless` because preload cannot compile generated validators.
-- This slice moves a staged decision set between renderer and main and nothing more:
-  no assignments, types or vocabulary are written, no rejection `remember`/`forget`
-  intent is applied, and no operation is queued or durably confirmed. Accepted
-  decisions therefore have no execution route yet.
+  `listProposals`, `listAmbiguities`, `stage`, `acceptAll`, `discard`, `execute`).
+  These guards interpret with `jitless` because preload cannot compile generated
+  validators.
+- Staging alone still writes nothing: no assignments, types or vocabulary are
+  written, and no rejection `remember`/`forget` intent is applied. Only the
+  execution channel below commits catalog state.
 - No renderer surface consumes this API yet, so the contract is reachable and tested
   but not user-visible.
+
+### Implemented Standalone Execution
+
+`src/main/db/operations/classification/execute.ts` commits one reviewed target and
+`src/main/services/classification/execute-standalone.ts` orders the batch. This is
+the only path that turns an accepted decision into catalog state.
+
+- The IPC request carries **only** the review reference (`reviewId`, `revision`,
+  `token`). Main materializes the decisions through the retained review's draft
+  export, so a renderer cannot submit a decision, a rejection, an evidence key or a
+  required creation of its own.
+- Revalidation has two levels. The draft export rejects a stale or foreign
+  reference against the retained review. Then, inside each target's own write
+  transaction, the worker re-reads the target through
+  `read-standalone-classification-context` and recomputes its read-state digest from
+  the values it read itself (`target`, `currentType`, `assignments`, `sources`,
+  origin Pack and its Genres). An equal digest means the reviewed state still holds;
+  any difference writes nothing and answers `stale`. The digest lives in
+  `src/main/db/operations/classification/target-state.ts`, owned by the writer that
+  enforces it and reused by the snapshot builder, so both sides agree by construction.
+- Accepted Instrument/Genre decisions are re-resolved by stable vocabulary key, never
+  by the reviewed display name or entity id. A key that was retired, remapped to a
+  different record, or changed dimension since review answers `stale` instead of
+  writing an orphan assignment. A key still awaiting its record has that record
+  created inside the same transaction.
+- One `db.transaction(immediate)` per target commits its required vocabulary,
+  assignments, Sample-type replacement and rejection changes together or not at all.
+  A failing target rolls back alone; the loop continues and reports per-target
+  results, never a full-batch success. Packs execute before Samples, and a Sample
+  whose accepted decision depends on a Pack change that did not commit is reported
+  `blocked` without being executed. Standalone preparations emit no dependencies
+  today because origin Pack Genres are saved before review, so that path is exercised
+  by the contract rather than by a current workflow.
+- Every execution attempt consumes the retained review, including an attempt that
+  committed nothing: a committed target moves the state the draft was reviewed from,
+  and re-preparing is the correct retry path, where committed proposals return as
+  non-actionable assigned rows and failed or stale targets return reviewable. An
+  attempt with no decided proposal is refused before touching the catalog and keeps
+  the review.
+- Results echo the review reference and report one row per target with its `outcome`
+  (`committed`, `stale`, `blocked`, `failed`), assignment and creation counts,
+  type/rejection changes and a bounded message, plus totals. A `stale`, `blocked` or
+  `failed` target has zero counts because it wrote nothing.
+- Not promised by this slice: durable confirmation, restart recovery, a persisted
+  intent journal, dependency/result history queries, or field-level conflict
+  descriptions. A crash mid-batch leaves each target's own transaction committed or
+  absent, and the operator re-prepares to see the current state.
 
 ### Remaining Workflow Delivery
 
@@ -654,17 +705,17 @@ prepared reviews. Six channels exist:
   preparation, revalidation, and execution. Validate renderer decisions against
   reviewed state through narrow typed preload operations. DB worker owns bounded
   reads and transactional writes under [Architecture](../architecture.md).
-- Genre operations, aliases and pure recognition are delivered, and standalone
-  review is delivered up to staging. The next executable step is execution, then
-  integration with reviewed import and the shared queue. Each executable workflow
-  must include its agreed persistence/recovery guarantees. Preserve preview,
-  Favorites, and authorized native dragging throughout.
+- Genre operations, aliases and pure recognition are delivered; standalone review is
+  delivered through confirmed execution. The next executable step is the renderer
+  review surface, then integration with reviewed import and the shared confirmed
+  queue. Each executable workflow must include its agreed persistence/recovery
+  guarantees. Preserve preview, Favorites, and authorized native dragging
+  throughout.
 
-Remaining implementation contracts: the renderer standalone review surface, confirmed
-execution of accepted decisions (per-target transactions that create vocabulary, save
-assignments and type, and apply rejection `remember`/`forget` atomically), future
-catalog/vocabulary updates, tokenization punctuation edge cases, persisted
-draft-to-catalog identity promotion, execution conflict payloads, durable confirmation,
-dependency/result queries, and measured execution limits.
-Visual design/prototypes remain deferred. These open technical contracts do not
-reopen the business rules above or establish shipped capabilities.
+Remaining implementation contracts: the renderer standalone review surface, execution
+conflict payloads (field-level descriptions instead of an outcome and a message),
+future catalog/vocabulary updates, tokenization punctuation edge cases, persisted
+draft-to-catalog identity promotion, durable confirmation, dependency/result queries,
+and measured execution limits. Visual design/prototypes remain deferred. These open
+technical contracts do not reopen the business rules above or establish shipped
+capabilities.
