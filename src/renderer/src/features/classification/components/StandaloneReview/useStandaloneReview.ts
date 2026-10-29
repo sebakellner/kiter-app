@@ -323,16 +323,39 @@ export function useStandaloneReview(
       failure: null,
       notice: null,
     }))
+    let summary: ClassificationReviewSummary
     try {
-      const summary = unwrapIpcResult(
+      summary = unwrapIpcResult(
         await window.api.standaloneReview.stage({
           ...referenceOf(reference),
           choices: [{ proposalKey: row.proposalKey, decision }],
         }),
       )
+    } catch (reason) {
       if (generation.current !== run) {
         return
       }
+      // The choice never reached main, so the previous reference still holds.
+      setState((previous) => failureState(previous, reason))
+      return
+    }
+    if (generation.current !== run) {
+      return
+    }
+    // The choice is already staged in main. Adopt its new reference immediately,
+    // before reloading the page: a failed reload must not leave the surface
+    // holding the pre-stage revision, or the next request would be rejected as
+    // stale and every staged choice would be lost.
+    setState((previous) => ({
+      ...previous,
+      status: 'ready',
+      review: referenceOf(summary),
+      summary,
+      failure: null,
+      notice: decisionNotice(decision),
+      saving: false,
+    }))
+    try {
       const page = unwrapIpcResult(
         await window.api.standaloneReview.listProposals({
           ...referenceOf(summary),
@@ -345,13 +368,8 @@ export function useStandaloneReview(
       }
       setState((previous) => ({
         ...previous,
-        status: 'ready',
         review: referenceOf(page),
-        summary,
         proposals: toPage(page, offset),
-        failure: null,
-        notice: decisionNotice(decision),
-        saving: false,
       }))
     } catch (reason) {
       if (generation.current !== run) {
@@ -373,13 +391,33 @@ export function useStandaloneReview(
       failure: null,
       notice: null,
     }))
+    let summary: ClassificationReviewSummary
     try {
-      const summary = unwrapIpcResult(
+      summary = unwrapIpcResult(
         await window.api.standaloneReview.acceptAll(referenceOf(reference)),
       )
+    } catch (reason) {
       if (generation.current !== run) {
         return
       }
+      setState((previous) => failureState(previous, reason))
+      return
+    }
+    if (generation.current !== run) {
+      return
+    }
+    // Same rule as a single choice: adopt the staged reference before the reload
+    // so a failed reload cannot strand the surface on a stale revision.
+    setState((previous) => ({
+      ...previous,
+      status: 'ready',
+      review: referenceOf(summary),
+      summary,
+      failure: null,
+      notice: 'Accepted every reviewable proposal.',
+      saving: false,
+    }))
+    try {
       const page = unwrapIpcResult(
         await window.api.standaloneReview.listProposals({
           ...referenceOf(summary),
@@ -392,13 +430,8 @@ export function useStandaloneReview(
       }
       setState((previous) => ({
         ...previous,
-        status: 'ready',
         review: referenceOf(page),
-        summary,
         proposals: toPage(page, 0),
-        failure: null,
-        notice: 'Accepted every reviewable proposal.',
-        saving: false,
       }))
     } catch (reason) {
       if (generation.current !== run) {

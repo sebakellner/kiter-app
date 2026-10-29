@@ -498,3 +498,64 @@ test('opening the route without subjects explains the empty state and calls noth
   expect(api.standaloneReview.discard).not.toHaveBeenCalled()
   expect(api.standaloneReview.execute).not.toHaveBeenCalled()
 })
+
+test('a failed page reload after staging keeps the reference main just issued', async () => {
+  const api = createTestApi()
+  api.standaloneReview.prepare.mockResolvedValue({
+    ok: true,
+    data: preparation(),
+  })
+  api.standaloneReview.listProposals
+    .mockResolvedValueOnce({
+      ok: true,
+      data: proposalPage([row()], { total: 3, nextOffset: 1 }),
+    })
+    // The reload right after a successful stage fails with a transient read error.
+    .mockResolvedValueOnce({
+      ok: false,
+      error: {
+        code: 'STORAGE_FAILED',
+        message: 'Unable to read the review page.',
+      },
+    })
+    .mockResolvedValueOnce({
+      ok: true,
+      data: proposalPage([row({ decision: 'accept' })], {
+        ...reference(3),
+        total: 3,
+        nextOffset: 1,
+      }),
+    })
+  api.standaloneReview.stage
+    .mockResolvedValueOnce({
+      ok: true,
+      data: summary({ ...reference(2), accepted: 1 }),
+    })
+    .mockResolvedValueOnce({
+      ok: true,
+      data: summary({ ...reference(3), accepted: 2 }),
+    })
+  mount(api, { subjects: SUBJECTS })
+  const user = userEvent.setup()
+
+  await user.click(await screen.findByRole('button', { name: 'Accept Kick' }))
+
+  // The choice is already staged in main, so the surface must keep the revision it
+  // was given instead of falling back to the pre-stage one and losing every choice.
+  expect(api.standaloneReview.listProposals).toHaveBeenLastCalledWith({
+    ...reference(2),
+    offset: 0,
+    limit: 50,
+  })
+  expect(screen.queryByRole('button', { name: 'Prepare again' })).toBeNull()
+  expect(await screen.findByRole('alert')).toHaveTextContent(
+    'Unable to read the review page.',
+  )
+
+  await user.click(await screen.findByRole('button', { name: 'Accept Kick' }))
+
+  expect(api.standaloneReview.stage).toHaveBeenLastCalledWith({
+    ...reference(2),
+    choices: [{ proposalKey: hex(1), decision: 'accept' }],
+  })
+})
