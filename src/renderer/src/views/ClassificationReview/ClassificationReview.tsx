@@ -45,6 +45,10 @@ export function ClassificationReview(): React.JSX.Element {
         </>
       ) : (
         <StandaloneReview
+          // A review belongs to one route entry: entering the surface again after
+          // execution must prepare a fresh review instead of showing the results
+          // of the one main already consumed.
+          key={location.key}
           subjects={subjects}
           onDiscarded={() => navigate('/samples')}
         />

@@ -20,6 +20,7 @@ import {
   useStandaloneReview,
 } from './useStandaloneReview'
 import type { StandaloneReviewStatus } from './useStandaloneReview'
+import { StandaloneExecutionResults } from './StandaloneExecutionResults'
 import './standalone-review.css'
 
 const DIMENSION_LABELS = {
@@ -83,7 +84,7 @@ function blockedCopy(status: StandaloneReviewStatus): {
     }
   }
   return {
-    title: 'This classification review could not be prepared.',
+    title: 'This classification review could not be completed.',
     explanation: 'Nothing was saved. Prepare the review again to retry.',
   }
 }
@@ -97,19 +98,25 @@ export function StandaloneReview({
 }): React.JSX.Element {
   const review = useStandaloneReview(subjects, onDiscarded)
   const [confirmingAcceptAll, setConfirmingAcceptAll] = useState(false)
+  const [confirmingExecute, setConfirmingExecute] = useState(false)
   const { summary, proposals, subjectScope } = review
   const outsidePage = proposals ? proposals.total - proposals.items.length : 0
   const status =
     review.status === 'preparing'
       ? 'Preparing review…'
-      : review.saving
-        ? 'Saving review choices…'
-        : review.loadingProposals
-          ? 'Loading proposals…'
-          : review.loadingAmbiguities
-            ? 'Loading ambiguities…'
-            : null
-  const blocked = review.status !== 'ready' && review.status !== 'preparing'
+      : review.executing
+        ? 'Saving reviewed classifications…'
+        : review.saving
+          ? 'Saving review choices…'
+          : review.loadingProposals
+            ? 'Loading proposals…'
+            : review.loadingAmbiguities
+              ? 'Loading ambiguities…'
+              : null
+  const blocked =
+    review.status === 'stale' ||
+    review.status === 'gone' ||
+    review.status === 'failed'
   const copy = blockedCopy(review.status)
   return (
     <section
@@ -128,6 +135,9 @@ export function StandaloneReview({
             Prepare again
           </Button>
         </div>
+      )}
+      {review.executed && (
+        <StandaloneExecutionResults result={review.executed} />
       )}
       {review.status === 'ready' && summary && review.review && (
         <>
@@ -153,6 +163,14 @@ export function StandaloneReview({
               onClick={() => setConfirmingAcceptAll(true)}
             >
               Accept all
+            </Button>
+            <Button
+              variant="primary"
+              disabled={review.busy || summary.accepted === 0}
+              aria-expanded={confirmingExecute}
+              onClick={() => setConfirmingExecute(true)}
+            >
+              Execute
             </Button>
             <Button
               variant="ghost"
@@ -196,6 +214,44 @@ export function StandaloneReview({
                 variant="ghost"
                 disabled={review.busy}
                 onClick={() => setConfirmingAcceptAll(false)}
+              >
+                Cancel
+              </Button>
+            </section>
+          )}
+          {confirmingExecute && (
+            <section
+              aria-label="Execute scope"
+              className="standalone-review-scope"
+            >
+              <h2>Save reviewed classifications</h2>
+              <ul>
+                <li>Accepted proposals: {summary.accepted}</li>
+                <li>
+                  Required vocabulary creations: {summary.requiredCreations}
+                </li>
+                <li>Sample-type replacements: {summary.typeReplacements}</li>
+                <li>Samples in this review: {subjectScope.length}</li>
+              </ul>
+              <p>
+                Confirming writes these changes to the catalog and closes this
+                review. It cannot be undone from this screen, so review the
+                current catalog state before saving.
+              </p>
+              <Button
+                variant="primary"
+                disabled={review.busy}
+                onClick={() => {
+                  setConfirmingExecute(false)
+                  void review.execute()
+                }}
+              >
+                Save to catalog
+              </Button>
+              <Button
+                variant="ghost"
+                disabled={review.busy}
+                onClick={() => setConfirmingExecute(false)}
               >
                 Cancel
               </Button>

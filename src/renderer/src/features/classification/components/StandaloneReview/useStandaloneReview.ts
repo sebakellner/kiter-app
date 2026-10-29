@@ -8,6 +8,7 @@ import type {
   ClassificationReviewRow,
   ClassificationReviewSummary,
 } from '@shared/features/classification/batch-schemas'
+import type { StandaloneExecutionResult } from '@shared/features/classification/execution-schemas'
 import type { StandaloneReviewSubject } from '@shared/ipc/standaloneReview'
 
 // Pages default to 50 in the shared contract; the reviewer only needs one size.
@@ -16,7 +17,7 @@ export const STANDALONE_REVIEW_PAGE_SIZE = 50
 export type StandaloneReviewDecision = 'accept' | 'reject' | 'unreviewed'
 
 export type StandaloneReviewStatus =
-  'preparing' | 'ready' | 'stale' | 'gone' | 'failed'
+  'preparing' | 'ready' | 'stale' | 'gone' | 'failed' | 'executed'
 
 export type StandaloneReviewFailure = {
   code: AppErrorCode
@@ -40,6 +41,10 @@ type ReviewState = {
   failure: StandaloneReviewFailure | null
   notice: string | null
   saving: boolean
+  executing: boolean
+  // Execution consumes the review in main, so these results are the last thing
+  // this surface can show for it.
+  executed: StandaloneExecutionResult | null
   loadingProposals: boolean
   loadingAmbiguities: boolean
 }
@@ -54,6 +59,8 @@ const INITIAL_STATE: ReviewState = {
   failure: null,
   notice: null,
   saving: false,
+  executing: false,
+  executed: null,
   loadingProposals: false,
   loadingAmbiguities: false,
 }
@@ -69,6 +76,7 @@ export type StandaloneReviewController = ReviewState & {
   ) => Promise<void>
   acceptAll: () => Promise<void>
   discard: () => Promise<void>
+  execute: () => Promise<void>
 }
 
 // Every request carries the complete reference from the last answered reply, so
@@ -209,6 +217,7 @@ export function useStandaloneReview(
     busy:
       state.status === 'preparing' ||
       state.saving ||
+      state.executing ||
       state.loadingProposals ||
       state.loadingAmbiguities,
     prepare: prepareAgain,
@@ -217,6 +226,7 @@ export function useStandaloneReview(
     stage,
     acceptAll,
     discard,
+    execute,
   }
 
   async function loadProposals(offset: number): Promise<void> {
@@ -441,6 +451,48 @@ export function useStandaloneReview(
     }
   }
 
+  async function execute(): Promise<void> {
+    const reference = state.review
+    // One confirmation owns one execution attempt: while it runs, and after it
+    // answered, there is no review left to execute again.
+    if (
+      !reference ||
+      state.status !== 'ready' ||
+      state.saving ||
+      state.executing ||
+      state.executed
+    ) {
+      return
+    }
+    const run = generation.current
+    setState((previous) => ({
+      ...previous,
+      executing: true,
+      failure: null,
+      notice: null,
+    }))
+    let result: StandaloneExecutionResult
+    try {
+      // Execution carries only the reviewed reference; main materializes the
+      // decisions, so this request never describes what to write.
+      result = unwrapIpcResult(
+        await window.api.standaloneReview.execute(referenceOf(reference)),
+      )
+    } catch (reason) {
+      if (generation.current !== run) {
+        return
+      }
+      // A refused execution means the review is gone: main consumes it on every
+      // attempt, so preparing it again is the only way forward.
+      setState((previous) => executionFailureState(previous, reason))
+      return
+    }
+    if (generation.current !== run) {
+      return
+    }
+    setState({ ...INITIAL_STATE, status: 'executed', executed: result })
+  }
+
   async function discard(): Promise<void> {
     const reference = state.review
     if (!reference || state.saving) {
@@ -482,6 +534,29 @@ function failureState(state: ReviewState, reason: unknown): ReviewState {
     status: blockedStatus(failure.code) ?? state.status,
     failure,
     saving: false,
+    loadingProposals: false,
+    loadingAmbiguities: false,
+  }
+}
+
+// A failed execution leaves no usable review, so the surface drops every staged
+// value instead of letting the operator retry against released state.
+function executionFailureState(
+  state: ReviewState,
+  reason: unknown,
+): ReviewState {
+  const failure = toFailure(
+    reason,
+    'Unable to save the reviewed classifications.',
+  )
+  return {
+    ...state,
+    status: blockedStatus(failure.code) ?? 'failed',
+    review: null,
+    summary: null,
+    failure,
+    saving: false,
+    executing: false,
     loadingProposals: false,
     loadingAmbiguities: false,
   }
