@@ -223,6 +223,39 @@ async function run() {
     }
     const rowCode = (relativePath) =>
       `document.querySelector(${JSON.stringify(`[data-sample-id="${sample(relativePath).id}"]`)})`
+    // Waiting only for "not busy" is a race: those flags are already false before the
+    // app starts working, so a slow machine reads the previous state and every caller
+    // sees an empty or stale list. Wait for a positive signal tied to this open first.
+    const waitForOpenedDirectory = async (directory) => {
+      const expected = path.basename(directory)
+      await waitFor(
+        () =>
+          execute(`
+            (() => {
+              const marker = document.querySelector("[data-testid=library-directory]")
+              return marker !== null && marker.textContent.endsWith(${JSON.stringify(expected)})
+            })()
+          `),
+        `folder ${expected} opened`,
+      )
+    }
+    // Reopening the same directory changes no marker, so also observe the transition
+    // itself when it happens. A missed transition is not an error: it means the work
+    // finished before the first check.
+    const waitForOpenTransition = async () => {
+      try {
+        await waitFor(
+          () =>
+            execute(
+              'document.querySelector("main").getAttribute("aria-busy") === "true"',
+            ),
+          'folder open started',
+          2000,
+        )
+      } catch {
+        // The open already finished; the busy checks below still apply.
+      }
+    }
     const waitForFolder = async () => {
       await waitFor(
         () =>
@@ -255,9 +288,18 @@ async function run() {
       waitForFolder,
       open: async (directory) => {
         selections.push({ directory })
+        // A cancelled dialog or a path the app cannot open keeps the previous list,
+        // so there is no new directory to wait for; only those opens skip the
+        // positive condition and rely on the busy checks.
+        const expectsOpen =
+          typeof directory === 'string' && existsSync(directory)
         await execute(
           'document.querySelector("[data-testid=open-folder]").click()',
         )
+        if (expectsOpen) {
+          await waitForOpenedDirectory(directory)
+          await waitForOpenTransition()
+        }
         await waitForFolder()
       },
       names: async () =>
