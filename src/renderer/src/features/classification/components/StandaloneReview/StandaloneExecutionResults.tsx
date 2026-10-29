@@ -45,7 +45,14 @@ function summaryCopy(result: StandaloneExecutionResult): {
   const total = result.results.length
   const { committed } = result.totals
   const notCommitted = total - committed
-  if (total > 0 && notCommitted === 0) {
+  if (total === 0) {
+    return {
+      heading: 'Nothing was executed',
+      explanation:
+        'No target was available to execute, so nothing was written to the catalog.',
+    }
+  }
+  if (notCommitted === 0) {
     return {
       heading: 'Saved to the catalog',
       explanation: `Every reviewed target was saved: ${committed} of ${total} targets committed.`,

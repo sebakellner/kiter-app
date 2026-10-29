@@ -40,6 +40,8 @@ type ReviewState = {
   ambiguities: StandaloneReviewPage<ClassificationAmbiguityRow> | null
   failure: StandaloneReviewFailure | null
   notice: string | null
+  // Which step produced the current failure, so the blocked screen can name it.
+  failurePhase: 'prepare' | 'execute' | null
   saving: boolean
   executing: boolean
   // Execution consumes the review in main, so these results are the last thing
@@ -58,6 +60,7 @@ const INITIAL_STATE: ReviewState = {
   ambiguities: null,
   failure: null,
   notice: null,
+  failurePhase: null,
   saving: false,
   executing: false,
   executed: null,
@@ -460,7 +463,10 @@ export function useStandaloneReview(
       state.status !== 'ready' ||
       state.saving ||
       state.executing ||
-      state.executed
+      state.executed ||
+      // The confirmation's scope is the accepted set it was opened for. Writing
+      // with none accepted would consume the review for nothing.
+      (state.summary?.accepted ?? 0) === 0
     ) {
       return
     }
@@ -533,6 +539,7 @@ function failureState(state: ReviewState, reason: unknown): ReviewState {
     ...state,
     status: blockedStatus(failure.code) ?? state.status,
     failure,
+    failurePhase: 'prepare',
     saving: false,
     loadingProposals: false,
     loadingAmbiguities: false,
@@ -555,6 +562,7 @@ function executionFailureState(
     review: null,
     summary: null,
     failure,
+    failurePhase: 'execute',
     saving: false,
     executing: false,
     loadingProposals: false,

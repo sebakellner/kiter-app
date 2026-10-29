@@ -65,7 +65,10 @@ function subjectKey(subject: ClassificationSubject): string {
 
 // A review that changed or was released cannot be refreshed in place; only a
 // new preparation can continue the workflow.
-function blockedCopy(status: StandaloneReviewStatus): {
+function blockedCopy(
+  status: StandaloneReviewStatus,
+  failurePhase: 'prepare' | 'execute' | null,
+): {
   title: string
   explanation: string
 } {
@@ -83,8 +86,15 @@ function blockedCopy(status: StandaloneReviewStatus): {
         'Kiter keeps prepared reviews only for the current session. Restarting Kiter or discarding the review releases it. Nothing was saved. Prepare the review again to continue.',
     }
   }
+  if (failurePhase === 'execute') {
+    return {
+      title: 'This classification review could not be saved.',
+      explanation:
+        'The reviewed classifications were not written. Prepare the review again to retry.',
+    }
+  }
   return {
-    title: 'This classification review could not be completed.',
+    title: 'This classification review could not be prepared.',
     explanation: 'Nothing was saved. Prepare the review again to retry.',
   }
 }
@@ -104,18 +114,24 @@ export function StandaloneReview({
   const [confirmation, setConfirmation] = useState<{
     kind: 'acceptAll' | 'execute'
     reviewId: string
+    accepted: number
   } | null>(null)
   const reviewIdentity = review.review?.reviewId ?? null
   const confirmingAcceptAll =
     confirmation?.kind === 'acceptAll' &&
     confirmation.reviewId === reviewIdentity
+  const acceptedCount = review.summary?.accepted ?? 0
+  // The confirmation names a specific accepted scope; changing the decisions
+  // invalidates it, so the user confirms the set they were shown.
   const confirmingExecute =
-    confirmation?.kind === 'execute' && confirmation.reviewId === reviewIdentity
+    confirmation?.kind === 'execute' &&
+    confirmation.reviewId === reviewIdentity &&
+    confirmation.accepted === acceptedCount
   const openConfirmation = (kind: 'acceptAll' | 'execute'): void => {
     if (!reviewIdentity) {
       return
     }
-    setConfirmation({ kind, reviewId: reviewIdentity })
+    setConfirmation({ kind, reviewId: reviewIdentity, accepted: acceptedCount })
   }
   const { summary, proposals, subjectScope } = review
   const outsidePage = proposals ? proposals.total - proposals.items.length : 0
@@ -135,7 +151,7 @@ export function StandaloneReview({
     review.status === 'stale' ||
     review.status === 'gone' ||
     review.status === 'failed'
-  const copy = blockedCopy(review.status)
+  const copy = blockedCopy(review.status, review.failurePhase)
   return (
     <section
       aria-label="Classification review"
@@ -258,7 +274,7 @@ export function StandaloneReview({
               </p>
               <Button
                 variant="primary"
-                disabled={review.busy}
+                disabled={review.busy || acceptedCount === 0}
                 onClick={() => {
                   setConfirmation(null)
                   void review.execute()

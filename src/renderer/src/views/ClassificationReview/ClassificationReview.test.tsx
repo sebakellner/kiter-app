@@ -795,7 +795,7 @@ test('a blocked target explains the Pack dependency and writes nothing', async (
 test.each([
   ['STALE_REVIEW', 'This classification review is out of date.'],
   ['NOT_FOUND', 'This classification review is no longer available.'],
-  ['STORAGE_FAILED', 'This classification review could not be completed.'],
+  ['STORAGE_FAILED', 'This classification review could not be saved.'],
 ] as const)(
   'an execute failure (%s) drops the review and offers Prepare again',
   async (code, title) => {
@@ -996,4 +996,48 @@ test('an open Execute confirmation never survives preparing a new review', async
   // The confirmation belonged to the consumed review: the new one needs its own.
   expect(screen.queryByRole('button', { name: 'Save to catalog' })).toBeNull()
   expect(api.standaloneReview.execute).not.toHaveBeenCalled()
+})
+
+test('changing the decisions closes an open Execute confirmation', async () => {
+  const api = createTestApi()
+  api.standaloneReview.prepare.mockResolvedValue({
+    ok: true,
+    data: preparation({ accepted: 1 }),
+  })
+  api.standaloneReview.listProposals.mockResolvedValue({
+    ok: true,
+    data: proposalPage([row({ decision: 'accept' })]),
+  })
+  // Un-accepting the last proposal leaves nothing to execute.
+  api.standaloneReview.stage.mockResolvedValue({
+    ok: true,
+    data: summary({ ...reference(2), accepted: 0 }),
+  })
+  mount(api, { subjects: SUBJECTS })
+  const user = userEvent.setup()
+
+  await user.click(await screen.findByRole('button', { name: 'Execute' }))
+  expect(screen.getByRole('button', { name: 'Save to catalog' })).toBeVisible()
+
+  await user.click(screen.getByRole('button', { name: 'Undo Kick' }))
+
+  // The confirmation described the accepted set it was opened for; it must not
+  // survive a decision change, or it would execute a scope nobody confirmed.
+  expect(screen.queryByRole('button', { name: 'Save to catalog' })).toBeNull()
+  expect(api.standaloneReview.execute).not.toHaveBeenCalled()
+})
+
+test('a preparation failure still reports a preparation failure', async () => {
+  const api = createTestApi()
+  api.standaloneReview.prepare.mockResolvedValue({
+    ok: false,
+    error: { code: 'STORAGE_FAILED', message: 'Unable to read the catalog.' },
+  })
+  mount(api, { subjects: SUBJECTS })
+
+  const alert = await screen.findByRole('alert')
+  expect(alert).toHaveTextContent(
+    'This classification review could not be prepared.',
+  )
+  expect(alert).not.toHaveTextContent('could not be saved')
 })
