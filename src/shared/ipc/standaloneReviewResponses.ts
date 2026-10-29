@@ -5,6 +5,7 @@ import {
   classificationReviewSummarySchema,
 } from '../features/classification/batch-schemas.ts'
 import { standaloneReviewSubjectSchema } from './standaloneReview.ts'
+import { standaloneExecutionResultSchema } from '../features/classification/execution-schemas.ts'
 
 // Responses stay strict: a renderer may only trust fields main actually promised,
 // and a contract extension must declare them here instead of slipping through.
@@ -26,6 +27,9 @@ export const standaloneReviewDiscardResultSchema = z.strictObject({
   reviewId: z.string().min(1).max(256),
 })
 
+export const standaloneReviewExecutionResultSchema =
+  standaloneExecutionResultSchema
+
 // Preload cannot compile generated code, so guards always interpret.
 const OPTIONS = { jitless: true } as const
 
@@ -46,4 +50,7 @@ export const isStandaloneReviewAmbiguityPage = guard(
 )
 export const isStandaloneReviewDiscardResult = guard(
   standaloneReviewDiscardResultSchema,
+)
+export const isStandaloneReviewExecutionResult = guard(
+  standaloneReviewExecutionResultSchema,
 )

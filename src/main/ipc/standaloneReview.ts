@@ -4,6 +4,7 @@ import {
   requireStandaloneReviewAcceptAllRequest,
   requireStandaloneReviewDecisionsRequest,
   requireStandaloneReviewDiscardRequest,
+  requireStandaloneReviewExecutionRequest,
   requireStandaloneReviewPageRequest,
   requireStandaloneReviewPrepareRequest,
 } from '../../shared/ipc/standaloneReview'
@@ -38,11 +39,18 @@ const DISCARD_FAILURE: AppFailure = {
   message: 'Unable to discard the classification review. Prepare it again.',
 }
 
-/** Standalone catalog review: preparation and staging only.
+const EXECUTE_FAILURE: AppFailure = {
+  code: 'STORAGE_FAILED',
+  message:
+    'Unable to save the reviewed classifications. Read the current catalog data before trying again.',
+}
+
+/** Standalone catalog review: preparation, staging and confirmed execution.
  *
- * Nothing here writes the catalog or grants execution; durable confirmation and
- * per-target transactions belong to the execution slice. The session is created
- * once per registered app so a review survives navigation within this session.
+ * Execution is the only write path here. It commits one target per transaction
+ * inside the worker and answers per-target outcomes, so a partial batch is never
+ * reported as full success. The session is created once per registered app so a
+ * review survives navigation within this session.
  */
 export function registerStandaloneReviewIpc(database: DbClient): void {
   const session: StandaloneReviewSession = createStandaloneReviewSession({
@@ -50,6 +58,8 @@ export function registerStandaloneReviewIpc(database: DbClient): void {
       database.readStandaloneClassificationContext(input),
     readClassificationRejections: async (input) =>
       database.readClassificationRejections(input),
+    executeStandaloneClassificationTarget: async (input) =>
+      database.executeStandaloneClassificationTarget(input),
   })
 
   ipcMain.handle(
@@ -121,6 +131,20 @@ export function registerStandaloneReviewIpc(database: DbClient): void {
         () => {
           requireMainFrameWindow(event)
           return session.discard(requireStandaloneReviewDiscardRequest(request))
+        },
+      ),
+  )
+  ipcMain.handle(
+    STANDALONE_REVIEW_CHANNELS.execute,
+    (event, request: unknown) =>
+      invokeResult(
+        'classification.executeStandaloneReview',
+        EXECUTE_FAILURE,
+        () => {
+          requireMainFrameWindow(event)
+          return session.execute(
+            requireStandaloneReviewExecutionRequest(request),
+          )
         },
       ),
   )

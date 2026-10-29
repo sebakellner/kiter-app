@@ -14,6 +14,8 @@ export {
 } from './standalone-batch.ts'
 export { createStandaloneReviewSession } from './standalone-session.ts'
 export type { StandaloneReviewSession } from './standalone-session.ts'
+export { executeStandaloneDraft } from './execute-standalone.ts'
+export type { StandaloneExecutionDatabase } from './execute-standalone.ts'
 export type {
   StandaloneReview,
   StandaloneReviewDatabase,

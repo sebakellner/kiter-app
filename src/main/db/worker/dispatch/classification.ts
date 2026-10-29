@@ -13,6 +13,7 @@ import {
   readClassificationRejections,
 } from '../../operations/classification/rejections.ts'
 import { readStandaloneClassificationContext } from '../../operations/classification/standalone-context.ts'
+import { executeStandaloneClassificationTarget } from '../../operations/classification/execute.ts'
 
 export function executeClassification(
   db: AppDatabase,
@@ -141,6 +142,11 @@ export function executeClassification(
       return {
         action: request.action,
         result: readStandaloneClassificationContext(db, request.input),
+      }
+    case 'execute-standalone-classification-target':
+      return {
+        action: request.action,
+        result: executeStandaloneClassificationTarget(db, request.input),
       }
   }
 }

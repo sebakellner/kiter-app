@@ -1,6 +1,10 @@
-import { createHash } from 'node:crypto'
 import path from 'node:path'
 import type { DbClient } from '../../db'
+import {
+  classificationDigest as digest,
+  serializeClassificationState as serialize,
+  targetStateToken,
+} from '../../db/operations/classification/target-state.ts'
 import { ClassificationBatchReview } from './batch-review.ts'
 import { createClassificationRecognizer } from './recognition.ts'
 import type {
@@ -22,7 +26,6 @@ import {
   classificationRejectionMemorySnapshotSchema,
   type ClassificationRejectionMemorySnapshot,
 } from '../../../shared/features/classification/rejection-schemas.ts'
-import { isRecord } from '../../../shared/domain/validation.ts'
 import { IpcError } from '../../../shared/ipc/result.ts'
 
 type ContextTarget = StandaloneClassificationContext['targets'][number]
@@ -39,7 +42,9 @@ export type StandaloneReviewSubject = { kind: 'sample' | 'pack'; id: string }
 /** Narrow catalog reads this service needs; the review core performs no I/O. */
 export type StandaloneReviewDatabase = Pick<
   DbClient,
-  'readStandaloneClassificationContext' | 'readClassificationRejections'
+  | 'readStandaloneClassificationContext'
+  | 'readClassificationRejections'
+  | 'executeStandaloneClassificationTarget'
 >
 
 export interface StandaloneReview {
@@ -56,20 +61,6 @@ function compare(a: string, b: string): number {
 }
 
 // Object field order is not significant; arrays keep their owner-defined order.
-function serialize(value: unknown): string {
-  return JSON.stringify(value, (_key, item: unknown) =>
-    isRecord(item)
-      ? Object.fromEntries(
-          Object.entries(item).sort(([a], [b]) => compare(a, b)),
-        )
-      : item,
-  )
-}
-
-function digest(value: unknown): string {
-  return createHash('sha256').update(serialize(value)).digest('hex')
-}
-
 function stale(): never {
   throw new IpcError(
     'STALE_REVIEW',
@@ -375,14 +366,8 @@ function snapshotTarget(
   return {
     subject: catalogSubject(subject),
     // Read-state digest: any changed identity, evidence or assignment source.
-    stateToken: digest([
-      item.target,
-      item.currentType,
-      item.assignments,
-      item.sources,
-      item.originPackId,
-      item.originGenreKeys,
-    ]),
+    // The worker recomputes this same function before writing a reviewed decision.
+    stateToken: targetStateToken(item),
     currentType: item.currentType,
     assignments: item.assignments.map((assignment) => ({
       dimension: assignment.dimension,

@@ -11,6 +11,7 @@ import type {
   ClassificationReviewRow,
   ClassificationReviewSummary,
 } from '../features/classification/batch-schemas.ts'
+import type { StandaloneExecutionResult } from '../features/classification/execution-schemas.ts'
 import type { IpcResult } from './result.ts'
 
 export const STANDALONE_REVIEW_CHANNELS = {
@@ -20,6 +21,7 @@ export const STANDALONE_REVIEW_CHANNELS = {
   stage: 'classification:stage-standalone-review',
   acceptAll: 'classification:accept-all-standalone-review',
   discard: 'classification:discard-standalone-review',
+  execute: 'classification:execute-standalone-review',
 } as const
 
 // Selected existing catalog identity, never an import-local preparation handle.
@@ -51,6 +53,11 @@ export const standaloneReviewDecisionsRequestSchema =
 export const standaloneReviewAcceptAllRequestSchema =
   classificationAcceptAllSchema
 
+// Execution carries only the review reference. Main materializes the decisions
+// from the retained review, so a renderer can never submit a decision it built.
+export const standaloneReviewExecutionRequestSchema =
+  classificationAcceptAllSchema
+
 export type StandaloneReviewSubject = z.infer<
   typeof standaloneReviewSubjectSchema
 >
@@ -76,6 +83,9 @@ export type StandaloneReviewDecisionsRequest = z.infer<
 >
 export type StandaloneReviewAcceptAllRequest = z.infer<
   typeof standaloneReviewAcceptAllRequestSchema
+>
+export type StandaloneReviewExecutionRequest = z.infer<
+  typeof standaloneReviewExecutionRequestSchema
 >
 
 // Preload cannot compile generated validators, so every guard interprets.
@@ -119,6 +129,12 @@ export function requireStandaloneReviewDiscardRequest(
   return require(standaloneReviewDiscardSchema, value, 'Invalid standalone classification review discard request.')
 }
 
+export function requireStandaloneReviewExecutionRequest(
+  value: unknown,
+): StandaloneReviewExecutionRequest {
+  return require(standaloneReviewExecutionRequestSchema, value, 'Invalid standalone classification review execution request.')
+}
+
 export interface StandaloneReviewApi {
   prepare: (
     request: StandaloneReviewPrepareRequest,
@@ -138,4 +154,7 @@ export interface StandaloneReviewApi {
   discard: (
     request: StandaloneReviewDiscardRequest,
   ) => Promise<IpcResult<{ reviewId: string }>>
+  execute: (
+    request: StandaloneReviewExecutionRequest,
+  ) => Promise<IpcResult<StandaloneExecutionResult>>
 }

@@ -155,6 +155,10 @@ import type {
   StandaloneClassificationContextRequest,
   StandaloneClassificationContext,
 } from '../../shared/features/classification/standalone-context-schemas'
+import type {
+  StandaloneExecutionTargetRequest,
+  StandaloneExecutionTargetResult,
+} from '../../shared/features/classification/execution-schemas'
 
 import type {
   PackOrganizationCatalogRequest,
@@ -235,6 +239,19 @@ export class DbClient {
       input,
     })
     if (reply.action !== 'read-standalone-classification-context') {
+      throw new Error(UNEXPECTED_REPLY_MESSAGE)
+    }
+    return reply.result
+  }
+
+  async executeStandaloneClassificationTarget(
+    input: StandaloneExecutionTargetRequest,
+  ): Promise<StandaloneExecutionTargetResult> {
+    const reply = await this.classificationRequest({
+      action: 'execute-standalone-classification-target',
+      input,
+    })
+    if (reply.action !== 'execute-standalone-classification-target') {
       throw new Error(UNEXPECTED_REPLY_MESSAGE)
     }
     return reply.result
