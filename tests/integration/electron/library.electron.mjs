@@ -195,8 +195,18 @@ async function run() {
         if (String(args[0]).startsWith("sample:")) state.waveformFetches.push(String(args[0]));
         return originalFetch.apply(window, args);
       };
+      // Counts DOM changes so the harness can wait for the reload a click caused
+      // instead of trusting a busy flag that is false before the work starts.
+      state.catalogMutations = 0;
+      state.catalogLastMutationAt = performance.now();
+      state.catalogObserver = new MutationObserver(() => {
+        state.catalogMutations += 1;
+        state.catalogLastMutationAt = performance.now();
+      });
+      state.catalogObserver.observe(document.body, { childList: true, subtree: true, attributes: true });
       state.unsubscribeDragErrors = window.api.library.onDragError(error => state.dragErrors.push(error));
       state.dispose = () => {
+        state.catalogObserver.disconnect();
         state.unsubscribeDragErrors();
         window.fetch = originalFetch;
         window.removeEventListener("error", onError);
@@ -224,37 +234,31 @@ async function run() {
     const rowCode = (relativePath) =>
       `document.querySelector(${JSON.stringify(`[data-sample-id="${sample(relativePath).id}"]`)})`
     // Waiting only for "not busy" is a race: those flags are already false before the
-    // app starts working, so a slow machine reads the previous state and every caller
-    // sees an empty or stale list. Wait for a positive signal tied to this open first.
-    const waitForOpenedDirectory = async (directory) => {
-      const expected = path.basename(directory)
-      await waitFor(
-        () =>
-          execute(`
-            (() => {
-              const marker = document.querySelector("[data-testid=library-directory]")
-              return marker !== null && marker.textContent.endsWith(${JSON.stringify(expected)})
-            })()
-          `),
-        `folder ${expected} opened`,
-      )
-    }
-    // Reopening the same directory changes no marker, so also observe the transition
-    // itself when it happens. A missed transition is not an error: it means the work
-    // finished before the first check.
-    const waitForOpenTransition = async () => {
-      try {
-        await waitFor(
-          () =>
-            execute(
-              'document.querySelector("main").getAttribute("aria-busy") === "true"',
-            ),
-          'folder open started',
-          2000,
+    // app starts working, and reopening the same folder changes no visible marker, so
+    // a slow machine read the previous state and every caller saw an empty list.
+    // Wait instead for the reload this click caused: the DOM must change, rows must be
+    // back, and the page must then stay quiet for a moment.
+    const QUIET_RELOAD_MS = 250
+    const catalogState = () =>
+      execute(`
+        (() => {
+          const state = globalThis.libraryTest
+          return {
+            mutations: state.catalogMutations,
+            quietFor: performance.now() - state.catalogLastMutationAt,
+            rows: document.querySelectorAll("[data-sample-id]").length,
+          }
+        })()
+      `)
+    const waitForReloadedFolder = async (mutationsBefore) => {
+      await waitFor(async () => {
+        const state = await catalogState()
+        return (
+          state.mutations > mutationsBefore &&
+          state.rows > 0 &&
+          state.quietFor > QUIET_RELOAD_MS
         )
-      } catch {
-        // The open already finished; the busy checks below still apply.
-      }
+      }, 'folder reload')
     }
     const waitForFolder = async () => {
       await waitFor(
@@ -293,12 +297,14 @@ async function run() {
         // positive condition and rely on the busy checks.
         const expectsOpen =
           typeof directory === 'string' && existsSync(directory)
+        const mutationsBefore = expectsOpen
+          ? (await catalogState()).mutations
+          : 0
         await execute(
           'document.querySelector("[data-testid=open-folder]").click()',
         )
         if (expectsOpen) {
-          await waitForOpenedDirectory(directory)
-          await waitForOpenTransition()
+          await waitForReloadedFolder(mutationsBefore)
         }
         await waitForFolder()
       },
