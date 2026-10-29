@@ -26,6 +26,7 @@ import {
   classificationRejectionMemorySnapshotSchema,
   type ClassificationRejectionMemorySnapshot,
 } from '../../../shared/features/classification/rejection-schemas.ts'
+import { standaloneReviewPrepareSchema } from '../../../shared/ipc/standaloneReview.ts'
 import { IpcError } from '../../../shared/ipc/result.ts'
 
 type ContextTarget = StandaloneClassificationContext['targets'][number]
@@ -102,6 +103,26 @@ function parseSubjects(value: unknown): StandaloneReviewSubject[] {
     invalid()
   }
   return parsed.data.targets
+}
+
+interface StandalonePreparationRequest {
+  subjects: StandaloneReviewSubject[]
+  includeRejected: boolean
+}
+
+/** The owner already guarded this request; revalidate it here because the review
+ * mode decides what the review core offers, and no adapter may trust a caller
+ * with input it never checked.
+ */
+function parsePreparationRequest(value: unknown): StandalonePreparationRequest {
+  const request = standaloneReviewPrepareSchema.safeParse(value)
+  if (!request.success) {
+    invalid()
+  }
+  return {
+    subjects: parseSubjects(request.data.subjects),
+    includeRejected: request.data.includeRejected,
+  }
 }
 
 async function readPage(
@@ -423,14 +444,23 @@ export async function prepareStandaloneReview(
   database: StandaloneReviewDatabase,
   value: unknown,
 ): Promise<StandaloneReview> {
-  const subjects = parseSubjects(value)
-  const context = await readContext(database, subjects)
-  const rejections = await readRejections(database, subjects)
-  const snapshot = buildSnapshot(context, subjects)
+  const request = parsePreparationRequest(value)
+  const context = await readContext(database, request.subjects)
+  const rejections = await readRejections(database, request.subjects)
+  const snapshot = buildSnapshot(context, request.subjects)
   return {
+    // The token binds the catalog state this snapshot was built from: the
+    // context token, the built snapshot and the rejection-memory revision. The
+    // review mode is not catalog state, so choosing another mode needs a new
+    // preparation but never makes this one stale by itself; the review core
+    // owns the mode in its own reference instead.
     token: digest([context.token, snapshot, rejections.token]),
     snapshot,
-    review: new ClassificationBatchReview(snapshot, rejections.rejections),
+    review: new ClassificationBatchReview(
+      snapshot,
+      rejections.rejections,
+      request.includeRejected,
+    ),
   }
 }
 

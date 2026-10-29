@@ -70,6 +70,10 @@ const INITIAL_STATE: ReviewState = {
 
 export type StandaloneReviewController = ReviewState & {
   busy: boolean
+  // The review mode the surface last chose. Main fixes it when the review is
+  // built, so changing it always means preparing again.
+  includeRejected: boolean
+  setIncludeRejected: (includeRejected: boolean) => void
   prepare: () => void
   loadProposals: (offset: number) => void
   loadAmbiguities: () => void
@@ -143,73 +147,99 @@ export function useStandaloneReview(
   onDiscarded?: () => void,
 ): StandaloneReviewController {
   const [state, setState] = useState<ReviewState>(INITIAL_STATE)
+  // The mode belongs to the surface, not to one review: a retry after a stale,
+  // gone or failed review must re-apply the mode the operator last chose instead
+  // of silently falling back to the default.
+  const [includeRejected, setIncludeRejectedState] = useState(false)
+  const mode = useRef(false)
   // Each preparation attempt owns one generation; replies of an older attempt
   // must never overwrite the current review.
   const generation = useRef(0)
   const subjectKey = JSON.stringify(subjects)
 
-  const prepare = useCallback((targets: StandaloneReviewSubject[]): void => {
-    if (targets.length === 0) {
-      return
-    }
-    const run = generation.current + 1
-    generation.current = run
-    const isCurrent = (): boolean => generation.current === run
-    setState({ ...INITIAL_STATE, status: 'preparing' })
-    void (async () => {
-      try {
-        const prepared = unwrapIpcResult(
-          await window.api.standaloneReview.prepare({ subjects: targets }),
-        )
-        if (!isCurrent()) {
-          return
-        }
-        const page = unwrapIpcResult(
-          await window.api.standaloneReview.listProposals({
-            ...referenceOf(prepared),
-            offset: 0,
-            limit: STANDALONE_REVIEW_PAGE_SIZE,
-          }),
-        )
-        if (!isCurrent()) {
-          return
-        }
-        setState({
-          ...INITIAL_STATE,
-          status: 'ready',
-          review: referenceOf(page),
-          summary: prepared,
-          subjectScope: prepared.subjectScope,
-          proposals: toPage(page, 0),
-        })
-      } catch (reason) {
-        if (!isCurrent()) {
-          return
-        }
-        setState((previous) => {
-          const failure = toFailure(
-            reason,
-            'Unable to prepare this classification review.',
-          )
-          return {
-            ...previous,
-            status: blockedStatus(failure.code) ?? 'failed',
-            failure,
-            saving: false,
-            loadingProposals: false,
-            loadingAmbiguities: false,
-          }
-        })
+  const prepare = useCallback(
+    (targets: StandaloneReviewSubject[], includeRejected: boolean): void => {
+      if (targets.length === 0) {
+        return
       }
-    })()
-  }, [])
+      const run = generation.current + 1
+      generation.current = run
+      const isCurrent = (): boolean => generation.current === run
+      setState({ ...INITIAL_STATE, status: 'preparing' })
+      void (async () => {
+        try {
+          const prepared = unwrapIpcResult(
+            await window.api.standaloneReview.prepare({
+              subjects: targets,
+              includeRejected,
+            }),
+          )
+          if (!isCurrent()) {
+            return
+          }
+          const page = unwrapIpcResult(
+            await window.api.standaloneReview.listProposals({
+              ...referenceOf(prepared),
+              offset: 0,
+              limit: STANDALONE_REVIEW_PAGE_SIZE,
+            }),
+          )
+          if (!isCurrent()) {
+            return
+          }
+          setState({
+            ...INITIAL_STATE,
+            status: 'ready',
+            review: referenceOf(page),
+            summary: prepared,
+            subjectScope: prepared.subjectScope,
+            proposals: toPage(page, 0),
+          })
+        } catch (reason) {
+          if (!isCurrent()) {
+            return
+          }
+          setState((previous) => {
+            const failure = toFailure(
+              reason,
+              'Unable to prepare this classification review.',
+            )
+            return {
+              ...previous,
+              status: blockedStatus(failure.code) ?? 'failed',
+              failure,
+              saving: false,
+              loadingProposals: false,
+              loadingAmbiguities: false,
+            }
+          })
+        }
+      })()
+    },
+    [],
+  )
 
   const prepareAgain = useCallback(() => {
-    prepare(subjects)
+    prepare(subjects, mode.current)
   }, [prepare, subjects])
 
+  // Changing the mode needs a new review because the core fixes it at
+  // preparation time. The surface asks before discarding staged choices; this
+  // setter is the confirmed step.
+  const setIncludeRejected = useCallback(
+    (next: boolean): void => {
+      if (mode.current === next) {
+        return
+      }
+      mode.current = next
+      setIncludeRejectedState(next)
+      prepare(subjects, next)
+    },
+    [prepare, subjects],
+  )
+
   useEffect(() => {
-    prepare(JSON.parse(subjectKey) as StandaloneReviewSubject[])
+    prepare(JSON.parse(subjectKey) as StandaloneReviewSubject[], mode.current)
     return () => {
       generation.current += 1
     }
@@ -217,6 +247,8 @@ export function useStandaloneReview(
 
   return {
     ...state,
+    includeRejected,
+    setIncludeRejected,
     busy:
       state.status === 'preparing' ||
       state.saving ||

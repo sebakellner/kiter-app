@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Button } from '@renderer/components/ui/Button'
+import { Checkbox } from '@renderer/components/ui/Checkbox'
 import {
   Table,
   TableBody,
@@ -112,9 +113,11 @@ export function StandaloneReview({
   // derived from the review identity instead of being reset by an effect: a new
   // review simply does not match the one the user confirmed.
   const [confirmation, setConfirmation] = useState<{
-    kind: 'acceptAll' | 'execute'
+    kind: 'acceptAll' | 'execute' | 'includeRejected'
     reviewId: string
     revision: number
+    // The mode the operator asked for; only the review-mode question carries one.
+    includeRejected?: boolean
   } | null>(null)
   const reviewIdentity = review.review?.reviewId ?? null
   const confirmingAcceptAll =
@@ -130,6 +133,18 @@ export function StandaloneReview({
     confirmation?.kind === 'execute' &&
     confirmation.reviewId === reviewIdentity &&
     confirmation.revision === reviewRevision
+  // A review fixes its mode when main builds it, so switching modes prepares a
+  // new review. That drops every staged choice, so it is only asked, never
+  // assumed: the pending value lives in the confirmation until the operator
+  // confirms it.
+  const stagedCount =
+    (review.summary?.accepted ?? 0) + (review.summary?.rejected ?? 0)
+  const pendingIncludeRejected =
+    confirmation?.kind === 'includeRejected' &&
+    confirmation.reviewId === reviewIdentity &&
+    confirmation.revision === reviewRevision
+      ? (confirmation.includeRejected ?? false)
+      : null
   const openConfirmation = (kind: 'acceptAll' | 'execute'): void => {
     if (!reviewIdentity) {
       return
@@ -142,6 +157,21 @@ export function StandaloneReview({
       reviewId: reviewIdentity,
       revision: reviewRevision,
     })
+  }
+  const requestIncludeRejected = (includeRejected: boolean): void => {
+    if (!reviewIdentity || reviewRevision === null) {
+      return
+    }
+    if (stagedCount > 0) {
+      setConfirmation({
+        kind: 'includeRejected',
+        reviewId: reviewIdentity,
+        revision: reviewRevision,
+        includeRejected,
+      })
+      return
+    }
+    review.setIncludeRejected(includeRejected)
   }
   const { summary, proposals, subjectScope } = review
   const outsidePage = proposals ? proposals.total - proposals.items.length : 0
@@ -224,6 +254,56 @@ export function StandaloneReview({
               Discard review
             </Button>
           </div>
+          <label className="standalone-review-mode">
+            <Checkbox
+              checked={review.includeRejected}
+              disabled={review.busy}
+              onChange={(event) =>
+                requestIncludeRejected(event.currentTarget.checked)
+              }
+            />
+            Include proposals I rejected
+          </label>
+          {pendingIncludeRejected !== null && (
+            <section
+              aria-label="Review mode scope"
+              className="standalone-review-scope"
+            >
+              <h2>
+                {pendingIncludeRejected
+                  ? 'Include remembered rejections'
+                  : 'Hide remembered rejections'}
+              </h2>
+              <p>
+                This review was prepared
+                {review.includeRejected
+                  ? ' with remembered rejections included'
+                  : ' with remembered rejections hidden'}
+                , and its mode cannot change in place. Preparing it again with
+                the other mode discards the {stagedCount} staged{' '}
+                {stagedCount === 1 ? 'choice' : 'choices'} in this review.
+                Nothing is written to the catalog, and the stored rejection
+                memory is not cleared.
+              </p>
+              <Button
+                variant="primary"
+                disabled={review.busy}
+                onClick={() => {
+                  setConfirmation(null)
+                  review.setIncludeRejected(pendingIncludeRejected)
+                }}
+              >
+                Discard staged choices and prepare again
+              </Button>
+              <Button
+                variant="ghost"
+                disabled={review.busy}
+                onClick={() => setConfirmation(null)}
+              >
+                Cancel
+              </Button>
+            </section>
+          )}
           {confirmingAcceptAll && (
             <section
               aria-label="Accept all scope"

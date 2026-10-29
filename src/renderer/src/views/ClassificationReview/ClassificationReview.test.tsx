@@ -225,6 +225,7 @@ test('preparing renders the summary counts and the first page of proposals', asy
   expect(await screen.findByText('Targets: 2')).toBeVisible()
   expect(api.standaloneReview.prepare).toHaveBeenCalledExactlyOnceWith({
     subjects: SUBJECTS,
+    includeRejected: false,
   })
   expect(api.standaloneReview.listProposals).toHaveBeenCalledExactlyOnceWith({
     ...reference(),
@@ -414,9 +415,181 @@ test('a stale review explains the failure and recovers when prepared again', asy
   expect(api.standaloneReview.prepare).toHaveBeenCalledTimes(2)
   expect(api.standaloneReview.prepare).toHaveBeenLastCalledWith({
     subjects: SUBJECTS,
+    // The retry re-applies the mode the surface last chose.
+    includeRejected: false,
   })
   expect(await screen.findByText('Targets: 2')).toBeVisible()
   expect(await screen.findByText('Rejected')).toBeVisible()
+})
+
+test('the rejected-proposals checkbox re-prepares with remembered proposals and makes them actionable', async () => {
+  const api = createTestApi()
+  api.standaloneReview.prepare
+    .mockResolvedValueOnce({ ok: true, data: preparation() })
+    .mockResolvedValueOnce({
+      ok: true,
+      data: preparation({ reviewId: 'review-2', remembered: 1, reviewable: 3 }),
+    })
+  api.standaloneReview.listProposals
+    .mockResolvedValueOnce({
+      ok: true,
+      data: proposalPage([row({ remembered: true, reviewable: false })]),
+    })
+    .mockResolvedValue({
+      ok: true,
+      data: proposalPage([row({ remembered: true, reviewable: true })], {
+        reviewId: 'review-2',
+      }),
+    })
+  mount(api, { subjects: SUBJECTS })
+  const user = userEvent.setup()
+
+  const mode = await screen.findByRole('checkbox', {
+    name: 'Include proposals I rejected',
+  })
+  expect(mode).not.toBeChecked()
+  const hidden = screen.getByRole('row', { name: /Kick/ })
+  expect(within(hidden).getByText('Remembered rejection')).toBeVisible()
+  expect(
+    within(hidden).getByRole('button', { name: 'Accept Kick' }),
+  ).toBeDisabled()
+
+  await user.click(mode)
+
+  // The mode is fixed at preparation time, so changing it prepares again.
+  expect(api.standaloneReview.prepare).toHaveBeenLastCalledWith({
+    subjects: SUBJECTS,
+    includeRejected: true,
+  })
+  expect(
+    await screen.findByRole('checkbox', {
+      name: 'Include proposals I rejected',
+    }),
+  ).toBeChecked()
+  const included = await screen.findByRole('row', { name: /Kick/ })
+  expect(within(included).getByText('Remembered rejection')).toBeVisible()
+  expect(
+    within(included).getByRole('button', { name: 'Accept Kick' }),
+  ).toBeEnabled()
+})
+
+test('changing the rejected-proposals mode asks before discarding staged choices', async () => {
+  const api = createTestApi()
+  api.standaloneReview.prepare
+    .mockResolvedValueOnce({ ok: true, data: preparation({ accepted: 1 }) })
+    .mockResolvedValueOnce({
+      ok: true,
+      data: preparation({ reviewId: 'review-2' }),
+    })
+  api.standaloneReview.listProposals
+    .mockResolvedValueOnce({
+      ok: true,
+      data: proposalPage([row({ decision: 'accept' })]),
+    })
+    .mockResolvedValue({
+      ok: true,
+      data: proposalPage([row()], { reviewId: 'review-2' }),
+    })
+  mount(api, { subjects: SUBJECTS })
+  const user = userEvent.setup()
+
+  await user.click(
+    await screen.findByRole('checkbox', {
+      name: 'Include proposals I rejected',
+    }),
+  )
+
+  const scope = screen.getByRole('region', { name: 'Review mode scope' })
+  expect(scope).toHaveTextContent('discards the 1 staged choice')
+  expect(api.standaloneReview.prepare).toHaveBeenCalledTimes(1)
+  expect(
+    screen.getByRole('checkbox', { name: 'Include proposals I rejected' }),
+  ).not.toBeChecked()
+
+  await user.click(within(scope).getByRole('button', { name: 'Cancel' }))
+  expect(screen.queryByRole('region', { name: 'Review mode scope' })).toBeNull()
+  expect(api.standaloneReview.prepare).toHaveBeenCalledTimes(1)
+
+  await user.click(
+    screen.getByRole('checkbox', { name: 'Include proposals I rejected' }),
+  )
+  await user.click(
+    within(screen.getByRole('region', { name: 'Review mode scope' })).getByRole(
+      'button',
+      {
+        name: 'Discard staged choices and prepare again',
+      },
+    ),
+  )
+
+  expect(api.standaloneReview.prepare).toHaveBeenLastCalledWith({
+    subjects: SUBJECTS,
+    includeRejected: true,
+  })
+  expect(
+    await screen.findByRole('checkbox', {
+      name: 'Include proposals I rejected',
+    }),
+  ).toBeChecked()
+})
+
+test('Prepare again re-applies the chosen rejected-proposals mode', async () => {
+  const api = createTestApi()
+  api.standaloneReview.prepare
+    .mockResolvedValueOnce({ ok: true, data: preparation() })
+    .mockResolvedValueOnce({
+      ok: true,
+      data: preparation({ reviewId: 'review-2', remembered: 1 }),
+    })
+    .mockResolvedValueOnce({
+      ok: true,
+      data: preparation({ reviewId: 'review-3', remembered: 1 }),
+    })
+  api.standaloneReview.listProposals
+    .mockResolvedValueOnce({ ok: true, data: proposalPage([row()]) })
+    .mockResolvedValueOnce({
+      ok: true,
+      data: proposalPage([row({ remembered: true })], {
+        reviewId: 'review-2',
+      }),
+    })
+    .mockResolvedValue({
+      ok: true,
+      data: proposalPage([row({ remembered: true })], {
+        reviewId: 'review-3',
+      }),
+    })
+  // A catalog change blocks the review, leaving Prepare again as the only route.
+  api.standaloneReview.stage.mockResolvedValue({
+    ok: false,
+    error: { code: 'STALE_REVIEW', message: 'Catalog changed.' },
+  })
+  mount(api, { subjects: SUBJECTS })
+  const user = userEvent.setup()
+
+  await user.click(
+    await screen.findByRole('checkbox', {
+      name: 'Include proposals I rejected',
+    }),
+  )
+  expect(api.standaloneReview.prepare).toHaveBeenLastCalledWith({
+    subjects: SUBJECTS,
+    includeRejected: true,
+  })
+
+  await user.click(await screen.findByRole('button', { name: 'Accept Kick' }))
+  const alert = await screen.findByRole('alert')
+  await user.click(within(alert).getByRole('button', { name: 'Prepare again' }))
+
+  expect(api.standaloneReview.prepare).toHaveBeenLastCalledWith({
+    subjects: SUBJECTS,
+    includeRejected: true,
+  })
+  expect(
+    await screen.findByRole('checkbox', {
+      name: 'Include proposals I rejected',
+    }),
+  ).toBeChecked()
 })
 
 test('a review that is gone offers to prepare it again', async () => {
@@ -723,6 +896,7 @@ test('a partially committed batch is never presented as success and reviews only
   await waitFor(() =>
     expect(api.standaloneReview.prepare).toHaveBeenLastCalledWith({
       subjects: [{ kind: 'sample', id: SAMPLE_B }],
+      includeRejected: false,
     }),
   )
   expect(router.state.location.pathname).toBe('/classification/review')

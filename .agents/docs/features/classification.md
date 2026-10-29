@@ -22,6 +22,10 @@ Delivered:
 - The bounded standalone catalog snapshot adapter.
 - The standalone review IPC contract with preload validation and app-session
   retention.
+- On-request inclusion of remembered rejections in a standalone preparation: the
+  mode reaches the review core, remembered proposals become reviewable without
+  changing stored memory, and accepting one clears that rejection through the
+  existing execution `forget` path.
 - Confirmed standalone execution: one transaction per target that creates required
   vocabulary, saves accepted assignments and Sample type, and applies rejection
   `remember`/`forget` together, with per-target outcomes.
@@ -31,9 +35,6 @@ Delivered:
 
 Pending:
 
-- Proposals whose evidence is entirely covered by remembered rejections cannot be
-  surfaced on request yet. The review core supports including them, but the
-  standalone preparation never asks for it and the surface has no way to show them.
 - Execution results carry no display name, so the surface identifies a target by a
   shortened catalog identity.
 - Draft-to-catalog identity transfer for imported drafts, which belongs to the
@@ -616,9 +617,15 @@ and execution remain future slices.
   execution stays with the execution slice.
 - The service reads rejection memory for the selected subjects and passes it to the
   review, so remembered rejections stay non-reviewable without hiding new evidence.
+  A preparation may request `includeRejected`, which makes exactly those remembered
+  proposals reviewable without changing what is stored; the flag defaults to false,
+  so omitting it keeps them hidden.
   Each target snapshot carries a read-state token over its scope, type, assignments,
   sources and origin evidence, and the returned preparation token binds the complete
   built state; refresh revalidates all of it before preserving an unchanged decision.
+  The review mode is not catalog state, so the preparation token does not bind it;
+  the review's own reference does, which is why changing modes needs a new
+  preparation.
 
 ### Implemented Standalone Review IPC Contract
 
@@ -631,9 +638,11 @@ prepared reviews. Seven channels exist:
 `classification:accept-all-standalone-review`, `classification:discard-standalone-review`,
 and `classification:execute-standalone-review`.
 
-- Preparation accepts 1–100 selected existing Sample/Pack identities and nothing
-  else: never import-local preparation handles, renderer paths, vocabulary or
-  decisions. It builds one fresh bounded snapshot through the adapter and answers
+- Preparation accepts 1–100 selected existing Sample/Pack identities and an optional
+  `includeRejected` flag, and nothing else: never import-local preparation handles,
+  renderer paths, vocabulary or decisions. The flag defaults to false, so previous
+  callers keep the hidden-memory behavior. It builds one fresh bounded snapshot
+  through the adapter and answers
   the complete review summary plus its `subjectScope`, so a renderer can show what
   Accept all covers without another read. No separate refresh channel exists; a
   stale review is replaced by preparing again.
@@ -675,6 +684,14 @@ the execution step below commits them from the same surface.
 - Accept all first shows the complete scope it covers — the prepared subject scope
   and the summary counts, including items outside the visible page — and only then
   stages every reviewable proposal.
+- `Include proposals I rejected` is off by default. The surface remembers the mode
+  and re-applies it when a stale, gone or failed review is prepared again, so the
+  toggle never silently resets. A review fixes its mode when main builds it, so
+  changing the setting prepares a new review; while any choice is staged the
+  surface first states, inline, that the new preparation discards those staged
+  choices. Proposals whose evidence is entirely covered by remembered rejections
+  stay labelled `Remembered rejection` and become actionable in that mode;
+  accepting one clears that rejection through the execution `forget` path.
 - Every request carries the complete reference from the last answered reply. A
   `STALE_REVIEW` or `NOT_FOUND` reply replaces the surface with an explanation and a
   `Prepare again` action, because there is no refresh channel. Discard releases the

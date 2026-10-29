@@ -4,7 +4,10 @@ import path from 'node:path'
 import { createMemoryDatabase } from '../../../../tests/support/database/connection.ts'
 import { makeDiscoveredAudioFile } from '../../../../tests/support/fixtures/source.ts'
 import { importFolder } from '../../db/operations/sources/import.ts'
-import { readClassificationRejections } from '../../db/operations/classification/rejections.ts'
+import {
+  applyClassificationRejections,
+  readClassificationRejections,
+} from '../../db/operations/classification/rejections.ts'
 import { readStandaloneClassificationContext } from '../../db/operations/classification/standalone-context.ts'
 import { executeStandaloneClassificationTarget } from '../../db/operations/classification/execute.ts'
 import { createStandaloneReviewSession } from './standalone-session.ts'
@@ -92,6 +95,81 @@ test('standalone session prepares a review and answers paged proposals without c
     native.serialize(),
     before,
     'discard must not write the catalog',
+  )
+})
+
+test('standalone session applies the requested review mode and leaves rejection memory unchanged', async (t) => {
+  const { db, catalog } = fixture(t)
+  const sample = catalogueSample(db)
+  const session = createStandaloneReviewSession(catalog)
+  const subjects = [{ kind: 'sample' as const, id: sample.id }]
+
+  const first = await session.prepare({ subjects })
+  const firstPage = session.listProposals({
+    reviewId: first.reviewId,
+    revision: first.revision,
+    token: first.token,
+    limit: 100,
+  })
+  const kick = firstPage.items.find(
+    (item) => item.target.key === 'instrument:kick',
+  )
+  assert.ok(kick)
+  applyClassificationRejections(db, {
+    remember: [
+      {
+        contractVersion: 1,
+        subject: kick.subject,
+        target: { dimension: kick.target.dimension, key: kick.target.key },
+        evidenceKeys: kick.evidenceKeys,
+      },
+    ],
+    forget: [],
+  })
+  const memorySubject = {
+    kind: 'sample' as const,
+    identity: { kind: 'catalog' as const, id: sample.id },
+  }
+  const stored = readClassificationRejections(db, {
+    subjects: [memorySubject],
+  })
+
+  const hidden = await session.prepare({ subjects })
+  const hiddenPage = session.listProposals({
+    reviewId: hidden.reviewId,
+    revision: hidden.revision,
+    token: hidden.token,
+    limit: 100,
+  })
+  assert.equal(hidden.remembered, 1)
+  assert.equal(
+    hiddenPage.items.find((item) => item.proposalKey === kick.proposalKey)
+      ?.reviewable,
+    false,
+  )
+
+  const included = await session.prepare({ subjects, includeRejected: true })
+  const includedPage = session.listProposals({
+    reviewId: included.reviewId,
+    revision: included.revision,
+    token: included.token,
+    limit: 100,
+  })
+  assert.equal(included.remembered, 1)
+  assert.equal(included.reviewable, hidden.reviewable + 1)
+  const remembered = includedPage.items.find(
+    (item) => item.proposalKey === kick.proposalKey,
+  )
+  assert.equal(remembered?.remembered, true)
+  assert.equal(remembered?.reviewable, true)
+  // The review mode is a request option, not a catalog or memory change.
+  assert.deepEqual(
+    readClassificationRejections(db, { subjects: [memorySubject] }),
+    stored,
+  )
+
+  await assert.rejects(() =>
+    session.prepare({ subjects, includeRejected: 'yes' } as never),
   )
 })
 
