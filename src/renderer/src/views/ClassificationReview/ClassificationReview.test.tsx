@@ -1004,10 +1004,16 @@ test('changing the decisions closes an open Execute confirmation', async () => {
     ok: true,
     data: preparation({ accepted: 1 }),
   })
-  api.standaloneReview.listProposals.mockResolvedValue({
-    ok: true,
-    data: proposalPage([row({ decision: 'accept' })]),
-  })
+  api.standaloneReview.listProposals
+    .mockResolvedValueOnce({
+      ok: true,
+      data: proposalPage([row({ decision: 'accept' })]),
+    })
+    // The reload after staging carries the review's current revision.
+    .mockResolvedValue({
+      ok: true,
+      data: proposalPage([row({ decision: 'unreviewed' })], { revision: 2 }),
+    })
   // Un-accepting the last proposal leaves nothing to execute.
   api.standaloneReview.stage.mockResolvedValue({
     ok: true,
@@ -1040,4 +1046,50 @@ test('a preparation failure still reports a preparation failure', async () => {
     'This classification review could not be prepared.',
   )
   expect(alert).not.toHaveTextContent('could not be saved')
+})
+
+test('a confirmation does not reappear when the accepted count returns to its old value', async () => {
+  const api = createTestApi()
+  api.standaloneReview.prepare.mockResolvedValue({
+    ok: true,
+    data: preparation({ accepted: 1 }),
+  })
+  api.standaloneReview.listProposals
+    .mockResolvedValueOnce({
+      ok: true,
+      data: proposalPage([row({ decision: 'accept' })]),
+    })
+    .mockResolvedValueOnce({
+      ok: true,
+      data: proposalPage([row({ decision: 'unreviewed' })], { revision: 2 }),
+    })
+    .mockResolvedValue({
+      ok: true,
+      data: proposalPage([row({ decision: 'accept' })], { revision: 3 }),
+    })
+  // Undo the accepted proposal, then accept the proposal again: the count returns
+  // to one but the revision moved, so it is a different reviewed decision set.
+  api.standaloneReview.stage
+    .mockResolvedValueOnce({
+      ok: true,
+      data: summary({ ...reference(2), accepted: 0 }),
+    })
+    .mockResolvedValueOnce({
+      ok: true,
+      data: summary({ ...reference(3), accepted: 1 }),
+    })
+  mount(api, { subjects: SUBJECTS })
+  const user = userEvent.setup()
+
+  await user.click(await screen.findByRole('button', { name: 'Execute' }))
+  expect(screen.getByRole('button', { name: 'Save to catalog' })).toBeVisible()
+
+  await user.click(screen.getByRole('button', { name: 'Undo Kick' }))
+  expect(screen.queryByRole('button', { name: 'Save to catalog' })).toBeNull()
+
+  await user.click(screen.getByRole('button', { name: 'Accept Kick' }))
+  expect(await screen.findByText('Accepted: 1')).toBeVisible()
+
+  expect(screen.queryByRole('button', { name: 'Save to catalog' })).toBeNull()
+  expect(api.standaloneReview.execute).not.toHaveBeenCalled()
 })

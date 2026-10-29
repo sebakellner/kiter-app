@@ -679,10 +679,10 @@ the execution step below commits them from the same surface.
   app session, so navigating away and back still shows the staged choices.
 - Opening the route without selected subjects renders an explanation and a link back
   instead of calling the API.
-- This slice calls only `prepare`, `listProposals`, `listAmbiguities`, `stage`,
-  `acceptAll` and `discard`. It never calls execution, so no assignment, type,
-  vocabulary or rejection record can change from staging alone; execution is the
-  separate confirmed step below.
+- Staging itself calls only `prepare`, `listProposals`, `listAmbiguities`, `stage`,
+  `acceptAll` and `discard`, so no assignment, type, vocabulary or rejection record
+  can change from staging. Execution is the separate confirmed step below and the
+  only path from this surface that writes the catalog.
 
 ### Implemented Review Surface Execution Step
 

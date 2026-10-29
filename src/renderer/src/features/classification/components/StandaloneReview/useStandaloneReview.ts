@@ -489,7 +489,9 @@ export function useStandaloneReview(
         return
       }
       // A refused execution means the review is gone: main consumes it on every
-      // attempt, so preparing it again is the only way forward.
+      // attempt, so preparing it again is the only way forward. The reference and
+      // summary are dropped; the loaded page and ambiguities stay inert behind the
+      // blocked screen and are replaced by the next preparation.
       setState((previous) => executionFailureState(previous, reason))
       return
     }

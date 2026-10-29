@@ -114,24 +114,34 @@ export function StandaloneReview({
   const [confirmation, setConfirmation] = useState<{
     kind: 'acceptAll' | 'execute'
     reviewId: string
-    accepted: number
+    revision: number
   } | null>(null)
   const reviewIdentity = review.review?.reviewId ?? null
   const confirmingAcceptAll =
     confirmation?.kind === 'acceptAll' &&
     confirmation.reviewId === reviewIdentity
   const acceptedCount = review.summary?.accepted ?? 0
-  // The confirmation names a specific accepted scope; changing the decisions
-  // invalidates it, so the user confirms the set they were shown.
+  // The confirmation names one reviewed decision set. Every staging advances the
+  // revision, so keying on it (not on the accepted count, which can return to a
+  // previous value with a different set) is what makes the confirmation describe
+  // exactly the scope the user was shown.
+  const reviewRevision = review.review?.revision ?? null
   const confirmingExecute =
     confirmation?.kind === 'execute' &&
     confirmation.reviewId === reviewIdentity &&
-    confirmation.accepted === acceptedCount
+    confirmation.revision === reviewRevision
   const openConfirmation = (kind: 'acceptAll' | 'execute'): void => {
     if (!reviewIdentity) {
       return
     }
-    setConfirmation({ kind, reviewId: reviewIdentity, accepted: acceptedCount })
+    if (reviewRevision === null) {
+      return
+    }
+    setConfirmation({
+      kind,
+      reviewId: reviewIdentity,
+      revision: reviewRevision,
+    })
   }
   const { summary, proposals, subjectScope } = review
   const outsidePage = proposals ? proposals.total - proposals.items.length : 0
