@@ -29,7 +29,15 @@ test('standalone review channels stay narrow and stable', () => {
 
 test('standalone review prepare accepts 1-100 catalog subjects only', () => {
   const one = { subjects: [{ kind: 'sample', id: SAMPLE_ID }] }
-  assert.deepEqual(requireStandaloneReviewPrepareRequest(one), one)
+  // The review mode defaults to hidden for a caller that never sends it.
+  assert.deepEqual(requireStandaloneReviewPrepareRequest(one), {
+    ...one,
+    includeRejected: false,
+  })
+  assert.deepEqual(
+    requireStandaloneReviewPrepareRequest({ ...one, includeRejected: true }),
+    { ...one, includeRejected: true },
+  )
 
   const subjects = Array.from({ length: 100 }, (_, index) => ({
     kind: index % 2 === 0 ? 'sample' : 'pack',
@@ -37,7 +45,12 @@ test('standalone review prepare accepts 1-100 catalog subjects only', () => {
   }))
   assert.deepEqual(requireStandaloneReviewPrepareRequest({ subjects }), {
     subjects,
+    includeRejected: false,
   })
+  assert.deepEqual(
+    requireStandaloneReviewPrepareRequest({ subjects, includeRejected: true }),
+    { subjects, includeRejected: true },
+  )
 })
 
 test('standalone review prepare rejects empty, oversized, import-local and malformed subjects', () => {
@@ -46,6 +59,13 @@ test('standalone review prepare rejects empty, oversized, import-local and malfo
     {},
     { subjects: [] },
     { subjects: [{ kind: 'sample', id: SAMPLE_ID }], extra: true },
+    { subjects: [{ kind: 'sample', id: SAMPLE_ID }], includeRejected: 'yes' },
+    { subjects: [{ kind: 'sample', id: SAMPLE_ID }], includeRejected: null },
+    {
+      subjects: [{ kind: 'sample', id: SAMPLE_ID }],
+      includeRejected: true,
+      mode: 'all',
+    },
     { subjects: [{ kind: 'sample', id: SAMPLE_ID, extra: true }] },
     { subjects: [{ kind: 'folder', id: SAMPLE_ID }] },
     { subjects: [{ kind: 'sample', id: '/library/kick.wav' }] },

@@ -31,8 +31,12 @@ export const standaloneReviewSubjectSchema = z.strictObject({
   id: z.string().refine(isEntityId),
 })
 
+// `includeRejected` asks the preparation for remembered rejections on request.
+// It defaults to false, so a caller that never sends the flag keeps the
+// remembered proposals hidden and non-reviewable.
 export const standaloneReviewPrepareSchema = z.strictObject({
   subjects: z.array(standaloneReviewSubjectSchema).min(1).max(100),
+  includeRejected: z.boolean().default(false),
 })
 
 const reviewId = z.string().min(1).max(256)
@@ -67,7 +71,12 @@ export type StandaloneReviewSubject = z.infer<
 export type StandaloneReviewPreparation = ClassificationReviewSummary & {
   subjectScope: StandaloneReviewSubject[]
 }
-export type StandaloneReviewPrepareRequest = z.infer<
+// Callers may omit the review mode, so the request type is the schema input and
+// main always answers from the parsed values.
+export type StandaloneReviewPrepareRequest = z.input<
+  typeof standaloneReviewPrepareSchema
+>
+export type StandaloneReviewPrepareValues = z.output<
   typeof standaloneReviewPrepareSchema
 >
 export type StandaloneReviewDiscardRequest = z.infer<
@@ -101,7 +110,7 @@ function require<T>(schema: z.ZodType<T>, value: unknown, message: string): T {
 
 export function requireStandaloneReviewPrepareRequest(
   value: unknown,
-): StandaloneReviewPrepareRequest {
+): StandaloneReviewPrepareValues {
   return require(standaloneReviewPrepareSchema, value, 'Invalid standalone classification review request.')
 }
 

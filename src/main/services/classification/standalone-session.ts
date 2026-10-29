@@ -82,9 +82,11 @@ export function createStandaloneReviewSession(
   return {
     async prepare(value) {
       const request = requireStandaloneReviewPrepareRequest(value)
+      // The whole validated request, so the preparation receives the review mode
+      // instead of this retention layer re-mapping the scope and dropping it.
       const prepared: StandaloneReview = await prepareStandaloneReview(
         database,
-        request.subjects.map((subject) => ({ ...subject })),
+        request,
       )
       const summary = prepared.review.getSummary()
       // Replacing an id can never happen: the core mints a fresh UUID per review.

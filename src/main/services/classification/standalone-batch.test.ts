@@ -59,9 +59,9 @@ test('standalone review proposes cataloged recognition evidence for an imported 
   const sample = importFolder(db, root, [file])[0]
   importFolder(db, path.join(root, 'Drums'), [file])
   const before = native.serialize()
-  const prepared = await prepareStandaloneReview(catalog, [
-    { kind: 'sample', id: sample.id },
-  ])
+  const prepared = await prepareStandaloneReview(catalog, {
+    subjects: [{ kind: 'sample', id: sample.id }],
+  })
   assert.match(prepared.token, /^[a-f0-9]{64}$/u)
   const summary = prepared.review.getSummary()
   assert.equal(summary.targets, 1)
@@ -136,10 +136,12 @@ test('standalone review binds Pack root evidence and origin Pack Genre evidence'
     target: { kind: 'pack', id: pack.id },
     assigned: true,
   })
-  const prepared = await prepareStandaloneReview(catalog, [
-    { kind: 'pack', id: pack.id },
-    { kind: 'sample', id: sample.id },
-  ])
+  const prepared = await prepareStandaloneReview(catalog, {
+    subjects: [
+      { kind: 'pack', id: pack.id },
+      { kind: 'sample', id: sample.id },
+    ],
+  })
   const snapshotPack = prepared.snapshot.targets.find(
     (target) => target.subject.kind === 'pack',
   )
@@ -170,13 +172,73 @@ test('standalone review binds Pack root evidence and origin Pack Genre evidence'
   assert.equal(sampleHouse?.reviewable, true)
 })
 
+test('preparing with includeRejected surfaces remembered proposals without changing stored memory', async (t) => {
+  const { db, catalog } = fixture(t)
+  const root = path.resolve('House')
+  const sample = importFolder(db, root, [makeDiscoveredAudioFile(root)])[0]
+  const subjects = [{ kind: 'sample' as const, id: sample.id }]
+  const first = await prepareStandaloneReview(catalog, { subjects })
+  const kick = rows(first.review).find(
+    (item) => item.target.key === 'instrument:kick',
+  )
+  assert.ok(kick)
+  applyClassificationRejections(db, {
+    remember: [
+      {
+        contractVersion: 1,
+        subject: kick.subject,
+        target: { dimension: kick.target.dimension, key: kick.target.key },
+        evidenceKeys: kick.evidenceKeys,
+      },
+    ],
+    forget: [],
+  })
+  const memorySubject = {
+    kind: 'sample' as const,
+    identity: { kind: 'catalog' as const, id: sample.id },
+  }
+  const stored = readClassificationRejections(db, {
+    subjects: [memorySubject],
+  })
+  assert.equal(stored.rejections.length, 1)
+
+  // Without the flag a remembered proposal stays hidden from review.
+  const hidden = await prepareStandaloneReview(catalog, { subjects })
+  const hiddenRow = rows(hidden.review).find(
+    (item) => item.proposalKey === kick.proposalKey,
+  )
+  assert.equal(hiddenRow?.remembered, true)
+  assert.equal(hiddenRow?.reviewable, false)
+  assert.equal(hidden.review.getSummary().remembered, 1)
+  assert.equal(hidden.review.getSummary().reviewable, 1)
+
+  // On request the same row becomes reviewable, still marked as remembered.
+  const included = await prepareStandaloneReview(catalog, {
+    subjects,
+    includeRejected: true,
+  })
+  const includedRow = rows(included.review).find(
+    (item) => item.proposalKey === kick.proposalKey,
+  )
+  assert.equal(includedRow?.remembered, true)
+  assert.equal(includedRow?.reviewable, true)
+  assert.equal(included.review.getSummary().remembered, 1)
+  assert.equal(included.review.getSummary().reviewable, 2)
+
+  // Including them is a read: the stored rejection record is unchanged.
+  assert.deepEqual(
+    readClassificationRejections(db, { subjects: [memorySubject] }),
+    stored,
+  )
+})
+
 test('remembered rejections make proposals non-reviewable without hiding new evidence', async (t) => {
   const { db, catalog } = fixture(t)
   const root = path.resolve('House')
   const sample = importFolder(db, root, [makeDiscoveredAudioFile(root)])[0]
-  const first = await prepareStandaloneReview(catalog, [
-    { kind: 'sample', id: sample.id },
-  ])
+  const first = await prepareStandaloneReview(catalog, {
+    subjects: [{ kind: 'sample', id: sample.id }],
+  })
   const kick = rows(first.review).find(
     (item) => item.target.key === 'instrument:kick',
   )
@@ -192,9 +254,9 @@ test('remembered rejections make proposals non-reviewable without hiding new evi
     ],
     forget: [],
   })
-  const second = await prepareStandaloneReview(catalog, [
-    { kind: 'sample', id: sample.id },
-  ])
+  const second = await prepareStandaloneReview(catalog, {
+    subjects: [{ kind: 'sample', id: sample.id }],
+  })
   const remembered = rows(second.review).find(
     (item) => item.proposalKey === kick.proposalKey,
   )
@@ -219,7 +281,7 @@ test('refresh retains unrelated staged decisions and invalidates changed catalog
     { kind: 'sample' as const, id: a.id },
     { kind: 'sample' as const, id: b.id },
   ]
-  const prepared = await prepareStandaloneReview(catalog, subjects)
+  const prepared = await prepareStandaloneReview(catalog, { subjects })
   const items = rows(prepared.review)
   const kick = items.find(
     (item) =>
@@ -270,30 +332,36 @@ test('standalone review validates subjects and detects incomplete or changing co
   const root = path.resolve('House')
   const sample = importFolder(db, root, [makeDiscoveredAudioFile(root)])[0]
   const subject = { kind: 'sample' as const, id: sample.id }
-  await assert.rejects(prepareStandaloneReview(catalog, []), {
-    code: 'INVALID_INPUT',
-  })
-  await assert.rejects(prepareStandaloneReview(catalog, [subject, subject]), {
+  await assert.rejects(prepareStandaloneReview(catalog, { subjects: [] }), {
     code: 'INVALID_INPUT',
   })
   await assert.rejects(
-    prepareStandaloneReview(catalog, [{ kind: 'sample', id: 'nope' }]),
+    prepareStandaloneReview(catalog, { subjects: [subject, subject] }),
+    {
+      code: 'INVALID_INPUT',
+    },
+  )
+  await assert.rejects(
+    prepareStandaloneReview(catalog, {
+      subjects: [{ kind: 'sample', id: 'nope' }],
+    }),
     { code: 'INVALID_INPUT' },
   )
   await assert.rejects(
-    prepareStandaloneReview(
-      catalog,
-      Array.from({ length: 101 }, (_, index) => ({
+    prepareStandaloneReview(catalog, {
+      subjects: Array.from({ length: 101 }, (_, index) => ({
         kind: 'sample' as const,
         id: `10000000-0000-4000-8000-${String(index).padStart(12, '0')}`,
       })),
-    ),
+    }),
     { code: 'INVALID_INPUT' },
   )
   await assert.rejects(
-    prepareStandaloneReview(catalog, [
-      { kind: 'sample', id: '10000000-0000-4000-8000-000000000001' },
-    ]),
+    prepareStandaloneReview(catalog, {
+      subjects: [
+        { kind: 'sample', id: '10000000-0000-4000-8000-000000000001' },
+      ],
+    }),
     { code: 'STALE_REVIEW' },
   )
   const truncated: StandaloneReviewDatabase = {
@@ -303,9 +371,12 @@ test('standalone review validates subjects and detects incomplete or changing co
       return { ...result, vocabulary: result.vocabulary.slice(1) }
     },
   }
-  await assert.rejects(prepareStandaloneReview(truncated, [subject]), {
-    code: 'PROTOCOL_ERROR',
-  })
+  await assert.rejects(
+    prepareStandaloneReview(truncated, { subjects: [subject] }),
+    {
+      code: 'PROTOCOL_ERROR',
+    },
+  )
   let calls = 0
   const changing: StandaloneReviewDatabase = {
     ...catalog,
@@ -321,7 +392,10 @@ test('standalone review validates subjects and detects incomplete or changing co
       return result
     },
   }
-  await assert.rejects(prepareStandaloneReview(changing, [subject]), {
-    code: 'STALE_REVIEW',
-  })
+  await assert.rejects(
+    prepareStandaloneReview(changing, { subjects: [subject] }),
+    {
+      code: 'STALE_REVIEW',
+    },
+  )
 })

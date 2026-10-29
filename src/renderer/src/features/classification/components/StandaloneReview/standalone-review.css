@@ -5,6 +5,13 @@
   margin-block: var(--space-2);
 }
 
+.standalone-review-mode {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-block: var(--space-2);
+}
+
 .standalone-review-summary,
 .standalone-review-scope ul,
 .standalone-review-totals {
