@@ -25,11 +25,14 @@ Delivered:
 - Confirmed standalone execution: one transaction per target that creates required
   vocabulary, saves accepted assignments and Sample type, and applies rejection
   `remember`/`forget` together, with per-target outcomes.
+- The renderer review surface: a route reached from a batch action on the checked
+  Samples, with preparation, paged proposals, staged choices, Accept all with its
+  complete scope, ambiguity views and discard. It writes nothing yet.
 
 Pending:
 
-- A renderer surface that consumes the standalone review and execution API. The
-  contract is reachable and tested but no screen drives it yet.
+- Execution from the review surface. The channel and the per-target results are
+  delivered and tested, but no screen consumes them yet.
 - Draft-to-catalog identity promotion for imported drafts, which belongs to the
   reviewed import workflow rather than standalone execution.
 - General supplied-vocabulary updates and their incorporation UI.
@@ -647,8 +650,77 @@ and `classification:execute-standalone-review`.
 - Staging alone still writes nothing: no assignments, types or vocabulary are
   written, and no rejection `remember`/`forget` intent is applied. Only the
   execution channel below commits catalog state.
-- No renderer surface consumes this API yet, so the contract is reachable and tested
-  but not user-visible.
+- No renderer surface consumed this API until the review surface slice below; that
+  surface now uses every channel, including confirmed execution.
+
+### Implemented Standalone Review Surface
+
+`src/renderer/src/views/ClassificationReview/` owns the route
+`classification/review` and `src/renderer/src/features/classification/components/StandaloneReview/`
+owns its hook and presentation. This slice stages decisions and writes nothing;
+the execution step below commits them from the same surface.
+
+- Entry is a batch action in the catalog list, `Review classifications (N)`, shown for
+  the checked Samples beside the existing collection action. It navigates with the
+  selected catalog identities as route state, so the surface never guesses a scope from
+  the current list or page. The action is disabled above the contract's 100-target
+  limit and says how many Samples to uncheck; the checked set itself allows more.
+- Opening the route prepares one review and renders the summary counts plus the first
+  proposal page. Rows show their dimension, whether they replace an existing Sample
+  type, their current decision, and Accept / Reject / Undo as one explicit staged
+  choice. Ambiguities load on demand and stay inspectable without creating proposals.
+- Accept all first shows the complete scope it covers — the prepared subject scope
+  and the summary counts, including items outside the visible page — and only then
+  stages every reviewable proposal.
+- Every request carries the complete reference from the last answered reply. A
+  `STALE_REVIEW` or `NOT_FOUND` reply replaces the surface with an explanation and a
+  `Prepare again` action, because there is no refresh channel. Discard releases the
+  review and returns to the Samples list. Leaving the route keeps the review in the
+  app session, so navigating away and back still shows the staged choices.
+- Opening the route without selected subjects renders an explanation and a link back
+  instead of calling the API.
+- Staging itself calls only `prepare`, `listProposals`, `listAmbiguities`, `stage`,
+  `acceptAll` and `discard`, so no assignment, type, vocabulary or rejection record
+  can change from staging. Execution is the separate confirmed step below and the
+  only path from this surface that writes the catalog.
+
+### Implemented Review Surface Execution Step
+
+The same surface commits the staged review, so catalog state changes only after an
+explicit inline confirmation.
+
+- `Execute` sits beside Accept all and Discard review and is enabled only while the
+  review is ready, the surface is idle, and at least one proposal is accepted
+  (`summary.accepted > 0`). A review with accepted decisions but nothing reviewable
+  left stays executable.
+- Pressing it opens an inline confirmation region rather than a dialog. It states the
+  accepted proposals, the required vocabulary creations, the Sample-type replacements
+  and the prepared subject scope, and says the confirmation writes the catalog and
+  cannot be undone from this screen. Only the confirm action calls
+  `classification:execute-standalone-review`, exactly once, with the reference from
+  the last answered reply and nothing else: no decision, rejection, evidence key or
+  required creation leaves the renderer.
+- Execution consumes the review in main, so the surface replaces the summary, the
+  proposal table and every staging action with per-target results: outcome,
+  assignments written, vocabulary created, whether the Sample type changed, and main's
+  message for a target that wrote nothing, plus outcome totals.
+- A batch whose targets all committed is the only success reading. Any `stale`,
+  `blocked` or `failed` target produces "only some targets were saved" or "no reviewed
+  target was saved", naming what committed and why each remaining target wrote
+  nothing: `stale` means the catalog changed since preparation, and `blocked` means a
+  required Pack decision did not commit, so the target was not executed.
+- Targets that did not commit become a `Review again` link to this route with only
+  those subjects as route state, so the next review starts from current catalog state;
+  a fully committed batch links back to the Samples list instead. The route keys the
+  surface on its location, so re-entering it prepares a fresh review instead of showing
+  the results of a consumed one.
+- A refused execution (`STALE_REVIEW`, `NOT_FOUND` or a storage failure) reuses the
+  blocked explanation with the failure message and `Prepare again`. Nothing retries
+  automatically, and the action cannot run twice for one confirmation.
+- Results identify a target by its catalog identity, not a display name: the execution
+  contract carries `{ kind, id }` only, so the surface shows a shortened identifier
+  with the full identity behind it. Carrying a display label in the result is an open
+  contract change, not something the renderer can resolve on its own.
 
 ### Implemented Standalone Execution
 
@@ -706,16 +778,15 @@ the only path that turns an accepted decision into catalog state.
   reviewed state through narrow typed preload operations. DB worker owns bounded
   reads and transactional writes under [Architecture](../architecture.md).
 - Genre operations, aliases and pure recognition are delivered; standalone review is
-  delivered through confirmed execution. The next executable step is the renderer
-  review surface, then integration with reviewed import and the shared confirmed
-  queue. Each executable workflow must include its agreed persistence/recovery
-  guarantees. Preserve preview, Favorites, and authorized native dragging
-  throughout.
+  delivered through confirmed execution, and the standalone review surface is
+  delivered through its execution step. The next executable step is integration with
+  reviewed import and the shared confirmed queue. Each executable
+  workflow must include its agreed persistence/recovery guarantees. Preserve preview,
+  Favorites, and authorized native dragging throughout.
 
-Remaining implementation contracts: the renderer standalone review surface, execution
-conflict payloads (field-level descriptions instead of an outcome and a message),
-future catalog/vocabulary updates, tokenization punctuation edge cases, persisted
-draft-to-catalog identity promotion, durable confirmation, dependency/result queries,
-and measured execution limits. Visual design/prototypes remain deferred. These open
-technical contracts do not reopen the business rules above or establish shipped
-capabilities.
+Remaining implementation contracts: the same review surface for Packs once Pack
+browsing exists, field-level execution conflict payloads, future catalog/vocabulary
+updates, tokenization punctuation edge cases, persisted draft-to-catalog identity
+promotion, durable confirmation, dependency/result queries, and measured execution
+limits. Visual design/prototypes remain deferred. These open technical contracts do
+not reopen the business rules above or establish shipped capabilities.

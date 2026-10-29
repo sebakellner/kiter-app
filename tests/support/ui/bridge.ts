@@ -2,6 +2,19 @@ import { vi } from 'vitest'
 import type { Api } from '../../../src/shared/ipc/index.ts'
 
 export function createTestApi(): {
+  standaloneReview: {
+    prepare: ReturnType<typeof vi.fn<Api['standaloneReview']['prepare']>>
+    listProposals: ReturnType<
+      typeof vi.fn<Api['standaloneReview']['listProposals']>
+    >
+    listAmbiguities: ReturnType<
+      typeof vi.fn<Api['standaloneReview']['listAmbiguities']>
+    >
+    stage: ReturnType<typeof vi.fn<Api['standaloneReview']['stage']>>
+    acceptAll: ReturnType<typeof vi.fn<Api['standaloneReview']['acceptAll']>>
+    discard: ReturnType<typeof vi.fn<Api['standaloneReview']['discard']>>
+    execute: ReturnType<typeof vi.fn<Api['standaloneReview']['execute']>>
+  }
   collections: {
     update: ReturnType<typeof vi.fn<Api['collections']['update']>>
     reviewRemoval: ReturnType<typeof vi.fn<Api['collections']['reviewRemoval']>>
@@ -59,6 +72,15 @@ export function createTestApi(): {
   }
 } {
   return {
+    standaloneReview: {
+      prepare: vi.fn<Api['standaloneReview']['prepare']>(),
+      listProposals: vi.fn<Api['standaloneReview']['listProposals']>(),
+      listAmbiguities: vi.fn<Api['standaloneReview']['listAmbiguities']>(),
+      stage: vi.fn<Api['standaloneReview']['stage']>(),
+      acceptAll: vi.fn<Api['standaloneReview']['acceptAll']>(),
+      discard: vi.fn<Api['standaloneReview']['discard']>(),
+      execute: vi.fn<Api['standaloneReview']['execute']>(),
+    },
     collections: {
       update: vi.fn<Api['collections']['update']>(),
       reviewRemoval: vi.fn<Api['collections']['reviewRemoval']>(),
