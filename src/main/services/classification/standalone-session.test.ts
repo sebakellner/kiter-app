@@ -6,6 +6,7 @@ import { makeDiscoveredAudioFile } from '../../../../tests/support/fixtures/sour
 import { importFolder } from '../../db/operations/sources/import.ts'
 import { readClassificationRejections } from '../../db/operations/classification/rejections.ts'
 import { readStandaloneClassificationContext } from '../../db/operations/classification/standalone-context.ts'
+import { executeStandaloneClassificationTarget } from '../../db/operations/classification/execute.ts'
 import { createStandaloneReviewSession } from './standalone-session.ts'
 import type { StandaloneReviewDatabase } from './standalone-batch.ts'
 
@@ -18,6 +19,8 @@ function fixture(t: TestContext): ReturnType<typeof createMemoryDatabase> & {
       readStandaloneClassificationContext(connection.db, input),
     readClassificationRejections: async (input) =>
       readClassificationRejections(connection.db, input),
+    executeStandaloneClassificationTarget: async (input) =>
+      executeStandaloneClassificationTarget(connection.db, input),
   }
   return { ...connection, catalog }
 }

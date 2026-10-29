@@ -5,6 +5,7 @@ import {
   requireStandaloneReviewAcceptAllRequest,
   requireStandaloneReviewDecisionsRequest,
   requireStandaloneReviewDiscardRequest,
+  requireStandaloneReviewExecutionRequest,
   requireStandaloneReviewPageRequest,
   requireStandaloneReviewPrepareRequest,
   STANDALONE_REVIEW_CHANNELS,
@@ -22,6 +23,7 @@ test('standalone review channels stay narrow and stable', () => {
     stage: 'classification:stage-standalone-review',
     acceptAll: 'classification:accept-all-standalone-review',
     discard: 'classification:discard-standalone-review',
+    execute: 'classification:execute-standalone-review',
   })
 })
 
@@ -170,6 +172,26 @@ test('standalone review accept all requires the complete current reference', () 
     { ...REFERENCE, page: 1 },
   ]) {
     assert.throws(() => requireStandaloneReviewAcceptAllRequest(value))
+  }
+})
+
+test('standalone review execution carries only the reviewed reference', () => {
+  // A renderer never submits decisions: main materializes them from the review,
+  // so the request cannot carry an acceptance, a rejection or a creation.
+  assert.deepEqual(
+    requireStandaloneReviewExecutionRequest(REFERENCE),
+    REFERENCE,
+  )
+  for (const value of [
+    null,
+    {},
+    { ...REFERENCE, token: 'A'.repeat(64) },
+    { ...REFERENCE, revision: 0 },
+    { reviewId: 'review-1', token: TOKEN },
+    { ...REFERENCE, decisions: [] },
+    { ...REFERENCE, accepts: [{ dimension: 'genre', key: 'genre:house' }] },
+  ]) {
+    assert.throws(() => requireStandaloneReviewExecutionRequest(value))
   }
 })
 

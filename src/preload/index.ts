@@ -41,6 +41,7 @@ import { STANDALONE_REVIEW_CHANNELS } from '@shared/ipc/standaloneReview'
 import {
   isStandaloneReviewAmbiguityPage,
   isStandaloneReviewDiscardResult,
+  isStandaloneReviewExecutionResult,
   isStandaloneReviewPreparation,
   isStandaloneReviewProposalPage,
   isStandaloneReviewSummary,
@@ -213,6 +214,11 @@ const api: Api = {
       requireIpcResult(
         await ipcRenderer.invoke(STANDALONE_REVIEW_CHANNELS.discard, request),
         isStandaloneReviewDiscardResult,
+      ),
+    execute: async (request) =>
+      requireIpcResult(
+        await ipcRenderer.invoke(STANDALONE_REVIEW_CHANNELS.execute, request),
+        isStandaloneReviewExecutionResult,
       ),
   },
   instruments: {

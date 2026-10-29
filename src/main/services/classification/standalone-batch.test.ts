@@ -31,6 +31,7 @@ import {
   refreshStandaloneReview,
   type StandaloneReviewDatabase,
 } from './standalone-batch.ts'
+import { executeStandaloneClassificationTarget } from '../../db/operations/classification/execute.ts'
 
 function fixture(t: TestContext): ReturnType<typeof createMemoryDatabase> & {
   catalog: StandaloneReviewDatabase
@@ -41,6 +42,8 @@ function fixture(t: TestContext): ReturnType<typeof createMemoryDatabase> & {
       readStandaloneClassificationContext(connection.db, input),
     readClassificationRejections: async (input) =>
       readClassificationRejections(connection.db, input),
+    executeStandaloneClassificationTarget: async (input) =>
+      executeStandaloneClassificationTarget(connection.db, input),
   }
   return { ...connection, catalog }
 }

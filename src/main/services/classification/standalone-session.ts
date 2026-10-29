@@ -3,6 +3,7 @@ import {
   requireStandaloneReviewAcceptAllRequest,
   requireStandaloneReviewDecisionsRequest,
   requireStandaloneReviewDiscardRequest,
+  requireStandaloneReviewExecutionRequest,
   requireStandaloneReviewPageRequest,
   requireStandaloneReviewPrepareRequest,
 } from '../../../shared/ipc/standaloneReview.ts'
@@ -10,6 +11,7 @@ import type {
   StandaloneReviewAcceptAllRequest,
   StandaloneReviewDecisionsRequest,
   StandaloneReviewDiscardRequest,
+  StandaloneReviewExecutionRequest,
   StandaloneReviewPageRequest,
   StandaloneReviewPrepareRequest,
   StandaloneReviewPreparation,
@@ -25,6 +27,8 @@ import {
   type StandaloneReview,
   type StandaloneReviewDatabase,
 } from './standalone-batch.ts'
+import { executeStandaloneDraft } from './execute-standalone.ts'
+import type { StandaloneExecutionResult } from '../../../shared/features/classification/execution-schemas.ts'
 import type { ClassificationBatchReview } from './batch-review.ts'
 
 /** In-memory owner of prepared standalone reviews for this app session.
@@ -52,6 +56,9 @@ export interface StandaloneReviewSession {
     request: StandaloneReviewAcceptAllRequest,
   ) => ClassificationReviewSummary
   discard: (request: StandaloneReviewDiscardRequest) => { reviewId: string }
+  execute: (
+    request: StandaloneReviewExecutionRequest,
+  ) => Promise<StandaloneExecutionResult>
 }
 
 type Retained = { review: ClassificationBatchReview; token: string }
@@ -117,6 +124,26 @@ export function createStandaloneReviewSession(
       require(request.reviewId).review.discard()
       retained.delete(request.reviewId)
       return { reviewId: request.reviewId }
+    },
+
+    async execute(value) {
+      const request = requireStandaloneReviewExecutionRequest(value)
+      const retainedReview = require(request.reviewId)
+      // The draft is materialized here, never accepted from the renderer, and it
+      // is refused before touching the catalog when nothing was decided.
+      const draft = retainedReview.review.exportDraft(request)
+      if (draft.decisions.length === 0) {
+        throw new IpcError(
+          'INVALID_INPUT',
+          'Nothing to execute. Accept or reject a proposal first.',
+        )
+      }
+      const result = await executeStandaloneDraft(database, draft)
+      // Any attempt consumes the review: a committed target moves the state the
+      // draft was reviewed from, so retrying needs a fresh review either way.
+      retainedReview.review.discard()
+      retained.delete(request.reviewId)
+      return result
     },
   }
 }

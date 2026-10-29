@@ -3,6 +3,7 @@ import { test } from 'node:test'
 import {
   isStandaloneReviewAmbiguityPage,
   isStandaloneReviewDiscardResult,
+  isStandaloneReviewExecutionResult,
   isStandaloneReviewPreparation,
   isStandaloneReviewProposalPage,
   isStandaloneReviewSummary,
@@ -204,5 +205,59 @@ test('standalone review discard results carry only the released review identity'
     { reviewId: 'review-1', revision: 1 },
   ]) {
     assert.equal(isStandaloneReviewDiscardResult(value), false)
+  }
+})
+
+const RESULT = {
+  subject: SCOPE,
+  outcome: 'committed',
+  assignments: 1,
+  created: { instruments: 1, genres: 0 },
+  typeChanged: false,
+  remembered: 0,
+  forgotten: 0,
+}
+
+const EXECUTION = {
+  ...REFERENCE,
+  contractVersion: 1,
+  results: [RESULT],
+  totals: { committed: 1, stale: 0, blocked: 0, failed: 0 },
+}
+
+test('standalone execution results carry per-target outcomes and totals', () => {
+  assert.equal(isStandaloneReviewExecutionResult(EXECUTION), true)
+  const stale = {
+    ...EXECUTION,
+    results: [
+      {
+        ...RESULT,
+        outcome: 'stale',
+        assignments: 0,
+        created: { instruments: 0, genres: 0 },
+        message: 'Reviewed state changed. Prepare the review again.',
+      },
+    ],
+    totals: { committed: 0, stale: 1, blocked: 0, failed: 0 },
+  }
+  assert.equal(isStandaloneReviewExecutionResult(stale), true)
+})
+
+test('standalone execution results reject unknown outcomes, counts and fields', () => {
+  for (const value of [
+    null,
+    {},
+    { ...EXECUTION, results: [{ ...RESULT, outcome: 'pending' }] },
+    { ...EXECUTION, results: [{ ...RESULT, assignments: -1 }] },
+    { ...EXECUTION, results: [{ ...RESULT, created: { instruments: 0 } }] },
+    { ...EXECUTION, results: [{ ...RESULT, subject: SUBJECT }] },
+    { ...EXECUTION, results: [{ ...RESULT, extra: true }] },
+    {
+      ...EXECUTION,
+      totals: { committed: 1, stale: 0, blocked: 0 },
+    },
+    { ...EXECUTION, decisions: [] },
+  ]) {
+    assert.equal(isStandaloneReviewExecutionResult(value), false)
   }
 })

@@ -46,6 +46,14 @@ import type {
   StandaloneClassificationContextRequest,
   StandaloneClassificationContext,
 } from '../../../shared/features/classification/standalone-context-schemas.ts'
+import {
+  standaloneExecutionTargetRequestSchema,
+  standaloneExecutionTargetResultSchema,
+} from '../../../shared/features/classification/execution-schemas.ts'
+import type {
+  StandaloneExecutionTargetRequest,
+  StandaloneExecutionTargetResult,
+} from '../../../shared/features/classification/execution-schemas.ts'
 
 export type ClassificationRequest =
   | { action: 'read-sample-instruments'; input: SampleInstrumentsRequest }
@@ -93,6 +101,10 @@ export type ClassificationRequest =
       input: StandaloneClassificationContextRequest
     }
   | {
+      action: 'execute-standalone-classification-target'
+      input: StandaloneExecutionTargetRequest
+    }
+  | {
       action: 'remove-author' | 'remove-instrument'
       input: ClassificationRemovalRequest
     }
@@ -134,6 +146,10 @@ export type ClassificationReply =
   | {
       action: 'read-standalone-classification-context'
       result: StandaloneClassificationContext
+    }
+  | {
+      action: 'execute-standalone-classification-target'
+      result: StandaloneExecutionTargetResult
     }
   | { action: 'remove-author' | 'remove-instrument'; result: { id: string } }
   | {
@@ -222,6 +238,8 @@ export function isClassificationRequest(
     case 'read-standalone-classification-context':
       return standaloneClassificationContextRequestSchema.safeParse(input)
         .success
+    case 'execute-standalone-classification-target':
+      return standaloneExecutionTargetRequestSchema.safeParse(input).success
     default:
       return false
   }
@@ -282,6 +300,8 @@ export function isClassificationReply(
         .success
     case 'read-standalone-classification-context':
       return standaloneClassificationContextSchema.safeParse(result).success
+    case 'execute-standalone-classification-target':
+      return standaloneExecutionTargetResultSchema.safeParse(result).success
     case 'apply-classification-rejections':
       return (
         isRecord(result) &&
