@@ -954,3 +954,46 @@ test('a failed page reload after staging keeps the reference main just issued', 
     choices: [{ proposalKey: hex(1), decision: 'accept' }],
   })
 })
+
+test('an open Execute confirmation never survives preparing a new review', async () => {
+  const api = createTestApi()
+  api.standaloneReview.prepare
+    .mockResolvedValueOnce({
+      ok: true,
+      data: preparation({ ...reference(1), accepted: 1 }),
+    })
+    .mockResolvedValueOnce({
+      ok: true,
+      data: preparation({ reviewId: 'review-2', revision: 1, accepted: 2 }),
+    })
+  api.standaloneReview.listProposals
+    .mockResolvedValueOnce({
+      ok: true,
+      data: proposalPage([row({ decision: 'accept' })]),
+    })
+    .mockResolvedValue({
+      ok: true,
+      data: proposalPage([row({ decision: 'accept' })], {
+        reviewId: 'review-2',
+        revision: 1,
+      }),
+    })
+  // A refused choice blocks the surface, which is the path that replaces the review.
+  api.standaloneReview.stage.mockResolvedValue({
+    ok: false,
+    error: { code: 'STALE_REVIEW', message: 'Catalog changed.' },
+  })
+  mount(api, { subjects: SUBJECTS })
+  const user = userEvent.setup()
+
+  await user.click(await screen.findByRole('button', { name: 'Execute' }))
+  expect(screen.getByRole('button', { name: 'Save to catalog' })).toBeVisible()
+
+  await user.click(screen.getByRole('button', { name: 'Reject Kick' }))
+  await user.click(await screen.findByRole('button', { name: 'Prepare again' }))
+
+  expect(await screen.findByText('Accepted: 2')).toBeVisible()
+  // The confirmation belonged to the consumed review: the new one needs its own.
+  expect(screen.queryByRole('button', { name: 'Save to catalog' })).toBeNull()
+  expect(api.standaloneReview.execute).not.toHaveBeenCalled()
+})

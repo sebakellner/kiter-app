@@ -97,8 +97,26 @@ export function StandaloneReview({
   onDiscarded?: () => void
 }): React.JSX.Element {
   const review = useStandaloneReview(subjects, onDiscarded)
-  const [confirmingAcceptAll, setConfirmingAcceptAll] = useState(false)
-  const [confirmingExecute, setConfirmingExecute] = useState(false)
+  // A confirmation belongs to the review it was opened for. Preparing again
+  // replaces that review without remounting this surface, so the open question is
+  // derived from the review identity instead of being reset by an effect: a new
+  // review simply does not match the one the user confirmed.
+  const [confirmation, setConfirmation] = useState<{
+    kind: 'acceptAll' | 'execute'
+    reviewId: string
+  } | null>(null)
+  const reviewIdentity = review.review?.reviewId ?? null
+  const confirmingAcceptAll =
+    confirmation?.kind === 'acceptAll' &&
+    confirmation.reviewId === reviewIdentity
+  const confirmingExecute =
+    confirmation?.kind === 'execute' && confirmation.reviewId === reviewIdentity
+  const openConfirmation = (kind: 'acceptAll' | 'execute'): void => {
+    if (!reviewIdentity) {
+      return
+    }
+    setConfirmation({ kind, reviewId: reviewIdentity })
+  }
   const { summary, proposals, subjectScope } = review
   const outsidePage = proposals ? proposals.total - proposals.items.length : 0
   const status =
@@ -160,7 +178,7 @@ export function StandaloneReview({
             <Button
               disabled={review.busy || summary.reviewable === 0}
               aria-expanded={confirmingAcceptAll}
-              onClick={() => setConfirmingAcceptAll(true)}
+              onClick={() => openConfirmation('acceptAll')}
             >
               Accept all
             </Button>
@@ -168,7 +186,7 @@ export function StandaloneReview({
               variant="primary"
               disabled={review.busy || summary.accepted === 0}
               aria-expanded={confirmingExecute}
-              onClick={() => setConfirmingExecute(true)}
+              onClick={() => openConfirmation('execute')}
             >
               Execute
             </Button>
@@ -204,7 +222,7 @@ export function StandaloneReview({
                 variant="primary"
                 disabled={review.busy}
                 onClick={() => {
-                  setConfirmingAcceptAll(false)
+                  setConfirmation(null)
                   void review.acceptAll()
                 }}
               >
@@ -213,7 +231,7 @@ export function StandaloneReview({
               <Button
                 variant="ghost"
                 disabled={review.busy}
-                onClick={() => setConfirmingAcceptAll(false)}
+                onClick={() => setConfirmation(null)}
               >
                 Cancel
               </Button>
@@ -242,7 +260,7 @@ export function StandaloneReview({
                 variant="primary"
                 disabled={review.busy}
                 onClick={() => {
-                  setConfirmingExecute(false)
+                  setConfirmation(null)
                   void review.execute()
                 }}
               >
@@ -251,7 +269,7 @@ export function StandaloneReview({
               <Button
                 variant="ghost"
                 disabled={review.busy}
-                onClick={() => setConfirmingExecute(false)}
+                onClick={() => setConfirmation(null)}
               >
                 Cancel
               </Button>
