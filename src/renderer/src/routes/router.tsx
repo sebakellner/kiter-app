@@ -1,6 +1,7 @@
 import { createHashRouter, Navigate } from 'react-router-dom'
 import { AppLayout } from '@renderer/layouts/AppLayout/AppLayout'
 import { Authors } from '@renderer/views/Authors/Authors'
+import { ClassificationReview } from '@renderer/views/ClassificationReview/ClassificationReview'
 import { Instruments } from '@renderer/views/Instruments/Instruments'
 import { Collections } from '@renderer/views/Collections/Collections'
 import { CollectionDetail } from '@renderer/views/CollectionDetail/CollectionDetail'
@@ -22,6 +23,7 @@ export const router = createHashRouter([
       { path: 'collections/:id', element: <CollectionDetail /> },
       { path: 'instruments', element: <Instruments /> },
       { path: 'authors', element: <Authors /> },
+      { path: 'classification/review', element: <ClassificationReview /> },
       { path: '*', element: <Navigate to="/home" replace /> },
     ],
   },
