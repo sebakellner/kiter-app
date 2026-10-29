@@ -126,6 +126,8 @@ test('execution commits accepted proposals and required vocabulary in one transa
     }),
   )
   assert.equal(result.outcome, 'committed')
+  // The surface shows the Sample's own name, not a raw identity.
+  assert.equal(result.label, 'kick.wav')
   assert.equal(result.assignments, 2)
   // The seeded House Genre already exists; only the Instrument is created.
   assert.deepEqual(result.created, { instruments: 1, genres: 0 })
@@ -186,6 +188,7 @@ test('execution writes nothing when the reviewed read state changed', (t) => {
     }),
   )
   assert.equal(result.outcome, 'stale')
+  assert.equal(result.label, 'kick.wav')
   assert.equal(result.assignments, 0)
   assert.deepEqual(native.serialize(), before)
 })

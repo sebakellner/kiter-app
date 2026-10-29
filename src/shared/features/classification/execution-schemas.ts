@@ -48,6 +48,9 @@ export const standaloneExecutionOutcomeSchema = z.enum([
  * transaction; a stale, blocked or failed target wrote nothing at all. */
 export const standaloneExecutionTargetResultSchema = z.strictObject({
   subject: executionSubjectSchema,
+  // Display label the surface can show instead of a raw identity. Absent when the
+  // worker could not name the target, for example a blocked target it never read.
+  label: z.string().min(1).max(480).optional(),
   outcome: standaloneExecutionOutcomeSchema,
   assignments: count,
   created: z.strictObject({ instruments: count, genres: count }),
