@@ -1,4 +1,5 @@
 import { Button } from '@renderer/components/ui/Button'
+import { useNavigate } from 'react-router-dom'
 import { useLibrarySession } from '../hooks/useLibrarySession'
 import { useCatalog } from '../hooks/useCatalog'
 import { SampleList } from './SampleList'
@@ -21,6 +22,7 @@ import { useMoveCollectionSample } from '@renderer/features/collections/hooks/us
 import { useCollectionDrag } from '@renderer/features/collections/hooks/useCollectionDrag'
 import './CatalogList.css'
 import { MAX_CHECKED_SAMPLES } from '@shared/features/library/schemas'
+import { CLASSIFICATION_BATCH_LIMITS } from '@shared/features/classification/batch-schemas'
 import type { CollectionSample } from '@renderer/features/collections/components/AddToCollection/useCheckedCollectionSamples'
 
 export function CatalogList({
@@ -38,6 +40,7 @@ export function CatalogList({
   onMembershipChanged?: () => void
 } & CatalogViewContext): React.JSX.Element {
   const { revision, updateFavorite, preview } = useLibrarySession()
+  const navigate = useNavigate()
   const { setSample, openSample } = useSampleInspector()
   const [adding, setAdding] = useState<ListSample | null>(null)
   const [addingBatch, setAddingBatch] = useState<CollectionSample[] | null>(
@@ -279,6 +282,33 @@ export function CatalogList({
               >
                 Add to Collection
               </Button>
+              <Button
+                disabled={
+                  removal.pending ||
+                  order.pending ||
+                  checkedIds.size > CLASSIFICATION_BATCH_LIMITS.targets
+                }
+                onClick={() =>
+                  navigate('/classification/review', {
+                    state: {
+                      subjects: [...checkedIds].map((id) => ({
+                        kind: 'sample',
+                        id,
+                      })),
+                    },
+                  })
+                }
+              >
+                Review classifications ({checkedIds.size})
+              </Button>
+              {checkedIds.size > CLASSIFICATION_BATCH_LIMITS.targets && (
+                <p>
+                  A review covers at most {CLASSIFICATION_BATCH_LIMITS.targets}{' '}
+                  Samples. Uncheck{' '}
+                  {checkedIds.size - CLASSIFICATION_BATCH_LIMITS.targets} to
+                  continue.
+                </p>
+              )}
               <Button
                 variant="ghost"
                 disabled={removal.pending || order.pending}
