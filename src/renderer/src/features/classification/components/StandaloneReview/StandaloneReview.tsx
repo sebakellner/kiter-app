@@ -20,6 +20,7 @@ import {
   useStandaloneReview,
 } from './useStandaloneReview'
 import type { StandaloneReviewStatus } from './useStandaloneReview'
+import { StandaloneExecutionResults } from './StandaloneExecutionResults'
 import './standalone-review.css'
 
 const DIMENSION_LABELS = {
@@ -64,7 +65,10 @@ function subjectKey(subject: ClassificationSubject): string {
 
 // A review that changed or was released cannot be refreshed in place; only a
 // new preparation can continue the workflow.
-function blockedCopy(status: StandaloneReviewStatus): {
+function blockedCopy(
+  status: StandaloneReviewStatus,
+  failurePhase: 'prepare' | 'execute' | null,
+): {
   title: string
   explanation: string
 } {
@@ -82,6 +86,13 @@ function blockedCopy(status: StandaloneReviewStatus): {
         'Kiter keeps prepared reviews only for the current session. Restarting Kiter or discarding the review releases it. Nothing was saved. Prepare the review again to continue.',
     }
   }
+  if (failurePhase === 'execute') {
+    return {
+      title: 'This classification review could not be saved.',
+      explanation:
+        'The reviewed classifications were not written. Prepare the review again to retry.',
+    }
+  }
   return {
     title: 'This classification review could not be prepared.',
     explanation: 'Nothing was saved. Prepare the review again to retry.',
@@ -96,21 +107,61 @@ export function StandaloneReview({
   onDiscarded?: () => void
 }): React.JSX.Element {
   const review = useStandaloneReview(subjects, onDiscarded)
-  const [confirmingAcceptAll, setConfirmingAcceptAll] = useState(false)
+  // A confirmation belongs to the review it was opened for. Preparing again
+  // replaces that review without remounting this surface, so the open question is
+  // derived from the review identity instead of being reset by an effect: a new
+  // review simply does not match the one the user confirmed.
+  const [confirmation, setConfirmation] = useState<{
+    kind: 'acceptAll' | 'execute'
+    reviewId: string
+    revision: number
+  } | null>(null)
+  const reviewIdentity = review.review?.reviewId ?? null
+  const confirmingAcceptAll =
+    confirmation?.kind === 'acceptAll' &&
+    confirmation.reviewId === reviewIdentity
+  const acceptedCount = review.summary?.accepted ?? 0
+  // The confirmation names one reviewed decision set. Every staging advances the
+  // revision, so keying on it (not on the accepted count, which can return to a
+  // previous value with a different set) is what makes the confirmation describe
+  // exactly the scope the user was shown.
+  const reviewRevision = review.review?.revision ?? null
+  const confirmingExecute =
+    confirmation?.kind === 'execute' &&
+    confirmation.reviewId === reviewIdentity &&
+    confirmation.revision === reviewRevision
+  const openConfirmation = (kind: 'acceptAll' | 'execute'): void => {
+    if (!reviewIdentity) {
+      return
+    }
+    if (reviewRevision === null) {
+      return
+    }
+    setConfirmation({
+      kind,
+      reviewId: reviewIdentity,
+      revision: reviewRevision,
+    })
+  }
   const { summary, proposals, subjectScope } = review
   const outsidePage = proposals ? proposals.total - proposals.items.length : 0
   const status =
     review.status === 'preparing'
       ? 'Preparing review…'
-      : review.saving
-        ? 'Saving review choices…'
-        : review.loadingProposals
-          ? 'Loading proposals…'
-          : review.loadingAmbiguities
-            ? 'Loading ambiguities…'
-            : null
-  const blocked = review.status !== 'ready' && review.status !== 'preparing'
-  const copy = blockedCopy(review.status)
+      : review.executing
+        ? 'Saving reviewed classifications…'
+        : review.saving
+          ? 'Saving review choices…'
+          : review.loadingProposals
+            ? 'Loading proposals…'
+            : review.loadingAmbiguities
+              ? 'Loading ambiguities…'
+              : null
+  const blocked =
+    review.status === 'stale' ||
+    review.status === 'gone' ||
+    review.status === 'failed'
+  const copy = blockedCopy(review.status, review.failurePhase)
   return (
     <section
       aria-label="Classification review"
@@ -128,6 +179,9 @@ export function StandaloneReview({
             Prepare again
           </Button>
         </div>
+      )}
+      {review.executed && (
+        <StandaloneExecutionResults result={review.executed} />
       )}
       {review.status === 'ready' && summary && review.review && (
         <>
@@ -150,9 +204,17 @@ export function StandaloneReview({
             <Button
               disabled={review.busy || summary.reviewable === 0}
               aria-expanded={confirmingAcceptAll}
-              onClick={() => setConfirmingAcceptAll(true)}
+              onClick={() => openConfirmation('acceptAll')}
             >
               Accept all
+            </Button>
+            <Button
+              variant="primary"
+              disabled={review.busy || summary.accepted === 0}
+              aria-expanded={confirmingExecute}
+              onClick={() => openConfirmation('execute')}
+            >
+              Execute
             </Button>
             <Button
               variant="ghost"
@@ -186,7 +248,7 @@ export function StandaloneReview({
                 variant="primary"
                 disabled={review.busy}
                 onClick={() => {
-                  setConfirmingAcceptAll(false)
+                  setConfirmation(null)
                   void review.acceptAll()
                 }}
               >
@@ -195,7 +257,45 @@ export function StandaloneReview({
               <Button
                 variant="ghost"
                 disabled={review.busy}
-                onClick={() => setConfirmingAcceptAll(false)}
+                onClick={() => setConfirmation(null)}
+              >
+                Cancel
+              </Button>
+            </section>
+          )}
+          {confirmingExecute && (
+            <section
+              aria-label="Execute scope"
+              className="standalone-review-scope"
+            >
+              <h2>Save reviewed classifications</h2>
+              <ul>
+                <li>Accepted proposals: {summary.accepted}</li>
+                <li>
+                  Required vocabulary creations: {summary.requiredCreations}
+                </li>
+                <li>Sample-type replacements: {summary.typeReplacements}</li>
+                <li>Samples in this review: {subjectScope.length}</li>
+              </ul>
+              <p>
+                Confirming writes these changes to the catalog and closes this
+                review. It cannot be undone from this screen, so review the
+                current catalog state before saving.
+              </p>
+              <Button
+                variant="primary"
+                disabled={review.busy || acceptedCount === 0}
+                onClick={() => {
+                  setConfirmation(null)
+                  void review.execute()
+                }}
+              >
+                Save to catalog
+              </Button>
+              <Button
+                variant="ghost"
+                disabled={review.busy}
+                onClick={() => setConfirmation(null)}
               >
                 Cancel
               </Button>
