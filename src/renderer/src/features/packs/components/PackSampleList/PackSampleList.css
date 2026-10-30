@@ -1,0 +1,27 @@
+.pack-sample-list {
+  margin-top: var(--space-2);
+}
+
+.pack-sample-pagination {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+.pack-sample-table {
+  margin-top: var(--space-3);
+  table-layout: fixed;
+}
+
+.pack-sample-origin-column {
+  width: clamp(var(--space-16), 12cqi, var(--space-24));
+}
+
+.pack-sample-path {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-text-secondary);
+}
