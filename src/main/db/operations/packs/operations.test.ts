@@ -547,6 +547,32 @@ test('Pack list rows carry the source root path that tells same-named Packs apar
   )
 })
 
+test('Pack summary reads one Pack together with its source root path', (t) => {
+  const { db } = createMemoryDatabase(t)
+  const root = path.resolve('summary-drums')
+  const pack = register(db, fixture(db, root, 2).sourceRootId, 'Summary Drums')
+  const edited = operations.updatePack(db, {
+    id: pack.id,
+    name: 'Edited Drums',
+    description: 'Two hits.',
+  })
+
+  assert.deepEqual(operations.getPackSummary(db, pack.id), {
+    ...edited,
+    sourceRootPath: root,
+  })
+
+  assert.throws(() => operations.getPackSummary(db, randomUUID()), {
+    code: 'NOT_FOUND',
+    message: 'The Pack no longer exists.',
+  })
+  for (const id of ['summary-drums', '']) {
+    assert.throws(() => operations.getPackSummary(db, id), {
+      code: 'INVALID_INPUT',
+    })
+  }
+})
+
 test('Pack protocol rejects malformed requests and results', () => {
   const id = randomUUID()
   const pack = {
@@ -581,6 +607,31 @@ test('Pack protocol rejects malformed requests and results', () => {
     { ...pack, description: undefined },
   ]) {
     assert.equal(isDbReply({ requestId: 1, action: 'get-pack', result }), false)
+  }
+  assert.ok(isDbRequest({ requestId: 1, action: 'get-pack-summary', id }))
+  assert.ok(
+    isDbReply({
+      requestId: 1,
+      action: 'get-pack-summary',
+      result: { ...pack, sourceRootPath: '/library/pack' },
+    }),
+  )
+  for (const result of [
+    pack,
+    { ...pack, sourceRootPath: '' },
+    { ...pack, sourceRootPath: null },
+  ]) {
+    assert.equal(
+      isDbReply({ requestId: 1, action: 'get-pack-summary', result }),
+      false,
+      'A Pack summary reply must carry a source root path',
+    )
+  }
+  for (const summaryId of ['pack', 42, null]) {
+    assert.equal(
+      isDbRequest({ requestId: 1, action: 'get-pack-summary', id: summaryId }),
+      false,
+    )
   }
   assert.equal(
     isDbRequest({
