@@ -51,9 +51,17 @@ import {
   isInstrument,
   isInstrumentPage,
 } from '@shared/ipc/instruments'
+import { PACK_CHANNELS, isPackListPage } from '@shared/ipc/packs'
 
 // Custom APIs for renderer
 const api: Api = {
+  packs: {
+    list: async (request = {}) =>
+      requireIpcResult(
+        await ipcRenderer.invoke(PACK_CHANNELS.list, request),
+        isPackListPage,
+      ),
+  },
   collections: {
     update: async (request) =>
       requireIpcResult(

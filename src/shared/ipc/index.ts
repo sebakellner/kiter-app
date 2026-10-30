@@ -6,8 +6,10 @@ import type { GenresApi } from './genres.ts'
 import type { LifecycleApi } from './lifecycle.ts'
 import type { CollectionsApi } from './collections.ts'
 import type { StandaloneReviewApi } from './standaloneReview.ts'
+import type { PacksApi } from './packs.ts'
 
 export interface Api {
+  packs: PacksApi
   standaloneReview: StandaloneReviewApi
   collections: CollectionsApi
   genres: GenresApi
