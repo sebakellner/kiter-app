@@ -70,6 +70,9 @@ export function createTestApi(): {
     startDrag: ReturnType<typeof vi.fn<Api['library']['startDrag']>>
     onDragError: ReturnType<typeof vi.fn<Api['library']['onDragError']>>
   }
+  packs: {
+    list: ReturnType<typeof vi.fn<Api['packs']['list']>>
+  }
 } {
   return {
     standaloneReview: {
@@ -125,6 +128,9 @@ export function createTestApi(): {
       setFavorite: vi.fn<Api['library']['setFavorite']>(),
       startDrag: vi.fn<Api['library']['startDrag']>(),
       onDragError: vi.fn<Api['library']['onDragError']>(),
+    },
+    packs: {
+      list: vi.fn<Api['packs']['list']>(),
     },
   }
 }
