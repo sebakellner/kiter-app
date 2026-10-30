@@ -20,6 +20,11 @@ export function executePack(db: AppDatabase, request: PackRequest): PackReply {
       }
     case 'get-pack':
       return { action: request.action, result: packs.getPack(db, request.id) }
+    case 'get-pack-summary':
+      return {
+        action: request.action,
+        result: packs.getPackSummary(db, request.id),
+      }
     case 'list-packs':
       return {
         action: request.action,
