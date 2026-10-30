@@ -906,6 +906,81 @@ test('a partially committed batch is never presented as success and reviews only
   expect(api.standaloneReview.execute).toHaveBeenCalledTimes(1)
 })
 
+test('a stale target names the field that changed since preparation', async () => {
+  const api = createTestApi()
+  api.standaloneReview.prepare.mockResolvedValue({
+    ok: true,
+    data: preparation({ accepted: 1 }),
+  })
+  api.standaloneReview.listProposals.mockResolvedValue({
+    ok: true,
+    data: proposalPage([row({ decision: 'accept' })]),
+  })
+  api.standaloneReview.execute.mockResolvedValue({
+    ok: true,
+    data: executionResult([
+      executionTarget({
+        outcome: 'stale',
+        assignments: 0,
+        changedFields: ['currentType', 'assignments'],
+        message: 'Reviewed state changed. Prepare the review again.',
+      }),
+    ]),
+  })
+  mount(api, { subjects: SUBJECTS })
+  const user = userEvent.setup()
+
+  await confirmExecution(user)
+
+  const results = await screen.findByRole('region', {
+    name: 'Execution results',
+  })
+  const stale = within(results).getByRole('listitem', {
+    name: `Sample ${SAMPLE_A.slice(0, 8)}…`,
+  })
+  expect(
+    within(stale).getByText(
+      'Changed since preparation: Sample type, Assignments.',
+    ),
+  ).toBeVisible()
+})
+
+test('a stale target without a field report still explains the refusal', async () => {
+  const api = createTestApi()
+  api.standaloneReview.prepare.mockResolvedValue({
+    ok: true,
+    data: preparation({ accepted: 1 }),
+  })
+  api.standaloneReview.listProposals.mockResolvedValue({
+    ok: true,
+    data: proposalPage([row({ decision: 'accept' })]),
+  })
+  api.standaloneReview.execute.mockResolvedValue({
+    ok: true,
+    data: executionResult([
+      executionTarget({
+        outcome: 'stale',
+        assignments: 0,
+        message: 'Reviewed state changed. Prepare the review again.',
+      }),
+    ]),
+  })
+  mount(api, { subjects: SUBJECTS })
+  const user = userEvent.setup()
+
+  await confirmExecution(user)
+
+  const results = await screen.findByRole('region', {
+    name: 'Execution results',
+  })
+  const stale = within(results).getByRole('listitem', {
+    name: `Sample ${SAMPLE_A.slice(0, 8)}…`,
+  })
+  expect(within(stale).getByText('Not saved (catalog changed)')).toBeVisible()
+  // No reviewed field digests means no field report; the surface never invents one.
+  expect(within(stale).queryByText(/Changed since preparation/u)).toBeNull()
+})
+
 test('a blocked target explains the Pack dependency and writes nothing', async () => {
   const api = createTestApi()
   api.standaloneReview.prepare.mockResolvedValue({

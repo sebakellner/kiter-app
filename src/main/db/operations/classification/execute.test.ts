@@ -12,14 +12,16 @@ import {
   reviewPackImport,
 } from '../packs/operations.ts'
 import { executeStandaloneClassificationTarget } from './execute.ts'
+import { createInstrument, setInstrumentAssignment } from './operations.ts'
 import { readStandaloneClassificationContext } from './standalone-context.ts'
-import { targetStateToken } from './target-state.ts'
+import { targetStateFields, targetStateToken } from './target-state.ts'
 import { readClassificationRejections } from './rejections.ts'
 import { readSampleType } from './sample-type.ts'
 import {
   recognitionVocabulary,
   sampleGenres,
   sampleInstruments,
+  samples,
 } from '../../schema/index.ts'
 import type {
   ClassificationRejection,
@@ -65,6 +67,19 @@ function reviewedState(
   return {
     expectedStateToken: targetStateToken(context.targets[0]),
   }
+}
+
+// Field digests are explanation only: a caller that wants to know which field
+// moved sends them next to the enforcing token.
+function reviewedFields(
+  db: Database,
+  subject: StandaloneExecutionSubject,
+): { expectedStateFields: Record<string, string> } {
+  const context = readStandaloneClassificationContext(db, {
+    targets: [subject],
+    offset: 0,
+  })
+  return { expectedStateFields: targetStateFields(context.targets[0]) }
 }
 
 function targetRequest(
@@ -190,6 +205,57 @@ test('execution writes nothing when the reviewed read state changed', (t) => {
   assert.equal(result.outcome, 'stale')
   assert.equal(result.label, 'kick.wav')
   assert.equal(result.assignments, 0)
+  // A request without reviewed field digests still refuses the write; it just
+  // cannot explain it, which is what every pre-existing caller sends.
+  assert.equal(result.changedFields, undefined)
+  assert.deepEqual(native.serialize(), before)
+})
+
+test('a stale target names the reviewed field that changed', (t) => {
+  const { db, native, sample } = seedCatalog(t)
+  const subject = catalogSubject(sample.id)
+  const state = {
+    ...reviewedState(db, subject),
+    ...reviewedFields(db, subject),
+  }
+  // The catalog moves between review and execution: the Sample type is set by
+  // another surface, so the reviewed read state no longer holds.
+  db.update(samples).set({ sampleType: 'one-shot' }).run()
+  const before = native.serialize()
+  const result = executeStandaloneClassificationTarget(
+    db,
+    targetRequest(subject, state, {
+      accepts: [{ dimension: 'sample-type', key: 'loop' }],
+    }),
+  )
+  assert.equal(result.outcome, 'stale')
+  assert.deepEqual(result.changedFields, ['currentType'])
+  assert.deepEqual(native.serialize(), before)
+})
+
+test('a stale target reports every changed field in canonical order', (t) => {
+  const { db, native, sample } = seedCatalog(t)
+  const subject = catalogSubject(sample.id)
+  const state = {
+    ...reviewedState(db, subject),
+    ...reviewedFields(db, subject),
+  }
+  db.update(samples).set({ sampleType: 'one-shot' }).run()
+  const instrument = createInstrument(db, { name: 'Kick' })
+  setInstrumentAssignment(db, {
+    id: instrument.id,
+    target: { kind: 'sample', id: sample.id },
+    assigned: true,
+  })
+  const before = native.serialize()
+  const result = executeStandaloneClassificationTarget(
+    db,
+    targetRequest(subject, state, {
+      accepts: [{ dimension: 'sample-type', key: 'loop' }],
+    }),
+  )
+  assert.equal(result.outcome, 'stale')
+  assert.deepEqual(result.changedFields, ['currentType', 'assignments'])
   assert.deepEqual(native.serialize(), before)
 })
 

@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { isEntityId, requirePresentationName } from '../../domain/validation.ts'
+import { classificationStateFieldsSchema } from './state-fields.ts'
 
 export const CLASSIFICATION_BATCH_LIMITS = {
   targets: 100,
@@ -111,6 +112,10 @@ export const classificationBatchSnapshotSchema = z.strictObject({
         subject: classificationSubjectSchema,
         // Caller-owned read-state digest: source scope, origin, effective rules, etc.
         stateToken: token,
+        // Explanation-only companions to `stateToken`, captured by the owner that
+        // holds the reviewed values. A snapshot without them still reviews and
+        // executes; its stale outcomes just cannot name the field that moved.
+        stateFields: classificationStateFieldsSchema.optional(),
         currentType: sampleType.nullable(),
         assignments: z.array(recognitionTarget).max(1000),
         draftAssignments: z

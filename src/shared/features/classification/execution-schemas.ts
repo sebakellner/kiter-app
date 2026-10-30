@@ -7,6 +7,10 @@ import {
   classificationRejectionSchema,
   classificationTokenSchema,
 } from './batch-schemas.ts'
+import {
+  classificationStateFieldSchema,
+  classificationStateFieldsSchema,
+} from './state-fields.ts'
 
 const entityId = z.string().refine(isEntityId)
 const token = classificationTokenSchema
@@ -30,6 +34,10 @@ export const standaloneExecutionTargetRequestSchema = z.strictObject({
   subject: executionSubjectSchema,
   // Reviewed read-state digest, recomputed inside the write transaction.
   expectedStateToken: token,
+  // Optional per-field reviewed digests. They never guard anything: the worker
+  // compares them only after the token above refused the write, to name the field
+  // that moved instead of reporting a bare "catalog changed".
+  expectedStateFields: classificationStateFieldsSchema.optional(),
   accepts: z.array(classificationProposalTargetSchema).max(many),
   rejections: z.strictObject({
     remember: z.array(classificationRejectionSchema).max(many),
@@ -57,6 +65,13 @@ export const standaloneExecutionTargetResultSchema = z.strictObject({
   typeChanged: z.boolean(),
   remembered: count,
   forgotten: count,
+  // Fields the catalog moved under a stale target, in canonical order. Absent when
+  // the caller sent no reviewed field digests to compare against.
+  changedFields: z
+    .array(classificationStateFieldSchema)
+    .min(1)
+    .max(6)
+    .optional(),
   message: z.string().min(1).max(500).optional(),
 })
 

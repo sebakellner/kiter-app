@@ -3,6 +3,7 @@ import type { DbClient } from '../../db'
 import {
   classificationDigest as digest,
   serializeClassificationState as serialize,
+  targetStateFields,
   targetStateToken,
 } from '../../db/operations/classification/target-state.ts'
 import { ClassificationBatchReview } from './batch-review.ts'
@@ -389,6 +390,10 @@ function snapshotTarget(
     // Read-state digest: any changed identity, evidence or assignment source.
     // The worker recomputes this same function before writing a reviewed decision.
     stateToken: targetStateToken(item),
+    // Explanation-only companions to the digest above: they let a refused write
+    // name the field that moved. The preparation is the only place that holds the
+    // reviewed values, so they are captured here and travel with the snapshot.
+    stateFields: targetStateFields(item),
     currentType: item.currentType,
     assignments: item.assignments.map((assignment) => ({
       dimension: assignment.dimension,

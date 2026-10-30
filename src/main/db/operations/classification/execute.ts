@@ -12,7 +12,11 @@ import { createInstrument, setInstrumentAssignment } from './operations.ts'
 import { createGenre, setGenreAssignment } from './genres.ts'
 import { applyClassificationRejections } from './rejections.ts'
 import { readStandaloneClassificationContext } from './standalone-context.ts'
-import { targetStateToken } from './target-state.ts'
+import {
+  changedStateFields,
+  targetStateFields,
+  targetStateToken,
+} from './target-state.ts'
 import { readClassificationTargetLabel } from './target-label.ts'
 
 function requireExecution(value: unknown): StandaloneExecutionTargetRequest {
@@ -83,9 +87,19 @@ export function executeStandaloneClassificationTarget(
         forgotten: 0,
       }
       if (targetStateToken(target) !== input.expectedStateToken) {
+        // The guard above already refused the write. These field digests only turn
+        // that refusal into something the surface can explain, so they are read
+        // from the same in-transaction snapshot and never trusted as authority.
+        const changedFields = input.expectedStateFields
+          ? changedStateFields(
+              input.expectedStateFields,
+              targetStateFields(target),
+            )
+          : []
         return {
           ...result,
           outcome: 'stale',
+          ...(changedFields.length > 0 ? { changedFields } : {}),
           message: 'Reviewed state changed. Prepare the review again.',
         }
       }

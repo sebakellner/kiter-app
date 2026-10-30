@@ -13,6 +13,7 @@ import type {
   StandaloneExecutionSubject,
   StandaloneExecutionTargetResult,
 } from '../../../shared/features/classification/execution-schemas.ts'
+import type { ClassificationStateFields } from '../../../shared/features/classification/state-fields.ts'
 
 /** The single write this orchestrator needs; every target owns its transaction. */
 export type StandaloneExecutionDatabase = Pick<
@@ -143,6 +144,11 @@ function failure(error: unknown): {
 export async function executeStandaloneDraft(
   database: StandaloneExecutionDatabase,
   draft: ClassificationBatchDraft,
+  // Reviewed field digests, resolved per subject from the review that produced the
+  // draft. They only explain a stale target; omitting them changes no outcome.
+  stateFields?: (
+    subject: ClassificationSubject,
+  ) => ClassificationStateFields | undefined,
 ): Promise<StandaloneExecutionResult> {
   if (draft.explicitAssignments?.length) {
     throw new IpcError(
@@ -192,9 +198,11 @@ export async function executeStandaloneDraft(
       continue
     }
     try {
+      const reviewedFields = stateFields?.(group.subject)
       const result = await database.executeStandaloneClassificationTarget({
         subject: group.catalog,
         expectedStateToken: group.stateToken,
+        ...(reviewedFields ? { expectedStateFields: reviewedFields } : {}),
         accepts: group.accepts.map((row) => row.target),
         rejections: {
           remember: remember.get(key) ?? [],
