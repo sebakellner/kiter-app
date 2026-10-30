@@ -818,9 +818,11 @@ the only path that turns an accepted decision into catalog state.
   workflow must include its agreed persistence/recovery guarantees. Preserve preview,
   Favorites, and authorized native dragging throughout.
 
-Remaining implementation contracts: the same review surface for Packs once Pack
-browsing exists, future catalog/vocabulary updates, tokenization punctuation edge
-cases, persisted draft-to-catalog identity promotion, durable confirmation,
-dependency/result queries, and measured execution limits. Visual design/prototypes
-remain deferred. These open technical contracts do not reopen the business rules
-above or establish shipped capabilities.
+Remaining implementation contracts: the same review surface for Packs, whose entry
+point now exists as the checkbox selection on the delivered Pack list
+([Catalog Organization](catalog-organization.md#pack-instrument-and-author-views)),
+future catalog/vocabulary updates, tokenization punctuation edge cases, persisted
+draft-to-catalog identity promotion, durable confirmation, dependency/result
+queries, and measured execution limits. Visual design/prototypes remain deferred.
+These open technical contracts do not reopen the business rules above or establish
+shipped capabilities.
