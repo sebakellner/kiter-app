@@ -1,8 +1,7 @@
 import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { expect, test, vi } from 'vitest'
-import type { Pack } from '@shared/domain/pack'
-import type { PackListPage } from '@shared/ipc/packs'
+import type { PackListItem, PackListPage } from '@shared/ipc/packs'
 import type { IpcResult } from '@shared/ipc/result'
 import { Packs } from '@renderer/views/Packs/Packs'
 import { createTestApi } from '../../../../../../../tests/support/ui/bridge'
@@ -31,7 +30,7 @@ const gamma = makePack({
 })
 
 function pageResult(
-  items: Pack[],
+  items: PackListItem[],
   overrides: Partial<PackListPage> = {},
 ): IpcResult<PackListPage> {
   return {
@@ -197,6 +196,31 @@ test('keeps the inspected row independent of the checked Packs', async () => {
     }),
   ).toBeChecked()
   expect(screen.getByText('1 selected')).toBeVisible()
+})
+
+test('distinguishes two Packs that share a name by their source folder', async () => {
+  const { list } = setup()
+  const local = makePack({ sourceRootPath: '/music/packs/drums' })
+  const archived = makePack({
+    id: BETA_ID,
+    sourceRootId: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+    sourceRootPath: '/archive/packs/drums',
+  })
+  list.mockResolvedValue(pageResult([local, archived]))
+  render(<PackList />)
+
+  const rows = await screen.findAllByRole('row', { name: /Alpha Breaks/ })
+  expect(rows).toHaveLength(2)
+  expect(within(rows[0]).getByText('/music/packs/drums')).toBeVisible()
+  expect(within(rows[1]).getByText('/archive/packs/drums')).toBeVisible()
+  // The row name carries the folder too, so assistive technology can tell the
+  // two same-named Packs apart.
+  expect(
+    screen.getByRole('row', { name: /Alpha Breaks.*\/music\/packs\/drums/ }),
+  ).toBe(rows[0])
+  expect(
+    screen.getByRole('row', { name: /Alpha Breaks.*\/archive\/packs\/drums/ }),
+  ).toBe(rows[1])
 })
 
 test('shows the empty state when no Packs exist', async () => {

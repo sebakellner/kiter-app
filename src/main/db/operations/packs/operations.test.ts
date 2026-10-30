@@ -506,6 +506,47 @@ test('Pack queries paginate deterministically and reviews cover multiple batches
   }
 })
 
+test('Pack list rows carry the source root path that tells same-named Packs apart', (t) => {
+  const { db } = createMemoryDatabase(t)
+  const localRoot = path.resolve('local-drums')
+  const archiveRoot = path.resolve('archive-drums')
+  const local = register(db, fixture(db, localRoot, 1).sourceRootId, 'Drums')
+  const archived = register(
+    db,
+    fixture(db, archiveRoot, 2).sourceRootId,
+    'Drums',
+  )
+  assert.equal(local.name, archived.name)
+  assert.notEqual(local.id, archived.id)
+
+  const page = operations.listPacks(db)
+  assert.equal(page.total, 2)
+  assert.deepEqual(
+    page.items.map((row) => [row.name, row.id, row.sourceRootPath]),
+    [
+      ['Drums', local.id, localRoot],
+      ['Drums', archived.id, archiveRoot],
+    ].toSorted((left, right) => (left[1] < right[1] ? -1 : 1)),
+  )
+
+  const first = operations.listPacks(db, { limit: 1, offset: 0 })
+  const second = operations.listPacks(db, { limit: 1, offset: 1 })
+  const beyond = operations.listPacks(db, { limit: 1, offset: 2 })
+  assert.deepEqual(
+    [first.items.length, second.items.length, beyond.items.length],
+    [1, 1, 0],
+  )
+  assert.deepEqual([first.total, second.total, beyond.total], [2, 2, 2])
+  assert.deepEqual(
+    [first.limit, second.limit, second.offset, beyond.offset],
+    [1, 1, 1, 2],
+  )
+  assert.deepEqual(
+    [first.items[0].id, second.items[0].id],
+    page.items.map((row) => row.id),
+  )
+})
+
 test('Pack protocol rejects malformed requests and results', () => {
   const id = randomUUID()
   const pack = {

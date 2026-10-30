@@ -11,7 +11,14 @@ export const PACK_CHANNELS = {
 } as const
 
 export type PackListRequest = PackPageRequest
-export type PackListPage = PackPage<Pack>
+
+// Pack names come from their folder, so rows carry the source root path that
+// keeps two Packs sharing a name distinguishable.
+export interface PackListItem extends Pack {
+  sourceRootPath: string
+}
+
+export type PackListPage = PackPage<PackListItem>
 
 export interface PacksApi {
   list: (request?: PackListRequest) => Promise<IpcResult<PackListPage>>
@@ -45,12 +52,15 @@ const packDescription = z
     }
   }, 'Expected a normalized Pack description.')
 
+const sourceRootPath = z.string().min(1)
+
 const packSchema = z.strictObject({
   id: entityId,
   sourceRootId: entityId,
   name: packName,
   description: packDescription,
   coverAssetId: entityId.nullable(),
+  sourceRootPath,
 })
 
 const packListPageSchema = z

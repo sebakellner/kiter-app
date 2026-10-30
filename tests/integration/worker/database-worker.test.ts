@@ -496,6 +496,11 @@ test(
         action: 'get-pack',
         result: updated.result,
       })
+      assert.deepEqual(await send({ action: 'get-pack-summary', id }), {
+        requestId,
+        action: 'get-pack-summary',
+        result: { ...updated.result, sourceRootPath: dir },
+      })
       const origin = await send({ action: 'get-sample-origin', id: sampleId })
       if (origin.action !== 'get-sample-origin') {
         assert.fail('Expected a Sample origin')
@@ -509,7 +514,14 @@ test(
       if (listed.action !== 'list-packs') {
         assert.fail('Expected Packs')
       }
-      assert.deepEqual(listed.result.items, [updated.result])
+      assert.equal(listed.result.total, 1)
+      // A Pack list row is the Pack entity plus the source root path naming its
+      // source context, so both parts are asserted instead of assuming the row
+      // still has the shape of a Pack entity.
+      const [listedPack] = listed.result.items
+      const { sourceRootPath, ...listedEntity } = listedPack
+      assert.equal(sourceRootPath, dir)
+      assert.deepEqual(listedEntity, updated.result)
       const members = await send({ action: 'list-pack-samples', id, input: {} })
       if (members.action !== 'list-pack-samples') {
         assert.fail('Expected Pack Samples')
