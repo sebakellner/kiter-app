@@ -462,6 +462,27 @@ prototype, not a combined multi-field inspector Save.
 
 ## Pack, Instrument, and Author Views
 
+Pack browsing and the Pack detail are delivered; the Instrument and Author detail
+views are not. Delivered for Packs:
+
+- The Pack list reads a bounded page over one IPC channel and carries each Pack's
+  source root path, because Pack names come from folder names and two Packs can
+  share one. Explicit checkbox selection, an inspected row independent of that
+  selection, page-scoped Select all with context clearing, and ordinary open
+  behavior are all delivered; the list authorizes no batch action, so no batch Pack
+  deletion exists anywhere.
+- The Pack detail renders the header S2 describes except for a real cover: name,
+  source folder and description, then the Pack's Instruments, Authors and Genres as
+  bounded pages that state how many they show out of the reported total. Under it,
+  the Samples that belong to the Pack are listed and paged separately, so a
+  retryable header failure never hides them and a missing Pack never leaves an
+  orphan list.
+
+Still pending for this section: contextual filters/actions on the Pack detail
+Samples list, entity-label navigation (it needs Instrument and Author detail routes
+that do not exist), a managed-image channel that can render a Pack cover, and the
+Instrument/Author detail views themselves.
+
 - Pack detail prioritizes Samples under cover/name/description/Instrument/Author
   header, with contextual list filters/actions. Presentation uses inspector drafts.
 - Instrument/Author detail uses direct Samples/Packs tabs with separate contexts,
