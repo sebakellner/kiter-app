@@ -4,6 +4,7 @@ import type {
   StandaloneExecutionResult,
   StandaloneExecutionTargetResult,
 } from '@shared/features/classification/execution-schemas'
+import type { ClassificationStateField } from '@shared/features/classification/state-fields'
 
 // A committed target alone is success. Every other outcome wrote nothing, so the
 // surface states what was saved and what was not instead of a batch verdict.
@@ -21,6 +22,28 @@ const OUTCOME_EXPLANATIONS: Record<StandaloneExecutionOutcome, string> = {
   blocked:
     'A required Pack decision did not commit, so this target was not executed.',
   failed: 'This target could not be saved, so nothing was written for it.',
+}
+
+// A stale target names the reviewed field the catalog moved, so "catalog changed"
+// becomes something the user can act on: a type set elsewhere, an assignment added
+// by another surface, a source that became unavailable.
+const FIELD_LABELS: Record<ClassificationStateField, string> = {
+  target: 'Target identity',
+  currentType: 'Sample type',
+  assignments: 'Assignments',
+  sources: 'Source files',
+  originPackId: 'Origin Pack',
+  originGenreKeys: 'Origin Pack Genres',
+}
+
+function changedFieldsCopy(
+  item: StandaloneExecutionTargetResult,
+): string | null {
+  if (!item.changedFields || item.changedFields.length === 0) {
+    return null
+  }
+  const labels = item.changedFields.map((field) => FIELD_LABELS[field])
+  return `Changed since preparation: ${labels.join(', ')}.`
 }
 
 // Execution results carry the catalog identity only, never a display name, so the
@@ -102,32 +125,36 @@ export function StandaloneExecutionResults({
         <li>Failed targets: {result.totals.failed}</li>
       </ul>
       <ul aria-label="Execution results by target">
-        {result.results.map((item) => (
-          <li
-            key={`${item.subject.kind}:${item.subject.id}`}
-            aria-label={subjectLabel(item)}
-            title={item.subject.id}
-          >
-            <h3>{subjectLabel(item)}</h3>
-            <p>{OUTCOME_LABELS[item.outcome]}</p>
-            <p>{OUTCOME_EXPLANATIONS[item.outcome]}</p>
-            <ul>
-              <li>Assignments written: {item.assignments}</li>
-              <li>
-                Vocabulary created:{' '}
-                {countLabel(
-                  item.created.instruments,
-                  'Instrument',
-                  'Instruments',
-                )}
-                {', '}
-                {countLabel(item.created.genres, 'Genre', 'Genres')}
-              </li>
-              <li>Sample type changed: {item.typeChanged ? 'Yes' : 'No'}</li>
-            </ul>
-            {item.message && <p>{item.message}</p>}
-          </li>
-        ))}
+        {result.results.map((item) => {
+          const changed = changedFieldsCopy(item)
+          return (
+            <li
+              key={`${item.subject.kind}:${item.subject.id}`}
+              aria-label={subjectLabel(item)}
+              title={item.subject.id}
+            >
+              <h3>{subjectLabel(item)}</h3>
+              <p>{OUTCOME_LABELS[item.outcome]}</p>
+              <p>{OUTCOME_EXPLANATIONS[item.outcome]}</p>
+              <ul>
+                <li>Assignments written: {item.assignments}</li>
+                <li>
+                  Vocabulary created:{' '}
+                  {countLabel(
+                    item.created.instruments,
+                    'Instrument',
+                    'Instruments',
+                  )}
+                  {', '}
+                  {countLabel(item.created.genres, 'Genre', 'Genres')}
+                </li>
+                <li>Sample type changed: {item.typeChanged ? 'Yes' : 'No'}</li>
+              </ul>
+              {changed && <p>{changed}</p>}
+              {item.message && <p>{item.message}</p>}
+            </li>
+          )
+        })}
       </ul>
       {remaining.length === 0 ? (
         <Link to="/samples">Back to Samples</Link>

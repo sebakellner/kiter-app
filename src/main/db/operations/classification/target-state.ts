@@ -1,5 +1,10 @@
 import { createHash } from 'node:crypto'
 import { isRecord } from '../../../../shared/domain/validation.ts'
+import {
+  CLASSIFICATION_STATE_FIELDS,
+  type ClassificationStateField,
+  type ClassificationStateFields,
+} from '../../../../shared/features/classification/state-fields.ts'
 import type { StandaloneClassificationContextTarget } from '../../../../shared/features/classification/standalone-context-schemas.ts'
 
 type ContextTarget = StandaloneClassificationContextTarget
@@ -31,12 +36,29 @@ export function classificationDigest(value: unknown): string {
  * so both sides agree by construction instead of by a duplicated hash.
  */
 export function targetStateToken(item: ContextTarget): string {
-  return classificationDigest([
-    item.target,
-    item.currentType,
-    item.assignments,
-    item.sources,
-    item.originPackId,
-    item.originGenreKeys,
-  ])
+  return classificationDigest(
+    CLASSIFICATION_STATE_FIELDS.map((field) => item[field]),
+  )
+}
+
+/** Per-field digests that explain a stale target, never the guard itself. */
+export function targetStateFields(
+  item: ContextTarget,
+): ClassificationStateFields {
+  return Object.fromEntries(
+    CLASSIFICATION_STATE_FIELDS.map((field) => [
+      field,
+      classificationDigest(item[field]).slice(0, 16),
+    ]),
+  ) as ClassificationStateFields
+}
+
+/** Fields whose current value differs from the reviewed one, in canonical order. */
+export function changedStateFields(
+  reviewed: ClassificationStateFields,
+  current: ClassificationStateFields,
+): ClassificationStateField[] {
+  return CLASSIFICATION_STATE_FIELDS.filter(
+    (field) => reviewed[field] !== current[field],
+  )
 }

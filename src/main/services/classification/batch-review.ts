@@ -23,6 +23,7 @@ import type {
 } from '../../../shared/features/classification/batch-schemas.ts'
 import type { RecognitionTarget } from '../../../shared/domain/recognition.ts'
 import { recognitionTokens } from '../../../shared/domain/recognition.ts'
+import type { ClassificationStateFields } from '../../../shared/features/classification/state-fields.ts'
 import { isEntityId, isRecord } from '../../../shared/domain/validation.ts'
 import { IpcError } from '../../../shared/ipc/result.ts'
 
@@ -560,6 +561,22 @@ export class ClassificationBatchReview {
 
   getReference(): ClassificationReviewReference {
     return this.reference()
+  }
+
+  /** Reviewed field digests for one subject, when its snapshot captured them.
+   *
+   * Explanation only: execution compares these after the enforcing read-state
+   * token has already refused the write, so a missing value costs the explanation
+   * and never the guard.
+   */
+  stateFieldsFor(
+    subject: ClassificationSubject,
+  ): ClassificationStateFields | undefined {
+    this.assertLive()
+    const key = subjectKey(subject)
+    return this.snapshot.targets.find(
+      (target) => subjectKey(target.subject) === key,
+    )?.stateFields
   }
 
   getSummary(): ClassificationReviewSummary {

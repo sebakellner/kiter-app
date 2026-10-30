@@ -29,7 +29,7 @@ Delivered:
 - Confirmed standalone execution: one transaction per target that creates required
   vocabulary, saves accepted assignments and Sample type, and applies rejection
   `remember`/`forget` together, with per-target outcomes that carry the target's own
-  display label.
+  display label and, for a stale target, the reviewed field that changed.
 - The renderer review surface: a route reached from a batch action on the checked
   Samples, with preparation, paged proposals, staged choices, Accept all with its
   complete scope, ambiguity views and discard. It writes nothing yet.
@@ -783,15 +783,25 @@ the only path that turns an accepted decision into catalog state.
   (`committed`, `stale`, `blocked`, `failed`), assignment and creation counts,
   type/rejection changes and a bounded message, plus totals. A `stale`, `blocked` or
   `failed` target has zero counts because it wrote nothing.
+- A `stale` target names the reviewed read-state field the catalog moved
+  (`target`, `currentType`, `assignments`, `sources`, `originPackId`,
+  `originGenreKeys`), so "the catalog changed" becomes actionable. The preparation
+  captures one explanation digest per field, the session resolves them from the
+  review it retained, and the worker compares them against the values it read inside
+  the transaction that already refused the write. The explanation never guards
+  anything: the read-state token above remains authoritative, a field digest is
+  truncated to 64 bits because a collision can only mislabel an explanation, and a
+  request without digests still answers `stale` without naming a field.
 - A result carries the target's display label, resolved by the same rule the rest of
   the app uses: a Sample shows its display name and otherwise its source file name, a
   Pack shows its own name. The label is absent when the worker could not read the
   target — a blocked target is never opened — and the surface then falls back to a
   shortened catalog identity rather than inventing a name.
 - Not promised by this slice: durable confirmation, restart recovery, a persisted
-  intent journal, dependency/result history queries, or field-level conflict
-  descriptions. A crash mid-batch leaves each target's own transaction committed or
-  absent, and the operator re-prepares to see the current state.
+  intent journal, dependency/result history queries, or field-level conflict payloads
+  for `blocked` and `failed` targets (only `stale` explains itself). A crash mid-batch
+  leaves each target's own transaction committed or absent, and the operator
+  re-prepares to see the current state.
 
 ### Remaining Workflow Delivery
 
@@ -809,8 +819,8 @@ the only path that turns an accepted decision into catalog state.
   Favorites, and authorized native dragging throughout.
 
 Remaining implementation contracts: the same review surface for Packs once Pack
-browsing exists, field-level execution conflict payloads, future catalog/vocabulary
-updates, tokenization punctuation edge cases, persisted draft-to-catalog identity
-promotion, durable confirmation, dependency/result queries, and measured execution
-limits. Visual design/prototypes remain deferred. These open technical contracts do
-not reopen the business rules above or establish shipped capabilities.
+browsing exists, future catalog/vocabulary updates, tokenization punctuation edge
+cases, persisted draft-to-catalog identity promotion, durable confirmation,
+dependency/result queries, and measured execution limits. Visual design/prototypes
+remain deferred. These open technical contracts do not reopen the business rules
+above or establish shipped capabilities.

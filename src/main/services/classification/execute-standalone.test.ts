@@ -171,6 +171,10 @@ test('execution commits independent targets and reports a stale one without writ
   assert.ok(stale)
   assert.equal(stale.subject.id, second.id)
   assert.equal(stale.assignments, 0)
+  // The whole path explains the refusal: the preparation captured the reviewed
+  // field digests, the session resolved them from the review it retained, and the
+  // worker compared them against the state it read inside the refused transaction.
+  assert.deepEqual(stale.changedFields, ['currentType'])
   const staleSample = catalog.connection.db
     .select({ id: sampleInstruments.instrumentId })
     .from(sampleInstruments)

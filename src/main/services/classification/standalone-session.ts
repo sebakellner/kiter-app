@@ -140,7 +140,9 @@ export function createStandaloneReviewSession(
           'Nothing to execute. Accept or reject a proposal first.',
         )
       }
-      const result = await executeStandaloneDraft(database, draft)
+      const result = await executeStandaloneDraft(database, draft, (subject) =>
+        retainedReview.review.stateFieldsFor(subject),
+      )
       // Any attempt consumes the review: a committed target moves the state the
       // draft was reviewed from, so retrying needs a fresh review either way.
       retainedReview.review.discard()
