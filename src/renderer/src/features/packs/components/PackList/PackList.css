@@ -34,9 +34,20 @@
 }
 
 .pack-row-name {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-inline-size: 0;
+}
+
+.pack-row-name-text {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.pack-row-open {
+  flex: none;
 }
 
 .pack-row-path,

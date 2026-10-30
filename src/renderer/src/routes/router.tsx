@@ -8,6 +8,7 @@ import { CollectionDetail } from '@renderer/views/CollectionDetail/CollectionDet
 import { Favorites } from '@renderer/views/Favorites/Favorites'
 import { Home } from '@renderer/views/Home/Home'
 import { Packs } from '@renderer/views/Packs/Packs'
+import { PackDetail } from '@renderer/views/Packs/PackDetail'
 import { Samples } from '@renderer/views/Samples/Samples'
 
 export const router = createHashRouter([
@@ -19,6 +20,7 @@ export const router = createHashRouter([
       { path: 'samples', element: <Samples /> },
       { path: 'favorites', element: <Favorites /> },
       { path: 'packs', element: <Packs /> },
+      { path: 'packs/:id', element: <PackDetail /> },
       { path: 'collections', element: <Collections /> },
       { path: 'collections/:id', element: <CollectionDetail /> },
       { path: 'instruments', element: <Instruments /> },

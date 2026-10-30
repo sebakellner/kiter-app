@@ -1,5 +1,6 @@
 import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { MemoryRouter } from 'react-router-dom'
 import { expect, test, vi } from 'vitest'
 import type { PackListItem, PackListPage } from '@shared/ipc/packs'
 import type { IpcResult } from '@shared/ipc/result'
@@ -51,6 +52,12 @@ function twoPages(offset: number): IpcResult<PackListPage> {
     : pageResult([gamma], { total: 3, limit: 2, offset: 2 })
 }
 
+// Rows carry their own Open link, so the list renders inside the router it
+// lives in even when a test never follows that link.
+function renderInRouter(ui: React.ReactElement): ReturnType<typeof render> {
+  return render(<MemoryRouter>{ui}</MemoryRouter>)
+}
+
 function setup(): {
   api: ReturnType<typeof createTestApi>
   list: ReturnType<typeof createTestApi>['packs']['list']
@@ -63,7 +70,7 @@ function setup(): {
 test('renders the first page of Packs on mount with its total', async () => {
   const { list } = setup()
   list.mockResolvedValue(pageResult([alpha, beta]))
-  render(<Packs />)
+  renderInRouter(<Packs />)
 
   const alphaRow = await screen.findByRole('row', { name: /Alpha Breaks/ })
   expect(alphaRow).toHaveTextContent('Rugged drum loops.')
@@ -77,7 +84,7 @@ test('shows the loading state until the first page arrives', async () => {
   const { list } = setup()
   const pending = deferred<IpcResult<PackListPage>>()
   list.mockReturnValue(pending.promise)
-  render(<PackList />)
+  renderInRouter(<PackList />)
 
   expect(screen.getByText('Loading Packs…')).toBeVisible()
   expect(screen.queryByRole('grid')).not.toBeInTheDocument()
@@ -91,7 +98,7 @@ test('loads one page at a time and stops at the last page', async () => {
   const user = userEvent.setup()
   const { list } = setup()
   list.mockImplementation(async (request) => twoPages(request?.offset ?? 0))
-  render(<PackList />)
+  renderInRouter(<PackList />)
 
   await screen.findByRole('row', { name: /Alpha Breaks/ })
   await user.click(screen.getByRole('button', { name: 'Next page' }))
@@ -108,7 +115,7 @@ test('keeps checked Packs across page changes while the inspected row does not s
   const user = userEvent.setup()
   const { list } = setup()
   list.mockImplementation(async (request) => twoPages(request?.offset ?? 0))
-  render(<PackList />)
+  renderInRouter(<PackList />)
 
   await user.click(await screen.findByRole('row', { name: /Alpha Breaks/ }))
   await user.click(
@@ -138,7 +145,7 @@ test('selects every Pack on the current page and clears the selection', async ()
   const user = userEvent.setup()
   const { list } = setup()
   list.mockResolvedValue(pageResult([alpha, beta]))
-  render(<PackList />)
+  renderInRouter(<PackList />)
 
   await user.click(
     await screen.findByRole('checkbox', {
@@ -168,7 +175,7 @@ test('keeps the inspected row independent of the checked Packs', async () => {
   const user = userEvent.setup()
   const { list } = setup()
   list.mockResolvedValue(pageResult([alpha, beta]))
-  render(<PackList />)
+  renderInRouter(<PackList />)
 
   const alphaRow = await screen.findByRole('row', { name: /Alpha Breaks/ })
   const betaRow = screen.getByRole('row', { name: /Beta Textures/ })
@@ -207,7 +214,7 @@ test('distinguishes two Packs that share a name by their source folder', async (
     sourceRootPath: '/archive/packs/drums',
   })
   list.mockResolvedValue(pageResult([local, archived]))
-  render(<PackList />)
+  renderInRouter(<PackList />)
 
   const rows = await screen.findAllByRole('row', { name: /Alpha Breaks/ })
   expect(rows).toHaveLength(2)
@@ -226,7 +233,7 @@ test('distinguishes two Packs that share a name by their source folder', async (
 test('shows the empty state when no Packs exist', async () => {
   const { list } = setup()
   list.mockResolvedValue(pageResult([], { total: 0 }))
-  render(<PackList />)
+  renderInRouter(<PackList />)
 
   expect(await screen.findByText(/No Packs yet\./)).toBeVisible()
   expect(screen.getByText('0 Packs')).toBeVisible()
@@ -239,7 +246,7 @@ test('reports a load failure and retries the requested page', async () => {
   const { list } = setup()
   list.mockRejectedValueOnce(new Error('Unable to read Packs.'))
   list.mockResolvedValue(pageResult([alpha]))
-  render(<PackList />)
+  renderInRouter(<PackList />)
 
   const alert = await screen.findByRole('alert')
   expect(alert).toHaveTextContent('Unable to read Packs.')
@@ -255,7 +262,7 @@ test('browsing, inspecting and clearing Packs calls nothing but packs.list', asy
   const user = userEvent.setup()
   const { api, list } = setup()
   list.mockResolvedValue(pageResult([alpha, beta]))
-  render(<PackList />)
+  renderInRouter(<PackList />)
 
   await user.click(await screen.findByRole('row', { name: /Alpha Breaks/ }))
   await user.click(
@@ -289,7 +296,7 @@ test('recovers when the requested page no longer holds any Pack', async () => {
     }
     return pageResult([alpha, beta], { total, limit: 2 })
   })
-  render(<PackList />)
+  renderInRouter(<PackList />)
 
   await screen.findByRole('row', { name: /Alpha Breaks/ })
   await user.click(screen.getByRole('button', { name: 'Next page' }))

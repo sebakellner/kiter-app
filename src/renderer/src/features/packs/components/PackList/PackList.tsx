@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { ComponentProps } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Button } from '@renderer/components/ui/Button'
 import { Checkbox } from '@renderer/components/ui/Checkbox/Checkbox'
 import {
@@ -17,6 +18,7 @@ import { PackListRow } from './PackListRow'
 import './PackList.css'
 
 export function PackList(): React.JSX.Element {
+  const navigate = useNavigate()
   const { page, loading, error, load, refresh } = usePacks()
   // Inspecting a Pack and checking Packs are separate: a row can be inspected
   // without being checked, and clearing the checks never moves the inspection.
@@ -29,6 +31,12 @@ export function PackList(): React.JSX.Element {
   function changePage(offset: number): void {
     setInspectedId(null)
     load(offset)
+  }
+
+  // Opening is an ordinary activation of the row, so it reads the Pack it
+  // names and never rewrites the checks or the inspected row on the way out.
+  function openPack(pack: PackListItem): void {
+    void navigate(`/packs/${pack.id}`)
   }
 
   const pageIds = page?.items.map((pack) => pack.id) ?? []
@@ -82,10 +90,15 @@ export function PackList(): React.JSX.Element {
         event.currentTarget.focus()
       },
       onKeyDown: (event) => {
-        if (
-          event.target !== event.currentTarget ||
-          (event.key !== 'ArrowDown' && event.key !== 'ArrowUp')
-        ) {
+        if (event.target !== event.currentTarget) {
+          return
+        }
+        if (event.key === 'Enter') {
+          event.preventDefault()
+          openPack(pack)
+          return
+        }
+        if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') {
           return
         }
         event.preventDefault()
@@ -102,6 +115,7 @@ export function PackList(): React.JSX.Element {
           row.focus()
         }
       },
+      onDoubleClick: () => openPack(pack),
     }
   }
 
