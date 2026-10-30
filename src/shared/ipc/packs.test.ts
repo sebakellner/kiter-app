@@ -1,11 +1,18 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
+import { isFolderSelectionList } from './dialog.ts'
 import {
+  isPack,
   isPackDetail,
+  isPackImportCandidatesPage,
+  isPackImportReview,
   isPackListPage,
   isPackSamplesPage,
   requirePackDetailRequest,
+  requirePackImportCandidatesRequest,
+  requirePackImportRequest,
   requirePackListRequest,
+  requirePackPrepareImportRequest,
   requirePackSamplesRequest,
 } from './packs.ts'
 
@@ -41,6 +48,29 @@ const SAMPLE = {
   path: '/library/analog-drums/Kick 01.wav',
 }
 const SAMPLE_PAGE = { items: [SAMPLE], total: 1, limit: 50, offset: 0 }
+const IMPORT_REVIEW_TOKEN = 'a'.repeat(64)
+const IMPORT_REVIEW = {
+  sourceRootId: '00000000-0000-4000-8000-000000000009',
+  pack: null,
+  sampleCount: 3,
+  conflictCount: 0,
+  token: IMPORT_REVIEW_TOKEN,
+}
+// A Pack stores no source root path; only list rows carry it.
+const IMPORT_PACK = {
+  id: '00000000-0000-4000-8000-000000000011',
+  sourceRootId: IMPORT_REVIEW.sourceRootId,
+  name: 'Analog Drums',
+  description: null,
+  coverAssetId: null,
+}
+const IMPORT_CANDIDATE = { ...SAMPLE, conflict: false }
+const IMPORT_CANDIDATE_PAGE = {
+  items: [IMPORT_CANDIDATE],
+  total: 1,
+  limit: 50,
+  offset: 0,
+}
 
 test('Pack list requests reuse the bounded Pack page rules', () => {
   assert.deepEqual(requirePackListRequest({}), { limit: 50, offset: 0 })
@@ -392,5 +422,331 @@ test('Pack Samples replies reject fields the contract does not promise', () => {
       items: [{ ...SAMPLE, displayName: 'Kick' }],
     }),
     false,
+  )
+})
+
+test('Pack import preparation requests accept only the selected directory', () => {
+  const directory = '/library/analog-drums'
+  assert.deepEqual(requirePackPrepareImportRequest({ directory }), {
+    directory,
+  })
+  for (const request of [
+    undefined,
+    null,
+    [],
+    {},
+    { directory: '' },
+    { directory: null },
+    { directory: 42 },
+    { path: directory },
+    { directory, recursive: true },
+  ]) {
+    assert.throws(() => requirePackPrepareImportRequest(request), {
+      name: 'DomainValidationError',
+      message: 'Invalid Pack import preparation request.',
+    })
+  }
+})
+
+test('Pack import preparation replies accept a complete folder review', () => {
+  assert.equal(isPackImportReview(IMPORT_REVIEW), true)
+  assert.equal(
+    isPackImportReview({
+      ...IMPORT_REVIEW,
+      pack: IMPORT_PACK,
+      sampleCount: 2,
+      conflictCount: 2,
+    }),
+    true,
+  )
+  assert.equal(
+    isPackImportReview({
+      ...IMPORT_REVIEW,
+      pack: { ...IMPORT_PACK, description: 'Drums', coverAssetId: null },
+    }),
+    true,
+  )
+})
+
+test('Pack import preparation replies reject malformed reviews', () => {
+  for (const value of [
+    null,
+    [],
+    { ...IMPORT_REVIEW, token: undefined },
+    { ...IMPORT_REVIEW, token: 'a'.repeat(63) },
+    { ...IMPORT_REVIEW, token: 'A'.repeat(64) },
+    { ...IMPORT_REVIEW, token: 1 },
+    { ...IMPORT_REVIEW, sourceRootId: '/library/analog-drums' },
+    { ...IMPORT_REVIEW, pack: undefined },
+    { ...IMPORT_REVIEW, pack: { ...IMPORT_PACK, sourceRootPath: '/x' } },
+    { ...IMPORT_REVIEW, sampleCount: -1 },
+    { ...IMPORT_REVIEW, sampleCount: 1.5 },
+    { ...IMPORT_REVIEW, conflictCount: -1 },
+    { ...IMPORT_REVIEW, sampleCount: 1, conflictCount: 2 },
+    { ...IMPORT_REVIEW, conflicts: [] },
+  ]) {
+    assert.equal(isPackImportReview(value), false, JSON.stringify(value))
+  }
+})
+
+test('Pack import candidate requests reuse the bounded Pack page rules', () => {
+  const sourceRootId = IMPORT_REVIEW.sourceRootId
+  assert.deepEqual(requirePackImportCandidatesRequest({ sourceRootId }), {
+    sourceRootId,
+    limit: 50,
+    offset: 0,
+  })
+  assert.deepEqual(
+    requirePackImportCandidatesRequest({ sourceRootId, limit: 100, offset: 4 }),
+    { sourceRootId, limit: 100, offset: 4 },
+  )
+  for (const request of [
+    undefined,
+    null,
+    [],
+    {},
+    { limit: 2 },
+    { id: sourceRootId },
+    { sourceRootId: null },
+    { sourceRootId: '/library/analog-drums' },
+  ]) {
+    assert.throws(() => requirePackImportCandidatesRequest(request), {
+      name: 'DomainValidationError',
+      message: 'Invalid Pack import candidate request.',
+    })
+  }
+  for (const request of [
+    { limit: 0 },
+    { limit: 101 },
+    { limit: 1.5 },
+    { limit: '2' },
+    { offset: -1 },
+    { offset: 0.5 },
+    { offset: '0' },
+  ]) {
+    assert.throws(
+      () => requirePackImportCandidatesRequest({ sourceRootId, ...request }),
+      {
+        name: 'DomainValidationError',
+        message: 'Invalid Pack page request.',
+      },
+    )
+  }
+})
+
+test('Pack import candidate replies accept a bounded page that flags conflicts', () => {
+  assert.equal(isPackImportCandidatesPage(IMPORT_CANDIDATE_PAGE), true)
+  assert.equal(
+    isPackImportCandidatesPage({ items: [], total: 0, limit: 50, offset: 0 }),
+    true,
+  )
+  assert.equal(
+    isPackImportCandidatesPage({
+      items: [
+        { ...IMPORT_CANDIDATE, conflict: true },
+        {
+          ...IMPORT_CANDIDATE,
+          sampleId: '00000000-0000-4000-8000-000000000008',
+        },
+      ],
+      total: 9,
+      limit: 50,
+      offset: 0,
+    }),
+    true,
+  )
+})
+
+test('Pack import candidate replies reject malformed rows and truncated pages', () => {
+  for (const value of [
+    null,
+    [],
+    { items: [], total: 0, limit: 50 },
+    { ...IMPORT_CANDIDATE_PAGE, total: -1 },
+    { ...IMPORT_CANDIDATE_PAGE, limit: 0 },
+    { ...IMPORT_CANDIDATE_PAGE, limit: 101 },
+    { ...IMPORT_CANDIDATE_PAGE, offset: -1 },
+    {
+      ...IMPORT_CANDIDATE_PAGE,
+      items: [IMPORT_CANDIDATE, IMPORT_CANDIDATE],
+    },
+    { ...IMPORT_CANDIDATE_PAGE, total: 5, offset: 5 },
+  ]) {
+    assert.equal(
+      isPackImportCandidatesPage(value),
+      false,
+      JSON.stringify(value),
+    )
+  }
+  for (const candidate of [
+    { ...IMPORT_CANDIDATE, conflict: undefined },
+    { ...IMPORT_CANDIDATE, conflict: 'yes' },
+    { ...IMPORT_CANDIDATE, path: '' },
+    { ...IMPORT_CANDIDATE, originAssignment: 'guess' },
+    { ...IMPORT_CANDIDATE, sampleId: 'kick.wav' },
+  ]) {
+    assert.equal(
+      isPackImportCandidatesPage({
+        ...IMPORT_CANDIDATE_PAGE,
+        items: [candidate],
+      }),
+      false,
+      JSON.stringify(candidate),
+    )
+  }
+  assert.equal(
+    isPackImportCandidatesPage({
+      ...IMPORT_CANDIDATE_PAGE,
+      items: [{ ...IMPORT_CANDIDATE, decision: 'keep' }],
+    }),
+    false,
+    'Unknown candidate fields are rejected',
+  )
+  assert.equal(
+    isPackImportCandidatesPage({ ...IMPORT_CANDIDATE_PAGE, nextOffset: 1 }),
+    false,
+  )
+})
+
+test('Pack import commit requests require a token, a normalized name and one decision per conflict', () => {
+  const conflictId = '00000000-0000-4000-8000-000000000010'
+  const request = {
+    sourceRootId: IMPORT_REVIEW.sourceRootId,
+    token: IMPORT_REVIEW.token,
+    name: 'Analog Drums',
+    decisions: [{ sampleId: conflictId, resolution: 'keep' }],
+  }
+  assert.deepEqual(requirePackImportRequest(request), request)
+  assert.deepEqual(
+    requirePackImportRequest({
+      ...request,
+      description: 'Collected one-shot drums.',
+      decisions: [{ sampleId: conflictId, resolution: 'assign' }],
+    }),
+    {
+      ...request,
+      description: 'Collected one-shot drums.',
+      decisions: [{ sampleId: conflictId, resolution: 'assign' }],
+    },
+  )
+  assert.deepEqual(
+    requirePackImportRequest({ ...request, description: null, decisions: [] }),
+    { ...request, description: null, decisions: [] },
+  )
+  for (const forged of [
+    undefined,
+    null,
+    [],
+    {},
+    { ...request, token: undefined },
+    { ...request, token: '' },
+    { ...request, token: 'a'.repeat(63) },
+    { ...request, token: 'g'.repeat(64) },
+    { ...request, token: 'A'.repeat(64) },
+    { ...request, token: 42 },
+    { ...request, name: ` ${request.name}` },
+    { ...request, name: '' },
+    { ...request, name: '   ' },
+    { ...request, name: 'a'.repeat(121) },
+    { ...request, name: 'Drums\u0000' },
+    { ...request, name: undefined },
+    { ...request, description: 'Drums\u0000' },
+    { ...request, description: '  ' },
+    { ...request, description: 42 },
+    { ...request, decisions: undefined },
+    { ...request, decisions: null },
+    { ...request, decisions: {} },
+    { ...request, decisions: [{ sampleId: conflictId, resolution: 'guess' }] },
+    { ...request, decisions: [{ resolution: 'keep' }] },
+    { ...request, decisions: [{ sampleId: 'kick.wav', resolution: 'keep' }] },
+    {
+      ...request,
+      decisions: [
+        { sampleId: conflictId, resolution: 'keep' },
+        { sampleId: conflictId, resolution: 'assign' },
+      ],
+    },
+  ]) {
+    assert.throws(() => requirePackImportRequest(forged), {
+      name: 'DomainValidationError',
+      message: 'Invalid Pack import request.',
+    })
+  }
+})
+
+test('Pack import commit requests reject fields the contract does not promise', () => {
+  const request = {
+    sourceRootId: IMPORT_REVIEW.sourceRootId,
+    token: IMPORT_REVIEW.token,
+    name: 'Analog Drums',
+    decisions: [],
+  }
+  for (const forged of [
+    { ...request, id: IMPORT_PACK.id },
+    { ...request, coverAssetId: null },
+    { ...request, sampleCount: 1 },
+    { ...request, decisions: [], keep: true },
+    {
+      ...request,
+      decisions: [
+        {
+          sampleId: '00000000-0000-4000-8000-000000000010',
+          resolution: 'keep',
+          packId: null,
+        },
+      ],
+    },
+  ]) {
+    assert.throws(() => requirePackImportRequest(forged), {
+      name: 'DomainValidationError',
+      message: 'Invalid Pack import request.',
+    })
+  }
+})
+
+test('Pack import commit replies accept the created Pack', () => {
+  assert.equal(isPack(IMPORT_PACK), true)
+  assert.equal(
+    isPack({ ...IMPORT_PACK, description: null, coverAssetId: null }),
+    true,
+  )
+  for (const value of [
+    null,
+    [],
+    {},
+    { ...IMPORT_PACK, sourceRootPath: '/library/analog-drums' },
+    { ...IMPORT_PACK, name: ` ${IMPORT_PACK.name}` },
+    { ...IMPORT_PACK, description: undefined },
+    { ...IMPORT_PACK, coverAssetId: 'cover.png' },
+    { ...IMPORT_PACK, id: 'analog-drums' },
+    { ...IMPORT_PACK, sourceRootId: null },
+  ]) {
+    assert.equal(isPack(value), false, JSON.stringify(value))
+  }
+})
+
+test('The multi-folder picker reply lists selected folders in order', () => {
+  assert.equal(isFolderSelectionList([]), true)
+  assert.equal(
+    isFolderSelectionList(['/library/analog-drums', '/library/breaks']),
+    true,
+  )
+  for (const value of [
+    null,
+    undefined,
+    '/library/analog-drums',
+    [''],
+    [42],
+    [null],
+    ['/library/analog-drums', ''],
+    [['/library/analog-drums']],
+    { items: ['/library/analog-drums'] },
+  ]) {
+    assert.equal(isFolderSelectionList(value), false, JSON.stringify(value))
+  }
+  assert.equal(
+    isFolderSelectionList(['/library/analog-drums', '/library/analog-drums']),
+    false,
+    'The same folder cannot be selected twice',
   )
 })
