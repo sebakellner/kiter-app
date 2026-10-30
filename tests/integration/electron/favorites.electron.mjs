@@ -27,6 +27,35 @@ dialog.showOpenDialog = async () => {
   }
 }
 
+// "Open folder" opens the import dialog instead of importing at once, so the
+// journey selects standalone Samples and dismisses the result; the dialog's own
+// controls and phases are the progress it waits on.
+const IMPORT_DIALOG = 'document.querySelector("dialog[open]")'
+const dialogControl = (selector) =>
+  `Array.from((${IMPORT_DIALOG}?.querySelectorAll(${JSON.stringify(selector)})) ?? [])`
+const dialogButton = (label) =>
+  `${dialogControl('button')}.find(button => button.textContent.trim() === ${JSON.stringify(label)})`
+const dialogRadio = (label) =>
+  `${dialogControl('label')}.find(entry => entry.textContent.trim() === ${JSON.stringify(label)})?.querySelector("input[type=radio]")`
+
+async function importStandalone(execute, waitFor) {
+  await waitFor(
+    () => execute(`!!${dialogRadio('Standalone Samples')}`),
+    'selected folders in the import dialog',
+  )
+  await execute(`${dialogRadio('Standalone Samples')}.click()`)
+  // The confirmation control changes its label after the mode re-renders, so
+  // waiting for that label avoids confirming the default Pack mode.
+  await waitFor(
+    () => execute(`!!${dialogButton('Import Samples')}`),
+    'standalone Samples mode',
+  )
+  await execute(`${dialogButton('Import Samples')}.click()`)
+  await waitFor(() => execute(`!!${dialogButton('Close')}`), 'import results')
+  await execute(`${dialogButton('Close')}.click()`)
+  await waitFor(() => execute(`!${IMPORT_DIALOG}`), 'import dialog dismissal')
+}
+
 async function run() {
   let failed = false
   let window
@@ -66,6 +95,7 @@ async function run() {
       await execute(
         'document.querySelector("[data-testid=open-folder]").click()',
       )
+      await importStandalone(execute, waitFor)
     } else {
       await execute(`document.querySelector('a[href="#/samples"]').click()`)
     }
@@ -73,11 +103,11 @@ async function run() {
       const state = await execute(`({
           error: document.querySelector('[data-testid="library-error"]')?.textContent,
           imported: !!document.querySelector('[data-testid="favorite-toggle"]'),
-          loading: document.querySelector('[data-testid="open-folder"]')?.disabled
+          importing: !!document.querySelector('dialog[open]')
         })`)
       assert.ok(!state.error, `Catalog import failed: ${state.error}`)
       assert.deepEqual(rendererErrors, [], 'Unexpected renderer errors')
-      return state.imported && !state.loading
+      return state.imported && !state.importing
     }, 'catalog import')
     const id = await execute(
       'document.querySelector("[data-sample-id]").dataset.sampleId',
@@ -155,10 +185,12 @@ async function run() {
           await execute(
             'document.querySelector("[data-testid=open-folder]").click()',
           )
+          // The dialog reports its own pending folder selection, so that is the
+          // barrier held open while the Favorite write is still pending.
           await waitFor(
             () =>
               execute(
-                'document.querySelector("main").getAttribute("aria-busy") === "true" && document.querySelector("[data-testid=favorite-toggle]").disabled',
+                'document.querySelector("dialog[open]")?.getAttribute("aria-busy") === "true" && document.querySelector("[data-testid=favorite-toggle]").disabled',
               ),
             'pending favorite preserved during folder selection',
           )
@@ -166,7 +198,7 @@ async function run() {
           await waitFor(
             () =>
               execute(
-                '!!document.querySelector("[data-testid=favorite-toggle]") && !document.querySelector("[data-testid=open-folder]").disabled',
+                '!!document.querySelector("[data-testid=favorite-toggle]") && !document.querySelector("dialog[open]")',
               ),
             'canceled folder selection',
           )
@@ -237,7 +269,8 @@ async function run() {
         const state = await window.webContents.executeJavaScript(`({
           readyState: document.readyState,
           loading: document.querySelector('main')?.getAttribute('aria-busy'),
-          openFolderDisabled: document.querySelector('[data-testid="open-folder"]')?.disabled,
+          importing: !!document.querySelector('dialog[open]'),
+          importDialogText: document.querySelector('dialog[open]')?.textContent,
           importError: document.querySelector('[data-testid="library-error"]')?.textContent,
           sampleCount: document.querySelectorAll('[data-sample-id]').length
         })`)

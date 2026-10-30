@@ -30,16 +30,24 @@ export async function verifyListing(ctx) {
       () => ctx.dialogCalls() === previousCalls + 1,
       'pending folder dialog',
     )
+    // The dialog owns folder-selection progress now, so its own pending state is
+    // what the repeated click must not disturb.
     assert.equal(
       await execute(
-        'document.querySelector("[data-testid=open-folder]").disabled',
+        'document.querySelector("dialog[open]").getAttribute("aria-busy")',
       ),
-      true,
+      'true',
+    )
+    assert.ok(
+      await execute(
+        'document.querySelector("dialog[open]").textContent.includes("Selecting folders")',
+      ),
+      'The import dialog must report its pending folder selection',
     )
   } finally {
     releaseDialog()
   }
-  await ctx.waitForFolder()
+  await ctx.importStandalone()
   assert.equal(
     ctx.dialogCalls(),
     previousCalls + 1,
@@ -564,11 +572,34 @@ export async function verifyFolderOutcomesAndRevocation(ctx) {
     () => nativeDrags.length === beforeDrag + 1,
     'dragging after cancellation',
   )
-  await ctx.open(undefined)
+  // The import dialog owns folder selection now, so a picker that answers without
+  // a directory is reported there: assert that message on the surface that
+  // renders it, before dismissing the dialog so the journey continues.
+  const dialogCallsBefore = ctx.dialogCalls()
+  ctx.queueSelection(undefined)
+  await execute('document.querySelector("[data-testid=open-folder]").click()')
+  await waitFor(
+    () => ctx.dialogCalls() === dialogCallsBefore + 1,
+    'folder selection dialog',
+  )
+  await waitFor(
+    () => execute('!!document.querySelector("dialog[open] [role=alert]")'),
+    'folder selection error in the import dialog',
+  )
   assert.ok(
     await execute(
-      'document.querySelector("[data-testid=library-error]").textContent.includes("did not return a directory")',
+      'document.querySelector("dialog[open] [role=alert]").textContent.includes("did not return a directory")',
     ),
+    'A picker that returns no directory must be reported to the user',
+  )
+  await execute(`
+    Array.from(document.querySelectorAll('dialog[open] button'))
+      .find(button => button.textContent.trim() === 'Cancel')
+      .click()
+  `)
+  await waitFor(
+    () => execute('!document.querySelector("dialog[open]")'),
+    'import dialog dismissal after the folder selection error',
   )
   assert.deepEqual(await ctx.names(), fixtures.expected)
   await ctx.open(path.join(fixtures.samples, 'missing'))
@@ -722,5 +753,135 @@ export async function verifyLazyWaveforms(ctx) {
   assert.ok(
     finalFetches > initialFetches && finalFetches < fixtures.largeSampleCount,
     'Scrolling must load new rows without eagerly decoding the whole library',
+  )
+}
+
+export async function verifyPackImport(ctx) {
+  const { fixtures, execute, waitFor, dialog } = ctx
+  // The name under review is the user's, not the folder's suggestion, so the
+  // Pack that appears has to echo exactly what the dialog accepted.
+  const packName = 'Imported Pack'
+  const sourceRoot = await realpath(fixtures.packSource)
+  const noPacks = await execute('window.api.packs.list({})')
+  assert.equal(noPacks.ok, true)
+  assert.equal(
+    noPacks.data.total,
+    0,
+    'This scenario needs a catalog without Packs',
+  )
+  await ctx.openImportDialog(fixtures.packSource)
+  await ctx.importAsPack(packName)
+
+  // Closing the results lands on the Packs view, so the created Pack is first
+  // asserted where a user reads it, then read back through the app's bridge.
+  await waitFor(
+    () => execute('document.querySelectorAll("[data-pack-id]").length === 1'),
+    'created Pack in the Packs list',
+  )
+  const listed = await execute(`(() => {
+    const row = document.querySelector("[data-pack-id]")
+    return { id: row.dataset.packId, text: row.textContent }
+  })()`)
+  assert.ok(
+    listed.text.includes(packName),
+    `The Packs list must show the reviewed name, saw: ${listed.text}`,
+  )
+  const packs = await execute('window.api.packs.list({})')
+  assert.equal(packs.ok, true)
+  assert.equal(packs.data.total, 1, 'One Pack per folder must create one Pack')
+  const [pack] = packs.data.items
+  assert.equal(pack.id, listed.id)
+  assert.equal(pack.name, packName, 'The Pack must keep its reviewed name')
+  assert.equal(pack.sourceRootPath, sourceRoot)
+  assert.equal(
+    pack.description,
+    null,
+    'Pack mode creates the Pack without a description it was never given',
+  )
+
+  // The folder's Samples are reachable as this Pack's members, not only as the
+  // loose Samples that preparing the folder cataloged.
+  const members = await execute(
+    `window.api.packs.samples({ id: ${JSON.stringify(listed.id)} })`,
+  )
+  assert.equal(members.ok, true)
+  assert.equal(members.data.total, fixtures.packSourceNames.length)
+  assert.deepEqual(
+    members.data.items.map((item) => item.name),
+    fixtures.packSourceNames,
+  )
+  assert.deepEqual(
+    members.data.items.map((item) => item.path),
+    fixtures.packSourceNames.map((name) => path.join(sourceRoot, name)),
+  )
+  assert.deepEqual(
+    members.data.items.map((item) => item.packId),
+    fixtures.packSourceNames.map(() => listed.id),
+  )
+  await execute('document.querySelector("[data-pack-id] a[href]").click()')
+  await waitFor(
+    () =>
+      execute(
+        '!!document.querySelector(\'[aria-label="Samples in this Pack"]\')',
+      ),
+    'Pack Sample list',
+  )
+  assert.equal(
+    await execute('document.querySelector("#pack-title").textContent'),
+    packName,
+  )
+  assert.deepEqual(
+    await execute(`Array.from(
+      document.querySelectorAll('[aria-label="Pack Sample rows"] tr'),
+      row => Array.from(row.cells, cell => cell.textContent),
+    )`),
+    fixtures.packSourceNames.map((name) => [
+      name,
+      path.join(sourceRoot, name),
+      'Automatic origin',
+    ]),
+  )
+
+  // A source root belongs to one Pack, so the same folder must not become a new
+  // one: the dialog reviews it as already registered and cannot confirm it.
+  await ctx.openImportDialog(fixtures.packSource)
+  await ctx.preparePackImport()
+  const registered = await execute(`(() => {
+    const rows = Array.from(${dialog.rows})
+    const row = rows[0]
+    return {
+      rows: rows.length,
+      text: row?.textContent ?? "",
+      reason: row?.querySelector("[role=alert]")?.textContent ?? "",
+      name: !!row?.querySelector("input:not([type=radio])"),
+      confirm: (${dialog.button('Create Packs')})?.disabled ?? null,
+    }
+  })()`)
+  assert.equal(registered.rows, 1, 'The dialog must review the selected folder')
+  assert.ok(
+    registered.text.includes(`Already imported as Pack “${packName}”.`),
+    `The reviewed folder must name its existing Pack, saw: ${registered.text}`,
+  )
+  assert.match(
+    registered.reason,
+    /cannot become a new Pack/,
+    'The reviewed folder must state why it cannot become another Pack',
+  )
+  assert.equal(
+    registered.name,
+    false,
+    'An already registered folder must not offer a new Pack name',
+  )
+  assert.equal(
+    registered.confirm,
+    true,
+    'An already registered folder must not be confirmable',
+  )
+  await execute(`(${dialog.button('Cancel')}).click()`)
+  await ctx.waitForDialogDismissal()
+  assert.deepEqual(
+    await execute('window.api.packs.list({})'),
+    packs,
+    'A refused reimport must leave the created Pack unchanged',
   )
 }
