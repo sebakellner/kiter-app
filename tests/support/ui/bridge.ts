@@ -72,6 +72,8 @@ export function createTestApi(): {
   }
   packs: {
     list: ReturnType<typeof vi.fn<Api['packs']['list']>>
+    detail: ReturnType<typeof vi.fn<Api['packs']['detail']>>
+    samples: ReturnType<typeof vi.fn<Api['packs']['samples']>>
   }
 } {
   return {
@@ -131,6 +133,8 @@ export function createTestApi(): {
     },
     packs: {
       list: vi.fn<Api['packs']['list']>(),
+      detail: vi.fn<Api['packs']['detail']>(),
+      samples: vi.fn<Api['packs']['samples']>(),
     },
   }
 }

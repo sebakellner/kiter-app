@@ -51,7 +51,12 @@ import {
   isInstrument,
   isInstrumentPage,
 } from '@shared/ipc/instruments'
-import { PACK_CHANNELS, isPackListPage } from '@shared/ipc/packs'
+import {
+  PACK_CHANNELS,
+  isPackDetail,
+  isPackListPage,
+  isPackSamplesPage,
+} from '@shared/ipc/packs'
 
 // Custom APIs for renderer
 const api: Api = {
@@ -60,6 +65,16 @@ const api: Api = {
       requireIpcResult(
         await ipcRenderer.invoke(PACK_CHANNELS.list, request),
         isPackListPage,
+      ),
+    detail: async (request) =>
+      requireIpcResult(
+        await ipcRenderer.invoke(PACK_CHANNELS.detail, request),
+        isPackDetail,
+      ),
+    samples: async (request) =>
+      requireIpcResult(
+        await ipcRenderer.invoke(PACK_CHANNELS.samples, request),
+        isPackSamplesPage,
       ),
   },
   collections: {

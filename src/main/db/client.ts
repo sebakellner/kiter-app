@@ -598,6 +598,14 @@ export class DbClient {
     return reply.result
   }
 
+  async getPackSummary(id: string): Promise<PackListItem> {
+    const reply = await this.packRequest({ action: 'get-pack-summary', id })
+    if (reply.action !== 'get-pack-summary') {
+      throw new Error(UNEXPECTED_REPLY_MESSAGE)
+    }
+    return reply.result
+  }
+
   private async assetRequest(request: AssetRequest): Promise<DbReply> {
     this.transport.assertOpen()
     if (!isAssetRequest(request)) {

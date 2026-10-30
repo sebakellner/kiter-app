@@ -33,6 +33,7 @@ export type PackRequest =
       action: 'get-pack' | 'review-pack-removal' | 'get-sample-origin'
       id: string
     }
+  | { action: 'get-pack-summary'; id: string }
   | { action: 'list-packs'; input: PackPageRequest }
   | {
       action: 'list-pack-samples' | 'list-pack-import-candidates'
@@ -47,6 +48,7 @@ export type PackRequest =
 export type PackReply =
   | { action: 'get-pack-source-root'; result: { id: string } }
   | { action: 'update-pack' | 'get-pack' | 'import-pack'; result: Pack }
+  | { action: 'get-pack-summary'; result: PackListItem }
   | { action: 'list-packs'; result: PackPage<PackListItem> }
   | { action: 'list-pack-samples'; result: PackPage<PackSample> }
   | {
@@ -95,6 +97,7 @@ export function isPackRequest(value: unknown): value is PackRequest {
             input.decisions.length
         )
       case 'get-pack':
+      case 'get-pack-summary':
       case 'review-pack-removal':
       case 'review-pack-import':
       case 'get-sample-origin':
@@ -177,6 +180,8 @@ export function isPackReply(value: unknown): value is PackReply {
     case 'update-pack':
     case 'import-pack':
       return isPack(result)
+    case 'get-pack-summary':
+      return isPackListItem(result)
     case 'list-packs':
       return isPage(result, isPackListItem)
     case 'list-pack-samples':

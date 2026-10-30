@@ -84,6 +84,20 @@ export function getPack(db: AppDatabase, id: string): Pack {
   return row
 }
 
+export function getPackSummary(db: AppDatabase, id: string): PackListItem {
+  requireEntityId(id)
+  const row = db
+    .select(packListFields)
+    .from(packs)
+    .innerJoin(sourceRoots, eq(sourceRoots.id, packs.sourceRootId))
+    .where(eq(packs.id, id))
+    .get()
+  if (!row) {
+    throw new DbError('NOT_FOUND', 'The Pack no longer exists.')
+  }
+  return row
+}
+
 export function updatePack(db: AppDatabase, input: PackUpdateRequest): Pack {
   requireEntityId(input.id)
   const name = requirePresentationName(input.name)

@@ -57,6 +57,9 @@ export async function verifyListing(ctx) {
 
 export async function verifyMainFrameAuthorization(ctx) {
   const { fixtures, execute, waitFor } = ctx
+  // No IPC channel creates a Pack, so the detail channels are asserted with an
+  // identifier that is well formed and absent from the catalog.
+  const missingPackId = '00000000-0000-4000-8000-000000000000'
   console.log(
     'Expecting UNAUTHORIZED for subframe IPC and native drag requests',
   )
@@ -118,6 +121,52 @@ export async function verifyMainFrameAuthorization(ctx) {
         message: 'Invalid Pack page request.',
       },
     })
+    // Nothing creates a Pack over IPC, so the envelopes below prove registration
+    // and request validation rather than a successful detail.
+    assert.deepEqual(
+      await execute(`window.api.packs.detail({ id: "${missingPackId}" })`),
+      {
+        ok: false,
+        error: {
+          code: 'NOT_FOUND',
+          message: 'The Pack no longer exists.',
+        },
+      },
+    )
+    assert.deepEqual(
+      await execute('window.api.packs.detail({ id: "packs" })'),
+      {
+        ok: false,
+        error: {
+          code: 'INVALID_INPUT',
+          message: 'Invalid Pack detail request.',
+        },
+      },
+    )
+    assert.deepEqual(
+      await execute(
+        `window.api.packs.samples({ id: "${missingPackId}", limit: 1 })`,
+      ),
+      {
+        ok: false,
+        error: {
+          code: 'NOT_FOUND',
+          message: 'The Pack no longer exists.',
+        },
+      },
+    )
+    assert.deepEqual(
+      await execute(
+        `window.api.packs.samples({ id: "${missingPackId}", limit: 101 })`,
+      ),
+      {
+        ok: false,
+        error: {
+          code: 'INVALID_INPUT',
+          message: 'Invalid Pack page request.',
+        },
+      },
+    )
     const instrument = instrumentsBefore.data.items[0]
     assert.ok(
       instrument,
@@ -128,6 +177,8 @@ export async function verifyMainFrameAuthorization(ctx) {
       ['library:import-folder', { directory: fixtures.samples }],
       ['library:list', {}],
       ['packs:list', { limit: 1 }],
+      ['packs:detail', { id: missingPackId }],
+      ['packs:samples', { id: missingPackId, limit: 1 }],
       ['library:set-favorite', { id: sample.id, favorite: true }],
       ['instruments:list', {}],
       ['instruments:create', { name: 'Unauthorized Instrument' }],
