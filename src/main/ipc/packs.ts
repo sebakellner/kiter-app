@@ -3,10 +3,14 @@ import type { ClassificationTarget } from '../../shared/domain/classification'
 import {
   PACK_CHANNELS,
   requirePackDetailRequest,
+  requirePackImportCandidatesRequest,
+  requirePackImportRequest,
   requirePackListRequest,
+  requirePackPrepareImportRequest,
   requirePackSamplesRequest,
 } from '../../shared/ipc/packs'
 import type { DbClient } from '../db'
+import { prepareLibraryPackImport } from '../services/library'
 import { requireMainFrameWindow } from './authorize'
 import { invokeResult } from './result'
 
@@ -60,6 +64,61 @@ export function registerPacksIpc(database: DbClient): void {
         requireMainFrameWindow(event)
         const { id, limit, offset } = requirePackSamplesRequest(request)
         return database.listPackSamples(id, { limit, offset })
+      },
+    ),
+  )
+
+  // Preparing catalogs the folder's files before the review, exactly as the
+  // internal prepackaging service already does; it registers no Pack.
+  ipcMain.handle(PACK_CHANNELS.prepareImport, (event, request: unknown) =>
+    invokeResult(
+      'packs.prepareImport',
+      {
+        code: 'FOLDER_FAILED',
+        message:
+          'Unable to prepare the Pack import. Check folder access and database storage.',
+      },
+      () => {
+        requireMainFrameWindow(event)
+        const { directory } = requirePackPrepareImportRequest(request)
+        return prepareLibraryPackImport(directory, database)
+      },
+    ),
+  )
+
+  ipcMain.handle(
+    PACK_CHANNELS.listImportCandidates,
+    (event, request: unknown) =>
+      invokeResult(
+        'packs.listImportCandidates',
+        {
+          code: 'STORAGE_FAILED',
+          message:
+            'Unable to list the Pack import candidates. Check database storage.',
+        },
+        () => {
+          requireMainFrameWindow(event)
+          const { sourceRootId, limit, offset } =
+            requirePackImportCandidatesRequest(request)
+          return database.listPackImportCandidates(sourceRootId, {
+            limit,
+            offset,
+          })
+        },
+      ),
+  )
+
+  ipcMain.handle(PACK_CHANNELS.importPack, (event, request: unknown) =>
+    invokeResult(
+      'packs.importPack',
+      {
+        code: 'STORAGE_FAILED',
+        message:
+          'Unable to import the Pack. Review the folder again before retrying.',
+      },
+      () => {
+        requireMainFrameWindow(event)
+        return database.importPack(requirePackImportRequest(request))
       },
     ),
   )

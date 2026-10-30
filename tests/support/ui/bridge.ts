@@ -55,7 +55,10 @@ export function createTestApi(): {
       typeof vi.fn<Api['classification']['prepareSample']>
     >
   }
-  dialog: { openFolder: ReturnType<typeof vi.fn<Api['dialog']['openFolder']>> }
+  dialog: {
+    openFolder: ReturnType<typeof vi.fn<Api['dialog']['openFolder']>>
+    openFolders: ReturnType<typeof vi.fn<Api['dialog']['openFolders']>>
+  }
   instruments: {
     readSample: ReturnType<typeof vi.fn<Api['instruments']['readSample']>>
     saveSample: ReturnType<typeof vi.fn<Api['instruments']['saveSample']>>
@@ -74,6 +77,11 @@ export function createTestApi(): {
     list: ReturnType<typeof vi.fn<Api['packs']['list']>>
     detail: ReturnType<typeof vi.fn<Api['packs']['detail']>>
     samples: ReturnType<typeof vi.fn<Api['packs']['samples']>>
+    prepareImport: ReturnType<typeof vi.fn<Api['packs']['prepareImport']>>
+    listImportCandidates: ReturnType<
+      typeof vi.fn<Api['packs']['listImportCandidates']>
+    >
+    importPack: ReturnType<typeof vi.fn<Api['packs']['importPack']>>
   }
 } {
   return {
@@ -116,7 +124,10 @@ export function createTestApi(): {
       incorporateAlias: vi.fn<Api['classification']['incorporateAlias']>(),
       prepareSample: vi.fn<Api['classification']['prepareSample']>(),
     },
-    dialog: { openFolder: vi.fn<Api['dialog']['openFolder']>() },
+    dialog: {
+      openFolder: vi.fn<Api['dialog']['openFolder']>(),
+      openFolders: vi.fn<Api['dialog']['openFolders']>(),
+    },
     instruments: {
       readSample: vi.fn<Api['instruments']['readSample']>(),
       saveSample: vi.fn<Api['instruments']['saveSample']>(),
@@ -135,6 +146,9 @@ export function createTestApi(): {
       list: vi.fn<Api['packs']['list']>(),
       detail: vi.fn<Api['packs']['detail']>(),
       samples: vi.fn<Api['packs']['samples']>(),
+      prepareImport: vi.fn<Api['packs']['prepareImport']>(),
+      listImportCandidates: vi.fn<Api['packs']['listImportCandidates']>(),
+      importPack: vi.fn<Api['packs']['importPack']>(),
     },
   }
 }

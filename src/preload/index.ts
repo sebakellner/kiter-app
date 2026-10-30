@@ -1,7 +1,7 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 import { DIALOG_CHANNELS, LIBRARY_CHANNELS, type Api } from '@shared/ipc'
-import { isFolderSelection } from '@shared/ipc/dialog'
+import { isFolderSelection, isFolderSelectionList } from '@shared/ipc/dialog'
 import {
   isAudioSamples,
   isAudioDragError,
@@ -53,7 +53,10 @@ import {
 } from '@shared/ipc/instruments'
 import {
   PACK_CHANNELS,
+  isPack,
   isPackDetail,
+  isPackImportCandidatesPage,
+  isPackImportReview,
   isPackListPage,
   isPackSamplesPage,
 } from '@shared/ipc/packs'
@@ -75,6 +78,21 @@ const api: Api = {
       requireIpcResult(
         await ipcRenderer.invoke(PACK_CHANNELS.samples, request),
         isPackSamplesPage,
+      ),
+    prepareImport: async (request) =>
+      requireIpcResult(
+        await ipcRenderer.invoke(PACK_CHANNELS.prepareImport, request),
+        isPackImportReview,
+      ),
+    listImportCandidates: async (request) =>
+      requireIpcResult(
+        await ipcRenderer.invoke(PACK_CHANNELS.listImportCandidates, request),
+        isPackImportCandidatesPage,
+      ),
+    importPack: async (request) =>
+      requireIpcResult(
+        await ipcRenderer.invoke(PACK_CHANNELS.importPack, request),
+        isPack,
       ),
   },
   collections: {
@@ -276,6 +294,11 @@ const api: Api = {
       requireIpcResult(
         await ipcRenderer.invoke(DIALOG_CHANNELS.openFolder),
         isFolderSelection,
+      ),
+    openFolders: async () =>
+      requireIpcResult(
+        await ipcRenderer.invoke(DIALOG_CHANNELS.openFolders),
+        isFolderSelectionList,
       ),
   },
   library: {
