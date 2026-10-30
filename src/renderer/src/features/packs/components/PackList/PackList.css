@@ -39,6 +39,7 @@
   white-space: nowrap;
 }
 
+.pack-row-path,
 .pack-row-description {
   color: var(--color-text-secondary);
 }

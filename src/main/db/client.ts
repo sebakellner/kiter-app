@@ -90,6 +90,7 @@ import type {
   PackRemovalReview,
   PackRemovalRequest,
 } from '../../shared/domain/pack'
+import type { PackListItem } from '../../shared/ipc/packs'
 import type { PackRequest } from './protocol/packs'
 import { isPackRequest } from './protocol/packs'
 import type {
@@ -680,7 +681,9 @@ export class DbClient {
     return reply.result
   }
 
-  async listPacks(input: PackPageRequest = {}): Promise<PackPage<Pack>> {
+  async listPacks(
+    input: PackPageRequest = {},
+  ): Promise<PackPage<PackListItem>> {
     const reply = await this.packRequest({ action: 'list-packs', input })
     if (reply.action !== 'list-packs') {
       throw new Error(UNEXPECTED_REPLY_MESSAGE)

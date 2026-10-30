@@ -14,6 +14,7 @@ import type {
 } from '../../../shared/domain/pack.ts'
 import { requirePackPage } from '../../../shared/domain/pack.ts'
 import { requireDescription } from '../../../shared/domain/presentation.ts'
+import type { PackListItem } from '../../../shared/ipc/packs.ts'
 import {
   isEntityId,
   isRecord,
@@ -46,7 +47,7 @@ export type PackRequest =
 export type PackReply =
   | { action: 'get-pack-source-root'; result: { id: string } }
   | { action: 'update-pack' | 'get-pack' | 'import-pack'; result: Pack }
-  | { action: 'list-packs'; result: PackPage<Pack> }
+  | { action: 'list-packs'; result: PackPage<PackListItem> }
   | { action: 'list-pack-samples'; result: PackPage<PackSample> }
   | {
       action: 'list-pack-import-candidates'
@@ -136,6 +137,15 @@ function isPack(value: unknown): boolean {
   }
 }
 
+function isPackListItem(value: unknown): boolean {
+  return (
+    isPack(value) &&
+    isRecord(value) &&
+    typeof value.sourceRootPath === 'string' &&
+    value.sourceRootPath.length > 0
+  )
+}
+
 function isOrigin(value: unknown): boolean {
   return (
     isRecord(value) &&
@@ -168,7 +178,7 @@ export function isPackReply(value: unknown): value is PackReply {
     case 'import-pack':
       return isPack(result)
     case 'list-packs':
-      return isPage(result, isPack)
+      return isPage(result, isPackListItem)
     case 'list-pack-samples':
       return isPage(result, isSample)
     case 'list-pack-import-candidates':

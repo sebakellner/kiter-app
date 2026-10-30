@@ -11,7 +11,7 @@ import {
   TableHeader,
   TableRow,
 } from '@renderer/components/ui/Table'
-import type { Pack } from '@shared/domain/pack'
+import type { PackListItem } from '@shared/ipc/packs'
 import { usePacks } from '../../hooks/usePacks'
 import { PackListRow } from './PackListRow'
 import './PackList.css'
@@ -63,7 +63,7 @@ export function PackList(): React.JSX.Element {
     })
   }
 
-  function rowProps(index: number, pack: Pack): ComponentProps<'tr'> {
+  function rowProps(index: number, pack: PackListItem): ComponentProps<'tr'> {
     return {
       role: 'row',
       'aria-selected': inspectedId === pack.id,

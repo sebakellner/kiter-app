@@ -8,6 +8,7 @@ const PACK = {
   name: 'Analog Drums',
   description: 'Collected one-shot drums.',
   coverAssetId: '00000000-0000-4000-8000-000000000003',
+  sourceRootPath: '/library/analog-drums',
 }
 const PAGE = { items: [PACK], total: 1, limit: 50, offset: 0 }
 
@@ -88,6 +89,25 @@ test('Pack list replies reject unresolved paging and malformed Packs', () => {
       JSON.stringify(pack),
     )
   }
+})
+
+test('Pack list replies require every row to carry its source root path', () => {
+  const withoutPath = {
+    id: PACK.id,
+    sourceRootId: PACK.sourceRootId,
+    name: PACK.name,
+    description: PACK.description,
+    coverAssetId: PACK.coverAssetId,
+  }
+  assert.equal(isPackListPage({ ...PAGE, items: [withoutPath] }), false)
+  for (const sourceRootPath of ['', null, 42]) {
+    assert.equal(
+      isPackListPage({ ...PAGE, items: [{ ...PACK, sourceRootPath }] }),
+      false,
+      JSON.stringify(sourceRootPath),
+    )
+  }
+  assert.equal(isPackListPage({ ...PAGE, items: [PACK] }), true)
 })
 
 test('Pack list replies reject fields the contract does not promise', () => {

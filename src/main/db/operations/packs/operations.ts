@@ -20,6 +20,7 @@ import type {
 } from '../../../../shared/domain/pack.ts'
 import { requirePackPage } from '../../../../shared/domain/pack.ts'
 import { requireDescription } from '../../../../shared/domain/presentation.ts'
+import type { PackListItem } from '../../../../shared/ipc/packs.ts'
 import {
   DomainValidationError,
   requireEntityId,
@@ -43,6 +44,14 @@ const sampleFields = {
   ...originFields,
   name: sql<string>`coalesce(${samples.displayName}, ${sampleSources.canonicalPath})`,
   path: sampleSources.canonicalPath,
+}
+const packListFields = {
+  id: packs.id,
+  sourceRootId: packs.sourceRootId,
+  name: packs.name,
+  description: packs.description,
+  coverAssetId: packs.coverAssetId,
+  sourceRootPath: sourceRoots.canonicalPath,
 }
 
 export function getPackSourceRoot(
@@ -94,12 +103,14 @@ export function updatePack(db: AppDatabase, input: PackUpdateRequest): Pack {
 export function listPacks(
   db: AppDatabase,
   input: PackPageRequest = {},
-): PackPage<Pack> {
+): PackPage<PackListItem> {
   const page = requirePackPage(input)
   return db.transaction(() => ({
+    // One joined page: the root path names the Pack's source context.
     items: db
-      .select()
+      .select(packListFields)
       .from(packs)
+      .innerJoin(sourceRoots, eq(sourceRoots.id, packs.sourceRootId))
       .orderBy(packs.name, packs.id)
       .limit(page.limit)
       .offset(page.offset)
