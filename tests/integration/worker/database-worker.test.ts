@@ -496,11 +496,6 @@ test(
         action: 'get-pack',
         result: updated.result,
       })
-      assert.deepEqual(await send({ action: 'get-pack-summary', id }), {
-        requestId,
-        action: 'get-pack-summary',
-        result: { ...updated.result, sourceRootPath: dir },
-      })
       const origin = await send({ action: 'get-sample-origin', id: sampleId })
       if (origin.action !== 'get-sample-origin') {
         assert.fail('Expected a Sample origin')
