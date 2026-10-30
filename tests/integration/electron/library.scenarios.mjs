@@ -106,6 +106,18 @@ export async function verifyMainFrameAuthorization(ctx) {
     assert.equal(instrumentsBefore.ok, true)
     const collectionsBefore = await execute('window.api.collections.list()')
     assert.equal(collectionsBefore.ok, true)
+    const packsBefore = await execute('window.api.packs.list({ limit: 1 })')
+    assert.equal(packsBefore.ok, true)
+    assert.equal(packsBefore.data.limit, 1)
+    assert.equal(packsBefore.data.offset, 0)
+    assert.ok(packsBefore.data.items.length <= 1)
+    assert.deepEqual(await execute('window.api.packs.list({ limit: 101 })'), {
+      ok: false,
+      error: {
+        code: 'INVALID_INPUT',
+        message: 'Invalid Pack page request.',
+      },
+    })
     const instrument = instrumentsBefore.data.items[0]
     assert.ok(
       instrument,
@@ -115,6 +127,7 @@ export async function verifyMainFrameAuthorization(ctx) {
       ['dialog:open-folder'],
       ['library:import-folder', { directory: fixtures.samples }],
       ['library:list', {}],
+      ['packs:list', { limit: 1 }],
       ['library:set-favorite', { id: sample.id, favorite: true }],
       ['instruments:list', {}],
       ['instruments:create', { name: 'Unauthorized Instrument' }],
@@ -203,6 +216,11 @@ export async function verifyMainFrameAuthorization(ctx) {
       await execute('window.api.collections.list()'),
       collectionsBefore,
       'Rejected frames must not create Collections',
+    )
+    assert.deepEqual(
+      await execute('window.api.packs.list({ limit: 1 })'),
+      packsBefore,
+      'Rejected frames must not change Packs',
     )
     await child.executeJavaScript(
       `require("electron").ipcRenderer.send("library:start-drag", ${JSON.stringify(sample.audioUrl)})`,
