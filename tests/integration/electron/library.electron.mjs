@@ -17,6 +17,7 @@ import {
   verifyPlaybackAndStreaming,
   verifyFolderOutcomesAndRevocation,
   verifyLazyWaveforms,
+  verifyPackImport,
 } from './library.scenarios.mjs'
 
 const LARGE_FOLDER_SAMPLE_COUNT = 100
@@ -27,10 +28,23 @@ async function createFixtures(directory) {
   const empty = path.join(directory, 'empty')
   const large = path.join(directory, 'large')
   const data = path.join(directory, 'data')
+  // Pack mode has its own folder, so its Samples and their Pack membership are
+  // unrelated to the folders the other scenarios keep reimporting.
+  const packSource = path.join(directory, 'pack source')
+  const packSourceNames = ['kick.wav', 'snare.wav']
   const album = path.join(samples, 'folder #1.mp3')
   const wav = createWav()
-  for (const folder of [path.join(album, 'deep'), empty, large, data]) {
+  for (const folder of [
+    path.join(album, 'deep'),
+    empty,
+    large,
+    data,
+    packSource,
+  ]) {
     await mkdir(folder, { recursive: true })
+  }
+  for (const name of packSourceNames) {
+    await writeFile(path.join(packSource, name), wav)
   }
   for (const relative of [
     'track2.WAV',
@@ -66,6 +80,8 @@ async function createFixtures(directory) {
     empty,
     large,
     data,
+    packSource,
+    packSourceNames,
     wav,
     largeSampleCount: LARGE_FOLDER_SAMPLE_COUNT,
     validSample: path.join('folder #1.mp3', 'nested.wav'),
@@ -264,7 +280,7 @@ async function run() {
       await waitFor(
         () =>
           execute(
-            'document.querySelector("main").getAttribute("aria-busy") === "false" && !document.querySelector("[data-testid=open-folder]").disabled',
+            'document.querySelector("main").getAttribute("aria-busy") === "false"',
           ),
         'folder reading',
       )
@@ -276,6 +292,145 @@ async function run() {
         'catalog query',
       )
       await refreshSamples()
+    }
+    // "Open folder" opens the import dialog instead of importing immediately, so
+    // the dialog's own controls and phases are the progress this harness waits on.
+    // Standalone Samples keeps these journeys on the library, Favorites and
+    // playback they assert rather than on Pack creation.
+    const IMPORT_DIALOG = 'document.querySelector("dialog[open]")'
+    const dialogControl = (selector) =>
+      `Array.from((${IMPORT_DIALOG}?.querySelectorAll(${JSON.stringify(selector)})) ?? [])`
+    const dialogButton = (label) =>
+      `${dialogControl('button')}.find(button => button.textContent.trim() === ${JSON.stringify(label)})`
+    const dialogRadio = (label) =>
+      `${dialogControl('label')}.find(entry => entry.textContent.trim() === ${JSON.stringify(label)})?.querySelector("input[type=radio]")`
+    const waitForDialogDismissal = () =>
+      waitFor(() => execute(`!${IMPORT_DIALOG}`), 'import dialog dismissal')
+    // The dialog owns folder selection for both import modes, so opening it stays
+    // separate from choosing what to import: a scenario that needs Pack mode has
+    // to reach the mode choice before the dialog imports anything.
+    const openImportDialog = async (directory) => {
+      const callsBefore = dialogCalls
+      selections.push({ directory })
+      await execute(
+        'document.querySelector("[data-testid=open-folder]").click()',
+      )
+      await waitFor(
+        () => dialogCalls === callsBefore + 1,
+        'folder selection dialog',
+      )
+    }
+    const importStandalone = async () => {
+      await waitFor(
+        () => execute(`!!(${dialogRadio('Standalone Samples')})`),
+        'selected folders in the import dialog',
+      )
+      const mutationsBefore = (await catalogState()).mutations
+      await execute(`(${dialogRadio('Standalone Samples')}).click()`)
+      // The confirmation control changes its label only after the mode re-renders,
+      // so waiting for that label avoids confirming the default Pack mode.
+      await waitFor(
+        () => execute(`!!(${dialogButton('Import Samples')})`),
+        'standalone Samples mode',
+      )
+      await execute(`(${dialogButton('Import Samples')}).click()`)
+      await waitFor(
+        () => execute(`!!(${dialogButton('Close')})`),
+        'import results',
+      )
+      await execute(`(${dialogButton('Close')}).click()`)
+      await waitForReloadedFolder(mutationsBefore)
+      await waitForFolder()
+    }
+    // Pack mode is the dialog's other answer to the same folder selection. Its
+    // confirmation control is labelled by the mode, so waiting for that label
+    // keeps the next click on the action the mode owns.
+    const waitForPackMode = async () => {
+      await waitFor(
+        () => execute(`!!(${dialogRadio('One Pack per folder')})`),
+        'selected folders in the import dialog',
+      )
+      await execute(`(${dialogRadio('One Pack per folder')}).click()`)
+      await waitFor(
+        () => execute(`!!(${dialogButton('Prepare folders')})`),
+        'Pack mode',
+      )
+    }
+    // Folder rows are the entries of the dialog's own lists; the surface also
+    // portal-mounts a labelled toast viewport, which is not a row.
+    const dialogRows = `${IMPORT_DIALOG}.querySelectorAll("ul[aria-label] > li > section[aria-label]")`
+    // Preparing reports one outcome per folder: an editable Pack name, an
+    // existing Pack, or a failure. Every such row leaves its pending state with
+    // one of those controls, so this waits on the review itself rather than on
+    // the copy that distinguishes the outcomes.
+    const waitForPackReview = () =>
+      waitFor(
+        () =>
+          execute(`
+        (() => {
+          const dialog = ${IMPORT_DIALOG}
+          if (!dialog || dialog.getAttribute("aria-busy") !== "false") return false
+          const rows = Array.from(${dialogRows})
+          return rows.length > 0 && rows.every(row =>
+            !!row.querySelector("input:not([type=radio]):not(:disabled)") ||
+            !!row.querySelector("[role=alert]"))
+        })()
+      `),
+        'prepared folder review',
+      )
+    const preparePackImport = async () => {
+      await waitForPackMode()
+      await execute(`(${dialogButton('Prepare folders')}).click()`)
+      await waitForPackReview()
+    }
+    const importAsPack = async (name) => {
+      await preparePackImport()
+      await waitFor(
+        () =>
+          execute(
+            `!!(${IMPORT_DIALOG}?.querySelector("input:not([type=radio])"))`,
+          ),
+        'Pack name field',
+      )
+      // The name field is controlled, so the native value setter plus an input
+      // event is what React records as the user's edit.
+      await execute(`
+        (() => {
+          const input = ${IMPORT_DIALOG}.querySelector("input:not([type=radio])")
+          const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set
+          setter.call(input, ${JSON.stringify(name)})
+          input.dispatchEvent(new Event("input", { bubbles: true }))
+        })()
+      `)
+      // The dialog keeps the reviewed name only once it accepts it, and it
+      // enables confirmation with that same name, so both are waited for.
+      await waitFor(
+        () =>
+          execute(`
+        (() => {
+          const input = ${IMPORT_DIALOG}.querySelector("input:not([type=radio])")
+          const button = ${dialogButton('Create Packs')}
+          return !!input && input.value === ${JSON.stringify(name)} && !!button && !button.disabled
+        })()
+      `),
+        'reviewed Pack name',
+      )
+      await execute(`(${dialogButton('Create Packs')}).click()`)
+      // The results name the Pack the commit returned, so the reviewed name
+      // appearing there is what proves the created Pack rather than the review.
+      await waitFor(
+        () =>
+          execute(`
+        (() => {
+          const dialog = ${IMPORT_DIALOG}
+          return !!dialog && !!(${dialogButton('Close')}) &&
+            dialog.textContent.includes(${JSON.stringify(`Created Pack “${name}”.`)})
+        })()
+      `),
+        'Pack import results',
+      )
+      await execute(`(${dialogButton('Close')}).click()`)
+      await waitForDialogDismissal()
     }
     const context = {
       fixtures,
@@ -290,23 +445,37 @@ async function run() {
       queueSelection: (directory, release) =>
         selections.push({ directory, release }),
       waitForFolder,
+      importStandalone,
+      importAsPack,
+      preparePackImport,
+      openImportDialog,
+      waitForDialogDismissal,
+      // The dialog's own controls stay here so scenarios select by the label the
+      // user reads instead of repeating selector logic.
+      dialog: {
+        rows: dialogRows,
+        button: dialogButton,
+      },
       open: async (directory) => {
-        selections.push({ directory })
-        // A cancelled dialog or a path the app cannot open keeps the previous list,
-        // so there is no new directory to wait for; only those opens skip the
-        // positive condition and rely on the busy checks.
-        const expectsOpen =
-          typeof directory === 'string' && existsSync(directory)
-        const mutationsBefore = expectsOpen
-          ? (await catalogState()).mutations
-          : 0
-        await execute(
-          'document.querySelector("[data-testid=open-folder]").click()',
-        )
-        if (expectsOpen) {
-          await waitForReloadedFolder(mutationsBefore)
+        await openImportDialog(directory)
+        // Cancelling the picker dismisses the dialog without importing, so the
+        // previous catalog and its playback stay untouched.
+        if (directory === null) {
+          await waitForDialogDismissal()
+          return
         }
-        await waitForFolder()
+        // A picker that answers without a directory is now reported inside the
+        // dialog, which owns folder selection errors.
+        if (typeof directory !== 'string') {
+          await waitFor(
+            () => execute(`!!${IMPORT_DIALOG}?.querySelector("[role=alert]")`),
+            'folder selection error',
+          )
+          await execute(`(${dialogButton('Cancel')}).click()`)
+          await waitForDialogDismissal()
+          return
+        }
+        await importStandalone()
       },
       names: async () =>
         (await refreshSamples()).map((item) => item.relativePath),
@@ -337,6 +506,7 @@ async function run() {
       ['shared playback and audio streaming', verifyPlaybackAndStreaming],
       ['folder outcomes and revoked access', verifyFolderOutcomesAndRevocation],
       ['lazy waveforms and scrolling', verifyLazyWaveforms],
+      ['Pack mode creates a Pack end to end', verifyPackImport],
     ]
     for (const [name, scenario] of scenarios) {
       const started = performance.now()
