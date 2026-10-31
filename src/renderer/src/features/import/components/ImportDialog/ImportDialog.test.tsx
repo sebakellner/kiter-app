@@ -13,7 +13,6 @@ import { createTestApi } from '../../../../../../../tests/support/ui/bridge'
 import {
   ALREADY_REGISTERED_REASON,
   alreadyImportedStatus,
-  conflictMessage,
   PREPARE_CONSEQUENCE_NOTE,
 } from '../../copy'
 import { ImportDialog } from './ImportDialog'
@@ -302,9 +301,16 @@ test('blocks confirmation while a folder reports conflicting Samples', async () 
   )
   const alpha = await screen.findByRole('region', { name: ALPHA })
 
-  expect(await within(alpha).findByRole('alert')).toHaveTextContent(
-    conflictMessage(2),
-  )
+  // The conflict section adds its own live region, so the blocked reason is
+  // asserted among the region's alerts rather than as the only one.
+  const blockedAlerts = await within(alpha).findAllByRole('alert')
+  expect(
+    blockedAlerts.some((alert) =>
+      /conflicting Samples still need a keep or assign decision/u.test(
+        alert.textContent ?? '',
+      ),
+    ),
+  ).toBe(true)
   expect(alpha).toHaveTextContent('2 conflicts')
   const create = screen.getByRole('button', { name: 'Create Packs' })
   expect(create).toBeDisabled()
