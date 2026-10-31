@@ -24,8 +24,8 @@ export function Home(): React.JSX.Element {
           </>
         ) : (
           <p>
-            Use Open folder to explore your audio. Your source files stay in
-            place.
+            Use Open folder in the header to import folders as Packs or as
+            standalone Samples. Your source files stay in place.
           </p>
         )}
       </div>
