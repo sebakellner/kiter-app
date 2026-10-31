@@ -2,6 +2,9 @@ import { z } from 'zod'
 import { requirePackPage } from '../domain/pack.ts'
 import type {
   Pack,
+  PackImportCandidate,
+  PackImportRequest,
+  PackImportReview,
   PackPage,
   PackPageRequest,
   PackSample,
@@ -23,6 +26,9 @@ export const PACK_CHANNELS = {
   list: 'packs:list',
   detail: 'packs:detail',
   samples: 'packs:samples',
+  prepareImport: 'packs:prepare-import',
+  listImportCandidates: 'packs:list-import-candidates',
+  importPack: 'packs:import-pack',
 } as const
 
 export type PackListRequest = PackPageRequest
@@ -54,10 +60,29 @@ export interface PackSamplesRequest extends PackPageRequest {
 
 export type PackSamplesPage = PackPage<PackSample>
 
+export interface PackPrepareImportRequest {
+  directory: string
+}
+
+// Import candidates belong to a prepared source root, not to a Pack: a folder
+// being registered for the first time has no Pack yet.
+export interface PackImportCandidatesRequest extends PackPageRequest {
+  sourceRootId: string
+}
+
+export type PackImportCandidatesPage = PackPage<PackImportCandidate>
+
 export interface PacksApi {
   list: (request?: PackListRequest) => Promise<IpcResult<PackListPage>>
   detail: (request: PackDetailRequest) => Promise<IpcResult<PackDetail>>
   samples: (request: PackSamplesRequest) => Promise<IpcResult<PackSamplesPage>>
+  prepareImport: (
+    request: PackPrepareImportRequest,
+  ) => Promise<IpcResult<PackImportReview>>
+  listImportCandidates: (
+    request: PackImportCandidatesRequest,
+  ) => Promise<IpcResult<PackImportCandidatesPage>>
+  importPack: (request: PackImportRequest) => Promise<IpcResult<Pack>>
 }
 
 export function requirePackListRequest(
@@ -80,6 +105,15 @@ export function requirePackSamplesRequest(
     throw new DomainValidationError('Invalid Pack Samples request.')
   }
   return { id: value.id, ...requirePackPage(value) }
+}
+
+export function requirePackImportCandidatesRequest(
+  value: unknown,
+): Required<PackImportCandidatesRequest> {
+  if (!isRecord(value) || !isEntityId(value.sourceRootId)) {
+    throw new DomainValidationError('Invalid Pack import candidate request.')
+  }
+  return { sourceRootId: value.sourceRootId, ...requirePackPage(value) }
 }
 
 const entityId = z.string().refine(isEntityId, 'Invalid entity identifier.')
@@ -112,14 +146,21 @@ const packDescription = z
 
 const sourceRootPath = z.string().min(1)
 
-const packSchema = z.strictObject({
+// Every review token is a complete SHA-256 digest of the reviewed state.
+const reviewToken = z
+  .string()
+  .regex(/^[a-f0-9]{64}$/, 'Expected a complete review token.')
+
+// A stored Pack carries no source root path; only list rows add it.
+const storedPackSchema = z.strictObject({
   id: entityId,
   sourceRootId: entityId,
   name: packName,
   description: packDescription,
   coverAssetId: entityId.nullable(),
-  sourceRootPath,
 })
+
+const packSchema = storedPackSchema.extend({ sourceRootPath })
 
 const paginationFields = {
   total: z.int().nonnegative(),
@@ -189,6 +230,58 @@ const packSampleSchema = z.strictObject({
 
 const packSamplesPageSchema = pageSchema(packSampleSchema)
 
+// A candidate is a Sample under the prepared root plus the conflict the surface
+// must resolve before committing the Pack.
+const packImportCandidateSchema = z.strictObject({
+  sampleId: entityId,
+  packId: entityId.nullable(),
+  originAssignment: z.enum(['automatic', 'manual']),
+  name: z.string().min(1),
+  path: z.string().min(1),
+  conflict: z.boolean(),
+})
+
+const packImportCandidatesPageSchema = pageSchema(packImportCandidateSchema)
+
+const packImportReviewSchema = z
+  .strictObject({
+    sourceRootId: entityId,
+    pack: storedPackSchema.nullable(),
+    sampleCount: z.int().nonnegative(),
+    conflictCount: z.int().nonnegative(),
+    token: reviewToken,
+  })
+  .refine(
+    (review) => review.conflictCount <= review.sampleCount,
+    'Conflicting Samples cannot exceed the reviewed Samples.',
+  )
+
+const packImportPrepareSchema = z.strictObject({
+  directory: z.string().min(1),
+})
+
+const packImportDecisionSchema = z.strictObject({
+  sampleId: entityId,
+  resolution: z.enum(['keep', 'assign']),
+})
+
+// The commit guard enforces what the domain already requires, so a forged
+// request cannot reach the worker as a partially reviewed Pack import.
+const packImportRequestSchema = z.strictObject({
+  sourceRootId: entityId,
+  token: reviewToken,
+  name: packName,
+  description: packDescription.optional(),
+  decisions: z
+    .array(packImportDecisionSchema)
+    .refine(
+      (decisions) =>
+        new Set(decisions.map((decision) => decision.sampleId)).size ===
+        decisions.length,
+      'Decisions must name each conflicting Sample once.',
+    ),
+})
+
 // Preload cannot compile generated code, so guards always interpret.
 const OPTIONS = { jitless: true } as const
 
@@ -202,3 +295,31 @@ export const isPackListPage = guard<PackListPage>(packListPageSchema)
 export const isPackDetail = guard<PackDetail>(packDetailSchema)
 
 export const isPackSamplesPage = guard<PackSamplesPage>(packSamplesPageSchema)
+
+export const isPackImportCandidatesPage = guard<PackImportCandidatesPage>(
+  packImportCandidatesPageSchema,
+)
+
+export const isPackImportReview = guard<PackImportReview>(
+  packImportReviewSchema,
+)
+
+export const isPack = guard<Pack>(storedPackSchema)
+
+export function requirePackPrepareImportRequest(
+  value: unknown,
+): PackPrepareImportRequest {
+  const result = packImportPrepareSchema.safeParse(value, OPTIONS)
+  if (!result.success) {
+    throw new DomainValidationError('Invalid Pack import preparation request.')
+  }
+  return result.data
+}
+
+export function requirePackImportRequest(value: unknown): PackImportRequest {
+  const result = packImportRequestSchema.safeParse(value, OPTIONS)
+  if (!result.success) {
+    throw new DomainValidationError('Invalid Pack import request.')
+  }
+  return result.data
+}
