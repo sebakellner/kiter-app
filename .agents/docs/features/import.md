@@ -8,11 +8,20 @@ owns implemented worker/storage operations.
 
 ## Status
 
-The reviewed user-facing workflow below is agreed, not implemented. Current folder browsing
-imports catalog content directly. Internal Pack preparation catalogs Samples
-before confirmation; canceling that existing confirmation does not roll them
-back. Adapt or complement it before delivering selection-before-write behavior.
-UI shape is agreed where recorded; visual design/prototypes remain deferred.
+The reviewed step-based workflow below is agreed, not implemented. What ships today is a
+dialog reached from the header's import action: it selects one or more folders, offers one
+Pack per folder or standalone Samples, reviews each folder (editable Pack name, Sample and
+conflict counts), and reports a per-folder result. It is built on the internal Pack
+preparation below, so preparing catalogs Samples before confirmation and cancelling keeps
+them as standalone Samples. Selection-before-write remains to be delivered.
+
+Delivered by that dialog: multi-folder selection, the mode choice, one Pack per selected
+folder with an editable name, a per-folder failure that never hides the others, the refusal
+to give one source root a second Pack, and a folder with conflicting Samples blocking
+confirmation with a count. Not delivered: per-Sample keep/assign conflict decisions, so a
+conflicted folder cannot be imported yet; description, cover, Instruments and Authors per
+Pack; reimport into an existing Pack; and the step-based discovery/review dialog described
+below. UI shape is agreed where recorded; visual design/prototypes remain deferred.
 
 Internal read-only preparation, selection/origin review, and spooled classification
 drafts for Block 2 are implemented as described below. They do not
