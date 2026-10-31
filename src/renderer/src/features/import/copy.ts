@@ -17,6 +17,16 @@ export const ALREADY_REGISTERED_REASON =
 // A conflicting Sample keeps an origin it already has, so the note names the
 // origin the candidate reply carries. The reply has no other Pack's name, so the
 // note never invents one.
+// Kept until the dialog that renders it learns to show per-Sample decisions: the
+// conflict logic lands one slice before the surface that replaces this message.
+export function conflictMessage(conflictCount: number): string {
+  const samples = conflictCount === 1 ? 'Sample conflicts' : 'Samples conflict'
+  return (
+    `${conflictCount} ${samples} with their current origin. Conflicts are not ` +
+    'resolved in this version, so this Pack cannot be created.'
+  )
+}
+
 export function conflictOriginNote(candidate: {
   packId: string | null
   originAssignment: 'automatic' | 'manual'
