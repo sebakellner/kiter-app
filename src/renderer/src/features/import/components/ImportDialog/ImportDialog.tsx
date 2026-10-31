@@ -2,7 +2,7 @@ import { useId } from 'react'
 import { Button } from '@renderer/components/ui/Button'
 import { Dialog } from '@renderer/components/ui/Dialog'
 import { Input } from '@renderer/components/ui/Input'
-import type { FolderImportOutcome } from '@renderer/features/library/hooks/useLibrary'
+import type { FolderImportOutcome } from '../../hooks/useImportDialog'
 import {
   ALREADY_REGISTERED_REASON,
   alreadyImportedStatus,
