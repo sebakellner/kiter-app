@@ -95,14 +95,18 @@ test('unavailable Sample context menus retain Info but cannot start playback', a
     kiter.samples,
   )
   try {
-    await library.openFolder()
-    await expect(
-      page.getByRole('button', { name: 'Loading folder...', exact: true }),
-    ).toBeDisabled()
+    // The import dialog owns folder selection now, so the pending state to observe
+    // is the dialog's own pending selection while the picker stays unanswered.
+    // openFolder() also completes that dialog, so it is awaited once the gate opens.
+    const opening = library.openFolder()
+    const dialog = page.getByRole('dialog', { name: 'Import folders' })
+    await expect(dialog).toHaveAttribute('aria-busy', 'true')
+    await expect(dialog.getByRole('status')).toHaveText(/Selecting folders/)
     await expect(
       page.getByRole('button', { name: 'Refresh', exact: true }),
     ).toHaveCount(0)
     await selection.evaluate((gate) => gate.release())
+    await opening
     const snare = library.row('snare.wav')
     // A click only starts the import. The source must be cataloged and authorized
     // before moving it; otherwise import can fail and leave the view on Home.

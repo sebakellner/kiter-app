@@ -264,7 +264,7 @@ async function run() {
       await waitFor(
         () =>
           execute(
-            'document.querySelector("main").getAttribute("aria-busy") === "false" && !document.querySelector("[data-testid=open-folder]").disabled',
+            'document.querySelector("main").getAttribute("aria-busy") === "false"',
           ),
         'folder reading',
       )
@@ -276,6 +276,55 @@ async function run() {
         'catalog query',
       )
       await refreshSamples()
+    }
+    // "Open folder" opens the import dialog instead of importing immediately, so
+    // the dialog's own controls and phases are the progress this harness waits on.
+    // Standalone Samples keeps these journeys on the library, Favorites and
+    // playback they assert rather than on Pack creation.
+    const IMPORT_DIALOG = 'document.querySelector("dialog[open]")'
+    const dialogControl = (selector) =>
+      `Array.from((${IMPORT_DIALOG}?.querySelectorAll(${JSON.stringify(selector)})) ?? [])`
+    const dialogButton = (label) =>
+      `${dialogControl('button')}.find(button => button.textContent.trim() === ${JSON.stringify(label)})`
+    const dialogRadio = (label) =>
+      `${dialogControl('label')}.find(entry => entry.textContent.trim() === ${JSON.stringify(label)})?.querySelector("input[type=radio]")`
+    const waitForDialogDismissal = () =>
+      waitFor(() => execute(`!${IMPORT_DIALOG}`), 'import dialog dismissal')
+    // The dialog owns folder selection for both import modes, so opening it stays
+    // separate from choosing what to import: a scenario that needs Pack mode has
+    // to reach the mode choice before the dialog imports anything.
+    const openImportDialog = async (directory) => {
+      const callsBefore = dialogCalls
+      selections.push({ directory })
+      await execute(
+        'document.querySelector("[data-testid=open-folder]").click()',
+      )
+      await waitFor(
+        () => dialogCalls === callsBefore + 1,
+        'folder selection dialog',
+      )
+    }
+    const importStandalone = async () => {
+      await waitFor(
+        () => execute(`!!(${dialogRadio('Standalone Samples')})`),
+        'selected folders in the import dialog',
+      )
+      const mutationsBefore = (await catalogState()).mutations
+      await execute(`(${dialogRadio('Standalone Samples')}).click()`)
+      // The confirmation control changes its label only after the mode re-renders,
+      // so waiting for that label avoids confirming the default Pack mode.
+      await waitFor(
+        () => execute(`!!(${dialogButton('Import Samples')})`),
+        'standalone Samples mode',
+      )
+      await execute(`(${dialogButton('Import Samples')}).click()`)
+      await waitFor(
+        () => execute(`!!(${dialogButton('Close')})`),
+        'import results',
+      )
+      await execute(`(${dialogButton('Close')}).click()`)
+      await waitForReloadedFolder(mutationsBefore)
+      await waitForFolder()
     }
     const context = {
       fixtures,
@@ -290,23 +339,29 @@ async function run() {
       queueSelection: (directory, release) =>
         selections.push({ directory, release }),
       waitForFolder,
+      importStandalone,
+      openImportDialog,
+      waitForDialogDismissal,
       open: async (directory) => {
-        selections.push({ directory })
-        // A cancelled dialog or a path the app cannot open keeps the previous list,
-        // so there is no new directory to wait for; only those opens skip the
-        // positive condition and rely on the busy checks.
-        const expectsOpen =
-          typeof directory === 'string' && existsSync(directory)
-        const mutationsBefore = expectsOpen
-          ? (await catalogState()).mutations
-          : 0
-        await execute(
-          'document.querySelector("[data-testid=open-folder]").click()',
-        )
-        if (expectsOpen) {
-          await waitForReloadedFolder(mutationsBefore)
+        await openImportDialog(directory)
+        // Cancelling the picker dismisses the dialog without importing, so the
+        // previous catalog and its playback stay untouched.
+        if (directory === null) {
+          await waitForDialogDismissal()
+          return
         }
-        await waitForFolder()
+        // A picker that answers without a directory is now reported inside the
+        // dialog, which owns folder selection errors.
+        if (typeof directory !== 'string') {
+          await waitFor(
+            () => execute(`!!${IMPORT_DIALOG}?.querySelector("[role=alert]")`),
+            'folder selection error',
+          )
+          await execute(`(${dialogButton('Cancel')}).click()`)
+          await waitForDialogDismissal()
+          return
+        }
+        await importStandalone()
       },
       names: async () =>
         (await refreshSamples()).map((item) => item.relativePath),

@@ -30,16 +30,24 @@ export async function verifyListing(ctx) {
       () => ctx.dialogCalls() === previousCalls + 1,
       'pending folder dialog',
     )
+    // The dialog owns folder-selection progress now, so its own pending state is
+    // what the repeated click must not disturb.
     assert.equal(
       await execute(
-        'document.querySelector("[data-testid=open-folder]").disabled',
+        'document.querySelector("dialog[open]").getAttribute("aria-busy")',
       ),
-      true,
+      'true',
+    )
+    assert.ok(
+      await execute(
+        'document.querySelector("dialog[open]").textContent.includes("Selecting folders")',
+      ),
+      'The import dialog must report its pending folder selection',
     )
   } finally {
     releaseDialog()
   }
-  await ctx.waitForFolder()
+  await ctx.importStandalone()
   assert.equal(
     ctx.dialogCalls(),
     previousCalls + 1,
@@ -564,11 +572,34 @@ export async function verifyFolderOutcomesAndRevocation(ctx) {
     () => nativeDrags.length === beforeDrag + 1,
     'dragging after cancellation',
   )
-  await ctx.open(undefined)
+  // The import dialog owns folder selection now, so a picker that answers without
+  // a directory is reported there: assert that message on the surface that
+  // renders it, before dismissing the dialog so the journey continues.
+  const dialogCallsBefore = ctx.dialogCalls()
+  ctx.queueSelection(undefined)
+  await execute('document.querySelector("[data-testid=open-folder]").click()')
+  await waitFor(
+    () => ctx.dialogCalls() === dialogCallsBefore + 1,
+    'folder selection dialog',
+  )
+  await waitFor(
+    () => execute('!!document.querySelector("dialog[open] [role=alert]")'),
+    'folder selection error in the import dialog',
+  )
   assert.ok(
     await execute(
-      'document.querySelector("[data-testid=library-error]").textContent.includes("did not return a directory")',
+      'document.querySelector("dialog[open] [role=alert]").textContent.includes("did not return a directory")',
     ),
+    'A picker that returns no directory must be reported to the user',
+  )
+  await execute(`
+    Array.from(document.querySelectorAll('dialog[open] button'))
+      .find(button => button.textContent.trim() === 'Cancel')
+      .click()
+  `)
+  await waitFor(
+    () => execute('!document.querySelector("dialog[open]")'),
+    'import dialog dismissal after the folder selection error',
   )
   assert.deepEqual(await ctx.names(), fixtures.expected)
   await ctx.open(path.join(fixtures.samples, 'missing'))

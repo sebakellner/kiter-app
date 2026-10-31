@@ -11,15 +11,8 @@ export function LibrarySessionProvider({
   const library = useLibrary()
   const preview = usePreview()
 
-  async function openFolder(): Promise<boolean> {
-    if (await library.openFolder()) {
-      return true
-    }
-    return false
-  }
-
   return (
-    <LibrarySessionContext value={{ ...library, preview, openFolder }}>
+    <LibrarySessionContext value={{ ...library, preview }}>
       {children}
     </LibrarySessionContext>
   )
