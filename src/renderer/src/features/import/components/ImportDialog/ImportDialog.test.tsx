@@ -8,7 +8,7 @@ import {
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import type { Pack, PackImportReview } from '@shared/domain/pack'
-import type { FolderImportOutcome } from '@renderer/features/library/hooks/useLibrary'
+import type { FolderImportOutcome } from '../../hooks/useImportDialog'
 import { createTestApi } from '../../../../../../../tests/support/ui/bridge'
 import {
   ALREADY_REGISTERED_REASON,
