@@ -6,12 +6,23 @@ import type { FolderImportOutcome } from '../../hooks/useImportDialog'
 import {
   ALREADY_REGISTERED_REASON,
   alreadyImportedStatus,
-  conflictMessage,
+  ASSIGN_ALL_CONFLICTS,
+  assignDecisionAction,
+  conflictBlockedReason,
+  conflictDecidedStatus,
+  conflictOriginNote,
+  conflictReadMoreAction,
+  conflictSummary,
+  KEEP_ALL_CONFLICTS,
+  keepDecisionAction,
   PREPARE_CONSEQUENCE_NOTE,
 } from '../../copy'
 import {
+  decidedConflicts,
   reviewPackName,
+  undecidedConflicts,
   useImportDialog,
+  type ConflictResolution,
   type ImportDialogController,
   type ImportDialogOutcome,
   type PackImportRow,
@@ -164,7 +175,14 @@ function PackReview({
       <ul className="import-dialog-rows" aria-label="Prepared folders">
         {state.rows.map((row) => (
           <li key={row.directory}>
-            <PackReviewRow row={row} disabled={busy} onRename={state.rename} />
+            <PackReviewRow
+              row={row}
+              disabled={busy}
+              onRename={state.rename}
+              onDecide={state.decide}
+              onDecideAll={state.decideAll}
+              onReadMore={state.readMoreConflicts}
+            />
           </li>
         ))}
       </ul>
@@ -193,10 +211,23 @@ function PackReviewRow({
   row,
   disabled,
   onRename,
+  onDecide,
+  onDecideAll,
+  onReadMore,
 }: {
   row: PackImportRow
   disabled: boolean
   onRename: (directory: string, name: string) => void
+  onDecide: (
+    directory: string,
+    sampleId: string,
+    resolution: ConflictResolution,
+  ) => void
+  onDecideAll: (
+    directory: string,
+    resolution: ConflictResolution,
+  ) => Promise<void>
+  onReadMore: (directory: string) => Promise<void>
 }): React.JSX.Element {
   const nameId = useId()
   const nameError = readPackName(row.name).error
@@ -249,10 +280,123 @@ function PackReviewRow({
                   row.review.conflictCount === 1 ? 'conflict' : 'conflicts'
                 }`}
           </p>
-          {row.review.conflictCount > 0 && (
-            <p role="alert">{conflictMessage(row.review.conflictCount)}</p>
+          {row.review.conflictCount > 0 && row.conflicts && (
+            <ConflictReview
+              row={row}
+              disabled={disabled}
+              onDecide={onDecide}
+              onDecideAll={onDecideAll}
+              onReadMore={onReadMore}
+            />
           )}
         </>
+      )}
+    </section>
+  )
+}
+
+// A conflicting Sample can only be resolved by an explicit choice, so the row
+// lists the conflicts the candidates channel reported and states how many of them
+// are still undecided. The candidate reply carries a Sample's name, path and
+// current origin, so the list shows exactly those.
+function ConflictReview({
+  row,
+  disabled,
+  onDecide,
+  onDecideAll,
+  onReadMore,
+}: {
+  row: PackImportRow
+  disabled: boolean
+  onDecide: (
+    directory: string,
+    sampleId: string,
+    resolution: ConflictResolution,
+  ) => void
+  onDecideAll: (
+    directory: string,
+    resolution: ConflictResolution,
+  ) => Promise<void>
+  onReadMore: (directory: string) => Promise<void>
+}): React.JSX.Element | null {
+  const { review, conflicts } = row
+  if (!review || !conflicts) {
+    return null
+  }
+  const undecided = undecidedConflicts(row)
+  const reading = conflicts.loading || disabled
+  return (
+    <section className="import-dialog-conflicts">
+      <p>{conflictSummary(review.conflictCount)}</p>
+      {undecided > 0 ? (
+        <p role="alert">
+          {conflictBlockedReason(undecided, review.conflictCount)}
+        </p>
+      ) : (
+        <p role="status">
+          {conflictDecidedStatus(decidedConflicts(row), review.conflictCount)}
+        </p>
+      )}
+      <div className="import-dialog-conflict-actions">
+        <Button
+          disabled={reading}
+          onClick={() => void onDecideAll(row.directory, 'keep')}
+        >
+          {KEEP_ALL_CONFLICTS}
+        </Button>
+        <Button
+          disabled={reading}
+          onClick={() => void onDecideAll(row.directory, 'assign')}
+        >
+          {ASSIGN_ALL_CONFLICTS}
+        </Button>
+      </div>
+      <ul
+        className="import-dialog-conflict-list"
+        aria-label="Conflicting Samples"
+      >
+        {conflicts.items.map((item) => {
+          const decision = row.decisions[item.sampleId]
+          return (
+            <li key={item.sampleId} className="import-dialog-conflict">
+              <p className="import-dialog-conflict-name">{item.name}</p>
+              <p className="import-dialog-row-path">{item.path}</p>
+              <p>{conflictOriginNote(item)}</p>
+              <div className="import-dialog-conflict-actions">
+                <Button
+                  aria-pressed={decision === 'keep'}
+                  aria-label={keepDecisionAction(item.name)}
+                  disabled={reading}
+                  onClick={() => onDecide(row.directory, item.sampleId, 'keep')}
+                >
+                  Keep
+                </Button>
+                <Button
+                  aria-pressed={decision === 'assign'}
+                  aria-label={assignDecisionAction(item.name)}
+                  disabled={reading}
+                  onClick={() =>
+                    onDecide(row.directory, item.sampleId, 'assign')
+                  }
+                >
+                  Assign to this Pack
+                </Button>
+              </div>
+            </li>
+          )
+        })}
+      </ul>
+      {conflicts.loading && (
+        <p role="status">Reading the conflicting Samples…</p>
+      )}
+      {conflicts.error && <p role="alert">{conflicts.error}</p>}
+      {conflicts.nextOffset !== null && (
+        <Button
+          disabled={reading}
+          onClick={() => void onReadMore(row.directory)}
+        >
+          {conflictReadMoreAction(conflicts.read, conflicts.total)}
+        </Button>
       )}
     </section>
   )

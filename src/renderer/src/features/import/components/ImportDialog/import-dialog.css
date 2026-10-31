@@ -39,6 +39,37 @@
   color: var(--color-text-secondary);
 }
 
+.import-dialog-conflicts {
+  display: grid;
+  gap: var(--space-2);
+  margin-block-start: var(--space-2);
+  padding-block-start: var(--space-2);
+  border-top: var(--border-control);
+}
+
+.import-dialog-conflict-list {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.import-dialog-conflict {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.import-dialog-conflict-name {
+  font-weight: 600;
+}
+
+.import-dialog-conflict-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
 .import-dialog-actions {
   display: flex;
   flex-wrap: wrap;
