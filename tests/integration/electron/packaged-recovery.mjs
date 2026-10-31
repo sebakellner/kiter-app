@@ -107,7 +107,14 @@ try {
   await application.evaluate((_, selected) => {
     globalThis.packagedSmoke.selection = selected
   }, samples)
+  // "Open folder" opens the import dialog, so the journey picks standalone
+  // Samples and dismisses the result before asserting the imported Sample.
   await page.getByRole('button', { name: 'Open folder', exact: true }).click()
+  await page.getByRole('radio', { name: 'Standalone Samples' }).check()
+  await page
+    .getByRole('button', { name: 'Import Samples', exact: true })
+    .click()
+  await page.getByRole('button', { name: 'Close', exact: true }).click()
   await page.getByTestId('sample-name').waitFor()
   const identity = await page
     .locator('[data-sample-id]')
