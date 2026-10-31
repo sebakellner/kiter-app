@@ -1,9 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { PackImportReview } from '@shared/domain/pack'
 import { unwrapIpcResult } from '@shared/ipc/result'
-import type { FolderImportOutcome } from '@renderer/features/library/hooks/useLibrary'
 import { suggestPackName } from '../packName'
 import { readPackName } from '../schemas'
+
+// One folder's standalone outcome, so a folder that fails never hides the folders
+// after it. The dialog owns this shape because it is what the dialog reports.
+export interface FolderImportOutcome {
+  directory: string
+  sampleCount: number | null
+  error: string | null
+}
 
 export type ImportMode = 'pack' | 'standalone'
 
