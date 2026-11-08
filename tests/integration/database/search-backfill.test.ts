@@ -87,11 +87,12 @@ test('upgrading an existing catalog backfills the search columns for every Sampl
         [
           {
             sample_id: 'original',
-            search_relative_path: path.join('percusion', 'kick_808.wav'),
+            // Normalized search values always use forward slashes.
+            search_relative_path: 'percusion/kick_808.wav',
           },
           {
             sample_id: 'renamed',
-            search_relative_path: path.join('cafe', 'open hat.wav'),
+            search_relative_path: 'cafe/open hat.wav',
           },
         ],
       )
