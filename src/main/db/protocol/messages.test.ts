@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 import { test } from 'node:test'
-import { isDbReply, isDbRequest } from './messages.ts'
+import { isDbCommand, isDbReply, isDbRequest } from './messages.ts'
 import { makeImageAsset } from '../../../../tests/support/fixtures/image.ts'
 import { isProfileUpdate } from '../../../shared/domain/profile.ts'
 
@@ -49,6 +49,16 @@ test('worker protocol rejects malformed messages and validates zero volume and i
     }),
     false,
   )
+})
+
+test('a command is a request without its correlation identity', () => {
+  assert.equal(isDbCommand({ action: 'profile' }), true)
+  assert.equal(isDbCommand({ action: 'volume', volume: 0 }), true)
+  assert.equal(isDbCommand({ action: 'volume', volume: NaN }), false)
+  assert.equal(isDbCommand({ action: 'unknown' }), false)
+  assert.equal(isDbCommand(null), false)
+  assert.equal(isDbRequest({ action: 'profile' }), false)
+  assert.equal(isDbRequest({ requestId: 1, action: 'profile' }), true)
 })
 
 test('Image worker contracts reject malformed targets and unsafe asset payloads', () => {
