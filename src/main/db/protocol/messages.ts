@@ -127,8 +127,14 @@ function isProfile(value: unknown): value is LocalProfile {
   return isUserProfile(profile) && value.preferences.profileId === profile.id
 }
 
-export function isDbRequest(value: unknown): value is DbRequest {
-  if (!isRecord(value) || !isRequestId(value.requestId)) {
+type WithoutRequestId<Value> = Value extends { requestId: number }
+  ? Omit<Value, 'requestId'>
+  : never
+
+export type DbCommand = WithoutRequestId<DbRequest>
+
+export function isDbCommand(value: unknown): value is DbCommand {
+  if (!isRecord(value)) {
     return false
   }
   switch (value.action) {
@@ -163,6 +169,13 @@ export function isDbRequest(value: unknown): value is DbRequest {
         isSampleRequest(value)
       )
   }
+}
+
+export function isDbRequest(value: unknown): value is DbRequest {
+  if (!isRecord(value) || !isRequestId(value.requestId)) {
+    return false
+  }
+  return isDbCommand(value)
 }
 
 export function isDbReply(value: unknown): value is DbReply {

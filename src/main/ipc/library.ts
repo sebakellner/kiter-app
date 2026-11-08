@@ -24,6 +24,7 @@ import { listLibraryCatalog } from '../services/library'
 import icon from '../../../resources/icon.png?asset'
 import type { DbClient } from '../db'
 import { requireMainFrameWindow } from './authorize'
+import { handleResult } from './handler'
 import { invokeResult } from './result'
 
 const DRAG_ICON_SIZE = 64
@@ -46,11 +47,7 @@ export function registerLibraryIpc(database: DbClient): void {
     return registerAudioSources(samples)
   }
 
-  async function handleSetFavorite(
-    event: IpcMainInvokeEvent,
-    request: unknown,
-  ): Promise<FavoriteState> {
-    requireMainFrameWindow(event)
+  async function handleSetFavorite(request: unknown): Promise<FavoriteState> {
     if (!isSetFavoriteRequest(request)) {
       throw new IpcError('INVALID_INPUT', 'Invalid or inactive sample')
     }
@@ -111,35 +108,25 @@ export function registerLibraryIpc(database: DbClient): void {
       () => handleImportFolder(event, request),
     ),
   )
-  ipcMain.handle(LIBRARY_CHANNELS.list, (event, request: unknown) =>
-    invokeResult(
-      'library.list',
-      {
-        code: 'STORAGE_FAILED',
-        message:
-          'Unable to load samples. Check database storage and try again.',
-      },
-      async () => {
-        requireMainFrameWindow(event)
-        let input
-        try {
-          input = requireLibraryListRequest(request)
-        } catch {
-          throw new IpcError('INVALID_INPUT', 'Invalid library page request.')
-        }
-        return listLibraryCatalog(input, database, catalogAudioUrl)
-      },
-    ),
+  handleResult(
+    LIBRARY_CHANNELS.list,
+    'library.list',
+    'Unable to load samples. Check database storage and try again.',
+    async (request) => {
+      let input
+      try {
+        input = requireLibraryListRequest(request)
+      } catch {
+        throw new IpcError('INVALID_INPUT', 'Invalid library page request.')
+      }
+      return listLibraryCatalog(input, database, catalogAudioUrl)
+    },
   )
-  ipcMain.handle(LIBRARY_CHANNELS.setFavorite, (event, request: unknown) =>
-    invokeResult(
-      'library.setFavorite',
-      {
-        code: 'STORAGE_FAILED',
-        message: 'Unable to save favorite. Check database storage.',
-      },
-      () => handleSetFavorite(event, request),
-    ),
+  handleResult(
+    LIBRARY_CHANNELS.setFavorite,
+    'library.setFavorite',
+    'Unable to save favorite. Check database storage.',
+    handleSetFavorite,
   )
   ipcMain.on(LIBRARY_CHANNELS.startDrag, handleStartDrag)
 }

@@ -1,4 +1,3 @@
-import { ipcMain } from 'electron'
 import {
   STANDALONE_REVIEW_CHANNELS,
   requireStandaloneReviewAcceptAllRequest,
@@ -13,37 +12,22 @@ import {
   createStandaloneReviewSession,
   type StandaloneReviewSession,
 } from '../services/classification'
-import { requireMainFrameWindow } from './authorize'
-import { invokeResult } from './result'
-import type { AppFailure } from '../../shared/ipc/result'
+import { handleResult } from './handler'
 
-const PREPARE_FAILURE: AppFailure = {
-  code: 'STORAGE_FAILED',
-  message:
-    'Unable to prepare the classification review. Retry to read the catalog again.',
-}
+const PREPARE_FAILURE =
+  'Unable to prepare the classification review. Retry to read the catalog again.'
 
-const READ_FAILURE: AppFailure = {
-  code: 'STORAGE_FAILED',
-  message: 'Unable to load the classification review. Prepare it again.',
-}
+const READ_FAILURE =
+  'Unable to load the classification review. Prepare it again.'
 
-const DECIDE_FAILURE: AppFailure = {
-  code: 'STORAGE_FAILED',
-  message:
-    'Unable to update the classification review. Prepare it again before deciding.',
-}
+const DECIDE_FAILURE =
+  'Unable to update the classification review. Prepare it again before deciding.'
 
-const DISCARD_FAILURE: AppFailure = {
-  code: 'STORAGE_FAILED',
-  message: 'Unable to discard the classification review. Prepare it again.',
-}
+const DISCARD_FAILURE =
+  'Unable to discard the classification review. Prepare it again.'
 
-const EXECUTE_FAILURE: AppFailure = {
-  code: 'STORAGE_FAILED',
-  message:
-    'Unable to save the reviewed classifications. Read the current catalog data before trying again.',
-}
+const EXECUTE_FAILURE =
+  'Unable to save the reviewed classifications. Read the current catalog data before trying again.'
 
 /** Standalone catalog review: preparation, staging and confirmed execution.
  *
@@ -62,90 +46,53 @@ export function registerStandaloneReviewIpc(database: DbClient): void {
       database.executeStandaloneClassificationTarget(input),
   })
 
-  ipcMain.handle(
+  handleResult(
     STANDALONE_REVIEW_CHANNELS.prepare,
-    (event, request: unknown) =>
-      invokeResult(
-        'classification.prepareStandaloneReview',
-        PREPARE_FAILURE,
-        () => {
-          requireMainFrameWindow(event)
-          return session.prepare(requireStandaloneReviewPrepareRequest(request))
-        },
-      ),
+    'classification.prepareStandaloneReview',
+    PREPARE_FAILURE,
+    (request) =>
+      session.prepare(requireStandaloneReviewPrepareRequest(request)),
   )
-  ipcMain.handle(
+  handleResult(
     STANDALONE_REVIEW_CHANNELS.listProposals,
-    (event, request: unknown) =>
-      invokeResult(
-        'classification.listStandaloneReviewProposals',
-        READ_FAILURE,
-        () => {
-          requireMainFrameWindow(event)
-          return session.listProposals(
-            requireStandaloneReviewPageRequest(request),
-          )
-        },
-      ),
+    'classification.listStandaloneReviewProposals',
+    READ_FAILURE,
+    (request) =>
+      session.listProposals(requireStandaloneReviewPageRequest(request)),
   )
-  ipcMain.handle(
+  handleResult(
     STANDALONE_REVIEW_CHANNELS.listAmbiguities,
-    (event, request: unknown) =>
-      invokeResult(
-        'classification.listStandaloneReviewAmbiguities',
-        READ_FAILURE,
-        () => {
-          requireMainFrameWindow(event)
-          return session.listAmbiguities(
-            requireStandaloneReviewPageRequest(request),
-          )
-        },
-      ),
+    'classification.listStandaloneReviewAmbiguities',
+    READ_FAILURE,
+    (request) =>
+      session.listAmbiguities(requireStandaloneReviewPageRequest(request)),
   )
-  ipcMain.handle(STANDALONE_REVIEW_CHANNELS.stage, (event, request: unknown) =>
-    invokeResult('classification.stageStandaloneReview', DECIDE_FAILURE, () => {
-      requireMainFrameWindow(event)
-      return session.stage(requireStandaloneReviewDecisionsRequest(request))
-    }),
+  handleResult(
+    STANDALONE_REVIEW_CHANNELS.stage,
+    'classification.stageStandaloneReview',
+    DECIDE_FAILURE,
+    (request) =>
+      session.stage(requireStandaloneReviewDecisionsRequest(request)),
   )
-  ipcMain.handle(
+  handleResult(
     STANDALONE_REVIEW_CHANNELS.acceptAll,
-    (event, request: unknown) =>
-      invokeResult(
-        'classification.acceptAllStandaloneReview',
-        DECIDE_FAILURE,
-        () => {
-          requireMainFrameWindow(event)
-          return session.acceptAll(
-            requireStandaloneReviewAcceptAllRequest(request),
-          )
-        },
-      ),
+    'classification.acceptAllStandaloneReview',
+    DECIDE_FAILURE,
+    (request) =>
+      session.acceptAll(requireStandaloneReviewAcceptAllRequest(request)),
   )
-  ipcMain.handle(
+  handleResult(
     STANDALONE_REVIEW_CHANNELS.discard,
-    (event, request: unknown) =>
-      invokeResult(
-        'classification.discardStandaloneReview',
-        DISCARD_FAILURE,
-        () => {
-          requireMainFrameWindow(event)
-          return session.discard(requireStandaloneReviewDiscardRequest(request))
-        },
-      ),
+    'classification.discardStandaloneReview',
+    DISCARD_FAILURE,
+    (request) =>
+      session.discard(requireStandaloneReviewDiscardRequest(request)),
   )
-  ipcMain.handle(
+  handleResult(
     STANDALONE_REVIEW_CHANNELS.execute,
-    (event, request: unknown) =>
-      invokeResult(
-        'classification.executeStandaloneReview',
-        EXECUTE_FAILURE,
-        () => {
-          requireMainFrameWindow(event)
-          return session.execute(
-            requireStandaloneReviewExecutionRequest(request),
-          )
-        },
-      ),
+    'classification.executeStandaloneReview',
+    EXECUTE_FAILURE,
+    (request) =>
+      session.execute(requireStandaloneReviewExecutionRequest(request)),
   )
 }

@@ -1,4 +1,3 @@
-import { ipcMain } from 'electron'
 import {
   COLLECTION_CHANNELS,
   requireCollectionCreateRequest,
@@ -12,164 +11,81 @@ import {
 } from '../../shared/ipc/collections'
 import { requireCollectionPage } from '../../shared/domain/collection'
 import type { DbClient } from '../db'
-import { requireMainFrameWindow } from './authorize'
-import { invokeResult } from './result'
+import { handleResult } from './handler'
 
 export function registerCollectionsIpc(database: DbClient): void {
-  ipcMain.handle(COLLECTION_CHANNELS.update, (event, request: unknown) =>
-    invokeResult(
-      'collections.update',
-      {
-        code: 'STORAGE_FAILED',
-        message:
-          'Unable to save the Collection. Reload saved details before trying again.',
-      },
-      () => {
-        requireMainFrameWindow(event)
-        return database.updateCollection(
-          requireCollectionUpdateRequest(request),
-        )
-      },
-    ),
+  handleResult(
+    COLLECTION_CHANNELS.update,
+    'collections.update',
+    'Unable to save the Collection. Reload saved details before trying again.',
+    (request) =>
+      database.updateCollection(requireCollectionUpdateRequest(request)),
   )
-  ipcMain.handle(COLLECTION_CHANNELS.reviewRemoval, (event, request: unknown) =>
-    invokeResult(
-      'collections.review-removal',
-      {
-        code: 'STORAGE_FAILED',
-        message: 'Unable to review the Collection. Try reviewing it again.',
-      },
-      () => {
-        requireMainFrameWindow(event)
-        return database.reviewCollectionRemoval(
-          requireCollectionGetRequest(request).id,
-        )
-      },
-    ),
+  handleResult(
+    COLLECTION_CHANNELS.reviewRemoval,
+    'collections.review-removal',
+    'Unable to review the Collection. Try reviewing it again.',
+    (request) =>
+      database.reviewCollectionRemoval(requireCollectionGetRequest(request).id),
   )
-  ipcMain.handle(COLLECTION_CHANNELS.remove, (event, request: unknown) =>
-    invokeResult(
-      'collections.remove',
-      {
-        code: 'STORAGE_FAILED',
-        message:
-          'Unable to verify Collection deletion. Review it again before retrying.',
-      },
-      () => {
-        requireMainFrameWindow(event)
-        return database.removeCollection(
-          requireCollectionRemovalRequest(request),
-        )
-      },
-    ),
+  handleResult(
+    COLLECTION_CHANNELS.remove,
+    'collections.remove',
+    'Unable to verify Collection deletion. Review it again before retrying.',
+    (request) =>
+      database.removeCollection(requireCollectionRemovalRequest(request)),
   )
-  ipcMain.handle(COLLECTION_CHANNELS.placeSample, (event, request: unknown) =>
-    invokeResult(
-      'collections.place-sample',
-      {
-        code: 'STORAGE_FAILED',
-        message:
-          'Unable to save the dropped Sample position. Refresh the Collection before dragging again.',
-      },
-      () => {
-        requireMainFrameWindow(event)
-        return database.placeCollectionSample(
-          requireCollectionPlaceRequest(request),
-        )
-      },
-    ),
+  handleResult(
+    COLLECTION_CHANNELS.placeSample,
+    'collections.place-sample',
+    'Unable to save the dropped Sample position. Refresh the Collection before dragging again.',
+    (request) =>
+      database.placeCollectionSample(requireCollectionPlaceRequest(request)),
   )
-  ipcMain.handle(COLLECTION_CHANNELS.moveSample, (event, request: unknown) =>
-    invokeResult(
-      'collections.move-sample',
-      {
-        code: 'STORAGE_FAILED',
-        message:
-          'Unable to save the Collection order. Refresh the Collection before repeating the move.',
-      },
-      () => {
-        requireMainFrameWindow(event)
-        return database.moveCollectionSample(
-          requireCollectionMoveRequest(request),
-        )
-      },
-    ),
+  handleResult(
+    COLLECTION_CHANNELS.moveSample,
+    'collections.move-sample',
+    'Unable to save the Collection order. Refresh the Collection before repeating the move.',
+    (request) =>
+      database.moveCollectionSample(requireCollectionMoveRequest(request)),
   )
-  ipcMain.handle(COLLECTION_CHANNELS.destinations, (event, request: unknown) =>
-    invokeResult(
-      'collections.destinations',
-      {
-        code: 'STORAGE_FAILED',
-        message:
-          'Unable to load Collection destinations. Retry to check database storage.',
-      },
-      () => {
-        requireMainFrameWindow(event)
-        return database.listCollectionDestinations(
-          requireCollectionDestinationsRequest(request),
-        )
-      },
-    ),
+  handleResult(
+    COLLECTION_CHANNELS.destinations,
+    'collections.destinations',
+    'Unable to load Collection destinations. Retry to check database storage.',
+    (request) =>
+      database.listCollectionDestinations(
+        requireCollectionDestinationsRequest(request),
+      ),
   )
-  ipcMain.handle(COLLECTION_CHANNELS.setMembership, (event, request: unknown) =>
-    invokeResult(
-      'collections.set-membership',
-      {
-        code: 'STORAGE_FAILED',
-        message:
-          'Unable to change Collection membership. Retry to check database storage.',
-      },
-      () => {
-        requireMainFrameWindow(event)
-        return database.setCollectionMembership(
-          requireCollectionMembershipRequest(request),
-        )
-      },
-    ),
+  handleResult(
+    COLLECTION_CHANNELS.setMembership,
+    'collections.set-membership',
+    'Unable to change Collection membership. Retry to check database storage.',
+    (request) =>
+      database.setCollectionMembership(
+        requireCollectionMembershipRequest(request),
+      ),
   )
-  ipcMain.handle(COLLECTION_CHANNELS.create, (event, request: unknown) =>
-    invokeResult(
-      'collections.create',
-      {
-        code: 'STORAGE_FAILED',
-        message:
-          'Unable to create the Collection. Your draft was preserved; check database storage before retrying.',
-      },
-      () => {
-        requireMainFrameWindow(event)
-        return database.createCollection(
-          requireCollectionCreateRequest(request),
-        )
-      },
-    ),
+  handleResult(
+    COLLECTION_CHANNELS.create,
+    'collections.create',
+    'Unable to create the Collection. Your draft was preserved; check database storage before retrying.',
+    (request) =>
+      database.createCollection(requireCollectionCreateRequest(request)),
   )
-  ipcMain.handle(COLLECTION_CHANNELS.list, (event, request: unknown) =>
-    invokeResult(
-      'collections.list',
-      {
-        code: 'STORAGE_FAILED',
-        message: 'Unable to load Collections. Retry to check database storage.',
-      },
-      () => {
-        requireMainFrameWindow(event)
-        return database.listCollectionSummaries(requireCollectionPage(request))
-      },
-    ),
+  handleResult(
+    COLLECTION_CHANNELS.list,
+    'collections.list',
+    'Unable to load Collections. Retry to check database storage.',
+    (request) =>
+      database.listCollectionSummaries(requireCollectionPage(request)),
   )
-  ipcMain.handle(COLLECTION_CHANNELS.get, (event, request: unknown) =>
-    invokeResult(
-      'collections.get',
-      {
-        code: 'STORAGE_FAILED',
-        message:
-          'Unable to load the Collection. Retry to check database storage.',
-      },
-      () => {
-        requireMainFrameWindow(event)
-        return database.getCollectionSummary(
-          requireCollectionGetRequest(request).id,
-        )
-      },
-    ),
+  handleResult(
+    COLLECTION_CHANNELS.get,
+    'collections.get',
+    'Unable to load the Collection. Retry to check database storage.',
+    (request) =>
+      database.getCollectionSummary(requireCollectionGetRequest(request).id),
   )
 }

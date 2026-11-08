@@ -1,12 +1,10 @@
-import { ipcMain } from 'electron'
 import {
   CLASSIFICATION_CHANNELS,
   requireClassificationPreparationRequest,
   requireClassificationApplyRequest,
 } from '../../shared/ipc/classification'
 import type { DbClient } from '../db'
-import { requireMainFrameWindow } from './authorize'
-import { invokeResult } from './result'
+import { handleResult } from './handler'
 import { requirePage } from '../../shared/domain/pagination'
 import { requireAliasUpdateRequest } from '../../shared/ipc/aliasUpdates'
 import {
@@ -15,102 +13,46 @@ import {
 } from '../../shared/ipc/sampleType'
 
 export function registerClassificationIpc(database: DbClient): void {
-  ipcMain.handle(
+  handleResult(
     CLASSIFICATION_CHANNELS.readSampleType,
-    (event, request: unknown) =>
-      invokeResult(
-        'classification.read-sample-type',
-        {
-          code: 'STORAGE_FAILED',
-          message:
-            'Unable to load saved Sample type. Retry to read the catalog again.',
-        },
-        () => {
-          requireMainFrameWindow(event)
-          return database.readSampleType(requireSampleTypeRequest(request))
-        },
-      ),
+    'classification.read-sample-type',
+    'Unable to load saved Sample type. Retry to read the catalog again.',
+    (request) => database.readSampleType(requireSampleTypeRequest(request)),
   )
-  ipcMain.handle(
+  handleResult(
     CLASSIFICATION_CHANNELS.saveSampleType,
-    (event, request: unknown) =>
-      invokeResult(
-        'classification.save-sample-type',
-        {
-          code: 'STORAGE_FAILED',
-          message:
-            'Unable to save Sample type. Your draft was preserved; reload saved type before retrying.',
-        },
-        () => {
-          requireMainFrameWindow(event)
-          return database.saveSampleType(requireSampleTypeSaveRequest(request))
-        },
-      ),
+    'classification.save-sample-type',
+    'Unable to save Sample type. Your draft was preserved; reload saved type before retrying.',
+    (request) => database.saveSampleType(requireSampleTypeSaveRequest(request)),
   )
-  ipcMain.handle(
+  handleResult(
     CLASSIFICATION_CHANNELS.applySample,
-    (event, request: unknown) =>
-      invokeResult(
-        'classification.applySample',
-        {
-          code: 'STORAGE_FAILED',
-          message:
-            'Unable to apply suggestions. Refresh to check the saved classifications.',
-        },
-        () => {
-          requireMainFrameWindow(event)
-          return database.applySampleClassification(
-            requireClassificationApplyRequest(request),
-          )
-        },
+    'classification.applySample',
+    'Unable to apply suggestions. Refresh to check the saved classifications.',
+    (request) =>
+      database.applySampleClassification(
+        requireClassificationApplyRequest(request),
       ),
   )
-  ipcMain.handle(
+  handleResult(
     CLASSIFICATION_CHANNELS.listAliasUpdates,
-    (event, request: unknown) =>
-      invokeResult(
-        'classification.listAliasUpdates',
-        {
-          code: 'STORAGE_FAILED',
-          message: 'Unable to check vocabulary updates.',
-        },
-        () => {
-          requireMainFrameWindow(event)
-          return database.listAliasUpdates(requirePage(request))
-        },
-      ),
+    'classification.listAliasUpdates',
+    'Unable to check vocabulary updates.',
+    (request) => database.listAliasUpdates(requirePage(request)),
   )
-  ipcMain.handle(
+  handleResult(
     CLASSIFICATION_CHANNELS.incorporateAlias,
-    (event, request: unknown) =>
-      invokeResult(
-        'classification.incorporateAlias',
-        {
-          code: 'STORAGE_FAILED',
-          message: 'Unable to incorporate this alias.',
-        },
-        () => {
-          requireMainFrameWindow(event)
-          return database.incorporateAlias(requireAliasUpdateRequest(request))
-        },
-      ),
+    'classification.incorporateAlias',
+    'Unable to incorporate this alias.',
+    (request) => database.incorporateAlias(requireAliasUpdateRequest(request)),
   )
-  ipcMain.handle(
+  handleResult(
     CLASSIFICATION_CHANNELS.prepareSample,
-    (event, request: unknown) =>
-      invokeResult(
-        'classification.prepareSample',
-        {
-          code: 'STORAGE_FAILED',
-          message:
-            'Unable to prepare classification suggestions. Retry to read the catalog again.',
-        },
-        () => {
-          requireMainFrameWindow(event)
-          return database.prepareSampleClassification(
-            requireClassificationPreparationRequest(request),
-          )
-        },
+    'classification.prepareSample',
+    'Unable to prepare classification suggestions. Retry to read the catalog again.',
+    (request) =>
+      database.prepareSampleClassification(
+        requireClassificationPreparationRequest(request),
       ),
   )
 }

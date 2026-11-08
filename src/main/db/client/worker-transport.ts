@@ -1,12 +1,9 @@
 import { Worker } from 'node:worker_threads'
-import type { DbReply, DbRequest } from '../protocol/messages.ts'
+import type { DbCommand, DbReply, DbRequest } from '../protocol/messages.ts'
 import { isDbReply } from '../protocol/messages.ts'
 import { DbError } from '../errors.ts'
 
-type WithoutRequestId<T> = T extends { requestId: number }
-  ? Omit<T, 'requestId'>
-  : never
-export type DbCommand = WithoutRequestId<DbRequest>
+export type { DbCommand }
 
 interface WorkerLocation {
   workerPath: string | URL
@@ -14,12 +11,22 @@ interface WorkerLocation {
   backupDirectory?: string
   imagesDirectory?: string
   restoreFrom?: string
+  requestTimeoutMs?: number
 }
+
+// A last-resort liveness guard, never a responsiveness budget: a large import or
+// a migration backup can legitimately run for minutes, and a false timeout is
+// worse than a slow answer.
+const DEFAULT_REQUEST_TIMEOUT_MS = 10 * 60_000
+
+const UNRESPONSIVE_MESSAGE =
+  'The local catalog stopped responding. Restart Kiter to retry.'
 
 type PendingRequest = {
   action: DbRequest['action']
   resolve: (reply: DbReply) => void
   reject: (error: Error) => void
+  timeout: NodeJS.Timeout | null
 }
 
 export class WorkerTransport {
@@ -30,11 +37,14 @@ export class WorkerTransport {
   private closing = false
   private closePromise: Promise<void> | null = null
   private readonly pendingRequests = new Map<number, PendingRequest>()
+  private readonly requestTimeoutMs: number
   private readonly ready: Promise<void>
   private resolveReady!: () => void
   private rejectReady!: (error: Error) => void
 
   private constructor(filename: string, location: WorkerLocation) {
+    this.requestTimeoutMs =
+      location.requestTimeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS
     this.ready = new Promise((resolve, reject) => {
       this.resolveReady = resolve
       this.rejectReady = reject
@@ -95,12 +105,12 @@ export class WorkerTransport {
       this.fail(reply.failure.message, reply.failure.code)
       return
     }
-    const pendingRequest = this.pendingRequests.get(reply.requestId)
+    const pendingRequest = this.settle(reply.requestId)
     if (!pendingRequest) {
       this.fail('Unexpected database response', 'PROTOCOL_ERROR')
       return
     }
-    this.pendingRequests.delete(reply.requestId)
+    this.armOldestPending()
     if (reply.action === 'error') {
       pendingRequest.reject(
         new DbError(reply.failure.code, reply.failure.message),
@@ -115,6 +125,48 @@ export class WorkerTransport {
       return
     }
     pendingRequest.resolve(reply)
+  }
+
+  private settle(requestId: number): PendingRequest | undefined {
+    const pendingRequest = this.pendingRequests.get(requestId)
+    if (!pendingRequest) {
+      return undefined
+    }
+    if (pendingRequest.timeout) {
+      clearTimeout(pendingRequest.timeout)
+    }
+    this.pendingRequests.delete(requestId)
+    return pendingRequest
+  }
+
+  // Only the oldest pending command can be the one the worker is running. Arming
+  // the others would charge a queued command for the queue time in front of it
+  // and fail a worker that is answering normally.
+  private armOldestPending(): void {
+    let oldestId = Number.POSITIVE_INFINITY
+    for (const requestId of this.pendingRequests.keys()) {
+      oldestId = Math.min(oldestId, requestId)
+    }
+    const oldest = this.pendingRequests.get(oldestId)
+    if (!oldest || oldest.timeout) {
+      return
+    }
+    const timeout = setTimeout(
+      () => this.handleTimeout(oldestId),
+      this.requestTimeoutMs,
+    )
+    // A pending request must not keep the process alive on its own.
+    timeout.unref()
+    oldest.timeout = timeout
+  }
+
+  // One unanswered command means the worker is wedged, so nothing queued behind
+  // it will be answered either.
+  private handleTimeout(requestId: number): void {
+    if (!this.pendingRequests.has(requestId)) {
+      return
+    }
+    this.fail(UNRESPONSIVE_MESSAGE)
   }
 
   private handleWorkerError(): void {
@@ -141,6 +193,9 @@ export class WorkerTransport {
     this.failure = new DbError(code, message)
     this.rejectReady(this.failure)
     for (const pendingRequest of this.pendingRequests.values()) {
+      if (pendingRequest.timeout) {
+        clearTimeout(pendingRequest.timeout)
+      }
       pendingRequest.reject(this.failure)
     }
     this.pendingRequests.clear()
@@ -155,13 +210,15 @@ export class WorkerTransport {
         action: request.action,
         resolve,
         reject,
+        timeout: null,
       })
       try {
         this.worker.postMessage(request)
       } catch (error) {
-        this.pendingRequests.delete(request.requestId)
+        this.settle(request.requestId)
         reject(error)
       }
+      this.armOldestPending()
     })
   }
 
