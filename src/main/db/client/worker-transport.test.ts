@@ -100,3 +100,35 @@ test(
     }
   },
 )
+
+test(
+  'an unanswered command fails the transport instead of hanging forever',
+  { timeout: 15000 },
+  async () => {
+    const directory = await mkdtemp(path.join(tmpdir(), 'kiter-silent-'))
+    const transport = await WorkerTransport.open(
+      path.join(directory, 'catalog.sqlite'),
+      {
+        workerPath: new URL(
+          '../../../../tests/support/fixtures/silent-worker.ts',
+          import.meta.url,
+        ),
+        migrationsFolder: location.migrationsFolder,
+        requestTimeoutMs: 50,
+      },
+    )
+    try {
+      await assert.rejects(transport.request({ action: 'profile' }), {
+        code: 'WORKER_FAILED',
+      })
+      // Once the worker is wedged every later command fails immediately.
+      await assert.rejects(transport.request({ action: 'profile' }), {
+        code: 'WORKER_FAILED',
+      })
+    } finally {
+      // An already failed transport reports that failure again on close.
+      await transport.close().catch(() => undefined)
+      await rm(directory, { recursive: true, force: true })
+    }
+  },
+)
