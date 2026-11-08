@@ -18,6 +18,14 @@ updates:
         update-types:
           - minor
           - patch
+    ignore:
+      # Types must track the Node major this app runs, not the newest published
+      # one: newer types let us write APIs that do not exist at runtime, and the
+      # failure shows up in front of a user rather than in CI. Take a major
+      # deliberately when the runtime moves with it.
+      - dependency-name: '@types/node'
+        update-types:
+          - version-update:semver-major
 
   - package-ecosystem: github-actions
     directory: /
