@@ -23,6 +23,7 @@ import {
 } from '../../schema/samples.ts'
 import { excludedSources, sourceRoots } from '../../schema/sources.ts'
 import { getSample } from '../samples/operations.ts'
+import { refreshSampleSearch, storedRelativePath } from '../search-values.ts'
 
 export function getReinclusionRoot(
   db: AppDatabase,
@@ -81,7 +82,7 @@ export function reincludeSource(
   }
   return db.transaction(
     () => {
-      getReinclusionRoot(db, input)
+      const root = getReinclusionRoot(db, input)
       if (
         db
           .select()
@@ -114,8 +115,10 @@ export function reincludeSource(
           sourceRootId: input.sourceRootId,
           sampleId: id,
           present: true,
+          searchRelativePath: storedRelativePath(root.canonicalPath, file.path),
         })
         .run()
+      refreshSampleSearch(db, [id])
       return getSample(db, id)
     },
     { behavior: 'immediate' },

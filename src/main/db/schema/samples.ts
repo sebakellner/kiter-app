@@ -16,6 +16,9 @@ export const samples = sqliteTable(
   {
     id: text('id').primaryKey().notNull(),
     displayName: text('display_name'),
+    // Materialized by the write path so catalog search never evaluates a JS
+    // function per row. It follows displayName, so a rename writes it here.
+    searchName: text('search_name').notNull().default(''),
     notes: text('notes'),
     sampleType: text('sample_type', { enum: ['loop', 'one-shot'] }),
     favorite: integer('favorite', { mode: 'boolean' }).notNull().default(false),
@@ -57,6 +60,9 @@ export const sampleSources = sqliteTable(
       .notNull()
       .references(() => samples.id, { onDelete: 'cascade' }),
     canonicalPath: text('canonical_path').notNull().unique(),
+    // Materialized from the canonical path, so search does not pay a JS callback
+    // per row. Both values below are immutable once the row exists.
+    searchFilename: text('search_filename').notNull().default(''),
     availability: text('availability', {
       enum: ['available', 'missing', 'inaccessible'],
     }).notNull(),
@@ -92,6 +98,10 @@ export const sourceRootSamples = sqliteTable(
       .notNull()
       .references(() => samples.id, { onDelete: 'cascade' }),
     present: integer('present', { mode: 'boolean' }).notNull(),
+    // The relative path is a property of the Sample *under this root*, so it only
+    // depends on this row. Which root the catalog displays and whether it counts
+    // at all depends on registration, and that stays a live query decision.
+    searchRelativePath: text('search_relative_path').notNull().default(''),
   },
   (table) => [
     primaryKey({ columns: [table.sourceRootId, table.sampleId] }),
