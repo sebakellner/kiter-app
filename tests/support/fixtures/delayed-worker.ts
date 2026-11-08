@@ -7,7 +7,7 @@ if (!port) {
 
 const profileId = '11111111-1111-4111-8111-111111111111'
 const preferences = { profileId, previewVolume: 0 }
-const delays: Record<string, number> = { profile: 120, volume: 60 }
+const delays: Record<string, number> = { profile: 200, volume: 100 }
 
 function replyFor(request: { requestId: number; action: string }): unknown {
   const result =
