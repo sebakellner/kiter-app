@@ -215,6 +215,10 @@ type IpcResult<T> =
 
 - [Handlers](../../src/main/ipc) authorize sender/frame, validate unknown input,
   invoke the owning operation, and translate outcomes through `invokeResult`.
+  Handlers whose failure is a storage failure register through
+  [handleResult](../../src/main/ipc/handler.ts), which owns the authorization
+  check and that translation, so a new handler cannot omit it; a handler with
+  its own failure code stays on raw `ipcMain.handle` + `invokeResult`.
 - Public codes/messages are controlled. Private DB errors map at the boundary;
   unexpected native errors use operation-specific sanitized messages. Log only
   operation and code, never raw SQL errors, producer paths, or full payloads.
