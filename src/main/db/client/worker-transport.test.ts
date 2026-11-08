@@ -132,3 +132,42 @@ test(
     }
   },
 )
+
+test(
+  'a command queued behind a slow one keeps its own deadline',
+  { timeout: 15000 },
+  async () => {
+    const directory = await mkdtemp(path.join(tmpdir(), 'kiter-queued-'))
+    const transport = await WorkerTransport.open(
+      path.join(directory, 'catalog.sqlite'),
+      {
+        workerPath: new URL(
+          '../../../../tests/support/fixtures/delayed-worker.ts',
+          import.meta.url,
+        ),
+        migrationsFolder: location.migrationsFolder,
+        requestTimeoutMs: 150,
+      },
+    )
+    try {
+      // `profile` answers after 120ms and `volume` after 60ms. Together they are
+      // 180ms of wall clock for one 150ms window, which only stays legal because
+      // the queue only charges the command the worker is actually running.
+      const [profile, volume] = await Promise.all([
+        transport.request({ action: 'profile' }),
+        transport.request({ action: 'volume', volume: 0 }),
+      ])
+      assert.equal(profile.action, 'profile')
+      assert.equal(volume.action, 'volume')
+      if (volume.action !== 'volume') {
+        assert.fail('Expected volume reply')
+      }
+      assert.equal(volume.result.previewVolume, 0)
+      const after = await transport.request({ action: 'volume', volume: 0 })
+      assert.equal(after.action, 'volume')
+    } finally {
+      await transport.close()
+      await rm(directory, { recursive: true, force: true })
+    }
+  },
+)

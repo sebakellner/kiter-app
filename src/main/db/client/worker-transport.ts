@@ -26,7 +26,7 @@ type PendingRequest = {
   action: DbRequest['action']
   resolve: (reply: DbReply) => void
   reject: (error: Error) => void
-  timeout: NodeJS.Timeout
+  timeout: NodeJS.Timeout | null
 }
 
 export class WorkerTransport {
@@ -110,6 +110,7 @@ export class WorkerTransport {
       this.fail('Unexpected database response', 'PROTOCOL_ERROR')
       return
     }
+    this.armOldestPending()
     if (reply.action === 'error') {
       pendingRequest.reject(
         new DbError(reply.failure.code, reply.failure.message),
@@ -131,9 +132,32 @@ export class WorkerTransport {
     if (!pendingRequest) {
       return undefined
     }
-    clearTimeout(pendingRequest.timeout)
+    if (pendingRequest.timeout) {
+      clearTimeout(pendingRequest.timeout)
+    }
     this.pendingRequests.delete(requestId)
     return pendingRequest
+  }
+
+  // Only the oldest pending command can be the one the worker is running. Arming
+  // the others would charge a queued command for the queue time in front of it
+  // and fail a worker that is answering normally.
+  private armOldestPending(): void {
+    let oldestId = Number.POSITIVE_INFINITY
+    for (const requestId of this.pendingRequests.keys()) {
+      oldestId = Math.min(oldestId, requestId)
+    }
+    const oldest = this.pendingRequests.get(oldestId)
+    if (!oldest || oldest.timeout) {
+      return
+    }
+    const timeout = setTimeout(
+      () => this.handleTimeout(oldestId),
+      this.requestTimeoutMs,
+    )
+    // A pending request must not keep the process alive on its own.
+    timeout.unref()
+    oldest.timeout = timeout
   }
 
   // One unanswered command means the worker is wedged, so nothing queued behind
@@ -169,7 +193,9 @@ export class WorkerTransport {
     this.failure = new DbError(code, message)
     this.rejectReady(this.failure)
     for (const pendingRequest of this.pendingRequests.values()) {
-      clearTimeout(pendingRequest.timeout)
+      if (pendingRequest.timeout) {
+        clearTimeout(pendingRequest.timeout)
+      }
       pendingRequest.reject(this.failure)
     }
     this.pendingRequests.clear()
@@ -180,17 +206,11 @@ export class WorkerTransport {
       return Promise.reject(this.failure)
     }
     return new Promise((resolve, reject) => {
-      const timeout = setTimeout(
-        () => this.handleTimeout(request.requestId),
-        this.requestTimeoutMs,
-      )
-      // A pending request must not keep the process alive on its own.
-      timeout.unref()
       this.pendingRequests.set(request.requestId, {
         action: request.action,
         resolve,
         reject,
-        timeout,
+        timeout: null,
       })
       try {
         this.worker.postMessage(request)
@@ -198,6 +218,7 @@ export class WorkerTransport {
         this.settle(request.requestId)
         reject(error)
       }
+      this.armOldestPending()
     })
   }
 
