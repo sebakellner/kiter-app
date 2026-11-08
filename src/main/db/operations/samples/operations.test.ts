@@ -92,6 +92,8 @@ test('Sample edits survive rescans and preserve source revisions and organizatio
     ...before,
     displayName: 'Kick',
     notes: 'Keep\nnotes',
+    // The searchable name follows the presentation name.
+    searchName: 'kick',
   })
   assert.deepEqual(db.select().from(sampleSources).get(), source)
   assert.throws(
@@ -199,6 +201,7 @@ test('Sample removal checks exact impact, rolls back failures and excludes acros
   assert.deepEqual(reincluded, {
     id: reincluded.id,
     displayName: null,
+    searchName: 'kick.wav',
     notes: null,
     favorite: false,
     packId: null,

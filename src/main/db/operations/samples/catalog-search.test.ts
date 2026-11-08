@@ -410,3 +410,22 @@ test('catalog search excludes recognition aliases, pending suggestions and origi
     assert.equal(listCatalogSamples(db, { search }).total, 0)
   }
 })
+
+test('catalog search follows root registration live instead of a stored snapshot', (t) => {
+  const { db } = createMemoryDatabase(t)
+  const root = path.resolve('registration-live')
+  importFolder(db, root, [
+    makeDiscoveredAudioFile(root, path.join('Vinyl Drums', 'Rim.wav')),
+  ])
+  const names = (search: string): string[] =>
+    listCatalogSamples(db, { search }).items.map(({ name }) => name)
+  assert.deepEqual(names('vinyl drums'), ['Rim.wav'])
+
+  // Unregistered roots keep the Sample, but contribute no directory evidence.
+  db.update(sourceRoots).set({ registered: false }).run()
+  assert.deepEqual(names('vinyl drums'), [])
+  assert.deepEqual(names('rim'), ['Rim.wav'])
+
+  db.update(sourceRoots).set({ registered: true }).run()
+  assert.deepEqual(names('vinyl drums'), ['Rim.wav'])
+})

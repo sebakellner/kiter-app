@@ -203,6 +203,14 @@ remain planned.
 - Main validates requests; DB worker queries catalog through bounded operations.
   Never transfer the complete library to renderer. Use indexes, stable ordering,
   and pagination; introduce full-text indexing only when requirements justify it.
+- Catalog search matches materialized normalized values, not expressions computed
+  per row: `samples.search_name`, `sample_sources.search_filename` and
+  `source_root_samples.search_relative_path`. Evaluating them per row cost a JS
+  callback per value plus a correlated subquery, once per word and twice per page.
+  Each value depends only on the row that stores it, so no value may encode
+  mutable state such as which roots are registered; that stays a live query. Any
+  new write path that creates, moves or renames a source must refresh the values
+  it owns, or search silently goes stale for that Sample.
 - Wait 250 ms after typing stops. At most five suggestions per entity type; full
   pages default to 50, maximum 100 per request. Reject obsolete responses in the
   owning renderer context. Validate these initial limits on representative data.

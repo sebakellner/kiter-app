@@ -380,6 +380,7 @@ test(
       assert.deepEqual(reincluded.result, {
         id: reincluded.result.id,
         displayName: null,
+        searchName: 'sample.wav',
         notes: null,
         favorite: false,
         packId: null,

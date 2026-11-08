@@ -33,9 +33,17 @@ const normalizedPath =
 // Strip everything through the last slash; rtrim removes the non-slash suffix.
 const filename = sql<string>`substr(${normalizedPath}, length(rtrim(${normalizedPath}, replace(${normalizedPath}, '/', ''))) + 1)`
 const relativePath = sql<string>`kiter_relative_path(${sampleSources.canonicalPath}, ${rootPath})`
-const searchName = sql`kiter_search_text(coalesce(${samples.displayName}, ${filename}))`
-const searchFilename = sql`kiter_search_text(${filename})`
-const searchPath = sql`kiter_search_text(${relativePath})`
+// A Sample's directory part is searchable through the root it is reachable from.
+// Which root the catalog shows — and whether it counts at all — depends on
+// registration, so that selection stays a live query against the association.
+const searchPath = sql<
+  string | null
+>`(select ${sourceRootSamples.searchRelativePath}
+  from ${sourceRootSamples}
+  inner join ${sourceRoots} on ${sourceRoots.id} = ${sourceRootSamples.sourceRootId}
+  where ${sourceRootSamples.sampleId} = ${samples.id}
+  and ${sourceRoots.registered} = 1
+  order by ${sourceRoots.canonicalPath} limit 1)`
 const fields = {
   id: samples.id,
   favorite: samples.favorite,
@@ -46,6 +54,12 @@ const fields = {
   sourceRevision: sampleSources.revision,
 }
 
+// Search values are materialized by the write path (operations/search-values.ts).
+// Evaluating them here instead costs a JS callback per row: 1,487 ms versus
+// 80 ms at 50,000 Samples.
+const searchName = sql<string>`${samples.searchName}`
+const searchFilename = sql<string>`${sampleSources.searchFilename}`
+
 function buildSearchFilter(search: string | undefined): SQL | undefined {
   // The request validator collapses whitespace and removes ineffective searches.
   return and(
@@ -53,7 +67,7 @@ function buildSearchFilter(search: string | undefined): SQL | undefined {
       or(
         sql`instr(${searchName}, ${word}) > 0`,
         sql`instr(${searchFilename}, ${word}) > 0`,
-        sql`instr(${searchPath}, ${word}) > 0`,
+        sql`(instr(${searchPath}, ${word}) > 0)`,
         sql`exists (select 1 from ${sampleInstruments}
           inner join ${instruments} on ${instruments.id} = ${sampleInstruments.instrumentId}
           where ${sampleInstruments.sampleId} = ${samples.id}

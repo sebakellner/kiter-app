@@ -16,6 +16,7 @@ import {
   sampleSources,
   sourceRootSamples,
 } from '../../schema/samples.ts'
+import { refreshSampleSearch, storedRelativePath } from '../search-values.ts'
 
 export function importFolder(
   db: AppDatabase,
@@ -117,10 +118,20 @@ export function importFolder(
           sourceRootId: rootId,
           sampleId: sql.placeholder('id'),
           present: true,
+          searchRelativePath: storedRelativePath(
+            sql.placeholder('root'),
+            sql.placeholder('path'),
+          ),
         })
         .onConflictDoUpdate({
           target: [sourceRootSamples.sourceRootId, sourceRootSamples.sampleId],
-          set: { present: true },
+          set: {
+            present: true,
+            searchRelativePath: storedRelativePath(
+              sql.placeholder('root'),
+              sql.placeholder('path'),
+            ),
+          },
         })
         .prepare()
       const result: LibrarySample[] = []
@@ -157,7 +168,7 @@ export function importFolder(
         if (!isEntityId(row.id)) {
           throw new DbError('DB_INTEGRITY', 'Invalid sample record.')
         }
-        associate.run({ id: row.id })
+        associate.run({ id: row.id, root, path: file.path })
         result.push({
           name: file.name,
           path: file.path,
@@ -174,6 +185,11 @@ export function importFolder(
         })
         .where(eq(sourceRoots.id, rootId))
         .run()
+      // Registered-root membership grew, so relative paths may have changed.
+      refreshSampleSearch(
+        tx,
+        result.map((sample) => sample.id),
+      )
       return result
     },
     { behavior: 'immediate' },

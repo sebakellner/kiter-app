@@ -40,6 +40,7 @@ import {
   sampleAuthors,
 } from '../../schema/classification.ts'
 import { DbError } from '../../errors.ts'
+import { sampleSearchName } from '../search-values.ts'
 
 export function getSample(db: AppDatabase, id: string): Sample {
   requireEntityId(id)
@@ -59,7 +60,7 @@ export function updateSample(
   const notes = requireSampleNotes(input.notes)
   const row = db
     .update(samples)
-    .set({ displayName, notes })
+    .set({ displayName, notes, searchName: sampleSearchName(displayName) })
     .where(eq(samples.id, input.id))
     .returning()
     .get()
