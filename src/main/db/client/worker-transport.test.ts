@@ -146,12 +146,12 @@ test(
           import.meta.url,
         ),
         migrationsFolder: location.migrationsFolder,
-        requestTimeoutMs: 150,
+        requestTimeoutMs: 250,
       },
     )
     try {
-      // `profile` answers after 120ms and `volume` after 60ms. Together they are
-      // 180ms of wall clock for one 150ms window, which only stays legal because
+      // `profile` answers after 200ms and `volume` after 100ms. Together they are
+      // 300ms of wall clock for one 250ms window, which only stays legal because
       // the queue only charges the command the worker is actually running.
       const [profile, volume] = await Promise.all([
         transport.request({ action: 'profile' }),

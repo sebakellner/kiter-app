@@ -233,6 +233,19 @@ type IpcResult<T> =
   sample authorization again before privileged work.
 - Worker [protocol](../../src/main/db/protocol/messages.ts) is private and separate from
   renderer IPC. It includes correlation, readiness, fatal, and close messages.
+- Adding an operation touches five places. Four are unrepresentable when wrong, so
+  the type checker catches them; the fifth is not, and is the one to check by hand:
+  1. `protocol/<domain>.ts`: the request and reply union members.
+  2. The same file: the `is<Domain>Request` and `is<Domain>Reply` cases. **A reply
+     member without a guard case compiles and then fails at runtime with
+     `PROTOCOL_ERROR` on the first reply**, because every reply guard ends in
+     `default: false`.
+  3. `worker/dispatch/<domain>.ts`: the exhaustive switch. A missing case is a type
+     error because the switch has no `default`.
+  4. `client/<domain>.ts`: the one-line command. A wrong action or payload shape is
+     a type error, because `request` derives its result type from the action.
+  5. `shared/ipc` and `main/ipc`: the channel, the argument schema and the
+     `handleResult` registration.
 - Native drag stays a synchronous `send` within the original gesture. Error
   events have validated payloads and removable listeners; do not convert drag
   initiation to `invoke` or await filesystem work.
