@@ -1383,3 +1383,32 @@ test(
     }
   },
 )
+
+test('a manifest naming anything but its own catalog entry is rejected', async (t) => {
+  const f = await fixture(t)
+  const backup = createProtectiveBackup(
+    f.connection.native,
+    f.filename,
+    migrationsFolder,
+    f.storage,
+  )
+  const outside = join(f.directory, 'outside.db')
+  await writeFile(outside, 'external bytes')
+  const manifestPath = join(backup, 'manifest.json')
+  const manifest = JSON.parse(await readFile(manifestPath, 'utf8'))
+  // A crafted manifest must never make the catalog entry point outside the copy.
+  manifest.catalog = {
+    ...manifest.catalog,
+    name: join('..', '..', 'outside.db'),
+  }
+  await writeFile(manifestPath, JSON.stringify(manifest))
+  assert.throws(() => verifyBackup(backup, migrationsFolder), {
+    code: 'UNSUPPORTED_FORMAT',
+  })
+  assert.throws(
+    () => restoreBackup(f.filename, backup, migrationsFolder, f.storage),
+    { code: 'UNSUPPORTED_FORMAT' },
+  )
+  assert.equal(await readFile(outside, 'utf8'), 'external bytes')
+  assert.deepEqual(await stagedFiles(f.filename), [])
+})

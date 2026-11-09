@@ -412,6 +412,12 @@ export function stageRestoreCatalog(
   folder: string,
   manifest: BackupManifest,
 ): string {
+  // The catalog entry name comes from the manifest, which is untrusted input.
+  // Verification already rejects any other name, but this is where the source
+  // path is built, so the invariant is enforced here instead of a module away.
+  if (manifest.catalog.name !== 'catalog.sqlite') {
+    throw new Error('Unexpected catalog entry in the backup manifest.')
+  }
   checkSpace(dirname(filename), manifest.catalog.bytes)
   const staged = join(dirname(filename), `.${randomUUID()}.restore`)
   try {
