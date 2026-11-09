@@ -17,6 +17,7 @@ import { test } from 'node:test'
 import Database from 'better-sqlite3'
 import { openDatabase } from '../../../src/main/db/runtime/connection.ts'
 import {
+  applyPendingRestore,
   createProtectiveBackup,
   pendingRestoreIntent,
   restoreBackup,
@@ -1411,4 +1412,67 @@ test('a manifest naming anything but its own catalog entry is rejected', async (
   )
   assert.equal(await readFile(outside, 'utf8'), 'external bytes')
   assert.deepEqual(await stagedFiles(f.filename), [])
+})
+
+test('a staged restore still applies when the current catalog is corrupt', async (t) => {
+  const f = await fixture(t)
+  const backup = createProtectiveBackup(
+    f.connection.native,
+    f.filename,
+    migrationsFolder,
+    f.storage,
+  )
+  f.connection.close()
+  const transport = await openWorker(f)
+  try {
+    const reply = await transport.request({
+      action: 'restore-backup',
+      location: backup,
+    })
+    assert.equal(reply.action, 'restore-backup')
+  } finally {
+    await transport.close()
+  }
+  // This is the state a restore exists for: the live catalog is unreadable, so
+  // settling it must not block the swap for ever.
+  await writeFile(f.filename, 'not a database')
+  assert.equal(applyPendingRestore(f.filename), 'applied')
+  assert.deepEqual(liveState(f.filename, f.sample.id), {
+    favorite: 1,
+    previewVolume: 0,
+    avatar: null,
+    images: [],
+  })
+  assert.equal(existsSync(pendingRestoreIntent(f.filename)), false)
+})
+
+test('a staged restore still applies when the current catalog is missing', async (t) => {
+  const f = await fixture(t)
+  const backup = createProtectiveBackup(
+    f.connection.native,
+    f.filename,
+    migrationsFolder,
+    f.storage,
+  )
+  f.connection.close()
+  const transport = await openWorker(f)
+  try {
+    const reply = await transport.request({
+      action: 'restore-backup',
+      location: backup,
+    })
+    assert.equal(reply.action, 'restore-backup')
+  } finally {
+    await transport.close()
+  }
+  const { unlink } = await import('node:fs/promises')
+  await unlink(f.filename)
+  assert.equal(applyPendingRestore(f.filename), 'applied')
+  assert.deepEqual(liveState(f.filename, f.sample.id), {
+    favorite: 1,
+    previewVolume: 0,
+    avatar: null,
+    images: [],
+  })
+  assert.equal(existsSync(pendingRestoreIntent(f.filename)), false)
 })

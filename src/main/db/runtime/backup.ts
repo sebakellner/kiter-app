@@ -482,18 +482,43 @@ export function publishRestoreImages(
 // checkpointed explicitly for the same reason, because closing the last
 // connection does not reliably do it.
 //
-// Until this finishes, the sidecars are the current library's only recovery, so a
-// failure here must abort the swap instead of letting the caller delete them.
+// Two outcomes must stay distinct. A catalog that is absent, or that is not a
+// database at all, cannot be kept: the caller is replacing it with a verified
+// copy, so it is settled as unrecoverable and the swap goes ahead. Recovery that
+// is merely blocked, by a read-only file or another connection, must abort
+// instead, because the sidecars are still this library's only rollback.
 function settleCatalog(filename: string): void {
-  const current = new Database(filename, { fileMustExist: true })
+  if (!existsSync(filename)) {
+    return
+  }
+  const current = new Database(filename)
   try {
-    current.prepare('SELECT count(*) FROM sqlite_master').pluck().get()
-    current.pragma('wal_checkpoint(TRUNCATE)')
+    try {
+      current.prepare('SELECT count(*) FROM sqlite_master').pluck().get()
+    } catch (error) {
+      const code = isRecord(error) ? error.code : undefined
+      if (code === 'SQLITE_NOTADB' || code === 'SQLITE_CORRUPT') {
+        return
+      }
+      throw error
+    }
+    const checkpoint = current.pragma('wal_checkpoint(TRUNCATE)')
+    // A busy checkpoint leaves committed frames in the log, so deleting the
+    // sidecars afterwards would drop them from a library the caller keeps.
+    if (
+      Array.isArray(checkpoint) &&
+      checkpoint.some((row) => isRecord(row) && Boolean(row.busy))
+    ) {
+      throw new Error('The current catalog could not be checkpointed.')
+    }
   } finally {
     current.close()
   }
 }
 
+// The sidecars describe the file being replaced, so they are removed after it is
+// settled and before the rename, never after: renaming first would let SQLite
+// replay foreign frames onto the restored catalog.
 function replaceCatalog(filename: string, staged: string): void {
   settleCatalog(filename)
   for (const suffix of ['-journal', '-wal', '-shm']) {

@@ -81,11 +81,15 @@ because they need the catalog file and managed storage.
   leaves a hot `<catalog>-journal` describing pages that were only half written;
   `<catalog>-wal` and `<catalog>-shm` are the equivalent sidecars in WAL mode.
   Opening and closing the file is not enough: the journal is rolled back on the
-  first **access**, and a write-ahead log is checkpointed explicitly. Until that
-  finishes the sidecars are the current library's only recovery, so a failure
-  aborts the swap and leaves the sidecars untouched. Only after it succeeds are
-  they removed, before the rename and never after: renaming first would let
-  SQLite replay foreign frames onto the restored catalog.
+  first **access**, and a write-ahead log is checkpointed explicitly, refusing to
+  continue when the checkpoint reports itself busy.
+- A catalog that is absent, or that is not a database at all, cannot be kept: the
+  verified staged copy replaces it, so the swap proceeds. Recovery that is merely
+  blocked, by a read-only file or another connection, aborts the swap instead and
+  leaves every sidecar untouched, because they are still the library's only
+  rollback. Only after the catalog is settled are the sidecars removed, before the
+  rename and never after: renaming first would let SQLite replay foreign frames
+  onto the restored catalog.
 - A swap that cannot be applied stops startup with an explicit failure instead of
   serving a session whose writes the next start discards. The intent stays, so a
   restart retries the same verified swap.
