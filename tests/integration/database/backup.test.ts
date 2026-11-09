@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { spawnSync } from 'node:child_process'
+import { execFileSync, spawnSync } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 import { existsSync } from 'node:fs'
 import {
@@ -1167,8 +1167,10 @@ function crashLeavingSidecars(filename: string, mode: 'journal' | 'wal'): void {
   assert.equal(child.signal, 'SIGKILL')
 }
 
+// Opening read-write is deliberate: rolling back a hot journal needs write access,
+// which is what the application itself does on the next start.
 function crashRows(filename: string): number {
-  const db = new Database(filename, { readonly: true })
+  const db = new Database(filename, { fileMustExist: true })
   try {
     return db
       .prepare("SELECT count(*) FROM samples WHERE id LIKE 'crash-%'")
@@ -1277,3 +1279,107 @@ test('a hostile or malformed pending intent is discarded without touching the li
   assert.deepEqual(liveState(f.filename, f.sample.id), expected)
   assert.equal(await readFile(trap, 'utf8'), 'not a catalog')
 })
+
+test(
+  'a swap that cannot be renamed keeps the current catalog recoverable',
+  { skip: process.platform !== 'darwin' },
+  async (t) => {
+    const f = await fixture(t)
+    const backup = createProtectiveBackup(
+      f.connection.native,
+      f.filename,
+      migrationsFolder,
+      f.storage,
+    )
+    setFavorite(f.connection.db, f.sample.id, false)
+    f.connection.close()
+    const transport = await openWorker(f)
+    try {
+      const reply = await transport.request({
+        action: 'restore-backup',
+        location: backup,
+      })
+      assert.equal(reply.action, 'restore-backup')
+    } finally {
+      await transport.close()
+    }
+    // Until it is rolled back, this journal is the live library's only recovery.
+    crashLeavingSidecars(f.filename, 'journal')
+    assert.equal(existsSync(`${f.filename}-journal`), true)
+    // The macOS "locked" flag makes the swap fail without touching any bytes.
+    execFileSync('chflags', ['uchg', f.filename])
+    try {
+      await assert.rejects(openWorker(f), { code: 'STORAGE_FAILED' })
+    } finally {
+      execFileSync('chflags', ['nouchg', f.filename])
+    }
+    // The swap did not happen, so the recovery is still there and the intent still
+    // waits for a retry instead of leaving a torn catalog behind.
+    assert.equal(existsSync(`${f.filename}-journal`), true)
+    assert.equal(existsSync(pendingRestoreIntent(f.filename)), true)
+    assert.equal(crashRows(f.filename), 0)
+    const current = new Database(f.filename, { fileMustExist: true })
+    try {
+      assert.equal(current.pragma('integrity_check', { simple: true }), 'ok')
+      assert.equal(
+        current
+          .prepare('SELECT favorite FROM samples WHERE id = ?')
+          .pluck()
+          .get(f.sample.id),
+        0,
+      )
+    } finally {
+      current.close()
+    }
+  },
+)
+
+test(
+  'a WAL-mode current catalog keeps its committed writes when the swap cannot be renamed',
+  { skip: process.platform !== 'darwin' },
+  async (t) => {
+    const f = await fixture(t)
+    const backup = createProtectiveBackup(
+      f.connection.native,
+      f.filename,
+      migrationsFolder,
+      f.storage,
+    )
+    setFavorite(f.connection.db, f.sample.id, false)
+    f.connection.close()
+    const transport = await openWorker(f)
+    try {
+      const reply = await transport.request({
+        action: 'restore-backup',
+        location: backup,
+      })
+      assert.equal(reply.action, 'restore-backup')
+    } finally {
+      await transport.close()
+    }
+    // Committed rows that only exist in the write-ahead log must not be dropped by
+    // a swap that never completed.
+    crashLeavingSidecars(f.filename, 'wal')
+    assert.equal(existsSync(`${f.filename}-wal`), true)
+    execFileSync('chflags', ['uchg', f.filename])
+    try {
+      await assert.rejects(openWorker(f), { code: 'STORAGE_FAILED' })
+    } finally {
+      execFileSync('chflags', ['nouchg', f.filename])
+    }
+    assert.equal(existsSync(pendingRestoreIntent(f.filename)), true)
+    const current = new Database(f.filename, { fileMustExist: true })
+    try {
+      assert.equal(current.pragma('integrity_check', { simple: true }), 'ok')
+      assert.equal(
+        current
+          .prepare("SELECT count(*) FROM samples WHERE id LIKE 'crash-%'")
+          .pluck()
+          .get(),
+        600,
+      )
+    } finally {
+      current.close()
+    }
+  },
+)

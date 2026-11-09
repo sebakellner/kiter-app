@@ -469,17 +469,22 @@ export function publishRestoreImages(
   syncDirectory(imagesDirectory)
 }
 
-// The catalog runs in SQLite's rollback-journal mode, so an interrupted write
-// leaves a hot `-journal` belonging to the file being replaced. Opening and
-// closing the current catalog first makes SQLite roll that journal back, or
-// checkpoint a WAL, onto its own file; only then are the sidecars removed.
-// Deleting them first would discard the rollback that repairs partially written
-// pages, so a later rename failure could leave the current catalog corrupt.
+// The catalog runs in SQLite's rollback-journal mode, so a killed session can
+// leave a hot `-journal` describing pages that were only half written. Opening
+// and closing the file does nothing: the journal is rolled back on the first
+// access to the database, so an actual read is required. A write-ahead log is
+// checkpointed explicitly for the same reason, because closing the last
+// connection does not reliably do it.
+//
+// Until this finishes, the sidecars are the current library's only recovery, so a
+// failure here must abort the swap instead of letting the caller delete them.
 function settleCatalog(filename: string): void {
+  const current = new Database(filename, { fileMustExist: true })
   try {
-    new Database(filename, { fileMustExist: true }).close()
-  } catch {
-    // The file is replaced below, so an unusable current catalog is not fatal.
+    current.prepare('SELECT count(*) FROM sqlite_master').pluck().get()
+    current.pragma('wal_checkpoint(TRUNCATE)')
+  } finally {
+    current.close()
   }
 }
 

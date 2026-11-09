@@ -78,13 +78,14 @@ because they need the catalog file and managed storage.
   "already applied" from "the restore never happened" by the recorded SHA-256 and
   keeps the current library in the second case.
 - The catalog runs in SQLite's rollback-journal mode, so an interrupted write
-  leaves a hot `<catalog>-journal` belonging to the file being replaced; `<catalog>-wal`
-  and `<catalog>-shm` are the equivalent sidecars in WAL mode. Opening and closing
-  the current catalog first lets SQLite roll that journal back, or checkpoint a
-  WAL, onto its own file. Only then are the sidecars removed, before the rename and
-  never after: deleting them first would discard the rollback that repairs partially
-  written pages, so a later rename failure would leave the current catalog corrupt,
-  and renaming first would let SQLite replay foreign frames onto the restored catalog.
+  leaves a hot `<catalog>-journal` describing pages that were only half written;
+  `<catalog>-wal` and `<catalog>-shm` are the equivalent sidecars in WAL mode.
+  Opening and closing the file is not enough: the journal is rolled back on the
+  first **access**, and a write-ahead log is checkpointed explicitly. Until that
+  finishes the sidecars are the current library's only recovery, so a failure
+  aborts the swap and leaves the sidecars untouched. Only after it succeeds are
+  they removed, before the rename and never after: renaming first would let
+  SQLite replay foreign frames onto the restored catalog.
 - A swap that cannot be applied stops startup with an explicit failure instead of
   serving a session whose writes the next start discards. The intent stays, so a
   restart retries the same verified swap.
