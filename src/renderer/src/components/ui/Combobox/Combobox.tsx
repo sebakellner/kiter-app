@@ -1,5 +1,5 @@
 import { useId, useRef, useState } from 'react'
-import type { ComponentPropsWithRef, JSX } from 'react'
+import type { ComponentPropsWithRef, JSX, ReactNode } from 'react'
 import { Popover } from '../Popover'
 import { Input } from '../Input'
 import './Combobox.css'
@@ -30,6 +30,7 @@ export type ComboboxProps = SelectionProps & {
   loading?: boolean
   emptyMessage?: string
   loadingMessage?: string
+  footer?: ReactNode
 } & Omit<
     ComponentPropsWithRef<'input'>,
     | 'value'
@@ -54,6 +55,7 @@ export function Combobox({
   loading = false,
   emptyMessage = 'No options found.',
   loadingMessage = 'Loading options…',
+  footer,
   className,
   onFocus,
   onBlur,
@@ -230,9 +232,10 @@ export function Combobox({
               ))}
           </ul>
           {loading && <p role="status">{loadingMessage}</p>}
-          {!loading && options.length === 0 && (
+          {!loading && options.length === 0 && emptyMessage !== '' && (
             <p role="status">{emptyMessage}</p>
           )}
+          {footer}
         </Popover>
       )}
     </div>

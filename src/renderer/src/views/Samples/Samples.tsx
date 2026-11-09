@@ -1,14 +1,25 @@
 import { CatalogList } from '@renderer/features/library/components/CatalogList'
 import { useLibrarySession } from '@renderer/features/library/hooks/useLibrarySession'
+import { locateSamplePatch } from '@renderer/features/library/locateSample'
 import { useCatalogViewContext } from '@renderer/routes/navigationContext'
+import { useLayoutEffect } from 'react'
 import { useLocation } from 'react-router-dom'
 import { Checkbox } from '@renderer/components/ui/Checkbox'
+import { useNavigationStore } from '@renderer/stores/useNavigationStore'
 
 export function Samples(): React.JSX.Element {
   const { dir, loading, error } = useLibrarySession()
   const view = useCatalogViewContext()
-  const { key } = useLocation()
+  const { key, state } = useLocation()
   const { favoritesOnly } = view.context
+  const { update } = view
+  // Header suggestions and other locators open Samples with a Sample intent.
+  useLayoutEffect(() => {
+    const patch = locateSamplePatch(state)
+    if (patch && useNavigationStore.getState().consumeLocateIntent(key)) {
+      update(patch)
+    }
+  }, [key, state, update])
 
   return (
     <section aria-labelledby="samples-title">
