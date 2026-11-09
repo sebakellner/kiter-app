@@ -7,8 +7,11 @@ import type { DbReply } from '../protocol/messages.ts'
 import { openDatabase } from '../runtime/connection.ts'
 import { dbFailure, DbError } from '../errors.ts'
 import { dispatchRequest } from './dispatch.ts'
-import { restoreBackup } from '../runtime/backup.ts'
-import { createLibraryBackup } from '../runtime/backup-service.ts'
+import { applyPendingRestore, restoreBackup } from '../runtime/backup.ts'
+import {
+  createLibraryBackup,
+  restoreLibraryBackup,
+} from '../runtime/backup-service.ts'
 import {
   deleteLibraryBackup,
   listLibraryBackups,
@@ -37,6 +40,9 @@ try {
     throw new DbError('INVALID_INPUT', 'Invalid database configuration.')
   }
   mkdirSync(dirname(options.filename), { recursive: true })
+  // A restore staged by the previous session completes before the catalog is
+  // opened. An unreadable intent is discarded, never allowed to block startup.
+  applyPendingRestore(options.filename)
   const storage = {
     backupDirectory:
       typeof options.backupDirectory === 'string'
@@ -110,6 +116,15 @@ try {
             requestId: value.requestId,
             action: value.action,
             result: deleteLibraryBackup(runtime, value.location),
+          }
+          break
+        case 'restore-backup':
+          // The swap happens at the next bootstrap, so this reply only confirms
+          // the staged replacement.
+          reply = {
+            requestId: value.requestId,
+            action: value.action,
+            result: restoreLibraryBackup(runtime, value.location),
           }
           break
         default:

@@ -6,15 +6,18 @@ import {
   mkdir,
   readFile,
   readdir,
+  rename,
   symlink,
+  unlink,
   writeFile,
 } from 'node:fs/promises'
-import { dirname, join } from 'node:path'
+import { basename, dirname, join } from 'node:path'
 import { test } from 'node:test'
 import Database from 'better-sqlite3'
 import { openDatabase } from '../../../src/main/db/runtime/connection.ts'
 import {
   createProtectiveBackup,
+  pendingRestoreIntent,
   restoreBackup,
   verifyBackup,
 } from '../../../src/main/db/runtime/backup.ts'
@@ -78,6 +81,95 @@ async function upgradeFolder(
   await writeFile(journalPath, JSON.stringify(journal))
   await writeFile(join(folder, '0001_test.sql'), sql)
   return folder
+}
+
+type Fixture = Awaited<ReturnType<typeof fixture>>
+
+function openWorker(f: Fixture): Promise<WorkerTransport> {
+  return WorkerTransport.open(f.filename, {
+    workerPath: new URL(
+      '../../../src/main/db/worker/entry.ts',
+      import.meta.url,
+    ),
+    migrationsFolder,
+    ...f.storage,
+  })
+}
+
+// A managed immutable image referenced by the profile avatar.
+async function addAvatar(
+  f: Fixture,
+  bytes = Buffer.from('saved immutable avatar'),
+): Promise<{ id: string; path: string }> {
+  await mkdir(f.storage.imagesDirectory, { recursive: true })
+  const id = randomUUID()
+  const path = join(f.storage.imagesDirectory, `${id}.png`)
+  await writeFile(path, bytes)
+  f.connection.native
+    .prepare('INSERT INTO image_assets VALUES (?, ?, ?, ?, ?, ?, ?)')
+    .run(id, `${id}.png`, 'image/png', bytes.length, 1, 1, 'ready')
+  f.connection.native
+    .prepare('UPDATE user_profiles SET avatar_asset_id = ?')
+    .run(id)
+  return { id, path }
+}
+
+interface PendingIntent {
+  format: string
+  version: number
+  staged: string
+  source: string
+  createdAt: string
+  bytes: number
+  sha256: string
+}
+
+async function readPendingIntent(filename: string): Promise<PendingIntent> {
+  const value: unknown = JSON.parse(
+    await readFile(pendingRestoreIntent(filename), 'utf8'),
+  )
+  return value as PendingIntent
+}
+
+async function stagedFiles(filename: string): Promise<string[]> {
+  return (await readdir(dirname(filename))).filter((name) =>
+    name.endsWith('.restore'),
+  )
+}
+
+// The catalog as another process would see it after Kiter stops.
+function liveState(
+  filename: string,
+  sampleId: string,
+): {
+  favorite: number
+  previewVolume: number
+  avatar: string | null
+  images: string[]
+} {
+  const live = new Database(filename, { readonly: true })
+  try {
+    return {
+      favorite: live
+        .prepare('SELECT favorite FROM samples WHERE id = ?')
+        .pluck()
+        .get(sampleId) as number,
+      previewVolume: live
+        .prepare('SELECT preview_volume FROM user_preferences')
+        .pluck()
+        .get() as number,
+      avatar: live
+        .prepare('SELECT avatar_asset_id FROM user_profiles')
+        .pluck()
+        .get() as string | null,
+      images: live
+        .prepare('SELECT storage_key FROM image_assets ORDER BY storage_key')
+        .pluck()
+        .all() as string[],
+    }
+  } finally {
+    live.close()
+  }
 }
 
 test('upgrades create a verified pre-migration snapshot once; fresh and unchanged catalogs create none', async (t) => {
@@ -398,7 +490,6 @@ test('restoration republishes missing immutable images and refuses conflicting e
   )
   assert.deepEqual(await readFile(f.filename), before)
   assert.equal(await readFile(imagePath, 'utf8'), 'conflicting copy')
-  const { unlink } = await import('node:fs/promises')
   await unlink(imagePath)
   restoreBackup(f.filename, backup, migrationsFolder, f.storage)
   assert.deepEqual(await readFile(imagePath), image)
@@ -667,4 +758,386 @@ test('runtime deletion removes exactly the requested managed copy and refuses an
   } finally {
     await transport.close()
   }
+})
+
+test('a runtime restore stages the replacement, publishes missing images and keeps the live library', async (t) => {
+  const f = await fixture(t)
+  const avatar = await addAvatar(f)
+  const backup = createProtectiveBackup(
+    f.connection.native,
+    f.filename,
+    migrationsFolder,
+    f.storage,
+  )
+  // The live library diverges from the copy that is about to replace it.
+  setFavorite(f.connection.db, f.sample.id, false)
+  setPreviewVolume(f.connection.db, 0.5)
+  f.connection.native.exec(
+    'UPDATE user_profiles SET avatar_asset_id = NULL; DELETE FROM image_assets;',
+  )
+  await unlink(avatar.path)
+  f.connection.close()
+
+  const transport = await openWorker(f)
+  try {
+    const reply = await transport.request({
+      action: 'restore-backup',
+      location: backup,
+    })
+    assert.equal(reply.action, 'restore-backup')
+    if (reply.action !== 'restore-backup') {
+      return
+    }
+    // The ticket names the selected copy; nothing claims a completed swap.
+    assert.deepEqual(reply.result, {
+      location: backup,
+      createdAt: verifyBackup(backup, migrationsFolder).createdAt,
+    })
+  } finally {
+    await transport.close()
+  }
+
+  // Phase 1 touches nothing that is still in use.
+  assert.deepEqual(liveState(f.filename, f.sample.id), {
+    favorite: 0,
+    previewVolume: 0.5,
+    avatar: null,
+    images: [],
+  })
+  // The immutable image the current library no longer holds is published again.
+  assert.deepEqual(
+    await readFile(avatar.path),
+    Buffer.from('saved immutable avatar'),
+  )
+  // The mandatory protective copy describes the library as it is now.
+  const protective = (await readdir(f.storage.backupDirectory))
+    .map((entry) => ({
+      folder: join(f.storage.backupDirectory, entry),
+      manifest: verifyBackup(
+        join(f.storage.backupDirectory, entry),
+        migrationsFolder,
+      ),
+    }))
+    .filter((entry) => entry.manifest.kind === 'pre-restoration')
+  assert.equal(protective.length, 1)
+  const previous = new Database(join(protective[0].folder, 'catalog.sqlite'), {
+    readonly: true,
+  })
+  try {
+    assert.equal(
+      previous
+        .prepare('SELECT favorite FROM samples WHERE id = ?')
+        .pluck()
+        .get(f.sample.id),
+      0,
+    )
+    assert.equal(
+      previous
+        .prepare('SELECT preview_volume FROM user_preferences')
+        .pluck()
+        .get(),
+      0.5,
+    )
+  } finally {
+    previous.close()
+  }
+  // The replacement is staged beside the catalog and recorded, not applied.
+  const intent = await readPendingIntent(f.filename)
+  assert.equal(intent.format, 'kiter-restore')
+  assert.equal(intent.version, 1)
+  assert.equal(intent.source, backup)
+  assert.equal(intent.staged, basename(intent.staged))
+  assert.equal(intent.staged.startsWith('.'), true)
+  assert.equal(intent.staged.endsWith('.restore'), true)
+  assert.equal(Number.isFinite(Date.parse(intent.createdAt)), true)
+  assert.equal(intent.bytes > 0, true)
+  assert.equal(/^[a-f0-9]{64}$/.test(intent.sha256), true)
+  assert.equal(existsSync(join(dirname(f.filename), intent.staged)), true)
+})
+
+test('the next start applies the staged restore and never recovers a stale WAL onto it', async (t) => {
+  const f = await fixture(t)
+  const avatar = await addAvatar(f)
+  const backup = createProtectiveBackup(
+    f.connection.native,
+    f.filename,
+    migrationsFolder,
+    f.storage,
+  )
+  setFavorite(f.connection.db, f.sample.id, false)
+  setPreviewVolume(f.connection.db, 0.5)
+  f.connection.native.exec(
+    'UPDATE user_profiles SET avatar_asset_id = NULL; DELETE FROM image_assets;',
+  )
+  f.connection.close()
+
+  const transport = await openWorker(f)
+  try {
+    const reply = await transport.request({
+      action: 'restore-backup',
+      location: backup,
+    })
+    assert.equal(reply.action, 'restore-backup')
+  } finally {
+    await transport.close()
+  }
+  // Journal files of the catalog being replaced must never reach the restored
+  // catalog: SQLite would try to recover their frames onto it.
+  await writeFile(
+    `${f.filename}-wal`,
+    'stale write-ahead log of the replaced catalog',
+  )
+  await writeFile(
+    `${f.filename}-shm`,
+    'stale shared memory of the replaced catalog',
+  )
+
+  const restarted = await openWorker(f)
+  try {
+    const profile = await restarted.request({ action: 'profile' })
+    assert.equal(profile.action, 'profile')
+    if (profile.action !== 'profile') {
+      return
+    }
+    assert.equal(profile.result.profile.avatarAssetId, avatar.id)
+    assert.equal(profile.result.preferences.previewVolume, 0)
+  } finally {
+    await restarted.close()
+  }
+  assert.deepEqual(liveState(f.filename, f.sample.id), {
+    favorite: 1,
+    previewVolume: 0,
+    avatar: avatar.id,
+    images: [`${avatar.id}.png`],
+  })
+  assert.equal(existsSync(pendingRestoreIntent(f.filename)), false)
+  assert.deepEqual(await stagedFiles(f.filename), [])
+  assert.equal(existsSync(`${f.filename}-wal`), false)
+  assert.equal(existsSync(`${f.filename}-shm`), false)
+})
+
+test('a swap interrupted before the intent is removed is not repeated and keeps the restored catalog', async (t) => {
+  const f = await fixture(t)
+  const avatar = await addAvatar(f)
+  const backup = createProtectiveBackup(
+    f.connection.native,
+    f.filename,
+    migrationsFolder,
+    f.storage,
+  )
+  // The live library diverges from the restored copy, so any second swap would
+  // be visible in the final state.
+  setFavorite(f.connection.db, f.sample.id, false)
+  setPreviewVolume(f.connection.db, 0.5)
+  f.connection.native.exec(
+    'UPDATE user_profiles SET avatar_asset_id = NULL; DELETE FROM image_assets;',
+  )
+  f.connection.close()
+
+  const transport = await openWorker(f)
+  try {
+    const reply = await transport.request({
+      action: 'restore-backup',
+      location: backup,
+    })
+    assert.equal(reply.action, 'restore-backup')
+  } finally {
+    await transport.close()
+  }
+  // Simulate a crash between the rename and removing the pending intent: the
+  // catalog is already the staged copy and the staged file is gone.
+  const intent = await readPendingIntent(f.filename)
+  await rename(join(dirname(f.filename), intent.staged), f.filename)
+
+  const restarted = await openWorker(f)
+  try {
+    const profile = await restarted.request({ action: 'profile' })
+    assert.equal(profile.action, 'profile')
+    if (profile.action !== 'profile') {
+      return
+    }
+    assert.equal(profile.result.profile.avatarAssetId, avatar.id)
+    assert.equal(profile.result.preferences.previewVolume, 0)
+  } finally {
+    await restarted.close()
+  }
+  // The already swapped catalog is kept and the leftover intent is gone.
+  assert.equal(existsSync(pendingRestoreIntent(f.filename)), false)
+  assert.deepEqual(await stagedFiles(f.filename), [])
+  assert.deepEqual(liveState(f.filename, f.sample.id), {
+    favorite: 1,
+    previewVolume: 0,
+    avatar: avatar.id,
+    images: [`${avatar.id}.png`],
+  })
+})
+
+test('a lost staged catalog keeps the current library and removes the intent', async (t) => {
+  const f = await fixture(t)
+  const backup = createProtectiveBackup(
+    f.connection.native,
+    f.filename,
+    migrationsFolder,
+    f.storage,
+  )
+  setFavorite(f.connection.db, f.sample.id, false)
+  setPreviewVolume(f.connection.db, 0.5)
+  f.connection.close()
+
+  const transport = await openWorker(f)
+  try {
+    const reply = await transport.request({
+      action: 'restore-backup',
+      location: backup,
+    })
+    assert.equal(reply.action, 'restore-backup')
+  } finally {
+    await transport.close()
+  }
+  const intent = await readPendingIntent(f.filename)
+  await unlink(join(dirname(f.filename), intent.staged))
+
+  const restarted = await openWorker(f)
+  try {
+    const profile = await restarted.request({ action: 'profile' })
+    assert.equal(profile.action, 'profile')
+    if (profile.action !== 'profile') {
+      return
+    }
+    assert.equal(profile.result.preferences.previewVolume, 0.5)
+  } finally {
+    await restarted.close()
+  }
+  // The restore never happened, so the current library stays as it was.
+  assert.deepEqual(liveState(f.filename, f.sample.id), {
+    favorite: 0,
+    previewVolume: 0.5,
+    avatar: null,
+    images: [],
+  })
+  assert.equal(existsSync(pendingRestoreIntent(f.filename)), false)
+})
+
+test('a second restore is refused while a replacement is pending', async (t) => {
+  const f = await fixture(t)
+  const first = createProtectiveBackup(
+    f.connection.native,
+    f.filename,
+    migrationsFolder,
+    f.storage,
+  )
+  setFavorite(f.connection.db, f.sample.id, false)
+  const second = createProtectiveBackup(
+    f.connection.native,
+    f.filename,
+    migrationsFolder,
+    f.storage,
+  )
+  f.connection.close()
+
+  const transport = await openWorker(f)
+  try {
+    const accepted = await transport.request({
+      action: 'restore-backup',
+      location: first,
+    })
+    assert.equal(accepted.action, 'restore-backup')
+    const intentPath = pendingRestoreIntent(f.filename)
+    const intent = await readFile(intentPath, 'utf8')
+    const staged = await stagedFiles(f.filename)
+    const copies = (await readdir(f.storage.backupDirectory)).sort()
+
+    await assert.rejects(
+      transport.request({ action: 'restore-backup', location: second }),
+      { code: 'INVALID_INPUT', message: /restore is already pending/ },
+    )
+
+    // The refused request changed nothing at all.
+    assert.equal(await readFile(intentPath, 'utf8'), intent)
+    assert.deepEqual(await stagedFiles(f.filename), staged)
+    assert.deepEqual((await readdir(f.storage.backupDirectory)).sort(), copies)
+  } finally {
+    await transport.close()
+  }
+  assert.equal(liveState(f.filename, f.sample.id).favorite, 0)
+})
+
+test('a conflicting image blocks a runtime restore and leaves no intent behind', async (t) => {
+  const f = await fixture(t)
+  const avatar = await addAvatar(f)
+  const backup = createProtectiveBackup(
+    f.connection.native,
+    f.filename,
+    migrationsFolder,
+    f.storage,
+  )
+  f.connection.native.exec(
+    'UPDATE user_profiles SET avatar_asset_id = NULL; DELETE FROM image_assets;',
+  )
+  f.connection.close()
+  await writeFile(avatar.path, 'conflicting copy')
+
+  const transport = await openWorker(f)
+  try {
+    await assert.rejects(
+      transport.request({ action: 'restore-backup', location: backup }),
+      { code: 'DB_INTEGRITY' },
+    )
+  } finally {
+    await transport.close()
+  }
+  // Immutable images are never replaced, and nothing is left staged or pending.
+  assert.equal(await readFile(avatar.path, 'utf8'), 'conflicting copy')
+  assert.deepEqual(liveState(f.filename, f.sample.id), {
+    favorite: 1,
+    previewVolume: 0,
+    avatar: null,
+    images: [],
+  })
+  assert.equal(existsSync(pendingRestoreIntent(f.filename)), false)
+  assert.deepEqual(await stagedFiles(f.filename), [])
+})
+
+test('a library that cannot form a verified protective copy blocks the restore', async (t) => {
+  const f = await fixture(t)
+  const backup = createProtectiveBackup(
+    f.connection.native,
+    f.filename,
+    migrationsFolder,
+    f.storage,
+  )
+  const copies = await readdir(f.storage.backupDirectory)
+  f.connection.close()
+
+  const missing = randomUUID()
+  const transport = await openWorker(f)
+  try {
+    // The live library now references an image that managed storage lacks, so no
+    // verified protective copy of it can be created.
+    const live = new Database(f.filename)
+    try {
+      live
+        .prepare('INSERT INTO image_assets VALUES (?, ?, ?, ?, ?, ?, ?)')
+        .run(missing, `${missing}.png`, 'image/png', 1, 1, 1, 'ready')
+      live.prepare('UPDATE user_profiles SET avatar_asset_id = ?').run(missing)
+    } finally {
+      live.close()
+    }
+    await assert.rejects(
+      transport.request({ action: 'restore-backup', location: backup }),
+      { code: 'BACKUP_FAILED' },
+    )
+  } finally {
+    await transport.close()
+  }
+  // Current data is untouched and no replacement is pending or staged.
+  assert.deepEqual(liveState(f.filename, f.sample.id), {
+    favorite: 1,
+    previewVolume: 0,
+    avatar: missing,
+    images: [`${missing}.png`],
+  })
+  assert.deepEqual((await readdir(f.storage.backupDirectory)).sort(), copies)
+  assert.equal(existsSync(pendingRestoreIntent(f.filename)), false)
+  assert.deepEqual(await stagedFiles(f.filename), [])
 })

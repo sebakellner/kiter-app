@@ -26,11 +26,18 @@ import { readImportPackOrganizationCatalog } from '../operations/classification/
 
 export function dispatchRequest(
   db: AppDatabase,
-  // Backup creation needs the catalog file and managed storage, so the worker
-  // handles it as a runtime command before reaching catalog dispatch.
+  // Backup commands own the catalog file and managed storage, so the worker
+  // answers them instead of catalog dispatch.
   request: Exclude<
     DbRequest,
-    { action: 'close' | 'create-backup' | 'list-backups' | 'delete-backup' }
+    {
+      action:
+        | 'close'
+        | 'create-backup'
+        | 'list-backups'
+        | 'delete-backup'
+        | 'restore-backup'
+    }
   >,
 ): DbReply {
   const requestId = request.requestId
