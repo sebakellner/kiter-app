@@ -181,3 +181,25 @@ test('reports a readable failure when the error carries no message', async () =>
     expect(result.current.error).toBe('Unable to search samples.'),
   )
 })
+
+test('does not let a catalog revision change jump a pending debounce', async () => {
+  vi.useFakeTimers()
+  const api = createTestApi()
+  api.library.list.mockResolvedValue(ok(page([])))
+  vi.stubGlobal('api', api)
+  const { rerender } = renderHook(
+    ({ query, revision }) => useSampleSuggestions(query, revision),
+    { initialProps: { query: '', revision: 0 } },
+  )
+  rerender({ query: 'kick', revision: 0 })
+  act(() => vi.advanceTimersByTime(100))
+
+  rerender({ query: 'kick', revision: 1 })
+  expect(api.library.list).not.toHaveBeenCalled()
+  act(() => vi.advanceTimersByTime(249))
+  expect(api.library.list).not.toHaveBeenCalled()
+
+  await act(async () => vi.advanceTimersByTime(1))
+  expect(api.library.list).toHaveBeenCalledTimes(1)
+  expect(api.library.list).toHaveBeenCalledWith({ search: 'kick', limit: 5 })
+})

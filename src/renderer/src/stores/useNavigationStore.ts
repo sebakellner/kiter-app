@@ -35,6 +35,8 @@ type NavigationStore = {
   consumeLocateIntent: (key: string) => boolean
 }
 
+const MAX_NAVIGATION_ENTRIES = 100
+
 // History snapshots are bounded; destination defaults survive snapshot eviction.
 export const useNavigationStore = create<NavigationStore>((set, get) => ({
   entries: {},
@@ -44,12 +46,21 @@ export const useNavigationStore = create<NavigationStore>((set, get) => ({
     set((state) => {
       const entries = { ...state.entries, [key]: context }
       const keys = Object.keys(entries)
-      if (keys.length > 100) {
+      if (keys.length > MAX_NAVIGATION_ENTRIES) {
         delete entries[keys[0]]
+      }
+      // A consumed intent only matters while its history entry exists, so the
+      // markers follow the entries they belong to.
+      const consumedLocateEntries: Record<string, true> = {}
+      for (const entryKey of Object.keys(state.consumedLocateEntries)) {
+        if (entryKey in entries) {
+          consumedLocateEntries[entryKey] = true
+        }
       }
       return {
         entries,
         destinations: { ...state.destinations, [pathname]: context },
+        consumedLocateEntries,
       }
     }),
   // A located Sample belongs to one history entry: returning to that entry
@@ -63,10 +74,6 @@ export const useNavigationStore = create<NavigationStore>((set, get) => ({
         ...state.consumedLocateEntries,
       }
       consumed[key] = true
-      const keys = Object.keys(consumed)
-      if (keys.length > 100) {
-        delete consumed[keys[0]]
-      }
       return { consumedLocateEntries: consumed }
     })
     return true

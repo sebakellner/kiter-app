@@ -1,8 +1,11 @@
 import { createMemoryRouter, Outlet, RouterProvider } from 'react-router-dom'
 import { cleanup, render, screen } from '@testing-library/react'
-import { expect, test, vi } from 'vitest'
+import { beforeEach, expect, test, vi } from 'vitest'
 import { Samples } from './Samples'
-import { defaultContext } from '@renderer/stores/useNavigationStore'
+import {
+  defaultContext,
+  useNavigationStore,
+} from '@renderer/stores/useNavigationStore'
 import type { CatalogViewContext } from '@renderer/routes/navigationContext'
 
 vi.mock('@renderer/features/library/components/CatalogList', () => ({
@@ -13,6 +16,15 @@ vi.mock('@renderer/features/library/hooks/useLibrarySession', () => ({
 }))
 
 const sampleId = '3f9c1b2a-4d5e-4f60-8a71-2b3c4d5e6f70'
+
+beforeEach(() => {
+  // The navigation store is module state; a consumed intent must not leak.
+  useNavigationStore.setState({
+    entries: {},
+    destinations: {},
+    consumedLocateEntries: {},
+  })
+})
 
 function renderSamples(
   state?: unknown,

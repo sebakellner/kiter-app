@@ -13,16 +13,13 @@ export function Samples(): React.JSX.Element {
   const { key, state } = useLocation()
   const { favoritesOnly } = view.context
   const { update } = view
-  const consumeLocateIntent = useNavigationStore(
-    (store) => store.consumeLocateIntent,
-  )
   // Header suggestions and other locators open Samples with a Sample intent.
   useLayoutEffect(() => {
     const patch = locateSamplePatch(state)
-    if (patch && consumeLocateIntent(key)) {
+    if (patch && useNavigationStore.getState().consumeLocateIntent(key)) {
       update(patch)
     }
-  }, [key, state, update, consumeLocateIntent])
+  }, [key, state, update])
 
   return (
     <section aria-labelledby="samples-title">

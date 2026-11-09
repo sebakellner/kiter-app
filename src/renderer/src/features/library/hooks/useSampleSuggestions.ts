@@ -34,8 +34,10 @@ export function useSampleSuggestions(
   const [attempt, setAttempt] = useState(0)
   const [completion, setCompletion] = useState<Completion | null>(null)
   // Typing alone decides the delay; retries, revision refreshes and the first
-  // render of a restored query run at once.
+  // render of a restored query run at once. A refresh trigger must not shorten
+  // a typing window that is still open.
   const previousText = useRef(text)
+  const pendingText = useRef<string | null>(null)
   const settled =
     completion !== null &&
     completion.text === text &&
@@ -46,6 +48,7 @@ export function useSampleSuggestions(
   useEffect(() => {
     if (text === '') {
       previousText.current = text
+      pendingText.current = null
       return
     }
     let active = true
@@ -79,11 +82,17 @@ export function useSampleSuggestions(
         }
       }
     }
-    const changed = previousText.current !== text
-    previousText.current = text
-    const timer = changed
-      ? setTimeout(() => void run(), SUGGESTION_DELAY)
-      : undefined
+    if (previousText.current !== text) {
+      previousText.current = text
+      pendingText.current = text
+    }
+    const timer =
+      pendingText.current === text
+        ? setTimeout(() => {
+            pendingText.current = null
+            void run()
+          }, SUGGESTION_DELAY)
+        : undefined
     if (timer === undefined) {
       void run()
     }
