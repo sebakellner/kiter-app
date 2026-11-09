@@ -9,6 +9,10 @@ import { dbFailure, DbError } from '../errors.ts'
 import { dispatchRequest } from './dispatch.ts'
 import { restoreBackup } from '../runtime/backup.ts'
 import { createLibraryBackup } from '../runtime/backup-service.ts'
+import {
+  deleteLibraryBackup,
+  listLibraryBackups,
+} from '../runtime/backup-service.ts'
 
 const port = parentPort
 if (!port) {
@@ -84,14 +88,32 @@ try {
         port.close()
         return
       }
-      if (value.action === 'create-backup') {
-        reply = {
-          requestId: value.requestId,
-          action: value.action,
-          result: createLibraryBackup(runtime),
-        }
-      } else {
-        reply = dispatchRequest(database.db, value)
+      switch (value.action) {
+        // Backup commands own the catalog file and managed storage, so the
+        // worker answers them instead of catalog dispatch.
+        case 'create-backup':
+          reply = {
+            requestId: value.requestId,
+            action: value.action,
+            result: createLibraryBackup(runtime),
+          }
+          break
+        case 'list-backups':
+          reply = {
+            requestId: value.requestId,
+            action: value.action,
+            result: listLibraryBackups(runtime, value.input),
+          }
+          break
+        case 'delete-backup':
+          reply = {
+            requestId: value.requestId,
+            action: value.action,
+            result: deleteLibraryBackup(runtime, value.location),
+          }
+          break
+        default:
+          reply = dispatchRequest(database.db, value)
       }
     } catch (error) {
       const failure = dbFailure(error)

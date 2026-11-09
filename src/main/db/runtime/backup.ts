@@ -218,6 +218,12 @@ function verifyFile(
   }
 }
 
+// Managed backup storage is the only place this application creates or removes
+// copies, so callers never resolve it themselves.
+export function backupRoot(storage: BackupStorage): string {
+  return directory(storage.backupDirectory)
+}
+
 export function verifyBackup(
   folder: string,
   migrationsFolder: string,

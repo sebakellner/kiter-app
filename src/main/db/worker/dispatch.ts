@@ -28,7 +28,10 @@ export function dispatchRequest(
   db: AppDatabase,
   // Backup creation needs the catalog file and managed storage, so the worker
   // handles it as a runtime command before reaching catalog dispatch.
-  request: Exclude<DbRequest, { action: 'close' | 'create-backup' }>,
+  request: Exclude<
+    DbRequest,
+    { action: 'close' | 'create-backup' | 'list-backups' | 'delete-backup' }
+  >,
 ): DbReply {
   const requestId = request.requestId
   switch (request.action) {
