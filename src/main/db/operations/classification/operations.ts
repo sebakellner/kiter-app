@@ -537,8 +537,8 @@ function reviewRemoval(
       )
     }
   }
-  let sampleCount = 0,
-    packCount = 0
+  let sampleCount: number
+  let packCount: number
   // Hash bounded, ordered batches without transferring every use to the caller.
   function hashUses(
     prefix: string,

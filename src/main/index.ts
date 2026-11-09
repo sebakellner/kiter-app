@@ -59,6 +59,7 @@ app
       )
       throw new Error(
         'Unable to initialize managed image storage. Existing files were preserved.',
+        { cause: error },
       )
     }
     let shutdown = false
