@@ -1,5 +1,5 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
-import { expect, test, vi } from 'vitest'
+import { afterEach, expect, test, vi } from 'vitest'
 import { useSampleSuggestions } from './useSampleSuggestions'
 import { createTestApi } from '../../../../../../tests/support/ui/bridge'
 import { deferred } from '../../../../../../tests/support/fixtures/deferred'
@@ -20,6 +20,10 @@ function page(items: CatalogAudioSample[]): LibraryPage {
 }
 
 const ok = (data: LibraryPage): IpcResult<LibraryPage> => ({ ok: true, data })
+
+afterEach(() => {
+  vi.useRealTimers()
+})
 
 test('does not query below two characters and queries the second one', async () => {
   const api = createTestApi()
@@ -100,4 +104,80 @@ test('exposes the failure and retries the same query without waiting', async () 
     search: 'kick',
     limit: 5,
   })
+})
+
+test('queries 250 ms after the last keystroke and not before', async () => {
+  vi.useFakeTimers()
+  const api = createTestApi()
+  api.library.list.mockResolvedValue(ok(page([])))
+  vi.stubGlobal('api', api)
+  const { rerender } = renderHook(
+    ({ query }) => useSampleSuggestions(query, 0),
+    { initialProps: { query: '' } },
+  )
+  rerender({ query: 'ki' })
+  act(() => vi.advanceTimersByTime(200))
+  expect(api.library.list).not.toHaveBeenCalled()
+
+  rerender({ query: 'kic' })
+  act(() => vi.advanceTimersByTime(249))
+  expect(api.library.list).not.toHaveBeenCalled()
+
+  await act(async () => vi.advanceTimersByTime(1))
+  expect(api.library.list).toHaveBeenCalledTimes(1)
+  expect(api.library.list).toHaveBeenCalledWith({ search: 'kic', limit: 5 })
+})
+
+test('keeps debouncing a query it already dispatched', async () => {
+  vi.useFakeTimers()
+  const api = createTestApi()
+  api.library.list.mockResolvedValue(ok(page([])))
+  vi.stubGlobal('api', api)
+  const { rerender } = renderHook(
+    ({ query }) => useSampleSuggestions(query, 0),
+    { initialProps: { query: '' } },
+  )
+  rerender({ query: 'kick' })
+  await act(async () => vi.advanceTimersByTime(250))
+  expect(api.library.list).toHaveBeenCalledTimes(1)
+
+  rerender({ query: 'kickk' })
+  act(() => vi.advanceTimersByTime(100))
+  rerender({ query: 'kick' })
+  act(() => vi.advanceTimersByTime(249))
+  expect(api.library.list).toHaveBeenCalledTimes(1)
+
+  await act(async () => vi.advanceTimersByTime(1))
+  expect(api.library.list).toHaveBeenCalledTimes(2)
+  expect(api.library.list).toHaveBeenLastCalledWith({
+    search: 'kick',
+    limit: 5,
+  })
+})
+
+test('re-queries the same query when the catalog revision changes', async () => {
+  const api = createTestApi()
+  api.library.list.mockResolvedValue(ok(page([])))
+  vi.stubGlobal('api', api)
+  const { rerender } = renderHook(
+    ({ revision }) => useSampleSuggestions('kick', revision),
+    { initialProps: { revision: 0 } },
+  )
+  await waitFor(() => expect(api.library.list).toHaveBeenCalledTimes(1))
+  rerender({ revision: 1 })
+  await waitFor(() => expect(api.library.list).toHaveBeenCalledTimes(2))
+  expect(api.library.list).toHaveBeenLastCalledWith({
+    search: 'kick',
+    limit: 5,
+  })
+})
+
+test('reports a readable failure when the error carries no message', async () => {
+  const api = createTestApi()
+  api.library.list.mockRejectedValue(new Error(''))
+  vi.stubGlobal('api', api)
+  const { result } = renderHook(() => useSampleSuggestions('kick', 0))
+  await waitFor(() =>
+    expect(result.current.error).toBe('Unable to search samples.'),
+  )
 })

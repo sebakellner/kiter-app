@@ -33,7 +33,9 @@ export function useSampleSuggestions(
   const text = effectiveCatalogSearch(query)
   const [attempt, setAttempt] = useState(0)
   const [completion, setCompletion] = useState<Completion | null>(null)
-  const dispatched = useRef(text)
+  // Typing alone decides the delay; retries, revision refreshes and the first
+  // render of a restored query run at once.
+  const previousText = useRef(text)
   const settled =
     completion !== null &&
     completion.text === text &&
@@ -43,12 +45,11 @@ export function useSampleSuggestions(
 
   useEffect(() => {
     if (text === '') {
-      dispatched.current = ''
+      previousText.current = text
       return
     }
     let active = true
     const run = async (): Promise<void> => {
-      dispatched.current = text
       try {
         const page = unwrapIpcResult(
           await window.api.library.list({
@@ -66,25 +67,23 @@ export function useSampleSuggestions(
           })
         }
       } catch (reason) {
+        const message = reason instanceof Error ? reason.message.trim() : ''
         if (active) {
           setCompletion({
             text,
             revision,
             attempt,
             items: [],
-            error:
-              reason instanceof Error
-                ? reason.message
-                : 'Unable to search samples.',
+            error: message === '' ? 'Unable to search samples.' : message,
           })
         }
       }
     }
-    // Only a changed query waits; a retry of the same query runs immediately.
-    const timer =
-      dispatched.current !== text
-        ? setTimeout(() => void run(), SUGGESTION_DELAY)
-        : undefined
+    const changed = previousText.current !== text
+    previousText.current = text
+    const timer = changed
+      ? setTimeout(() => void run(), SUGGESTION_DELAY)
+      : undefined
     if (timer === undefined) {
       void run()
     }

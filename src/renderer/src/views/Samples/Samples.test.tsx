@@ -1,5 +1,5 @@
 import { createMemoryRouter, Outlet, RouterProvider } from 'react-router-dom'
-import { render, screen } from '@testing-library/react'
+import { cleanup, render, screen } from '@testing-library/react'
 import { expect, test, vi } from 'vitest'
 import { Samples } from './Samples'
 import { defaultContext } from '@renderer/stores/useNavigationStore'
@@ -14,7 +14,10 @@ vi.mock('@renderer/features/library/hooks/useLibrarySession', () => ({
 
 const sampleId = '3f9c1b2a-4d5e-4f60-8a71-2b3c4d5e6f70'
 
-function renderSamples(state?: unknown): ReturnType<typeof vi.fn> {
+function renderSamples(
+  state?: unknown,
+  key = 'locate-entry',
+): ReturnType<typeof vi.fn> {
   const update = vi.fn()
   const router = createMemoryRouter(
     [
@@ -35,7 +38,7 @@ function renderSamples(state?: unknown): ReturnType<typeof vi.fn> {
       },
     ],
     {
-      initialEntries: [{ pathname: '/samples', state }],
+      initialEntries: [{ pathname: '/samples', state, key }],
     },
   )
   render(<RouterProvider router={router} />)
@@ -63,4 +66,19 @@ test('applies a located Sample intent to the view context', () => {
 test('leaves an ordinary Samples visit untouched', () => {
   const update = renderSamples()
   expect(update).not.toHaveBeenCalled()
+})
+
+test('does not re-apply the intent when the same history entry returns', () => {
+  const intent = { locateSampleId: sampleId, locateSearch: 'Warm Kick' }
+  const first = renderSamples(intent, 'entry-1')
+  expect(first).toHaveBeenCalledTimes(1)
+  cleanup()
+
+  // Back to that entry restores its router state; it is not a new intent.
+  const second = renderSamples(intent, 'entry-1')
+  expect(second).not.toHaveBeenCalled()
+  cleanup()
+
+  const third = renderSamples(intent, 'entry-2')
+  expect(third).toHaveBeenCalledTimes(1)
 })
