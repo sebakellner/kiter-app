@@ -115,6 +115,9 @@ pnpm install --frozen-lockfile
 pnpm dev
 ```
 
+`pnpm dev` restores the Electron binary when a previous install left the
+package without one, so an interrupted install only costs the extraction time.
+
 ### Reset Development Data
 
 `pnpm dev` keeps its database, managed images, preferences, and browser state in
