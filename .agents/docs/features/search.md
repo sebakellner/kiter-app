@@ -8,9 +8,29 @@ contracts. [Domain Model](../domain-model.md) owns entity meanings;
 ## Status
 
 Samples and Favorites implement catalog-wide local search and the filter slices
-documented below. Global mixed-entity search, additional searchable relationships,
-and approximate matching remain planned. Validate initial thresholds/limits on
-real libraries before delivery. Visual design/prototypes remain deferred.
+documented below. The global header offers Sample-only suggestions, documented
+under [Implemented Header Search Slice](#implemented-header-search-slice). Global
+mixed-entity search, additional searchable relationships, and approximate
+matching remain planned. Validate initial thresholds/limits on real libraries
+before delivery. Visual design/prototypes remain deferred.
+
+### Implemented Header Search Slice
+
+The header holds one library search field that suggests Samples only. It awaits
+two characters, waits 250 ms after typing stops, and shows at most five
+suggestions ordered by the same relevance as the Samples list, labelled with the
+effective presentation name. It reuses the catalog list request, so it adds no IPC
+channel and no independent main-process query.
+
+Choosing a suggestion opens Samples, clears the Favorites filter and every filter
+group, selects the Sample without starting playback, and creates a new history
+entry. The Samples local query becomes the Sample name, so the located row is on
+the first page; locating a row in place without a local query remains planned. A
+failed suggestion request keeps the query, reports the failure inside the popover
+and offers Retry for the same query.
+
+Grouped suggestions for the remaining entities, full mixed results and
+approximate matching remain planned; the contracts below already describe them.
 
 ## Query Scope and Matching
 

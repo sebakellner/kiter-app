@@ -112,3 +112,25 @@ test('single selection closes the list and loading or disabled results cannot be
   rerender(<Combobox {...props} options={[]} />)
   expect(screen.getByRole('status')).toHaveTextContent('No options found.')
 })
+
+test('renders caller footer inside its popup and omits an empty status message', async () => {
+  const user = userEvent.setup()
+  const props = {
+    'aria-label': 'Library search',
+    listLabel: 'Results',
+    options: [],
+    value: null,
+    onValueChange: vi.fn(),
+    query: 'kick',
+    onQueryChange: vi.fn(),
+    footer: <button type="button">Retry</button>,
+  }
+  const { rerender } = render(<Combobox {...props} />)
+  await user.click(screen.getByRole('combobox', { name: 'Library search' }))
+  expect(screen.getByRole('status')).toHaveTextContent('No options found.')
+  expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument()
+
+  rerender(<Combobox {...props} emptyMessage="" />)
+  expect(screen.queryByRole('status')).toBeNull()
+  expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument()
+})

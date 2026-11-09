@@ -5,10 +5,11 @@ import { OpenFolderButton } from '@renderer/features/library/components/OpenFold
 import { useLibrarySession } from '@renderer/features/library/hooks/useLibrarySession'
 import { ImportDialog } from '@renderer/features/import/components/ImportDialog/ImportDialog'
 import type { ImportDialogOutcome } from '@renderer/features/import/hooks/useImportDialog'
+import { GlobalSearch } from './GlobalSearch'
 
 export function AppHeader(): React.JSX.Element {
   const navigate = useNavigate()
-  const { importFolders } = useLibrarySession()
+  const { importFolders, revision } = useLibrarySession()
   // Import is a dialog workflow, so its state stays with the control that opens it.
   const [importing, setImporting] = useState(false)
 
@@ -38,6 +39,7 @@ export function AppHeader(): React.JSX.Element {
       >
         Forward
       </Button>
+      <GlobalSearch revision={revision} />
       <OpenFolderButton onClick={() => setImporting(true)} />
       {importing && (
         <ImportDialog importFolders={importFolders} onClose={closeImport} />
