@@ -57,6 +57,25 @@ function renderSamples(
   return update
 }
 
+test('applies a located Genre intent to the view context', () => {
+  const genreId = '4e5f6071-8293-4da4-bec5-f60718293a4b'
+  const update = renderSamples({
+    locateGenreId: genreId,
+    locateGenreName: 'House',
+  })
+  expect(screen.getByRole('heading', { name: 'Samples' })).toBeInTheDocument()
+  expect(update).toHaveBeenCalledExactlyOnceWith({
+    favoritesOnly: false,
+    instruments: [],
+    genres: [{ id: genreId, name: 'House' }],
+    sampleTypes: [],
+    search: '',
+    offset: 0,
+    scrollTop: 0,
+    selectedId: null,
+  })
+})
+
 test('applies a located Sample intent to the view context', () => {
   const update = renderSamples({
     locateSampleId: sampleId,

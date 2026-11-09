@@ -22,9 +22,11 @@ marking favorites never move or modify the original files.
 - **Find samples in a list:** search Samples, Favorites, or a Collection by name,
   relative path, and saved Instrument/Genre names. Combine the query with
   Instrument, Genre, Sample type, and Favorite filters.
-- **Jump to a sample from the header:** the global header search suggests up to
-  five Samples for the words you type and opens the one you pick in Samples,
-  selected and without starting playback.
+- **Jump to anything from the header:** the global header search suggests
+  Samples, Packs, Collections, Instruments, Authors, and Genres for the words you
+  type, grouped by kind. Choosing one opens it without starting playback: a Sample
+  arrives selected in Samples, a Pack or Collection opens its detail view, a Genre
+  opens Samples filtered by it.
 - **Build Collections:** create named selections with optional descriptions, add
   a Sample to multiple Collections, remove references, and arrange members in a
   saved manual order. Edit a Collection or delete it after reviewing the impact;
@@ -84,8 +86,9 @@ The following features are planned and are not yet available in the app:
   at once and personalize Collections with artwork.
 - **Classification management and Author credits:** manage the vocabulary beyond
   single-Sample assignments and record who created sounds.
-- **Global search:** find Packs, Collections, Instruments, Authors, and Genres
-  from the header search entry, grouped with Samples and sharing one result list.
+- **Global search results:** browse every kind in one mixed, paginated result list
+  beyond the header's grouped suggestions, with approximate matching for
+  misspellings.
 - **Profile and settings:** personalize your local profile and preferences.
 - **Reviewed organization and export:** rename, relocate, or gather samples into
   a chosen folder, with a chance to review changes before they happen.
@@ -94,10 +97,10 @@ The following features are planned and are not yet available in the app:
 
 ### Current Limitations
 
-- Global cross-entity search is not available yet: the header search suggests
-  Samples only, and Sample-list search stays separate. General Sample/Pack
-  metadata editing is also unavailable; single-Sample classifications and
-  Collection name/description editing are.
+- The header search covers every kind, but there is no mixed results destination
+  yet: it suggests at most five items per kind and opens one at a time, and it does
+  not match misspellings. General Sample/Pack metadata editing is also unavailable;
+  single-Sample classifications and Collection name/description editing are.
 - Collection membership actions currently operate on one Sample at a time.
   Manual ordering is available only without active list filters or search.
 - Navigation context is session-only. Up to 100 history snapshots are retained;

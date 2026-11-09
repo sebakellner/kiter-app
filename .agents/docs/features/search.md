@@ -8,29 +8,44 @@ contracts. [Domain Model](../domain-model.md) owns entity meanings;
 ## Status
 
 Samples and Favorites implement catalog-wide local search and the filter slices
-documented below. The global header offers Sample-only suggestions, documented
-under [Implemented Header Search Slice](#implemented-header-search-slice). Global
-mixed-entity search, additional searchable relationships, and approximate
+documented below. The global header suggests Samples, Packs, Collections,
+Instruments, Authors and Genres, documented under
+[Implemented Header Search Slice](#implemented-header-search-slice). Full
+mixed-entity result pages, additional searchable relationships, and approximate
 matching remain planned. Validate initial thresholds/limits on real libraries
 before delivery. Visual design/prototypes remain deferred.
 
 ### Implemented Header Search Slice
 
-The header holds one library search field that suggests Samples only. It awaits
-two characters, waits 250 ms after typing stops, and shows at most five
-suggestions ordered by the same relevance as the Samples list, labelled with the
-effective presentation name. It reuses the catalog list request, so it adds no IPC
-channel and no independent main-process query.
+The header holds one library search field for every searchable entity. It awaits
+two characters, waits 250 ms after typing stops, and asks main once per effective
+query: one bounded `search:suggest` request returns nonempty groups in a fixed
+order — Samples, Packs, Collections, Instruments, Authors, Genres — with at most
+five suggestions each. The renderer rejects an incompatible or over-long response
+instead of rendering it.
 
-Choosing a suggestion opens Samples, clears the Favorites filter and every filter
-group, selects the Sample without starting playback, and creates a new history
-entry. The Samples local query becomes the Sample name, so the located row is on
-the first page; locating a row in place without a local query remains planned. A
-failed suggestion request keeps the query, reports the failure inside the popover
-and offers Retry for the same query.
+Each group ranks exact names first, then name prefixes and substrings, then other
+text matches; inside a tier, normalized name alphabetically, then entity type,
+then stable ID. Samples reuse the catalog list ranking over `search_name`,
+`search_filename` and `search_relative_path`. Instruments, Authors and Genres
+match `kiter_search_text(name_key)`: `name_key` is only NFC and lowercase, so an
+accent-insensitive match needs the text normalization applied to that materialized
+key per row. Packs and Collections match `kiter_search_text(name)` for the same
+reason plus the absence of a normalized column; Packs hold one row per source root
+and Collections are user-created. The materialized-value rule below is therefore
+knowingly relaxed for those four entities until accent-folded columns exist.
 
-Grouped suggestions for the remaining entities, full mixed results and
-approximate matching remain planned; the contracts below already describe them.
+Choosing a suggestion opens the entity without starting playback: a Pack or a
+Collection opens its detail view, an Instrument or an Author opens its list
+destination, and a Genre opens Samples filtered by that Genre. A Sample opens
+Samples with the row selected, clearing the Favorites filter and every filter
+group and using the Sample name as the local query, so the located row is on the
+first page; locating a row in place without a local query remains planned. A
+failed request keeps the query, reports the failure inside the popover and offers
+Retry for the same query.
+
+Full mixed result pages, "view all results", approximate matching and
+relationship expansion remain planned; the contracts below already describe them.
 
 ## Query Scope and Matching
 
