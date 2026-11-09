@@ -41,8 +41,16 @@ try {
   }
   mkdirSync(dirname(options.filename), { recursive: true })
   // A restore staged by the previous session completes before the catalog is
-  // opened. An unreadable intent is discarded, never allowed to block startup.
-  applyPendingRestore(options.filename)
+  // opened. An unreadable intent is discarded, never allowed to block startup,
+  // but a swap that could not be applied has to stop here: serving a session
+  // would let the next start discard its work without telling anyone.
+  const pendingRestore = applyPendingRestore(options.filename)
+  if (pendingRestore === 'failed') {
+    throw new DbError(
+      'STORAGE_FAILED',
+      'A pending library restore could not be applied. Restart Kiter to retry.',
+    )
+  }
   const storage = {
     backupDirectory:
       typeof options.backupDirectory === 'string'
@@ -63,6 +71,10 @@ try {
   }
   connection = openDatabase(options.filename, options.migrationsFolder, storage)
   const database = connection
+  // Only now is the restored catalog known to open and validate.
+  if (pendingRestore === 'applied') {
+    console.error('Library restore completed:', 'RESTORE_COMPLETE')
+  }
   const runtime = {
     native: database.native,
     filename: options.filename,

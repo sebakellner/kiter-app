@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { spawnSync } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 import { existsSync } from 'node:fs'
 import {
@@ -788,10 +789,12 @@ test('a runtime restore stages the replacement, publishes missing images and kee
     if (reply.action !== 'restore-backup') {
       return
     }
-    // The ticket names the selected copy; nothing claims a completed swap.
+    // The ticket names the selected copy, states that a restart applies it, and
+    // never claims a completed swap.
     assert.deepEqual(reply.result, {
       location: backup,
       createdAt: verifyBackup(backup, migrationsFolder).createdAt,
+      restartRequired: true,
     })
   } finally {
     await transport.close()
@@ -881,16 +884,11 @@ test('the next start applies the staged restore and never recovers a stale WAL o
   } finally {
     await transport.close()
   }
-  // Journal files of the catalog being replaced must never reach the restored
-  // catalog: SQLite would try to recover their frames onto it.
-  await writeFile(
-    `${f.filename}-wal`,
-    'stale write-ahead log of the replaced catalog',
-  )
-  await writeFile(
-    `${f.filename}-shm`,
-    'stale shared memory of the replaced catalog',
-  )
+  // A killed session leaves real frames of the replaced catalog behind. A text
+  // file is not a sidecar SQLite honours: it deletes those by itself, which would
+  // let this test pass even with the sidecar cleanup removed.
+  crashLeavingSidecars(f.filename, 'wal')
+  assert.equal(existsSync(`${f.filename}-wal`), true)
 
   const restarted = await openWorker(f)
   try {
@@ -914,6 +912,7 @@ test('the next start applies the staged restore and never recovers a stale WAL o
   assert.deepEqual(await stagedFiles(f.filename), [])
   assert.equal(existsSync(`${f.filename}-wal`), false)
   assert.equal(existsSync(`${f.filename}-shm`), false)
+  assert.equal(crashRows(f.filename), 0)
 })
 
 test('a swap interrupted before the intent is removed is not repeated and keeps the restored catalog', async (t) => {
@@ -1140,4 +1139,141 @@ test('a library that cannot form a verified protective copy blocks the restore',
   assert.deepEqual((await readdir(f.storage.backupDirectory)).sort(), copies)
   assert.equal(existsSync(pendingRestoreIntent(f.filename)), false)
   assert.deepEqual(await stagedFiles(f.filename), [])
+})
+
+// A child that writes to the catalog and is killed, so what it leaves behind is a
+// real sidecar of the file being replaced rather than an inert text file.
+function crashLeavingSidecars(filename: string, mode: 'journal' | 'wal'): void {
+  const setup =
+    mode === 'wal'
+      ? "db.pragma('journal_mode = WAL'); db.pragma('cache_size = 1')"
+      : "db.pragma('cache_size = 1'); db.exec('BEGIN IMMEDIATE')"
+  // In WAL mode each insert commits into the write-ahead log on its own, so the
+  // kill leaves committed frames behind without an explicit COMMIT.
+  const child = spawnSync(
+    process.execPath,
+    [
+      '-e',
+      `const Database = require('better-sqlite3')
+       const db = new Database(process.argv[1])
+       ${setup}
+       const insert = db.prepare('INSERT INTO samples (id) VALUES (?)')
+       for (let i = 0; i < 600; i += 1) insert.run('crash-' + i)
+       process.kill(process.pid, 'SIGKILL')`,
+      filename,
+    ],
+    { cwd: process.cwd() },
+  )
+  assert.equal(child.signal, 'SIGKILL')
+}
+
+function crashRows(filename: string): number {
+  const db = new Database(filename, { readonly: true })
+  try {
+    return db
+      .prepare("SELECT count(*) FROM samples WHERE id LIKE 'crash-%'")
+      .pluck()
+      .get() as number
+  } finally {
+    db.close()
+  }
+}
+
+test('a hot rollback journal of the replaced catalog never reaches the restored copy', async (t) => {
+  const f = await fixture(t)
+  const backup = createProtectiveBackup(
+    f.connection.native,
+    f.filename,
+    migrationsFolder,
+    f.storage,
+  )
+  // The live library diverges from the copy the user selected, so a lost restore
+  // is visible in the final state.
+  setFavorite(f.connection.db, f.sample.id, false)
+  f.connection.close()
+  const transport = await openWorker(f)
+  try {
+    const reply = await transport.request({
+      action: 'restore-backup',
+      location: backup,
+    })
+    assert.equal(reply.action, 'restore-backup')
+  } finally {
+    await transport.close()
+  }
+  // The session dies mid-write. This catalog runs in rollback-journal mode, so the
+  // sidecar that survives belongs to the file being replaced.
+  crashLeavingSidecars(f.filename, 'journal')
+  assert.equal(existsSync(`${f.filename}-journal`), true)
+  const restarted = await openWorker(f)
+  try {
+    const profile = await restarted.request({ action: 'profile' })
+    assert.equal(profile.action, 'profile')
+  } finally {
+    await restarted.close()
+  }
+  // The restored catalog opened, and neither the interrupted transaction nor a
+  // replayed journal reached it.
+  assert.deepEqual(liveState(f.filename, f.sample.id), {
+    favorite: 1,
+    previewVolume: 0,
+    avatar: null,
+    images: [],
+  })
+  assert.equal(existsSync(`${f.filename}-journal`), false)
+  assert.equal(crashRows(f.filename), 0)
+})
+
+test('a hostile or malformed pending intent is discarded without touching the live library', async (t) => {
+  const f = await fixture(t)
+  setFavorite(f.connection.db, f.sample.id, false)
+  f.connection.close()
+  const trap = join(f.directory, 'trap.restore')
+  await writeFile(trap, 'not a catalog')
+  const expected = liveState(f.filename, f.sample.id)
+  const intent = (staged: string): string =>
+    JSON.stringify({
+      format: 'kiter-restore',
+      version: 1,
+      staged,
+      source: trap,
+      createdAt: new Date().toISOString(),
+      bytes: 12,
+      sha256: 'a'.repeat(64),
+    })
+  const intentPath = pendingRestoreIntent(f.filename)
+  for (const staged of [
+    '../../trap.restore',
+    '..',
+    trap,
+    '.trap.restore',
+    '.r.restore',
+  ]) {
+    await writeFile(intentPath, intent(staged))
+    const worker = await openWorker(f)
+    try {
+      const profile = await worker.request({ action: 'profile' })
+      assert.equal(profile.action, 'profile')
+    } finally {
+      await worker.close()
+    }
+    assert.equal(existsSync(intentPath), false, `intent removed for ${staged}`)
+    assert.deepEqual(liveState(f.filename, f.sample.id), expected)
+    assert.equal(await readFile(trap, 'utf8'), 'not a catalog')
+  }
+  // A staged entry that is a link is never followed, so its target is never read
+  // as a catalog and never consumed by a swap.
+  const link = join(dirname(f.filename), '.link.restore')
+  await symlink(trap, link)
+  await writeFile(intentPath, intent('.link.restore'))
+  const worker = await openWorker(f)
+  try {
+    const profile = await worker.request({ action: 'profile' })
+    assert.equal(profile.action, 'profile')
+  } finally {
+    await worker.close()
+  }
+  assert.equal(existsSync(intentPath), false)
+  assert.deepEqual(liveState(f.filename, f.sample.id), expected)
+  assert.equal(await readFile(trap, 'utf8'), 'not a catalog')
 })

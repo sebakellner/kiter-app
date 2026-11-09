@@ -469,11 +469,23 @@ export function publishRestoreImages(
   syncDirectory(imagesDirectory)
 }
 
-// The WAL and shared-memory files describe the catalog being replaced. They are
-// removed before the rename, never after: a restored catalog beside frames that
-// belong to the old file would make SQLite recover foreign pages onto it.
+// The catalog runs in SQLite's rollback-journal mode, so an interrupted write
+// leaves a hot `-journal` belonging to the file being replaced. Opening and
+// closing the current catalog first makes SQLite roll that journal back, or
+// checkpoint a WAL, onto its own file; only then are the sidecars removed.
+// Deleting them first would discard the rollback that repairs partially written
+// pages, so a later rename failure could leave the current catalog corrupt.
+function settleCatalog(filename: string): void {
+  try {
+    new Database(filename, { fileMustExist: true }).close()
+  } catch {
+    // The file is replaced below, so an unusable current catalog is not fatal.
+  }
+}
+
 function replaceCatalog(filename: string, staged: string): void {
-  for (const suffix of ['-wal', '-shm']) {
+  settleCatalog(filename)
+  for (const suffix of ['-journal', '-wal', '-shm']) {
     rmSync(`${filename}${suffix}`, { force: true })
   }
   renameSync(staged, filename)
@@ -594,12 +606,17 @@ function digest(path: string): BackupFile | undefined {
 }
 
 // Bootstrap entry point: complete the catalog swap a runtime restore staged, then
-// let the normal open path migrate and validate the result. Nothing here throws,
-// because an unusable intent must never brick startup.
-export function applyPendingRestore(filename: string): void {
+// let the normal open path migrate and validate the result. This returns an
+// outcome instead of throwing, because an unusable intent must never brick
+// startup, but a swap that could not be applied has to stop it: continuing would
+// serve a session whose writes the next start silently discards.
+export type PendingRestoreOutcome =
+  'none' | 'applied' | 'discarded' | 'skipped' | 'failed'
+
+export function applyPendingRestore(filename: string): PendingRestoreOutcome {
   const intentPath = pendingRestoreIntent(filename)
   if (!existsSync(intentPath)) {
-    return
+    return 'none'
   }
   let intent: PendingRestore
   try {
@@ -607,7 +624,7 @@ export function applyPendingRestore(filename: string): void {
   } catch {
     rmSync(intentPath, { force: true })
     console.error('Discarded invalid pending restore:', 'INVALID_INPUT')
-    return
+    return 'discarded'
   }
   const directoryPath = dirname(resolve(filename))
   const staged = join(directoryPath, intent.staged)
@@ -617,7 +634,7 @@ export function applyPendingRestore(filename: string): void {
       'Discarded pending restore outside the catalog directory:',
       'INVALID_INPUT',
     )
-    return
+    return 'discarded'
   }
   if (existsSync(staged)) {
     const stats = lstatSync(staged)
@@ -628,7 +645,7 @@ export function applyPendingRestore(filename: string): void {
         'Discarded pending restore with an invalid staged catalog:',
         'INVALID_INPUT',
       )
-      return
+      return 'discarded'
     }
     const actual = digest(staged)
     if (
@@ -644,18 +661,20 @@ export function applyPendingRestore(filename: string): void {
         'Discarded pending restore with a changed catalog:',
         'DB_INTEGRITY',
       )
-      return
+      return 'discarded'
     }
     try {
       replaceCatalog(filename, staged)
     } catch {
-      // The intent stays: the next bootstrap retries the same verified swap.
+      // The intent stays so a restart can retry the same verified swap.
       console.error('Pending restore could not be applied:', 'STORAGE_FAILED')
-      return
+      return 'failed'
     }
     rmSync(intentPath, { force: true })
-    console.error('Pending restore applied:', 'RESTORE_COMPLETE')
-    return
+    // The swap is not yet a working restore: the catalog still has to open, which
+    // is the caller's next step.
+    console.error('Pending restore swapped the catalog:', 'RESTORE_SWAP')
+    return 'applied'
   }
   const current = digest(filename)
   rmSync(intentPath, { force: true })
@@ -665,10 +684,11 @@ export function applyPendingRestore(filename: string): void {
     current.sha256 === intent.sha256
   ) {
     // The swap already happened and only the cleanup was interrupted.
-    console.error('Pending restore already applied:', 'RESTORE_COMPLETE')
-    return
+    console.error('Pending restore was already applied:', 'RESTORE_SWAP')
+    return 'applied'
   }
   // The staged copy is gone and the catalog is not the restored one, so the
   // restore never happened. The current library stays as it is.
   console.error('Pending restore kept the current library:', 'RESTORE_SKIPPED')
+  return 'skipped'
 }

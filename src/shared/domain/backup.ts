@@ -32,6 +32,9 @@ export type BackupPageRequest = PageRequest
 export interface RestoreTicket {
   location: string
   createdAt: string
+  // Phase one never swaps the catalog, so a surface must not present the restore
+  // as finished before the restart that applies it.
+  restartRequired: boolean
 }
 
 // Every surface that offers backup creation must state this limitation: a copy
@@ -84,7 +87,8 @@ export function isRestoreTicket(value: unknown): value is RestoreTicket {
     typeof value.location === 'string' &&
     value.location.length > 0 &&
     typeof value.createdAt === 'string' &&
-    Number.isFinite(Date.parse(value.createdAt))
+    Number.isFinite(Date.parse(value.createdAt)) &&
+    value.restartRequired === true
   )
 }
 

@@ -77,9 +77,17 @@ because they need the catalog file and managed storage.
   intent is renamed onto the catalog. When the staged copy is gone it distinguishes
   "already applied" from "the restore never happened" by the recorded SHA-256 and
   keeps the current library in the second case.
-- `<catalog>-wal` and `<catalog>-shm` are removed **before** the rename, never after.
-  A restored catalog beside frames belonging to the replaced file would make SQLite
-  recover foreign pages onto it.
+- The catalog runs in SQLite's rollback-journal mode, so an interrupted write
+  leaves a hot `<catalog>-journal` belonging to the file being replaced; `<catalog>-wal`
+  and `<catalog>-shm` are the equivalent sidecars in WAL mode. Opening and closing
+  the current catalog first lets SQLite roll that journal back, or checkpoint a
+  WAL, onto its own file. Only then are the sidecars removed, before the rename and
+  never after: deleting them first would discard the rollback that repairs partially
+  written pages, so a later rename failure would leave the current catalog corrupt,
+  and renaming first would let SQLite replay foreign frames onto the restored catalog.
+- A swap that cannot be applied stops startup with an explicit failure instead of
+  serving a session whose writes the next start discards. The intent stays, so a
+  restart retries the same verified swap.
 - Writes committed after phase one and before the restart are discarded by the
   swap. That is inherent to restoring an earlier copy; the pre-restoration
   protective copy captured the pre-phase-one state.

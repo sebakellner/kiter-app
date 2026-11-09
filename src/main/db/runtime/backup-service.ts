@@ -117,7 +117,7 @@ export function restoreLibraryBackup(
     rmSync(pendingRestoreIntent(runtime.filename), { force: true })
     throw error
   }
-  return { location, createdAt: manifest.createdAt }
+  return { location, createdAt: manifest.createdAt, restartRequired: true }
 }
 
 export function listLibraryBackups(
