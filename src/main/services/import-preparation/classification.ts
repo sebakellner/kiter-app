@@ -561,6 +561,7 @@ export async function buildImportClassifications(
       throw new AggregateError(
         [error, cleanupError],
         'Import classification build and cleanup failed.',
+        { cause: cleanupError },
       )
     }
     throw error
