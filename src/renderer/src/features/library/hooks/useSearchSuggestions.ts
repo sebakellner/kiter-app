@@ -1,10 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { unwrapIpcResult } from '@shared/ipc/result'
-import type { CatalogSample } from '@shared/ipc/library'
+import type { SearchSuggestionGroup } from '@shared/ipc/search'
 import { effectiveCatalogSearch } from '@shared/features/library/search'
-
-/** Search guide: at most five suggestions per entity type. */
-export const SAMPLE_SUGGESTION_LIMIT = 5
 
 /** Search guide: wait 250 ms after typing stops. */
 const SUGGESTION_DELAY = 250
@@ -13,19 +10,19 @@ type Completion = {
   text: string
   revision: number
   attempt: number
-  items: CatalogSample[]
+  groups: SearchSuggestionGroup[]
   error: string | null
 }
 
 /**
- * Bounded Sample suggestions for the header search. The query reuses the
- * catalog list request, so only Samples can be suggested in this slice.
+ * Grouped suggestions for the header search: one bounded request returns every
+ * entity kind, so the renderer never queries per kind.
  */
-export function useSampleSuggestions(
+export function useSearchSuggestions(
   query: string,
   revision: number,
 ): {
-  suggestions: CatalogSample[]
+  groups: SearchSuggestionGroup[]
   loading: boolean
   error: string | null
   retry: () => void
@@ -54,18 +51,15 @@ export function useSampleSuggestions(
     let active = true
     const run = async (): Promise<void> => {
       try {
-        const page = unwrapIpcResult(
-          await window.api.library.list({
-            search: text,
-            limit: SAMPLE_SUGGESTION_LIMIT,
-          }),
+        const response = unwrapIpcResult(
+          await window.api.search.suggest({ query: text }),
         )
         if (active) {
           setCompletion({
             text,
             revision,
             attempt,
-            items: page.items,
+            groups: response.groups,
             error: null,
           })
         }
@@ -76,8 +70,8 @@ export function useSampleSuggestions(
             text,
             revision,
             attempt,
-            items: [],
-            error: message === '' ? 'Unable to search samples.' : message,
+            groups: [],
+            error: message === '' ? 'Unable to search the library.' : message,
           })
         }
       }
@@ -103,7 +97,7 @@ export function useSampleSuggestions(
   }, [text, revision, attempt])
 
   return {
-    suggestions: settled ? completion.items : [],
+    groups: settled ? completion.groups : [],
     loading,
     error: settled ? completion.error : null,
     retry: () => setAttempt((current) => current + 1),

@@ -18,6 +18,8 @@ import { executeCollection } from './dispatch/collections.ts'
 import { executeClassification } from './dispatch/classification.ts'
 import { isRecognitionRequest } from '../protocol/recognition.ts'
 import { executeRecognition } from './dispatch/recognition.ts'
+import { isSearchRequest } from '../protocol/search.ts'
+import { executeSearch } from './dispatch/search.ts'
 import { readImportCatalog } from '../operations/sources/import-snapshot.ts'
 import { readImportClassificationContext } from '../operations/classification/import-context.ts'
 import { readImportPackOrganizationCatalog } from '../operations/classification/pack-organization.ts'
@@ -87,6 +89,9 @@ export function dispatchRequest(
       }
       if (isCollectionRequest(request)) {
         return { requestId, ...executeCollection(db, request) }
+      }
+      if (isSearchRequest(request)) {
+        return { requestId, ...executeSearch(db, request) }
       }
       return { requestId, ...executeClassification(db, request) }
   }

@@ -7,6 +7,7 @@ import type { LifecycleApi } from './lifecycle.ts'
 import type { CollectionsApi } from './collections.ts'
 import type { StandaloneReviewApi } from './standaloneReview.ts'
 import type { PacksApi } from './packs.ts'
+import type { SearchApi } from './search.ts'
 
 export interface Api {
   packs: PacksApi
@@ -18,9 +19,23 @@ export interface Api {
   library: LibraryApi
   instruments: InstrumentsApi
   classification: ClassificationApi
+  search: SearchApi
 }
 export { DIALOG_CHANNELS } from './dialog.ts'
 export { LIBRARY_CHANNELS } from './library.ts'
+export {
+  SEARCH_CHANNELS,
+  SUGGESTION_KINDS,
+  SUGGESTION_LIMIT,
+} from './search.ts'
+export type {
+  SearchApi,
+  SearchSuggestRequest,
+  SearchSuggestResponse,
+  SearchSuggestion,
+  SearchSuggestionGroup,
+  SuggestionKind,
+} from './search.ts'
 export { INSTRUMENT_CHANNELS } from './instruments.ts'
 export type {
   InstrumentsApi,

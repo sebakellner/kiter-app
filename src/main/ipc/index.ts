@@ -4,6 +4,7 @@ import { registerInstrumentsIpc } from './instruments'
 import { registerClassificationIpc } from './classification'
 import { registerGenresIpc } from './genres'
 import { registerCollectionsIpc } from './collections'
+import { registerSearchIpc } from './search'
 import { registerStandaloneReviewIpc } from './standaloneReview'
 import { registerPacksIpc } from './packs'
 import type { DbClient } from '../db'
@@ -15,6 +16,7 @@ export function registerIpc(database: DbClient): void {
   registerClassificationIpc(database)
   registerGenresIpc(database)
   registerCollectionsIpc(database)
+  registerSearchIpc(database)
   registerStandaloneReviewIpc(database)
   registerPacksIpc(database)
 }

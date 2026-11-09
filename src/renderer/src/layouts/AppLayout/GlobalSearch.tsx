@@ -2,13 +2,30 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '@renderer/components/ui/Button'
 import { Combobox } from '@renderer/components/ui/Combobox'
-import { useSampleSuggestions } from '@renderer/features/library/hooks/useSampleSuggestions'
+import type { ComboboxGroup } from '@renderer/components/ui/Combobox'
+import { useSearchSuggestions } from '@renderer/features/library/hooks/useSearchSuggestions'
 import { locateSampleState } from '@renderer/features/library/locateSample'
+import { locateGenreState } from '@renderer/features/library/locateGenre'
 import { effectiveCatalogSearch } from '@shared/features/library/search'
+import type { SearchSuggestion, SuggestionKind } from '@shared/ipc/search'
+
+const GROUP_LABELS: Record<SuggestionKind, string> = {
+  sample: 'Samples',
+  pack: 'Packs',
+  collection: 'Collections',
+  instrument: 'Instruments',
+  author: 'Authors',
+  genre: 'Genres',
+}
+
+/** One flat option list keeps keyboard navigation continuous across groups. */
+function optionValue(suggestion: SearchSuggestion): string {
+  return `${suggestion.kind}:${suggestion.id}`
+}
 
 /**
- * Header global search. This slice suggests Samples only, reusing the catalog
- * list request; grouped multi-entity results remain planned in the search guide.
+ * Header global search. One bounded request returns suggestions grouped by
+ * entity kind; selecting one opens its destination without playing audio.
  */
 export function GlobalSearch({
   revision,
@@ -17,46 +34,70 @@ export function GlobalSearch({
 }): React.JSX.Element {
   const navigate = useNavigate()
   const [query, setQuery] = useState('')
-  const { suggestions, loading, error, retry } = useSampleSuggestions(
+  const { groups, loading, error, retry } = useSearchSuggestions(
     query,
     revision,
   )
   const text = effectiveCatalogSearch(query)
-  const options = suggestions.map(({ id, name }) => ({
-    value: id,
-    label: name,
+  const suggestions = groups.flatMap(({ items }) => items)
+  const options: ComboboxGroup[] = groups.map((group) => ({
+    label: GROUP_LABELS[group.kind],
+    options: group.items.map((item) => ({
+      value: optionValue(item),
+      label: item.name,
+    })),
   }))
 
-  function locate(sampleId: string | null): void {
-    const sample = suggestions.find(({ id }) => id === sampleId)
-    if (!sample) {
+  function open(value: string | null): void {
+    const suggestion = suggestions.find((item) => optionValue(item) === value)
+    if (!suggestion) {
       return
     }
-    // The field holds the query for the next search, not the located Sample.
+    // The field holds the query for the next search, not the opened entity.
     setQuery('')
-    void navigate('/samples', { state: locateSampleState(sample) })
+    switch (suggestion.kind) {
+      case 'sample':
+        void navigate('/samples', { state: locateSampleState(suggestion) })
+        return
+      case 'genre':
+        // Genres have no detail route: Samples opens filtered by the Genre.
+        void navigate('/samples', { state: locateGenreState(suggestion) })
+        return
+      case 'pack':
+        void navigate(`/packs/${suggestion.id}`)
+        return
+      case 'collection':
+        void navigate(`/collections/${suggestion.id}`)
+        return
+      case 'instrument':
+        // Instruments and Authors have list destinations only.
+        void navigate('/instruments')
+        return
+      case 'author':
+        void navigate('/authors')
+    }
   }
 
   return (
     <Combobox
       className="app-shell-global-search"
       aria-label="Search library"
-      placeholder="Search samples"
-      listLabel="Sample suggestions"
+      placeholder="Search your library"
+      listLabel="Library suggestions"
       query={query}
       onQueryChange={setQuery}
       value={null}
-      onValueChange={locate}
-      options={options}
+      onValueChange={open}
+      groups={options}
       loading={loading}
       emptyMessage={
         error
           ? ''
           : text === ''
             ? 'Type at least 2 characters to search.'
-            : 'No samples match this search.'
+            : 'No matches in your library.'
       }
-      loadingMessage="Searching samples…"
+      loadingMessage="Searching the library…"
       footer={
         error ? (
           <div className="app-shell-global-search-error">

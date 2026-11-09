@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, expect, test, vi } from 'vitest'
 import { Combobox } from './Combobox'
@@ -111,6 +111,58 @@ test('single selection closes the list and loading or disabled results cannot be
   expect(change).not.toHaveBeenCalled()
   rerender(<Combobox {...props} options={[]} />)
   expect(screen.getByRole('status')).toHaveTextContent('No options found.')
+})
+
+test('renders one labelled group per section and moves the active option across them', async () => {
+  const user = userEvent.setup()
+  const change = vi.fn()
+  render(
+    <Combobox
+      aria-label="Search library"
+      listLabel="Library suggestions"
+      groups={[
+        {
+          label: 'Samples',
+          options: [
+            { value: 'sample:kick', label: 'Warm Kick' },
+            { value: 'sample:snare', label: 'Tight Snare' },
+          ],
+        },
+        { label: 'Packs', options: [{ value: 'pack:kit', label: 'Kick Kit' }] },
+      ]}
+      value={null}
+      onValueChange={change}
+      query="ki"
+      onQueryChange={vi.fn()}
+    />,
+  )
+  const input = screen.getByRole('combobox', { name: 'Search library' })
+  await user.click(input)
+
+  const samples = screen.getByRole('group', { name: 'Samples' })
+  const packs = screen.getByRole('group', { name: 'Packs' })
+  expect(
+    within(samples).getByRole('option', { name: 'Warm Kick' }),
+  ).toBeInTheDocument()
+  expect(
+    within(packs).getByRole('option', { name: 'Kick Kit' }),
+  ).toBeInTheDocument()
+  expect(
+    screen.getAllByRole('option').map((option) => option.textContent),
+  ).toEqual(['Warm Kick', 'Tight Snare', 'Kick Kit'])
+
+  await user.keyboard('{ArrowDown}{ArrowDown}{ArrowDown}')
+  expect(screen.getByRole('option', { name: 'Kick Kit' })).toHaveAttribute(
+    'data-active',
+    'true',
+  )
+  expect(input).toHaveAttribute(
+    'aria-activedescendant',
+    screen.getByRole('option', { name: 'Kick Kit' }).id,
+  )
+  await user.keyboard('{Enter}')
+  expect(change).toHaveBeenCalledWith('pack:kit')
+  expect(input).toHaveAttribute('aria-expanded', 'false')
 })
 
 test('renders caller footer inside its popup and omits an empty status message', async () => {

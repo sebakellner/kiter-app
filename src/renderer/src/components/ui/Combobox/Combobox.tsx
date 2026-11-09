@@ -10,6 +10,31 @@ export type ComboboxOption = {
   disabled?: boolean
 }
 
+/** A labelled section of the listbox; groups keep the caller's order. */
+export type ComboboxGroup = {
+  label: string
+  options: ComboboxOption[]
+}
+
+type Section = {
+  label: string | null
+  options: ComboboxOption[]
+}
+
+/** Flat positions keep keyboard navigation continuous across sections. */
+function withOffsets(sections: Section[]): Array<Section & { start: number }> {
+  const offsets: number[] = []
+  let total = 0
+  for (const section of sections) {
+    offsets.push(total)
+    total += section.options.length
+  }
+  return sections.map((section, index) => ({
+    ...section,
+    start: offsets[index],
+  }))
+}
+
 type SelectionProps =
   | {
       multiple: true
@@ -22,16 +47,28 @@ type SelectionProps =
       onValueChange: (value: string | null) => void
     }
 
-export type ComboboxProps = SelectionProps & {
-  options: ComboboxOption[]
-  listLabel: string
-  query: string
-  onQueryChange: (query: string) => void
-  loading?: boolean
-  emptyMessage?: string
-  loadingMessage?: string
-  footer?: ReactNode
-} & Omit<
+type OptionsProps =
+  | {
+      /** Flat list. Use `groups` instead to render labelled sections. */
+      options: ComboboxOption[]
+      groups?: undefined
+    }
+  | {
+      /** Labelled sections. Keyboard navigation moves across their options. */
+      groups: ComboboxGroup[]
+      options?: undefined
+    }
+
+export type ComboboxProps = SelectionProps &
+  OptionsProps & {
+    listLabel: string
+    query: string
+    onQueryChange: (query: string) => void
+    loading?: boolean
+    emptyMessage?: string
+    loadingMessage?: string
+    footer?: ReactNode
+  } & Omit<
     ComponentPropsWithRef<'input'>,
     | 'value'
     | 'defaultValue'
@@ -49,6 +86,7 @@ export type ComboboxProps = SelectionProps & {
 
 export function Combobox({
   options,
+  groups,
   listLabel,
   query,
   onQueryChange,
@@ -72,9 +110,16 @@ export function Combobox({
   const [activeValue, setActiveValue] = useState<string | null>(null)
   const root = useRef<HTMLDivElement>(null)
   const expanded = open && !disabled
+  // Sections and the flat entries they contribute share one keyboard sequence.
+  const sections: Section[] =
+    groups === undefined
+      ? [{ label: null, options: options ?? [] }]
+      : groups.filter((group) => group.options.length > 0)
+  const rendered = withOffsets(sections)
+  const entries = rendered.flatMap((section) => section.options)
   const activeIndex = loading
     ? -1
-    : options.findIndex(
+    : entries.findIndex(
         (option) => option.value === activeValue && !option.disabled,
       )
 
@@ -100,7 +145,7 @@ export function Combobox({
 
   function move(direction: 1 | -1): void {
     setOpen(true)
-    const enabled = options.filter((option) => !option.disabled)
+    const enabled = entries.filter((option) => !option.disabled)
     if (loading || enabled.length === 0) {
       setActiveValue(null)
       return
@@ -113,6 +158,31 @@ export function Combobox({
           : enabled.length - 1
         : (index + direction + enabled.length) % enabled.length
     setActiveValue(enabled[next].value)
+  }
+
+  function renderOption(option: ComboboxOption, index: number): JSX.Element {
+    return (
+      <li
+        key={option.value}
+        id={`${listId}-${index}`}
+        role="option"
+        aria-selected={isSelected(option)}
+        aria-disabled={option.disabled || undefined}
+        data-active={activeIndex === index || undefined}
+        onMouseDown={(event) => event.preventDefault()}
+        onMouseMove={() => {
+          if (!option.disabled) {
+            setActiveValue(option.value)
+          }
+        }}
+        onClick={() => choose(option)}
+      >
+        {multiple && (
+          <span aria-hidden="true">{isSelected(option) ? '☑ ' : '☐ '}</span>
+        )}
+        {option.label}
+      </li>
+    )
   }
 
   return (
@@ -175,7 +245,7 @@ export function Combobox({
             event.preventDefault()
             event.stopPropagation()
             if (activeIndex >= 0) {
-              choose(options[activeIndex])
+              choose(entries[activeIndex])
             }
           } else if (event.key === 'Escape' && expanded) {
             event.preventDefault()
@@ -206,33 +276,34 @@ export function Combobox({
             aria-busy={loading}
           >
             {!loading &&
-              options.map((option, index) => (
-                <li
-                  key={option.value}
-                  id={`${listId}-${index}`}
-                  role="option"
-                  aria-selected={isSelected(option)}
-                  aria-disabled={option.disabled || undefined}
-                  data-active={activeIndex === index || undefined}
-                  onMouseDown={(event) => event.preventDefault()}
-                  onMouseMove={() => {
-                    if (!option.disabled) {
-                      setActiveValue(option.value)
-                    }
-                  }}
-                  onClick={() => choose(option)}
-                >
-                  {multiple && (
-                    <span aria-hidden="true">
-                      {isSelected(option) ? '☑ ' : '☐ '}
+              rendered.map((section, sectionIndex) =>
+                section.label === null ? (
+                  section.options.map((option, index) =>
+                    renderOption(option, section.start + index),
+                  )
+                ) : (
+                  <li
+                    key={section.label}
+                    role="group"
+                    aria-labelledby={`${listId}-group-${sectionIndex}`}
+                  >
+                    <span
+                      id={`${listId}-group-${sectionIndex}`}
+                      className="ui-combobox-group-label"
+                    >
+                      {section.label}
                     </span>
-                  )}
-                  {option.label}
-                </li>
-              ))}
+                    <ul role="presentation">
+                      {section.options.map((option, index) =>
+                        renderOption(option, section.start + index),
+                      )}
+                    </ul>
+                  </li>
+                ),
+              )}
           </ul>
           {loading && <p role="status">{loadingMessage}</p>}
-          {!loading && options.length === 0 && emptyMessage !== '' && (
+          {!loading && entries.length === 0 && emptyMessage !== '' && (
             <p role="status">{emptyMessage}</p>
           )}
           {footer}

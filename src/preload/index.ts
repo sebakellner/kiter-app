@@ -8,6 +8,7 @@ import {
   isFavoriteState,
   isLibraryPage,
 } from '@shared/ipc/library'
+import { SEARCH_CHANNELS, isSearchSuggestResponse } from '@shared/ipc/search'
 import { requireIpcResult } from '@shared/ipc/result'
 import { isSampleInstrumentsSnapshot } from '@shared/ipc/sampleInstruments'
 import { isSampleTypeSnapshot } from '@shared/ipc/sampleType'
@@ -299,6 +300,13 @@ const api: Api = {
       requireIpcResult(
         await ipcRenderer.invoke(DIALOG_CHANNELS.openFolders),
         isFolderSelectionList,
+      ),
+  },
+  search: {
+    suggest: async (request) =>
+      requireIpcResult(
+        await ipcRenderer.invoke(SEARCH_CHANNELS.suggest, request),
+        isSearchSuggestResponse,
       ),
   },
   library: {

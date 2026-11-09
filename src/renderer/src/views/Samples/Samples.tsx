@@ -1,6 +1,7 @@
 import { CatalogList } from '@renderer/features/library/components/CatalogList'
 import { useLibrarySession } from '@renderer/features/library/hooks/useLibrarySession'
 import { locateSamplePatch } from '@renderer/features/library/locateSample'
+import { locateGenrePatch } from '@renderer/features/library/locateGenre'
 import { useCatalogViewContext } from '@renderer/routes/navigationContext'
 import { useLayoutEffect } from 'react'
 import { useLocation } from 'react-router-dom'
@@ -13,9 +14,10 @@ export function Samples(): React.JSX.Element {
   const { key, state } = useLocation()
   const { favoritesOnly } = view.context
   const { update } = view
-  // Header suggestions and other locators open Samples with a Sample intent.
+  // Header suggestions and other locators open Samples with a locate intent:
+  // a Sample to select, or a Genre to filter by.
   useLayoutEffect(() => {
-    const patch = locateSamplePatch(state)
+    const patch = locateSamplePatch(state) ?? locateGenrePatch(state)
     if (patch && useNavigationStore.getState().consumeLocateIntent(key)) {
       update(patch)
     }

@@ -25,6 +25,8 @@ import type { PackRequest, PackReply } from './packs.ts'
 import { isPackRequest, isPackReply } from './packs.ts'
 import type { CollectionRequest, CollectionReply } from './collections.ts'
 import { isCollectionRequest, isCollectionReply } from './collections.ts'
+import type { SearchRequest, SearchReply } from './search.ts'
+import { isSearchRequest, isSearchReply } from './search.ts'
 import type {
   ClassificationRequest,
   ClassificationReply,
@@ -51,6 +53,7 @@ export type DbRequest =
   | (SampleRequest & { requestId: number })
   | (PackRequest & { requestId: number })
   | (CollectionRequest & { requestId: number })
+  | (SearchRequest & { requestId: number })
   | (ClassificationRequest & { requestId: number })
   | {
       requestId: number
@@ -71,6 +74,7 @@ export type DbReply =
   | (SampleReply & { requestId: number })
   | (PackReply & { requestId: number })
   | (CollectionReply & { requestId: number })
+  | (SearchReply & { requestId: number })
   | (ClassificationReply & { requestId: number })
   | { action: 'ready' }
   | { action: 'fatal'; failure: DbFailure }
@@ -166,7 +170,8 @@ export function isDbCommand(value: unknown): value is DbCommand {
         isAssetRequest(value) ||
         isCollectionRequest(value) ||
         isPackRequest(value) ||
-        isSampleRequest(value)
+        isSampleRequest(value) ||
+        isSearchRequest(value)
       )
   }
 }
@@ -229,7 +234,8 @@ export function isDbReply(value: unknown): value is DbReply {
         isAssetReply(value) ||
         isCollectionReply(value) ||
         isPackReply(value) ||
-        isSampleReply(value)
+        isSampleReply(value) ||
+        isSearchReply(value)
       )
   }
 }

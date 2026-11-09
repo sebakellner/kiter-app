@@ -83,6 +83,9 @@ export function createTestApi(): {
     >
     importPack: ReturnType<typeof vi.fn<Api['packs']['importPack']>>
   }
+  search: {
+    suggest: ReturnType<typeof vi.fn<Api['search']['suggest']>>
+  }
 } {
   return {
     standaloneReview: {
@@ -149,6 +152,9 @@ export function createTestApi(): {
       prepareImport: vi.fn<Api['packs']['prepareImport']>(),
       listImportCandidates: vi.fn<Api['packs']['listImportCandidates']>(),
       importPack: vi.fn<Api['packs']['importPack']>(),
+    },
+    search: {
+      suggest: vi.fn<Api['search']['suggest']>(),
     },
   }
 }
