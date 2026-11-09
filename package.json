@@ -27,6 +27,7 @@
     "typecheck:tests:node": "tsc --noEmit -p tsconfig.test.node.json",
     "test:app": "pnpm run rebuild:electron && pnpm run build && pnpm run test:app:built",
     "start": "pnpm run rebuild:electron && electron-vite preview",
+    "predev": "node scripts/ensure-electron.mjs",
     "dev": "pnpm run rebuild:electron && electron-vite dev",
     "dev:reset": "electron scripts/reset-dev-profile.mjs",
     "build": "pnpm run typecheck && electron-vite build",
