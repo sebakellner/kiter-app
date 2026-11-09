@@ -12,6 +12,8 @@ import type { PacksCommands } from './client/packs.ts'
 import { packsCommands } from './client/packs.ts'
 import type { CollectionsCommands } from './client/collections.ts'
 import { collectionsCommands } from './client/collections.ts'
+import type { SearchCommands } from './client/search.ts'
+import { searchCommands } from './client/search.ts'
 import type { SamplesCommands } from './client/samples.ts'
 import { samplesCommands } from './client/samples.ts'
 import type { AssetsCommands } from './client/assets.ts'
@@ -27,6 +29,7 @@ export type DbClient = ClientCore &
   ClassificationCommands &
   PacksCommands &
   CollectionsCommands &
+  SearchCommands &
   SamplesCommands &
   AssetsCommands &
   LibraryCommands &
@@ -44,6 +47,7 @@ export const DbClient = {
       ...classificationCommands(core.request),
       ...packsCommands(core.request),
       ...collectionsCommands(core.request),
+      ...searchCommands(core.request),
       ...samplesCommands(core.request),
       ...assetsCommands(core.request),
       ...libraryCommands(core.request, transport),
