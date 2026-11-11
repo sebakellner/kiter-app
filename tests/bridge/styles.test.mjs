@@ -53,11 +53,11 @@ test('builds one text style per typography composite (S1)', () => {
     text.map((style) => style.name),
     [
       'typography/caption',
+      'typography/label',
       'typography/control',
       'typography/control-strong',
       'typography/body',
       'typography/body-strong',
-      'typography/label',
       'typography/section',
       'typography/title',
       'typography/display/small',
@@ -116,8 +116,8 @@ test('builds one effect style per shadow composite (S3)', () => {
     effects.map((style) => style.name),
     [
       'shadow/black-28',
-      'shadow/inset-yellow-500',
       'shadow/inset-violet-400',
+      'shadow/inset-yellow-500',
       'shadow/selection-indicator',
     ],
   )
@@ -182,4 +182,15 @@ test('pushes styles instead of shadow string variables (S3)', () => {
   assert.equal(tree.radius['8'], 8)
   assert.equal(tree.opacity['50'], 0.5)
   assert.deepEqual(tree.color.action.primary, { alias: 'color.yellow.500' })
+})
+
+test('lists text styles in scale order (S3)', () => {
+  const { text } = buildStyles()
+  const sizes = text.map((style) => style.fontSize)
+  assert.deepEqual(
+    sizes,
+    [...sizes].sort((left, right) => left - right),
+  )
+  assert.equal(text[0].name, 'typography/caption')
+  assert.equal(text.at(-1).name, 'typography/display/large')
 })
