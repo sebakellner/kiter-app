@@ -50,6 +50,13 @@ function send(response, status, body) {
 }
 
 const server = createServer((request, response) => {
+  const startedAt = Date.now()
+  response.on('finish', () => {
+    console.log(
+      `${request.method} ${request.url} -> ${response.statusCode} (${Date.now() - startedAt}ms)`,
+    )
+  })
+
   response.setHeader('access-control-allow-origin', '*')
   response.setHeader('access-control-allow-methods', 'GET, POST, OPTIONS')
 
