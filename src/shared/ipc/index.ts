@@ -7,6 +7,7 @@ import type { LifecycleApi } from './lifecycle.ts'
 import type { CollectionsApi } from './collections.ts'
 import type { StandaloneReviewApi } from './standaloneReview.ts'
 import type { PacksApi } from './packs.ts'
+import type { BackupApi } from './backup.ts'
 import type { SearchApi } from './search.ts'
 
 export interface Api {
@@ -20,8 +21,15 @@ export interface Api {
   instruments: InstrumentsApi
   classification: ClassificationApi
   search: SearchApi
+  backup: BackupApi
 }
 export { DIALOG_CHANNELS } from './dialog.ts'
+export { BACKUP_CHANNELS } from './backup.ts'
+export type {
+  BackupApi,
+  BackupDeleteResult,
+  BackupLocationRequest,
+} from './backup.ts'
 export { LIBRARY_CHANNELS } from './library.ts'
 export {
   SEARCH_CHANNELS,

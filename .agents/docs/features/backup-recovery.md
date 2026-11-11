@@ -141,6 +141,49 @@ so does an unusable image path: a linked image directory or an image entry that 
 not a regular file is a condition to fix, not damage, and replacing a healthy
 catalog for it would throw away working data.
 
+### IPC and Preload Surface
+
+The four worker commands are reachable through four IPC channels, and no other
+backup channel exists. Each one is registered through the shared IPC helper that
+owns main-frame authorization and the single storage failure policy, so a
+destroyed sender or a subframe gets `UNAUTHORIZED` and no handler runs. Renderer
+input is validated in the shared layer before any database method is called; the
+worker protocol requires the absolute-path shape again. Containment differs per
+command and must not be assumed: `backup:delete` refuses anything that is not a direct
+child of managed storage, while `backup:restore` verifies the folder as a Kiter backup
+and accepts it from any absolute path — the worker does not restrict a restore source
+to managed storage. That is the intended shape for a user-chosen backup, and it is why
+a surface must never treat a restore location as trusted input.
+
+| Channel          | Takes                                                  | Returns                                                                                          |
+| ---------------- | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------ |
+| `backup:create`  | nothing; the managed destination belongs to the worker | `BackupSummary` of the published copy                                                            |
+| `backup:list`    | an optional bounded page: `limit` 1-100, `offset` ≥ 0  | `BackupPage`: the page's copies plus `skipped`, the stored folders that are not readable backups |
+| `backup:delete`  | `{ location }`, one exact stored folder                | `{ location }` of the removed copy                                                               |
+| `backup:restore` | `{ location }`, one exact stored copy                  | `RestoreTicket` for phase one                                                                    |
+
+- Failures cross the boundary as one stable error code and one message, never a
+  database or filesystem error. A worker failure is normalised before it reaches the
+  renderer, so the wording a renderer sees is the shared storage sentence, not the
+  per-channel message the handler declares: a refused command that fails inside the
+  worker answers `STORAGE_FAILED` and says the library could not be reached. It does
+  not claim the library was unchanged, and no surface should read it as a guarantee.
+- `backup:restore` is phase one of the two-phase restore: it stages the
+  replacement and answers `restartRequired: true`. The catalog is replaced by the
+  next start, so no surface may present the restore as finished, and writes made
+  between the request and the restart are discarded (see above).
+- Every listed copy carries `restorable`. A preserved damaged artifact is listed
+  with `restorable: false` across the boundary, and `backup:restore` on its location
+  is refused with `INVALID_INPUT` while the library stays untouched, so management
+  can offer it for review and deletion but never for restoration.
+- `BACKUP_LOCAL_LIMITATION` is the limitation every management surface must show:
+  a copy kept on this computer does not survive losing its disk.
+- The preload API validates every reply against the same domain shapes before the
+  renderer can read it; a reply that does not match is a `PROTOCOL_ERROR` instead of
+  unvalidated data.
+- No Settings screen, route or component exists for any of this. The surface stops
+  at the preload contract.
+
 ## Preserved Damaged Libraries
 
 A current library that cannot form a verified protective copy because it is damaged
@@ -247,9 +290,10 @@ copy stay exactly as they were and a restart retries.
 
 Settings → Library exposes Create backup, Restore, and management of automatic
 copies. Show date, kind, size, and location; review selected copies before deletion.
-Visual layout and exact routes remain to be designed. The worker commands and the
-`DbClient` methods exist; no IPC channel, preload surface or Settings screen does,
-and the delivery that added the commands stopped at that boundary.
+The worker commands, the `DbClient` methods, the IPC channels and the preload API
+exist as documented under [IPC and Preload Surface](#ipc-and-preload-surface).
+Visual layout, exact routes and every Settings screen remain to be designed: the
+delivery that added the channels stopped at the preload contract and created no UI.
 
 Remaining delivery contract is reconciliation of restored confirmed operations and
 analysis once those exist. Platform validation is closed as a documented scope, not

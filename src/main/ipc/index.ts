@@ -7,6 +7,7 @@ import { registerCollectionsIpc } from './collections'
 import { registerSearchIpc } from './search'
 import { registerStandaloneReviewIpc } from './standaloneReview'
 import { registerPacksIpc } from './packs'
+import { registerBackupIpc } from './backup'
 import type { DbClient } from '../db'
 
 export function registerIpc(database: DbClient): void {
@@ -19,4 +20,5 @@ export function registerIpc(database: DbClient): void {
   registerSearchIpc(database)
   registerStandaloneReviewIpc(database)
   registerPacksIpc(database)
+  registerBackupIpc(database)
 }
