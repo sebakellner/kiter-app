@@ -69,14 +69,18 @@ function decodeColor(value) {
 
 function repoColor(bytes, alpha) {
   const components = bytes.map((byte) => byte / 255)
-  if (alpha === 1) {
+  // Figma stores color channels as float32, so an alpha of 0.28 comes back as
+  // 0.2800000011920929. Snap to four decimals, which recovers every alpha the
+  // repository uses, and treat a snapped 1 as opaque.
+  const snapped = Math.round(alpha * 10_000) / 10_000
+  if (snapped === 1) {
     return {
       colorSpace: 'srgb',
       components,
       hex: `#${bytes.map(hexPair).join('')}`,
     }
   }
-  return { colorSpace: 'srgb', components, alpha }
+  return { colorSpace: 'srgb', components, alpha: snapped }
 }
 
 function hexPair(byte) {

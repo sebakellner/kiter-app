@@ -284,3 +284,16 @@ test('drops group $description and keeps token $description (S7)', () => {
     'string',
   )
 })
+
+test('snaps a float32 alpha back to the repository value (S8)', () => {
+  const token = {
+    $type: 'color',
+    $value: { colorSpace: 'srgb', components: [0, 0, 0], alpha: 0.28 },
+  }
+  const encoded = encodeLeaf(token, { r: 0, g: 0, b: 0, a: 0.2800000011920929 })
+  assert.deepEqual(encoded, {
+    colorSpace: 'srgb',
+    components: [0, 0, 0],
+    alpha: 0.28,
+  })
+})
