@@ -1165,7 +1165,20 @@ function crashLeavingSidecars(filename: string, mode: 'journal' | 'wal'): void {
     ],
     { cwd: process.cwd() },
   )
-  assert.equal(child.signal, 'SIGKILL')
+  // SIGKILL does not exist on Windows: the child is terminated through
+  // TerminateProcess, which reports a null signal and a non-zero exit code. Both
+  // shapes prove the process died mid-write instead of exiting cleanly, which is
+  // the only property this helper needs to establish.
+  const killed =
+    child.signal === 'SIGKILL' ||
+    (process.platform === 'win32' &&
+      child.signal === null &&
+      typeof child.status === 'number' &&
+      child.status !== 0)
+  assert.ok(
+    killed,
+    `The crash child exited cleanly (signal ${String(child.signal)}, status ${String(child.status)}).`,
+  )
 }
 
 // Opening read-write is deliberate: rolling back a hot journal needs write access,
