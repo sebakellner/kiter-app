@@ -1,16 +1,23 @@
 /**
- * Rebuilds the canonical DTCG value from the flat value Figma returns. The
- * repository token guides the rebuild, so no type or shape is guessed.
+ * Rebuilds the canonical DTCG value from the raw value Figma returns. The
+ * repository token guides the rebuild, so no type or shape is guessed: the
+ * plugin never learns the DTCG vocabulary.
  */
 export function encodeLeaf(existingToken, flatValue) {
   if (!isPlainObject(existingToken)) {
     return flatValue
   }
-  if (existingToken.$type === 'color' && typeof flatValue === 'string') {
-    return decodeColor(flatValue) ?? flatValue
+  if (existingToken.$type === 'color') {
+    return decodeColorValue(flatValue) ?? flatValue
   }
-  if (existingToken.$type === 'dimension' && typeof flatValue === 'string') {
-    return decodeDimension(flatValue) ?? flatValue
+  if (existingToken.$type === 'dimension') {
+    if (typeof flatValue === 'number') {
+      return { value: flatValue, unit: 'px' }
+    }
+    if (typeof flatValue === 'string') {
+      return decodeDimension(flatValue) ?? flatValue
+    }
+    return flatValue
   }
   if (existingToken.$type === 'shadow' && typeof flatValue === 'string') {
     return decodeShadow(flatValue) ?? flatValue
@@ -18,33 +25,62 @@ export function encodeLeaf(existingToken, flatValue) {
   return flatValue
 }
 
+function decodeColorValue(value) {
+  if (typeof value === 'string') {
+    return decodeColor(value)
+  }
+  if (!isPlainObject(value)) {
+    return undefined
+  }
+  const channels = [value.r, value.g, value.b]
+  if (!channels.every((channel) => typeof channel === 'number')) {
+    return undefined
+  }
+  // Figma reports 0..1 channels with its own precision. The repository stores
+  // exact 8-bit `n / 255` components, so quantize instead of trusting the
+  // incoming float: a Figma round trip then reproduces the token exactly.
+  const bytes = channels.map((channel) =>
+    Math.min(255, Math.max(0, Math.round(channel * 255))),
+  )
+  return repoColor(bytes, typeof value.a === 'number' ? value.a : 1)
+}
+
 function decodeColor(value) {
   const hex = /^#([0-9a-f]{6})$/i.exec(value)
   if (hex) {
     const digits = hex[1]
-    const channels = [0, 2, 4].map((start) =>
+    const bytes = [0, 2, 4].map((start) =>
       Number.parseInt(digits.slice(start, start + 2), 16),
     )
-    return {
-      colorSpace: 'srgb',
-      components: channels.map((channel) => channel / 255),
-      hex: `#${digits.toUpperCase()}`,
-    }
+    return repoColor(bytes, 1)
   }
   const rgba =
     /^rgba\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d*\.?\d+)\s*\)$/i.exec(
       value,
     )
   if (rgba) {
-    return {
-      colorSpace: 'srgb',
-      components: [rgba[1], rgba[2], rgba[3]].map(
-        (channel) => Number(channel) / 255,
-      ),
-      alpha: Number(rgba[4]),
-    }
+    return repoColor(
+      [rgba[1], rgba[2], rgba[3]].map((channel) => Number(channel)),
+      Number(rgba[4]),
+    )
   }
   return undefined
+}
+
+function repoColor(bytes, alpha) {
+  const components = bytes.map((byte) => byte / 255)
+  if (alpha === 1) {
+    return {
+      colorSpace: 'srgb',
+      components,
+      hex: `#${bytes.map(hexPair).join('')}`,
+    }
+  }
+  return { colorSpace: 'srgb', components, alpha }
+}
+
+function hexPair(byte) {
+  return byte.toString(16).padStart(2, '0').toUpperCase()
 }
 
 function decodeDimension(value) {

@@ -23,6 +23,10 @@
         margin: 0 0 12px;
         color: #bfc0c2;
       }
+      .actions {
+        display: flex;
+        gap: 8px;
+      }
       button {
         padding: 6px 12px;
         border: 1px solid #94969a;
@@ -32,6 +36,12 @@
         font: inherit;
         font-weight: 600;
         cursor: pointer;
+      }
+      button:disabled {
+        border-color: #62656a;
+        background: #3a3d42;
+        color: #bfc0c2;
+        cursor: default;
       }
       pre {
         margin: 12px 0 0;
@@ -45,65 +55,234 @@
         white-space: pre-wrap;
         word-break: break-word;
       }
-      section {
-        margin-top: 12px;
-      }
-      li {
-        color: #bfc0c2;
-      }
     </style>
   </head>
   <body>
     <h1>Kiter Token Bridge</h1>
-    <p class="hint">Prueba de humo: red local y lectura de variables.</p>
-    <button id="probe">Probar localhost</button>
-    <pre id="log">Sin probar todavía.</pre>
-    <section id="document"></section>
+    <p class="hint" id="document">Reading the document…</p>
+    <div class="actions">
+      <button id="push">Push repo → Figma</button>
+      <button id="pull">Pull Figma → repo</button>
+    </div>
+    <pre id="log">Ready.</pre>
 
     <script>
-      const ENDPOINT = 'http://localhost:4747/health'
+      const BASE = 'http://localhost:4747'
+      const HINT = 'Start the bridge with `pnpm tokens:bridge`.'
       const log = document.getElementById('log')
-      const documentSection = document.getElementById('document')
-      const append = (line) => {
-        log.textContent += line + '\n'
+      const documentLine = document.getElementById('document')
+      const pushButton = document.getElementById('push')
+      const pullButton = document.getElementById('pull')
+
+      let lines = ['Ready.']
+      let waiting = null
+
+      function reset(line) {
+        lines = [line]
+        log.textContent = lines.join('\n')
       }
 
-      document.getElementById('probe').addEventListener('click', async () => {
-        log.textContent = 'GET ' + ENDPOINT + '\n'
+      function append(line) {
+        lines.push(line)
+        log.textContent = lines.join('\n')
+      }
+
+      function setBusy(busy) {
+        pushButton.disabled = busy
+        pullButton.disabled = busy
+      }
+
+      function serverError(message) {
+        const error = new Error(message)
+        error.server = true
+        return error
+      }
+
+      // One sandbox request at a time: a button is disabled while it waits.
+      function ask(message, resultType) {
+        return new Promise((resolve, reject) => {
+          waiting = { type: resultType, resolve, reject }
+          parent.postMessage({ pluginMessage: message }, '*')
+        })
+      }
+
+      async function fetchJson(path, options) {
+        let response
         try {
-          const response = await fetch(ENDPOINT)
-          append('HTTP ' + response.status)
-          const body = await response.json()
-          append(JSON.stringify(body, null, 2))
-          append('')
-          append('✓ el plugin puede hablar con localhost')
+          response = await fetch(BASE + path, options)
         } catch (error) {
-          append('✗ falló: ' + error.message)
-          append('')
-          append('¿Está corriendo `pnpm tokens:bridge`?')
+          throw serverError('cannot reach ' + BASE + ': ' + error.message)
         }
-      })
+        const text = await response.text()
+        let body
+        try {
+          body = JSON.parse(text)
+        } catch {
+          body = null
+        }
+        if (!response.ok) {
+          const detail = body && body.error ? body.error : text
+          throw serverError('HTTP ' + response.status + ': ' + detail)
+        }
+        return body || {}
+      }
+
+      function countLeaves(node) {
+        if (typeof node === 'string' || typeof node === 'number') {
+          return 1
+        }
+        if (!node || typeof node !== 'object') {
+          return 1
+        }
+        if (Array.isArray(node)) {
+          return 1
+        }
+        if (typeof node.alias === 'string' || typeof node.r === 'number') {
+          return 1
+        }
+        let total = 0
+        for (const key of Object.keys(node)) {
+          total += countLeaves(node[key])
+        }
+        return total
+      }
+
+      function describeValue(value) {
+        if (value === undefined || value === null) {
+          return String(value)
+        }
+        if (typeof value === 'object') {
+          return JSON.stringify(value)
+        }
+        return String(value)
+      }
+
+      function fail(label, error, hint) {
+        append('✗ ' + label + ' failed: ' + error.message)
+        if (hint) {
+          append(HINT)
+        }
+      }
+
+      async function push() {
+        reset('GET ' + BASE + '/push')
+        try {
+          const body = await fetchJson('/push')
+          append('Repo: ' + countLeaves(body.tokens) + ' tokens')
+          const result = await ask(
+            { type: 'push', tokens: body.tokens },
+            'push-result',
+          )
+          append(
+            'Figma: ' +
+              result.created +
+              ' created, ' +
+              result.updated +
+              ' updated, ' +
+              result.skipped +
+              ' skipped',
+          )
+          append('✓ Push done.')
+        } catch (error) {
+          fail('Push', error, error.server === true)
+        }
+      }
+
+      async function pull() {
+        reset('Reading the local variables…')
+        try {
+          const fromFigma = await ask({ type: 'pull' }, 'pull-result')
+          const tokens = fromFigma.tokens
+          append('Figma: ' + countLeaves(tokens) + ' variables')
+          const body = await fetchJson('/pull', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ tokens }),
+          })
+          const report = body.report || {}
+          const changed = report.changed || []
+          const added = report.added || []
+          const written = body.written || []
+          append('changed: ' + changed.length)
+          for (const change of changed) {
+            append(
+              '  ' +
+                change.path +
+                ': ' +
+                describeValue(change.from) +
+                ' → ' +
+                describeValue(change.to),
+            )
+          }
+          append('added: ' + added.length)
+          for (const path of added) {
+            append('  ' + path)
+          }
+          append(
+            'written: ' + (written.length === 0 ? 'none' : written.join(', ')),
+          )
+          append(
+            '✓ Pull done: ' +
+              changed.length +
+              ' changed, ' +
+              added.length +
+              ' added.',
+          )
+        } catch (error) {
+          fail('Pull', error, error.server === true)
+        }
+      }
+
+      function renderDocument(message) {
+        if (!message.supported) {
+          documentLine.textContent =
+            'figma.variables is not available in this file.'
+          return
+        }
+        const collections = (message.collections || [])
+          .map((entry) => entry.name + ' (' + entry.count + ')')
+          .join(', ')
+        documentLine.textContent =
+          message.total +
+          ' local variables' +
+          (collections ? ': ' + collections : '')
+      }
 
       window.onmessage = (event) => {
         const message = event.data.pluginMessage
-        if (!message || message.type !== 'document') {
+        if (!message) {
           return
         }
-        if (!message.supported) {
-          documentSection.textContent =
-            'figma.variables no está disponible en este archivo.'
+        if (message.type === 'document') {
+          renderDocument(message)
           return
         }
-        const items = message.collections
-          .map((entry) => '<li>' + entry.name + ': ' + entry.count + '</li>')
-          .join('')
-        documentSection.innerHTML =
-          '<h1>Variables locales: ' +
-          message.total +
-          '</h1><ul>' +
-          items +
-          '</ul>'
+        if (!waiting) {
+          return
+        }
+        const pending = waiting
+        if (message.type === 'error') {
+          waiting = null
+          pending.reject(new Error(message.error))
+          return
+        }
+        if (message.type === pending.type) {
+          waiting = null
+          pending.resolve(message)
+        }
       }
+
+      const withBusy = (task) => async () => {
+        setBusy(true)
+        try {
+          await task()
+        } finally {
+          setBusy(false)
+        }
+      }
+
+      pushButton.addEventListener('click', withBusy(push))
+      pullButton.addEventListener('click', withBusy(pull))
 
       parent.postMessage({ pluginMessage: { type: 'describe' } }, '*')
     </script>

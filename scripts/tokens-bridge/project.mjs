@@ -1,6 +1,8 @@
 import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
+import { encodeLeaf } from './inverse.mjs'
+
 /**
  * Reads the canonical DTCG tree and returns the flattened payload Figma needs,
  * one object per token set. Files inside a set merge into a single tree.
@@ -10,6 +12,80 @@ export function projectTokens(repoRoot = process.cwd()) {
     primitives: projectTree(readTree(repoRoot, 'primitives')),
     semantic: projectTree(readTree(repoRoot, 'semantic')),
   }
+}
+
+/**
+ * Combines projected trees into the single tree the Figma document holds. Figma
+ * cannot tell which repository set a variable belongs to, so both sets arrive
+ * and leave as one tree.
+ */
+export function mergeTokenTrees(...trees) {
+  const merged = {}
+  for (const tree of trees) {
+    mergeInto(merged, tree)
+  }
+  return merged
+}
+
+/**
+ * Converts the projected tree into the raw values the Figma plugin writes. The
+ * plugin never learns the DTCG vocabulary: aliases become `{ alias }` markers,
+ * colors become `{ r, g, b, a }` and dimensions become plain numbers.
+ *
+ * A leaf whose projected value is a composite object (typography, border) has no
+ * Figma variable type, so it is left out instead of being pushed as one
+ * variable per property. Nothing is dropped from the repository: the pull never
+ * deletes a token the document does not carry.
+ */
+export function toFigmaTree(tree) {
+  const converted = {}
+  for (const [key, value] of Object.entries(tree)) {
+    if (isTokenLeaf(value)) {
+      const leaf = toFigmaLeaf(value)
+      if (leaf !== undefined) {
+        converted[key] = leaf
+      }
+    } else if (isPlainObject(value)) {
+      const group = toFigmaTree(value)
+      if (Object.keys(group).length > 0) {
+        converted[key] = group
+      }
+    } else {
+      converted[key] = value
+    }
+  }
+  return converted
+}
+
+function toFigmaLeaf(token) {
+  const value = token.$value
+  if (typeof value === 'string') {
+    const alias = /^\{([^{}]+)\}$/.exec(value)
+    if (alias) {
+      return { alias: alias[1] }
+    }
+  }
+  if (isPlainObject(value)) {
+    return undefined
+  }
+  if (token.$type === 'color' && typeof value === 'string') {
+    const color = encodeLeaf({ $type: 'color' }, value)
+    if (isColorObject(color)) {
+      return {
+        r: color.components[0],
+        g: color.components[1],
+        b: color.components[2],
+        a: color.alpha === undefined ? 1 : color.alpha,
+      }
+    }
+  }
+  if (token.$type === 'dimension' && typeof value === 'string') {
+    const dimension = encodeLeaf({ $type: 'dimension' }, value)
+    if (isDimensionObject(dimension)) {
+      return dimension.value
+    }
+  }
+  return value
 }
 
 /**
@@ -123,7 +199,11 @@ function isTokenLeaf(node) {
 }
 
 function isColorObject(value) {
-  return isPlainObject(value) && Array.isArray(value.components)
+  return (
+    isPlainObject(value) &&
+    Array.isArray(value.components) &&
+    value.components.length === 3
+  )
 }
 
 function isDimensionObject(value) {
