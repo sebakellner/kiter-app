@@ -4,11 +4,14 @@ import { fileURLToPath } from 'node:url'
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
+import { rejectionOf } from './guard.mjs'
 import { encodeLeaf } from './inverse.mjs'
 import { mergePayload } from './merge.mjs'
 import { projectTokens } from './project.mjs'
 
 const repoRoot = fileURLToPath(new URL('../..', import.meta.url))
+const SERVER_URL = new URL('./server.mjs', import.meta.url)
+const SERVER_SOURCE = readFileSync(SERVER_URL, 'utf8')
 
 function isPlainObject(value) {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -191,6 +194,28 @@ test('encodes raw Figma values for dimension and color tokens (T8)', () => {
 
   const effects = [{ type: 'DROP_SHADOW', radius: 4 }]
   assert.deepEqual(encodeLeaf(canonical.shadow['black-28'], effects), effects)
+})
+
+test('refuses a foreign origin and never sends a wildcard (R1-001)', () => {
+  const evil = { method: 'GET', headers: { origin: 'https://evil.example' } }
+  assert.deepEqual(rejectionOf(evil), {
+    status: 403,
+    error: 'origin not allowed',
+  })
+  // The plugin iframe still passes, and no route answers a wildcard origin.
+  assert.equal(rejectionOf({ headers: { origin: 'null' } }), undefined)
+  assert.doesNotMatch(SERVER_SOURCE, /allow-origin', '\*/)
+  assert.match(SERVER_SOURCE, /rejectionOf\(request\)/)
+})
+
+test('rejects a POST that is not application/json (R1-001)', () => {
+  const text = { method: 'POST', headers: { 'content-type': 'text/plain' } }
+  const ok = { method: 'POST', headers: { 'content-type': 'application/json' } }
+  assert.deepEqual(rejectionOf(text), {
+    status: 415,
+    error: 'content-type must be application/json',
+  })
+  assert.equal(rejectionOf(ok), undefined)
 })
 
 test('keeps a token that the payload omits (S6)', () => {

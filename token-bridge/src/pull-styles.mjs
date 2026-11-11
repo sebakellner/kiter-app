@@ -1,7 +1,8 @@
 import { spawnSync } from 'node:child_process'
-import { readdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
+import { commitWrites } from './commit.mjs'
 import { serializeTokens } from './serialize.mjs'
 import { matchTextStyles } from './style-match.mjs'
 
@@ -27,8 +28,8 @@ export async function applyStylePull({
   const { proposals, report } = matchTextStyles({ repoRoot, styles })
   const files = readTokenFiles(repoRoot)
 
-  // Everything is serialized before the first write: a failure while rebuilding
-  // leaves the tree untouched instead of half written.
+  // Serialize everything before the first write. `commitWrites` writes the
+  // files and runs the build, so a failed build restores them all.
   const pending = []
   if (proposals.length > 0) {
     for (const [file, entries] of claimOwners(files, proposals)) {
@@ -47,11 +48,7 @@ export async function applyStylePull({
       })
     }
   }
-  for (const file of pending) {
-    writeFileSync(file.absolutePath, file.serialized)
-  }
-
-  runBuild(repoRoot)
+  commitWrites(pending, repoRoot, runBuild)
   return { report, written: pending.map((file) => file.relPath) }
 }
 

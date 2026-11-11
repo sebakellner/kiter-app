@@ -1,7 +1,8 @@
 import { spawnSync } from 'node:child_process'
-import { readdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
+import { commitWrites } from './commit.mjs'
 import { mergePayload } from './merge.mjs'
 import { serializeTokens } from './serialize.mjs'
 
@@ -38,8 +39,8 @@ export async function applyPull({ repoRoot, payload, runBuild = runTokens }) {
     merged.tree[run.folder] = run.tree[run.folder]
   }
 
-  // Serialize everything before the first write: a failure while rebuilding
-  // leaves the tree untouched instead of half written.
+  // Serialize everything before the first write. `commitWrites` writes the
+  // files and runs the build, so a failed build restores them all.
   const pending = []
   for (const file of files) {
     const next = reconstructFile(file, merged.tree[file.folder])
@@ -54,11 +55,7 @@ export async function applyPull({ repoRoot, payload, runBuild = runTokens }) {
       serialized: serializeTokens(next),
     })
   }
-  for (const file of pending) {
-    writeFileSync(file.absolutePath, file.serialized)
-  }
-
-  runBuild(repoRoot)
+  commitWrites(pending, repoRoot, runBuild)
   return { report: merged.report, written: pending.map((file) => file.relPath) }
 }
 

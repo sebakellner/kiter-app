@@ -11,6 +11,7 @@ import { dirname, join } from 'node:path'
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
+import { failedBody } from './guard.mjs'
 import { applyPull } from './pull.mjs'
 import { mergeTokenTrees, projectTokens } from './project.mjs'
 
@@ -360,6 +361,28 @@ test('keeps a token that the payload omits (S6)', async (t) => {
   assert.equal(report.untouched, 2)
   assert.deepEqual(report.added, [])
   assert.deepEqual(snapshot(root), before)
+})
+
+test('a failed build restores every written file and names it (R3-003)', async (t) => {
+  const root = createFixture(t)
+  const before = snapshot(root)
+  const payload = { tokens: projectTokenTree(root) }
+  payload.tokens.color.slate['900'].$value = '#000000'
+  const runBuild = () => {
+    throw new Error('pnpm tokens exited with code 1')
+  }
+
+  const error = await applyPull({ repoRoot: root, payload, runBuild }).catch(
+    (caught) => caught,
+  )
+
+  assert.deepEqual(snapshot(root), before)
+  assert.match(error.message, /rolled back tokens\/primitives\/color\.json/)
+  assert.deepEqual(failedBody(error), {
+    ok: false,
+    error: error.message,
+    rolledBack: ['tokens/primitives/color.json'],
+  })
 })
 
 test('pulling twice in a row produces byte-identical files (S8)', async (t) => {

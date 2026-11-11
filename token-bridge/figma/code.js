@@ -220,9 +220,9 @@ async function writeTokens(tree) {
 
   const byName = {}
   for (const variable of variables) {
-    // Two collections can declare the same name. The Kiter copy wins, so a push
-    // updates it instead of creating a duplicate, and never renames anything.
-    if (!byName[variable.name] || isKiterCollection(variable, collection)) {
+    // A same-named variable in another collection cannot take this collection's
+    // mode id, so adopting it would skip the write: only the Kiter copy is used.
+    if (isKiterCollection(variable, collection)) {
       byName[variable.name] = variable
     }
   }
@@ -496,9 +496,8 @@ function countOf(bindings, property) {
   return bindings[property]
 }
 
-// The variables this push wrote, by name. The Kiter copy of a duplicated name
-// wins, exactly like the variable push does, so the binding points at the
-// variable the panel sees.
+// The variables this push can write, by name: only the Kiter collection, so a
+// binding never points at a same-named variable another collection owns.
 async function variablesByName() {
   const byName = new Map()
   if (
@@ -525,13 +524,10 @@ async function variablesByName() {
     return byName
   }
   for (const variable of variables) {
-    if (
-      !byName.has(variable.name) ||
-      (collectionId !== undefined &&
-        variable.variableCollectionId === collectionId)
-    ) {
-      byName.set(variable.name, variable)
+    if (variable.variableCollectionId !== collectionId) {
+      continue
     }
+    byName.set(variable.name, variable)
   }
   return byName
 }

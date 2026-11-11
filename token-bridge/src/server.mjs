@@ -6,6 +6,7 @@ import { join } from 'node:path'
 
 import { applyPull } from './pull.mjs'
 import { applyStylePull } from './pull-styles.mjs'
+import { ALLOWED_ORIGIN, failedBody, rejectionOf } from './guard.mjs'
 import { mergeTokenTrees, projectTokens, toFigmaTree } from './project.mjs'
 import { buildStyles } from './styles.mjs'
 
@@ -112,7 +113,7 @@ async function pullTokens(request, response) {
     })
     send(response, 200, { ok: true, report, written })
   } catch (error) {
-    send(response, 500, { ok: false, error: messageOf(error) })
+    send(response, 500, failedBody(error))
   }
 }
 
@@ -148,7 +149,7 @@ async function pullStyles(request, response) {
     })
     send(response, 200, { ok: true, report, written })
   } catch (error) {
-    send(response, 500, { ok: false, error: messageOf(error) })
+    send(response, 500, failedBody(error))
   }
 }
 
@@ -168,9 +169,15 @@ const server = createServer((request, response) => {
     )
   })
 
-  response.setHeader('access-control-allow-origin', '*')
+  response.setHeader('access-control-allow-origin', ALLOWED_ORIGIN)
   response.setHeader('access-control-allow-methods', 'GET, POST, OPTIONS')
   response.setHeader('access-control-allow-headers', 'content-type')
+
+  const rejection = rejectionOf(request)
+  if (rejection) {
+    send(response, rejection.status, { ok: false, error: rejection.error })
+    return
+  }
 
   if (request.method === 'OPTIONS') {
     response.writeHead(204)
@@ -202,7 +209,7 @@ const server = createServer((request, response) => {
     pullTokens(request, response).catch((error) => {
       console.error(error)
       if (!response.headersSent) {
-        send(response, 500, { ok: false, error: messageOf(error) })
+        send(response, 500, failedBody(error))
       }
     })
     return
@@ -212,7 +219,7 @@ const server = createServer((request, response) => {
     pullStyles(request, response).catch((error) => {
       console.error(error)
       if (!response.headersSent) {
-        send(response, 500, { ok: false, error: messageOf(error) })
+        send(response, 500, failedBody(error))
       }
     })
     return

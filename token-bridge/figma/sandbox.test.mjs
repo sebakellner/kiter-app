@@ -28,6 +28,14 @@ const BINDING_VARIABLES = [
     variableCollectionId: 'collection',
     valuesByMode: {},
   },
+  // This name exists only in another collection: a push must never adopt it.
+  {
+    id: 'variable-foreign',
+    name: 'font/line-height/normal',
+    resolvedType: 'FLOAT',
+    variableCollectionId: 'other',
+    valuesByMode: {},
+  },
 ]
 
 // Binding outcomes the file has to survive. `bound` is the happy path, and the
@@ -134,7 +142,14 @@ async function runPlugin(message, variant = 'bound') {
       return style
     },
     variables: {
-      getLocalVariableCollectionsAsync: async () => [],
+      getLocalVariableCollectionsAsync: async () => [
+        {
+          id: 'collection',
+          name: 'Kiter',
+          modes: [{ modeId: 'mode' }],
+          variableIds: [],
+        },
+      ],
       getLocalVariablesAsync: async () => variablesFor(variant),
       createVariableCollection: () => ({
         id: 'collection',
@@ -208,6 +223,22 @@ function stylesWithBindings() {
     effects: [],
   }
 }
+
+test('does not adopt a same-named variable from another collection (R3-001)', async () => {
+  const bindings = { letterSpacing: 'font/line-height/normal' }
+  const { posted } = await runPlugin({
+    type: 'push',
+    tokens: { font: { 'line-height': { normal: 20 } } },
+    styles: { text: [{ ...styles.text[0], bindings }], effects: [] },
+  })
+
+  // The Kiter variable is created; the foreign one is neither updated nor bound.
+  assert.equal(posted.variables.created, 1)
+  assert.equal(posted.variables.updated, 0)
+  const issues = plain(posted.styles.text.bindingIssues)
+  assert.equal(issues.length, 1)
+  assert.equal(issues[0].reason, 'no-variable')
+})
 
 test('writes styles with the async accessors required by dynamic-page', async () => {
   const { posted } = await runPlugin({ type: 'push', tokens: {}, styles })
