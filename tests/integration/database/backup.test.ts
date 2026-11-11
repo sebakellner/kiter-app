@@ -437,16 +437,23 @@ test('a protective backup reports a corrupt catalog as its own cause', async (t)
   const f = await fixture(t)
   f.connection.close()
   await writeFile(f.filename, 'not a database')
-  assert.throws(
-    () =>
-      createProtectiveBackup(
-        new Database(f.filename),
-        f.filename,
-        migrationsFolder,
-        f.storage,
-      ),
-    { code: 'BACKUP_FAILED', cause: 'catalog-corrupt' },
-  )
+  // Kept open only for the call under test. Windows refuses to unlink a file with
+  // a live handle, so leaking this connection turns fixture cleanup into EBUSY.
+  const corrupt = new Database(f.filename)
+  try {
+    assert.throws(
+      () =>
+        createProtectiveBackup(
+          corrupt,
+          f.filename,
+          migrationsFolder,
+          f.storage,
+        ),
+      { code: 'BACKUP_FAILED', cause: 'catalog-corrupt' },
+    )
+  } finally {
+    corrupt.close()
+  }
 })
 
 test('a protective backup reports a readable but invalid catalog as its own cause', async (t) => {
