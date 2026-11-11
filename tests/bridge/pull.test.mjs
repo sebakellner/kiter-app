@@ -12,7 +12,10 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 
 import { applyPull } from '../../scripts/tokens-bridge/pull.mjs'
-import { projectTokens } from '../../scripts/tokens-bridge/project.mjs'
+import {
+  mergeTokenTrees,
+  projectTokens,
+} from '../../scripts/tokens-bridge/project.mjs'
 
 const FOLDERS = ['primitives', 'semantic']
 
@@ -101,6 +104,15 @@ function snapshot(root) {
   return files
 }
 
+/**
+ * The plugin sends one tree for the whole document: Figma cannot tell which
+ * repository folder a variable belongs to.
+ */
+function projectTokenTree(root) {
+  const { primitives, semantic } = projectTokens(root)
+  return mergeTokenTrees(primitives, semantic)
+}
+
 function createBuildStub() {
   const calls = []
   return {
@@ -115,8 +127,8 @@ test('rewrites only the file that owns the changed leaf (S7)', async (t) => {
   const root = createFixture(t)
   const before = snapshot(root)
   const { calls, runBuild } = createBuildStub()
-  const payload = projectTokens(root)
-  payload.primitives.color.slate['900'].$value = '#000000'
+  const payload = { tokens: projectTokenTree(root) }
+  payload.tokens.color.slate['900'].$value = '#000000'
 
   const { report, written } = await applyPull({
     repoRoot: root,
@@ -167,7 +179,7 @@ test('writes nothing when the payload matches the repository (S8)', async (t) =>
 
   const { report, written } = await applyPull({
     repoRoot: root,
-    payload: projectTokens(root),
+    payload: { tokens: projectTokenTree(root) },
     runBuild,
   })
 
@@ -181,8 +193,8 @@ test('reports a payload root no file owns and creates no file', async (t) => {
   const root = createFixture(t)
   const before = snapshot(root)
   const { runBuild } = createBuildStub()
-  const payload = projectTokens(root)
-  payload.primitives.palette = {
+  const payload = { tokens: projectTokenTree(root) }
+  payload.tokens.palette = {
     accent: { $type: 'color', $value: '#FFC800' },
   }
 
@@ -192,20 +204,154 @@ test('reports a payload root no file owns and creates no file', async (t) => {
     runBuild,
   })
 
+  // One path in no folder is reported once, not once per folder.
   assert.deepEqual(report.added, ['palette.accent'])
   assert.deepEqual(report.changed, [])
+  assert.equal(report.untouched, 0)
   assert.deepEqual(written, [])
   assert.deepEqual(listFiles(root), Object.keys(before))
   assert.deepEqual(snapshot(root), before)
+})
+
+test('updates a primitive and a semantic token from one tree', async (t) => {
+  const root = createFixture(t)
+  const { runBuild } = createBuildStub()
+  const payload = { tokens: projectTokenTree(root) }
+  payload.tokens.color.slate['900'].$value = '#000000'
+  payload.tokens.color.action.primary.$value = '{color.slate.900}'
+
+  const { report, written } = await applyPull({
+    repoRoot: root,
+    payload,
+    runBuild,
+  })
+
+  assert.deepEqual(written, [
+    'tokens/primitives/color.json',
+    'tokens/semantic/color.json',
+  ])
+  assert.deepEqual(report.changed, [
+    { path: 'color.slate.900', from: '#1A1A1A', to: '#000000' },
+    {
+      path: 'color.action.primary',
+      from: '{color.white}',
+      to: '{color.slate.900}',
+    },
+  ])
+  assert.deepEqual(report.added, [])
+  assert.equal(report.untouched, 0)
+
+  const primitive = JSON.parse(
+    readFileSync(join(root, 'tokens/primitives/color.json'), 'utf8'),
+  )
+  assert.deepEqual(primitive.color.slate['900'].$value, {
+    colorSpace: 'srgb',
+    components: [0, 0, 0],
+    hex: '#000000',
+  })
+  const semantic = JSON.parse(
+    readFileSync(join(root, 'tokens/semantic/color.json'), 'utf8'),
+  )
+  assert.equal(semantic.color.action.primary.$value, '{color.slate.900}')
+  assert.equal(
+    semantic.color.action.primary.$description,
+    'The only accent for primary actions.',
+  )
+})
+
+test('does not report a path as added when one folder owns it', async (t) => {
+  const root = createFixture(t)
+  const { runBuild } = createBuildStub()
+  const payload = { tokens: projectTokenTree(root) }
+  // Only tokens/semantic declares space.gutter, so the primitives run of the
+  // merge sees it as unknown; the combined report must not surface that.
+  payload.tokens.space.gutter.$value = '32px'
+
+  const { report, written } = await applyPull({
+    repoRoot: root,
+    payload,
+    runBuild,
+  })
+
+  assert.deepEqual(report.added, [])
+  assert.deepEqual(report.changed, [
+    { path: 'space.gutter', from: '{space.4}', to: '32px' },
+  ])
+  assert.equal(report.untouched, 0)
+  assert.deepEqual(written, ['tokens/semantic/space.json'])
+})
+
+test('pulls raw Figma values and stays idempotent (T8)', async (t) => {
+  const root = createFixture(t)
+  const { runBuild } = createBuildStub()
+  const payload = {
+    tokens: {
+      color: {
+        white: { r: 1, g: 1, b: 1, a: 1 },
+        slate: { 900: { r: 0, g: 0, b: 0, a: 1 } },
+        action: { primary: { alias: 'color.slate.900' } },
+      },
+      space: { 4: 20, gutter: { alias: 'space.4' } },
+    },
+  }
+
+  const { report, written } = await applyPull({
+    repoRoot: root,
+    payload,
+    runBuild,
+  })
+
+  assert.deepEqual(written, [
+    'tokens/primitives/color.json',
+    'tokens/primitives/space.json',
+    'tokens/semantic/color.json',
+  ])
+  assert.deepEqual(report.changed, [
+    { path: 'color.slate.900', from: '#1A1A1A', to: '#000000' },
+    { path: 'space.4', from: '16px', to: '20px' },
+    {
+      path: 'color.action.primary',
+      from: '{color.white}',
+      to: '{color.slate.900}',
+    },
+  ])
+  assert.deepEqual(report.added, [])
+  assert.equal(report.untouched, 0)
+
+  const color = JSON.parse(
+    readFileSync(join(root, 'tokens/primitives/color.json'), 'utf8'),
+  )
+  assert.deepEqual(color.color.slate['900'].$value, {
+    colorSpace: 'srgb',
+    components: [0, 0, 0],
+    hex: '#000000',
+  })
+  assert.deepEqual(color.color.white.$value, {
+    colorSpace: 'srgb',
+    components: [1, 1, 1],
+    hex: '#FFFFFF',
+  })
+  const semantic = JSON.parse(
+    readFileSync(join(root, 'tokens/semantic/color.json'), 'utf8'),
+  )
+  assert.equal(semantic.color.action.primary.$value, '{color.slate.900}')
+  assert.equal(
+    semantic.color.action.primary.$description,
+    'The only accent for primary actions.',
+  )
+
+  const second = await applyPull({ repoRoot: root, payload, runBuild })
+  assert.deepEqual(second.written, [])
+  assert.deepEqual(second.report.changed, [])
 })
 
 test('keeps a token that the payload omits (S6)', async (t) => {
   const root = createFixture(t)
   const before = snapshot(root)
   const { runBuild } = createBuildStub()
-  const payload = projectTokens(root)
-  delete payload.primitives.space['4']
-  delete payload.semantic.color.action.primary
+  const payload = { tokens: projectTokenTree(root) }
+  delete payload.tokens.space['4']
+  delete payload.tokens.color.action.primary
 
   const { report, written } = await applyPull({
     repoRoot: root,
@@ -222,9 +368,9 @@ test('keeps a token that the payload omits (S6)', async (t) => {
 test('pulling twice in a row produces byte-identical files (S8)', async (t) => {
   const root = createFixture(t)
   const { runBuild } = createBuildStub()
-  const payload = projectTokens(root)
-  payload.primitives.color.slate['900'].$value = '#010101'
-  payload.primitives.space['4'].$value = '24px'
+  const payload = { tokens: projectTokenTree(root) }
+  payload.tokens.color.slate['900'].$value = '#010101'
+  payload.tokens.space['4'].$value = '24px'
 
   const first = await applyPull({ repoRoot: root, payload, runBuild })
   assert.deepEqual(first.written, [

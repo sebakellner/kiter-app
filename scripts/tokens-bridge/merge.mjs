@@ -32,13 +32,18 @@ function mergeSet(repoSet, payloadSet, report) {
         report.added.push(tokenPath)
         return
       }
+      // The payload may carry the projected vocabulary or a raw Figma value.
+      // Encoding first and projecting the result compares both spellings in the
+      // language of the projection, so a raw `{ r, g, b, a }` that reproduces
+      // the repository token is a no-op instead of a rewrite.
       const from = projectLeafValue(repoLeaf)
-      const to = payloadLeaf.$value
+      const encoded = encodeLeaf(repoLeaf, payloadLeaf.$value)
+      const to = projectLeafValue({ ...repoLeaf, $value: encoded })
       if (isDeepStrictEqual(from, to)) {
         return
       }
       report.changed.push({ path: tokenPath, from, to })
-      repoLeaf.$value = encodeLeaf(repoLeaf, to)
+      repoLeaf.$value = encoded
     })
   }
   if (isPlainObject(repoSet)) {

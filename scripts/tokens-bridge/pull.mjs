@@ -9,17 +9,35 @@ import { mergePayload } from './merge.mjs'
 const TOKEN_FOLDERS = ['primitives', 'semantic']
 
 /**
- * Applies the flattened payload Figma returns to tokens/<folder>/*.json.
+ * Applies the single tree Figma returns to tokens/<folder>/*.json.
  *
  * A token's identity is its path, and a file owns the top-level root keys it
- * declares. Every file is rebuilt from the merged tree using only the paths it
- * already owned, so a pull rewrites the files that changed, keeps the key order
- * of each of them, and never creates one.
+ * declares. Figma cannot say which folder a variable belongs to, so the same
+ * tree is merged into every folder: each folder takes the paths it declares and
+ * a path that no folder declares is only reported once. Every file is rebuilt
+ * from the merged tree using only the paths it already owned, so a pull rewrites
+ * the files that changed, keeps the key order of each of them, and never
+ * creates one.
  */
 export async function applyPull({ repoRoot, payload, runBuild = runTokens }) {
-  assertPayloadSets(payload)
+  const tokens = normalizeTree(assertTokenTree(payload?.tokens))
   const files = TOKEN_FOLDERS.flatMap((folder) => readFolder(repoRoot, folder))
-  const merged = mergePayload(readFolderTrees(files), payload ?? {})
+  const folderTrees = readFolderTrees(files)
+
+  const runs = TOKEN_FOLDERS.map((folder) => {
+    const { tree, report } = mergePayload(
+      { [folder]: folderTrees[folder] },
+      { [folder]: tokens },
+    )
+    return { folder, tree, report }
+  })
+  const merged = {
+    tree: {},
+    report: combineReports(runs.map((run) => run.report)),
+  }
+  for (const run of runs) {
+    merged.tree[run.folder] = run.tree[run.folder]
+  }
 
   // Serialize everything before the first write: a failure while rebuilding or
   // formatting leaves the tree untouched instead of half written.
@@ -132,13 +150,78 @@ function reconstructNode(original, merged) {
   return next
 }
 
-function assertPayloadSets(payload) {
-  for (const folder of TOKEN_FOLDERS) {
-    const set = payload?.[folder]
-    if (set !== undefined && !isPlainObject(set)) {
-      throw new Error(`payload.${folder} must be an object`)
+/**
+ * Combines the per-folder reports of the same tree. A change belongs to the
+ * folder that declares the path, an addition to neither of them: only a path
+ * that every folder rejected is reported, once.
+ */
+function combineReports(reports) {
+  const changed = new Map()
+  const added = new Map()
+  let untouched = 0
+  for (const report of reports) {
+    untouched += report.untouched
+    for (const change of report.changed) {
+      if (!changed.has(change.path)) {
+        changed.set(change.path, change)
+      }
+    }
+    for (const path of report.added) {
+      added.set(path, (added.get(path) ?? 0) + 1)
     }
   }
+  return {
+    changed: [...changed.values()],
+    added: [...added]
+      .filter(([, count]) => count === reports.length)
+      .map(([path]) => path),
+    untouched,
+  }
+}
+
+function assertTokenTree(tokens) {
+  if (!isPlainObject(tokens)) {
+    throw new Error('payload.tokens must be an object')
+  }
+  return tokens
+}
+
+/**
+ * Adapts the tree the plugin sends to the shape the surgical merge walks. The
+ * plugin only knows raw Figma values, so a node is a group unless it already
+ * looks like a value. The alias marker the plugin sends becomes the
+ * repository's `{group.token}` string, and a token wrapper is unwrapped so a
+ * payload built from the projection also works.
+ */
+function normalizeTree(node) {
+  const normalized = {}
+  for (const [key, value] of Object.entries(node)) {
+    if (key.startsWith('$')) {
+      continue
+    }
+    if (isPlainObject(value) && !isRawValue(value) && !isTokenLeaf(value)) {
+      normalized[key] = normalizeTree(value)
+      continue
+    }
+    normalized[key] = {
+      $value: normalizeRawValue(isTokenLeaf(value) ? value.$value : value),
+    }
+  }
+  return normalized
+}
+
+function normalizeRawValue(value) {
+  if (isPlainObject(value) && typeof value.alias === 'string') {
+    return `{${value.alias}}`
+  }
+  return value
+}
+
+function isRawValue(value) {
+  if (typeof value.alias === 'string') {
+    return true
+  }
+  return ['r', 'g', 'b'].every((channel) => typeof value[channel] === 'number')
 }
 
 /**

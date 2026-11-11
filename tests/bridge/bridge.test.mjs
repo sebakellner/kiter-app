@@ -130,6 +130,69 @@ test('flattens colors, dimensions and numbers on real tokens', () => {
   assert.equal(encodeLeaf(undefined, '#BFC0C2'), '#BFC0C2')
 })
 
+test('encodes raw Figma values for dimension and color tokens (T8)', () => {
+  const canonical = readTokenSet('primitives')
+
+  assert.deepEqual(encodeLeaf(canonical.space['4'], 16), {
+    value: 16,
+    unit: 'px',
+  })
+  assert.deepEqual(encodeLeaf(canonical.radius['8'], 8), {
+    value: 8,
+    unit: 'px',
+  })
+  assert.deepEqual(
+    encodeLeaf(canonical.color.slate['300'], {
+      r: 191 / 255,
+      g: 192 / 255,
+      b: 194 / 255,
+      a: 1,
+    }),
+    canonical.color.slate['300'].$value,
+  )
+  assert.deepEqual(
+    encodeLeaf(canonical.color.slate['300'], {
+      r: 191 / 255,
+      g: 192 / 255,
+      b: 194 / 255,
+    }),
+    canonical.color.slate['300'].$value,
+  )
+  assert.deepEqual(
+    encodeLeaf(canonical.color.slate['300'], {
+      r: 0.749,
+      g: 0.7529411764705882,
+      b: 0.7607843137254902,
+      a: 1,
+    }),
+    canonical.color.slate['300'].$value,
+  )
+  assert.deepEqual(
+    encodeLeaf(canonical.color['black-alpha']['28'], {
+      r: 0,
+      g: 0,
+      b: 0,
+      a: 0.28,
+    }),
+    canonical.color['black-alpha']['28'].$value,
+  )
+  const translucent = encodeLeaf(canonical.color['black-alpha']['28'], {
+    r: 0,
+    g: 0,
+    b: 0,
+    a: 0.5,
+  })
+  assert.deepEqual(translucent, {
+    colorSpace: 'srgb',
+    components: [0, 0, 0],
+    alpha: 0.5,
+  })
+  assert.equal(Object.hasOwn(translucent, 'hex'), false)
+
+  const effects = [{ type: 'DROP_SHADOW', radius: 4 }]
+  assert.deepEqual(encodeLeaf(canonical.shadow['black-28'], effects), effects)
+})
+
 test('keeps a token that the payload omits (S6)', () => {
   const payload = projectTokens(repoRoot)
   delete payload.primitives.color.slate['300']
