@@ -164,24 +164,58 @@
         }
       }
 
+      function styleCount(styles, kind) {
+        return (styles && styles[kind]) || {}
+      }
+
+      function countsLine(counts) {
+        return (
+          (counts.created || 0) +
+          ' created, ' +
+          (counts.updated || 0) +
+          ' updated, ' +
+          (counts.skipped || 0) +
+          ' skipped'
+        )
+      }
+
+      function appendSkipped(label, counts) {
+        const names = counts.skippedNames || []
+        if (names.length === 0) {
+          return
+        }
+        append('Skipped ' + label + ':')
+        for (const name of names) {
+          append('  ' + name)
+        }
+      }
+
       async function push() {
         reset('GET ' + BASE + '/push')
         try {
           const body = await fetchJson('/push')
+          const styles = body.styles || {}
           append('Repo: ' + countLeaves(body.tokens) + ' tokens')
+          append(
+            'Repo: ' +
+              (styles.text || []).length +
+              ' text styles, ' +
+              (styles.effects || []).length +
+              ' effect styles',
+          )
           const result = await ask(
-            { type: 'push', tokens: body.tokens },
+            { type: 'push', tokens: body.tokens, styles: body.styles },
             'push-result',
           )
-          append(
-            'Figma: ' +
-              result.created +
-              ' created, ' +
-              result.updated +
-              ' updated, ' +
-              result.skipped +
-              ' skipped',
-          )
+          const variables = result.variables || {}
+          const written = result.styles || {}
+          const text = styleCount(written, 'text')
+          const effects = styleCount(written, 'effects')
+          append('Figma variables: ' + countsLine(variables))
+          append('Figma text styles: ' + countsLine(text))
+          append('Figma effect styles: ' + countsLine(effects))
+          appendSkipped('text styles', text)
+          appendSkipped('effect styles', effects)
           append('✓ Push done.')
         } catch (error) {
           fail('Push', error, error.server === true)

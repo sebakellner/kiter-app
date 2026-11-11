@@ -23,13 +23,9 @@ figma.ui.onmessage = async (message) => {
       return
     }
     if (message.type === 'push') {
-      const counts = await writeTokens(message.tokens)
-      figma.ui.postMessage({
-        type: 'push-result',
-        created: counts.created,
-        updated: counts.updated,
-        skipped: counts.skipped,
-      })
+      const variables = await writeTokens(message.tokens)
+      const styles = await writeStyles(message.styles)
+      figma.ui.postMessage({ type: 'push-result', variables, styles })
       return
     }
     if (message.type === 'close') {
@@ -278,6 +274,179 @@ function modeIdOf(collection) {
     throw new Error(`collection "${collection.name}" has no mode`)
   }
   return modes[FIRST_MODE].modeId
+}
+
+// Typography and shadow composites have no variable type, so they are written
+// as styles. Styles are push-only in this unit: the repository overwrites what
+// Figma holds and never reads a style back. Nothing is deleted, and an existing
+// style keeps the name it already has unless the payload carries that name.
+//
+// `skippedNames` is additive to the reported counts: the panel names the styles
+// it could not write, because a silent skip hides a missing text style.
+async function writeStyles(styles) {
+  return {
+    text: await writeTextStyles(styles && styles.text),
+    effects: await writeEffectStyles(styles && styles.effects),
+  }
+}
+
+async function writeTextStyles(entries) {
+  const counts = { created: 0, updated: 0, skipped: 0, skippedNames: [] }
+  const list = Array.isArray(entries) ? entries : []
+  if (list.length === 0) {
+    return counts
+  }
+  const byName = {}
+  // documentAccess: dynamic-page forbids the synchronous style accessors.
+  for (const style of await figma.getLocalTextStylesAsync()) {
+    byName[style.name] = style
+  }
+  for (const entry of list) {
+    const name = trimName(entry)
+    if (!name || typeof entry.fontSize !== 'number') {
+      skipStyle(counts, name)
+      continue
+    }
+    const fontName = fontNameOf(entry)
+    if (!fontName) {
+      skipStyle(counts, name)
+      continue
+    }
+    try {
+      // Figma refuses to write a font the plugin has not loaded. A family the
+      // document does not have fails here, and only this style is skipped.
+      await figma.loadFontAsync(fontName)
+    } catch {
+      skipStyle(counts, name)
+      continue
+    }
+    const existing = byName[name]
+    try {
+      const style = existing || figma.createTextStyle()
+      style.fontName = fontName
+      style.fontSize = entry.fontSize
+      style.lineHeight = {
+        unit: 'PIXELS',
+        value: numberOr(entry.lineHeight, entry.fontSize),
+      }
+      style.letterSpacing = {
+        unit: 'PIXELS',
+        value: numberOr(entry.letterSpacing, 0),
+      }
+      style.name = name
+      byName[name] = style
+    } catch {
+      skipStyle(counts, name)
+      continue
+    }
+    if (existing) {
+      counts.updated += 1
+      continue
+    }
+    counts.created += 1
+  }
+  return counts
+}
+
+async function writeEffectStyles(entries) {
+  const counts = { created: 0, updated: 0, skipped: 0, skippedNames: [] }
+  const list = Array.isArray(entries) ? entries : []
+  if (list.length === 0) {
+    return counts
+  }
+  const byName = {}
+  for (const style of await figma.getLocalEffectStylesAsync()) {
+    byName[style.name] = style
+  }
+  for (const entry of list) {
+    const effects = Array.isArray(entry && entry.effects)
+      ? entry.effects
+      : undefined
+    const name = trimName(entry)
+    if (!name || !effects) {
+      skipStyle(counts, name)
+      continue
+    }
+    const existing = byName[name]
+    try {
+      const style = existing || figma.createEffectStyle()
+      style.effects = effects.map(cloneEffect)
+      style.name = name
+      byName[name] = style
+    } catch {
+      skipStyle(counts, name)
+      continue
+    }
+    if (existing) {
+      counts.updated += 1
+      continue
+    }
+    counts.created += 1
+  }
+  return counts
+}
+
+function skipStyle(counts, name) {
+  counts.skipped += 1
+  if (name) {
+    counts.skippedNames.push(name)
+  }
+}
+
+function trimName(entry) {
+  if (!entry || typeof entry.name !== 'string') {
+    return undefined
+  }
+  const name = entry.name.trim()
+  return name === '' ? undefined : name
+}
+
+// The Figma cut for a repository weight. An unmapped weight keeps the family at
+// its regular cut instead of failing the style.
+const WEIGHT_STYLES = {
+  400: 'Regular',
+  500: 'Medium',
+  600: 'SemiBold',
+  700: 'Bold',
+}
+
+// A family the payload does not name cannot be loaded, so the style is skipped
+// instead of borrowing another family.
+function fontNameOf(entry) {
+  const family =
+    typeof entry.fontFamily === 'string' ? entry.fontFamily.trim() : ''
+  if (family === '') {
+    return undefined
+  }
+  return { family, style: WEIGHT_STYLES[entry.fontWeight] || 'Regular' }
+}
+
+function numberOr(value, fallback) {
+  return typeof value === 'number' && Number.isFinite(value) ? value : fallback
+}
+
+// Figma keeps its own objects; handing it the payload object keeps a reference
+// the panel still owns. A shallow copy is enough: effects are flat.
+function cloneEffect(effect) {
+  if (!isPlainObject(effect)) {
+    return effect
+  }
+  const copy = {}
+  for (const key of Object.keys(effect)) {
+    copy[key] = effect[key]
+  }
+  if (isPlainObject(effect.color)) {
+    copy.color = {
+      r: effect.color.r,
+      g: effect.color.g,
+      b: effect.color.b,
+      a: typeof effect.color.a === 'number' ? effect.color.a : 1,
+    }
+  }
+  if (isPlainObject(effect.offset)) {
+    copy.offset = { x: effect.offset.x, y: effect.offset.y }
+  }
+  return copy
 }
 
 function isKiterCollection(variable, collection) {
