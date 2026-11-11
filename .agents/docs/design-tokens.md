@@ -41,10 +41,11 @@ plugin at `figma/tokens-bridge/` talks to it. Both directions move one token
 tree: the plugin only reads and writes Figma, and the server owns every
 canonical shape.
 
-| Action | Transport    | Effect                                                                                                       |
-| ------ | ------------ | ------------------------------------------------------------------------------------------------------------ |
-| Push   | `GET /push`  | project `tokens/`, create or update the variables in the `Kiter` collection, then the text and effect styles |
-| Pull   | `POST /pull` | read the local variables, merge surgically into `tokens/`, then run `pnpm tokens` for the CSS                |
+| Action      | Transport           | Effect                                                                                                              |
+| ----------- | ------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| Push        | `GET /push`         | project `tokens/`, create or update the variables in the `Kiter` collection, then the text and effect styles        |
+| Pull        | `POST /pull`        | read the local variables, merge surgically into `tokens/`, then run `pnpm tokens` for the CSS                       |
+| Pull styles | `POST /pull-styles` | read the local text styles, match every property by value against a primitive, write only the composites that match |
 
 Nothing is ever deleted or renamed in Figma, and nothing is ever deleted from
 the repository. A Figma change arrives as a pull request whose CSS diff is the
@@ -188,8 +189,12 @@ nothing.
 
 ## Known limitations
 
-- Styles are **push-only**. A designer edit of a text or effect style in Figma
-  is overwritten by the next push and never pulled; only variables round-trip.
+- **Text styles round-trip; effect styles do not.** A text style comes back only
+  when every mappable property matches an existing primitive, and `lineHeight`
+  must agree with what the current composite produces. An unmatched size, a
+  diverged line height or an unknown name is reported and never written: the
+  bridge never invents a token. An effect style edit in Figma is still
+  overwritten by the next push.
 - A text style binds `fontSize` and `letterSpacing` to their token variables, so
   those two follow the primitive inside Figma. `lineHeight` stays literal: the
   style stores `fontSize × multiplier` and no token holds that product.
