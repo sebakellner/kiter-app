@@ -190,6 +190,54 @@
         }
       }
 
+      // A text style binds its size and letter spacing to the variables the
+      // tokens already own, so the style stops carrying a second copy of those
+      // values. A property that kept its literal is reported with its reason.
+      function appendBindings(counts) {
+        const bindings = counts.bindings || {}
+        const properties = Object.keys(bindings)
+        if (properties.length === 0) {
+          return
+        }
+        const parts = []
+        for (const property of properties) {
+          const entry = bindings[property] || {}
+          parts.push(
+            property +
+              ': ' +
+              (entry.bound || 0) +
+              ' bound, ' +
+              (entry.failed || 0) +
+              ' left as a literal',
+          )
+        }
+        append('Text style bindings: ' + parts.join('; '))
+
+        const issues = counts.bindingIssues || []
+        if (issues.length === 0) {
+          return
+        }
+        const partial = counts.partiallyBoundNames || []
+        const reasons = new Map()
+        for (const issue of issues) {
+          const name = issue.name || '(unnamed style)'
+          if (!reasons.has(name)) {
+            reasons.set(name, [])
+          }
+          reasons.get(name).push(issue.property + ' ' + issue.reason)
+        }
+        append('Text styles with unbound properties:')
+        for (const [name, entries] of reasons) {
+          append(
+            '  ' +
+              name +
+              ': ' +
+              entries.join(', ') +
+              (partial.indexOf(name) === -1 ? '' : ' (partially bound)'),
+          )
+        }
+      }
+
       async function push() {
         reset('GET ' + BASE + '/push')
         try {
@@ -214,6 +262,7 @@
           append('Figma variables: ' + countsLine(variables))
           append('Figma text styles: ' + countsLine(text))
           append('Figma effect styles: ' + countsLine(effects))
+          appendBindings(text)
           appendSkipped('text styles', text)
           appendSkipped('effect styles', effects)
           append('✓ Push done.')
