@@ -5,7 +5,7 @@ import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 import { applyPull } from './pull.mjs'
-import { projectTokens } from './project.mjs'
+import { mergeTokenTrees, projectTokens, toFigmaTree } from './project.mjs'
 
 const PORT = Number(process.env.KITER_TOKENS_PORT ?? 4747)
 const HOST = '127.0.0.1'
@@ -94,14 +94,11 @@ async function pullTokens(request, response) {
     return
   }
 
-  const payload = {
-    primitives: body?.primitives,
-    semantic: body?.semantic,
-  }
-  if (!isPlainObject(payload.primitives) || !isPlainObject(payload.semantic)) {
+  const payload = { tokens: body?.tokens }
+  if (!isPlainObject(payload.tokens)) {
     send(response, 400, {
       ok: false,
-      error: 'body must include primitives and semantic objects',
+      error: 'body must include a tokens object',
     })
     return
   }
@@ -153,7 +150,10 @@ const server = createServer((request, response) => {
   }
 
   if (request.method === 'GET' && request.url === '/push') {
-    send(response, 200, projectTokens(REPO_ROOT))
+    const { primitives, semantic } = projectTokens(REPO_ROOT)
+    send(response, 200, {
+      tokens: toFigmaTree(mergeTokenTrees(primitives, semantic)),
+    })
     return
   }
 
