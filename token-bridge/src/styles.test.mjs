@@ -5,12 +5,8 @@ import { dirname, join } from 'node:path'
 import test from 'node:test'
 import { fileURLToPath } from 'node:url'
 
-import {
-  mergeTokenTrees,
-  projectTokens,
-  toFigmaTree,
-} from '../../scripts/tokens-bridge/project.mjs'
-import { buildStyles } from '../../scripts/tokens-bridge/styles.mjs'
+import { mergeTokenTrees, projectTokens, toFigmaTree } from './project.mjs'
+import { buildStyles } from './styles.mjs'
 
 const repoRoot = fileURLToPath(new URL('../..', import.meta.url))
 

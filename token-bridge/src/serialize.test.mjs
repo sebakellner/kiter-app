@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import test from 'node:test'
 import { fileURLToPath } from 'node:url'
 
-import { serializeTokens } from '../../scripts/tokens-bridge/serialize.mjs'
+import { serializeTokens } from './serialize.mjs'
 
 const repoRoot = fileURLToPath(new URL('../..', import.meta.url))
 const TOKEN_FOLDERS = ['primitives', 'semantic']

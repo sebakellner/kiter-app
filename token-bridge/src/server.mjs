@@ -230,6 +230,6 @@ server.listen(PORT, HOST, () => {
   console.log(`Kiter token bridge en http://${HOST}:${PORT}`)
   console.log(`Repo: ${REPO_ROOT}`)
   console.log(
-    'En Figma: Plugins → Development → Import plugin from manifest → figma/tokens-bridge/manifest.json',
+    'En Figma: Plugins → Development → Import plugin from manifest → token-bridge/figma/manifest.json',
   )
 })

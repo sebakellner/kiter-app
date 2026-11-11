@@ -3,15 +3,13 @@
 // plugin ever calls them again.
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
 import test from 'node:test'
 import { fileURLToPath } from 'node:url'
 import vm from 'node:vm'
 
-const CODE = join(
-  fileURLToPath(new URL('../../figma/tokens-bridge/', import.meta.url)),
-  'code.js',
-)
+// The plugin bundle sits beside this test, so the sandbox contract travels with
+// the code it guards.
+const CODE = fileURLToPath(new URL('./code.js', import.meta.url))
 
 // The plugin resolves a binding by variable name, so the fake document only has
 // to hold variables with the names the payload carries.
