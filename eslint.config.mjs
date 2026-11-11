@@ -14,6 +14,7 @@ export default defineConfig(
       'test-results/**',
       'playwright-report/**',
       '.kiter-dev/**',
+      'figma/**',
     ],
   },
   tseslint.configs.recommended,
