@@ -1,17 +1,29 @@
-import { lstatSync, readdirSync, realpathSync, rmSync } from 'node:fs'
+import {
+  existsSync,
+  lstatSync,
+  readdirSync,
+  realpathSync,
+  rmSync,
+} from 'node:fs'
 import { basename, dirname, join, resolve } from 'node:path'
 import type Database from 'better-sqlite3'
 import type {
   BackupPage,
   BackupPageRequest,
   BackupSummary,
+  RestoreTicket,
 } from '../../../shared/domain/backup.ts'
 import { requireBackupPage } from '../../../shared/domain/backup.ts'
 import { DbError } from '../errors.ts'
 import {
   backupRoot,
   createProtectiveBackup,
+  pendingRestoreIntent,
+  publishRestoreImages,
   readBackupManifest,
+  stageRestoreCatalog,
+  verifyBackup,
+  writePendingRestore,
   type BackupManifest,
   type BackupStorage,
 } from './backup.ts'
@@ -68,6 +80,44 @@ export function createLibraryBackup(runtime: BackupRuntime): BackupSummary {
   // The copy was verified before publication; re-reading its own manifest keeps
   // the reply describing exactly what was published instead of re-hashing it.
   return summarize(location, readBackupManifest(location))
+}
+
+// Restore phase 1: everything except the catalog swap, which the next bootstrap
+// applies. The order is the contract: a pending restore is refused first, the
+// selected copy is verified before anything is written, a verified protective
+// copy of the current library is mandatory, and the staged catalog and images
+// are published only after that. The live catalog is never touched here.
+export function restoreLibraryBackup(
+  runtime: BackupRuntime,
+  location: string,
+): RestoreTicket {
+  if (existsSync(pendingRestoreIntent(runtime.filename))) {
+    throw new DbError(
+      'INVALID_INPUT',
+      'A restore is already pending. Restart Kiter to finish it before starting another one.',
+    )
+  }
+  // A future or unsupported copy is rejected before the current data is read.
+  const manifest = verifyBackup(location, runtime.migrationsFolder)
+  createProtectiveBackup(
+    runtime.native,
+    runtime.filename,
+    runtime.migrationsFolder,
+    runtime.storage,
+    'pre-restoration',
+  )
+  const staged = stageRestoreCatalog(runtime.filename, location, manifest)
+  try {
+    publishRestoreImages(runtime.storage, location, manifest)
+    writePendingRestore(runtime.filename, location, staged)
+  } catch (error) {
+    // This attempt owns the staged catalog. A published image is immutable and
+    // additive, so only the staged copy and the intent are removed here.
+    rmSync(staged, { force: true })
+    rmSync(pendingRestoreIntent(runtime.filename), { force: true })
+    throw error
+  }
+  return { location, createdAt: manifest.createdAt, restartRequired: true }
 }
 
 export function listLibraryBackups(

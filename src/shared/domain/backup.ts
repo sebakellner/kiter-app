@@ -26,6 +26,17 @@ export interface BackupPage extends Page<BackupSummary> {
 
 export type BackupPageRequest = PageRequest
 
+// A restore completes the catalog swap on the next start, so the runtime reply
+// only confirms which stored copy was prepared and when that copy was created.
+// It never claims the library has already been replaced.
+export interface RestoreTicket {
+  location: string
+  createdAt: string
+  // Phase one never swaps the catalog, so a surface must not present the restore
+  // as finished before the restart that applies it.
+  restartRequired: boolean
+}
+
 // Every surface that offers backup creation must state this limitation: a copy
 // kept on the same disk does not survive losing that disk.
 export const BACKUP_LOCAL_LIMITATION =
@@ -67,6 +78,17 @@ export function isBackupSummary(value: unknown): value is BackupSummary {
     value.totalBytes === value.catalogBytes + value.imageBytes &&
     // A copy without a catalog is not a backup.
     value.catalogBytes > 0
+  )
+}
+
+export function isRestoreTicket(value: unknown): value is RestoreTicket {
+  return (
+    isRecord(value) &&
+    typeof value.location === 'string' &&
+    value.location.length > 0 &&
+    typeof value.createdAt === 'string' &&
+    Number.isFinite(Date.parse(value.createdAt)) &&
+    value.restartRequired === true
   )
 }
 

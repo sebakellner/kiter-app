@@ -19,7 +19,7 @@ import {
   unlinkSync,
   writeFileSync,
 } from 'node:fs'
-import { basename, dirname, join, resolve } from 'node:path'
+import { basename, dirname, isAbsolute, join, resolve } from 'node:path'
 import Database from 'better-sqlite3'
 import { isEntityId, isRecord } from '../../../shared/domain/validation.ts'
 import type { BackupKind } from '../../../shared/domain/backup.ts'
@@ -51,6 +51,21 @@ export interface BackupManifest {
 }
 
 const MANIFEST_LIMIT = 16 * 1024 * 1024
+
+// A restore intent is written at runtime and applied by the next bootstrap. It
+// is a request, never authority: bootstrap re-validates its shape, that the
+// staged catalog is a direct child of the catalog directory, and its bytes.
+interface PendingRestore {
+  format: 'kiter-restore'
+  version: 1
+  staged: string
+  source: string
+  createdAt: string
+  bytes: number
+  sha256: string
+}
+
+const PENDING_RESTORE = '.restore-pending.json'
 
 function storageFor(filename: string, storage?: BackupStorage): BackupStorage {
   return (
@@ -379,6 +394,143 @@ export function createProtectiveBackup(
   }
 }
 
+// Managed image storage is resolved once here so both restore phases publish
+// into the same verified directory.
+function managedImages(locations: BackupStorage): string {
+  const imagesDirectory = directory(locations.imagesDirectory)
+  if (lstatSync(dirname(locations.imagesDirectory)).isSymbolicLink()) {
+    throw new Error('Invalid managed image parent directory.')
+  }
+  return imagesDirectory
+}
+
+// The staged catalog is a uniquely named sibling of the catalog file, so the
+// replacement itself is a rename inside one directory. Callers own the staged
+// file: only they know whether it is still meant to be published or applied.
+export function stageRestoreCatalog(
+  filename: string,
+  folder: string,
+  manifest: BackupManifest,
+): string {
+  // The catalog entry name comes from the manifest, which is untrusted input.
+  // Verification already rejects any other name, but this is where the source
+  // path is built, so the invariant is enforced here instead of a module away.
+  if (manifest.catalog.name !== 'catalog.sqlite') {
+    throw new Error('Unexpected catalog entry in the backup manifest.')
+  }
+  checkSpace(dirname(filename), manifest.catalog.bytes)
+  const staged = join(dirname(filename), `.${randomUUID()}.restore`)
+  try {
+    copyFileSync(
+      join(folder, manifest.catalog.name),
+      staged,
+      constants.COPYFILE_EXCL,
+    )
+    verifyFile(staged, manifest.catalog)
+    syncFile(staged)
+    return staged
+  } catch (error) {
+    // This attempt owns the staged file; a partial copy is never kept.
+    rmSync(staged, { force: true })
+    throw error
+  }
+}
+
+// Immutable images are never overwritten. An existing file with different bytes
+// blocks the replacement, and a missing one is copied under a temporary name,
+// verified, and linked into place so a partial copy never becomes a managed
+// image. Published images are additive and harmless if the restore stops later.
+export function publishRestoreImages(
+  storage: BackupStorage,
+  folder: string,
+  manifest: BackupManifest,
+): void {
+  const imagesDirectory = managedImages(storage)
+  checkSpace(
+    imagesDirectory,
+    manifest.images.reduce((sum, image) => sum + image.bytes, 0),
+  )
+  for (const image of manifest.images) {
+    const target = join(imagesDirectory, image.name)
+    if (existsSync(target)) {
+      verifyFile(target, image, IMAGE_MAX_BYTES)
+      continue
+    }
+    const temporary = join(imagesDirectory, `${randomUUID()}.tmp`)
+    try {
+      copyFileSync(
+        join(folder, 'images', image.name),
+        temporary,
+        constants.COPYFILE_EXCL,
+      )
+      verifyFile(temporary, image, IMAGE_MAX_BYTES)
+      syncFile(temporary)
+      linkSync(temporary, target)
+    } finally {
+      if (existsSync(temporary)) {
+        unlinkSync(temporary)
+      }
+    }
+  }
+  syncDirectory(imagesDirectory)
+}
+
+// The catalog runs in SQLite's rollback-journal mode, so a killed session can
+// leave a hot `-journal` describing pages that were only half written. Opening
+// and closing the file does nothing: the journal is rolled back on the first
+// access to the database, so an actual read is required. A write-ahead log is
+// checkpointed explicitly for the same reason, because closing the last
+// connection does not reliably do it.
+//
+// Two outcomes must stay distinct. A catalog that is absent, or that is not a
+// database at all, cannot be kept: the caller is replacing it with a verified
+// copy, so it is settled as unrecoverable and the swap goes ahead. Recovery that
+// is merely blocked, by a read-only file or another connection, must abort
+// instead, because the sidecars are still this library's only rollback.
+function settleCatalog(filename: string): void {
+  if (!existsSync(filename)) {
+    return
+  }
+  const current = new Database(filename)
+  try {
+    try {
+      current.prepare('SELECT count(*) FROM sqlite_master').pluck().get()
+    } catch (error) {
+      const code = isRecord(error) ? error.code : undefined
+      if (code === 'SQLITE_NOTADB' || code === 'SQLITE_CORRUPT') {
+        return
+      }
+      throw error
+    }
+    const checkpoint = current.pragma('wal_checkpoint(TRUNCATE)')
+    // A busy checkpoint leaves committed frames in the log, so deleting the
+    // sidecars afterwards would drop them from a library the caller keeps.
+    if (
+      Array.isArray(checkpoint) &&
+      checkpoint.some((row) => isRecord(row) && Boolean(row.busy))
+    ) {
+      throw new Error('The current catalog could not be checkpointed.')
+    }
+  } finally {
+    current.close()
+  }
+}
+
+// The sidecars describe the file being replaced, so they are removed after it is
+// settled and before the rename, never after: renaming first would let SQLite
+// replay foreign frames onto the restored catalog.
+function replaceCatalog(filename: string, staged: string): void {
+  settleCatalog(filename)
+  for (const suffix of ['-journal', '-wal', '-shm']) {
+    rmSync(`${filename}${suffix}`, { force: true })
+  }
+  renameSync(staged, filename)
+  syncDirectory(dirname(filename))
+}
+
+// Startup-only: the catalog is closed before replacement, so its journal mode
+// can be reset here. The runtime restore cannot do this while the app is live and
+// does not need to; its swap happens at bootstrap through replaceCatalog.
 export function restoreBackup(
   filename: string,
   folder: string,
@@ -407,54 +559,172 @@ export function restoreBackup(
   } finally {
     current.close()
   }
-  const imagesDirectory = directory(locations.imagesDirectory)
-  if (lstatSync(dirname(locations.imagesDirectory)).isSymbolicLink()) {
-    throw new Error('Invalid managed image parent directory.')
-  }
-  checkSpace(dirname(filename), manifest.catalog.bytes)
-  checkSpace(
-    imagesDirectory,
-    manifest.images.reduce((sum, image) => sum + image.bytes, 0),
-  )
-  const stagedCatalog = join(dirname(filename), `.${randomUUID()}.restore`)
+  const staged = stageRestoreCatalog(filename, folder, manifest)
   try {
-    copyFileSync(
-      join(folder, 'catalog.sqlite'),
-      stagedCatalog,
-      constants.COPYFILE_EXCL,
-    )
-    verifyFile(stagedCatalog, manifest.catalog)
-    syncFile(stagedCatalog)
-    for (const image of manifest.images) {
-      const target = join(imagesDirectory, image.name)
-      if (existsSync(target)) {
-        verifyFile(target, image, IMAGE_MAX_BYTES)
-        continue
-      }
-      const temporary = join(imagesDirectory, `${randomUUID()}.tmp`)
-      try {
-        copyFileSync(
-          join(folder, 'images', image.name),
-          temporary,
-          constants.COPYFILE_EXCL,
-        )
-        verifyFile(temporary, image, IMAGE_MAX_BYTES)
-        syncFile(temporary)
-        linkSync(temporary, target)
-      } finally {
-        if (existsSync(temporary)) {
-          unlinkSync(temporary)
-        }
-      }
-    }
     // Immutable images are in place before the single atomic catalog replacement.
     // Interrupted staging leaves the current catalog and its images usable.
-    syncDirectory(imagesDirectory)
-    renameSync(stagedCatalog, filename)
-    syncDirectory(dirname(filename))
+    publishRestoreImages(locations, folder, manifest)
+    replaceCatalog(filename, staged)
   } finally {
-    if (existsSync(stagedCatalog)) {
-      unlinkSync(stagedCatalog)
-    }
+    rmSync(staged, { force: true })
   }
+}
+
+// The intent is a sibling of the catalog file so the next bootstrap of the same
+// library finds it without any renderer state.
+export function pendingRestoreIntent(filename: string): string {
+  return join(dirname(filename), PENDING_RESTORE)
+}
+
+// Only the staged basename is persisted: a path outside the catalog directory
+// is never recorded, so bootstrap never has to trust an arbitrary location.
+export function writePendingRestore(
+  filename: string,
+  source: string,
+  staged: string,
+): void {
+  const catalog = fingerprint(staged)
+  const intent: PendingRestore = {
+    format: 'kiter-restore',
+    version: 1,
+    staged: basename(staged),
+    source,
+    createdAt: new Date().toISOString(),
+    bytes: catalog.bytes,
+    sha256: catalog.sha256,
+  }
+  const path = pendingRestoreIntent(filename)
+  writeFileSync(path, JSON.stringify(intent, null, 2), { flag: 'wx' })
+  syncFile(path)
+  syncDirectory(dirname(filename))
+}
+
+function readPendingRestore(path: string): PendingRestore {
+  const value: unknown = JSON.parse(readFileSync(path, 'utf8'))
+  if (
+    !isRecord(value) ||
+    value.format !== 'kiter-restore' ||
+    value.version !== 1 ||
+    typeof value.staged !== 'string' ||
+    // A basename only: no absolute path, no parent directory, no other shape.
+    basename(value.staged) !== value.staged ||
+    !value.staged.startsWith('.') ||
+    !value.staged.endsWith('.restore') ||
+    typeof value.source !== 'string' ||
+    !isAbsolute(value.source) ||
+    typeof value.createdAt !== 'string' ||
+    !Number.isFinite(Date.parse(value.createdAt)) ||
+    typeof value.bytes !== 'number' ||
+    !Number.isSafeInteger(value.bytes) ||
+    value.bytes < 1 ||
+    typeof value.sha256 !== 'string' ||
+    !/^[a-f0-9]{64}$/.test(value.sha256)
+  ) {
+    throw new Error('Invalid pending restore intent.')
+  }
+  return {
+    format: value.format,
+    version: value.version,
+    staged: value.staged,
+    source: value.source,
+    createdAt: value.createdAt,
+    bytes: value.bytes,
+    sha256: value.sha256,
+  }
+}
+
+function digest(path: string): BackupFile | undefined {
+  try {
+    return fingerprint(path)
+  } catch {
+    return undefined
+  }
+}
+
+// Bootstrap entry point: complete the catalog swap a runtime restore staged, then
+// let the normal open path migrate and validate the result. This returns an
+// outcome instead of throwing, because an unusable intent must never brick
+// startup, but a swap that could not be applied has to stop it: continuing would
+// serve a session whose writes the next start silently discards.
+export type PendingRestoreOutcome =
+  'none' | 'applied' | 'discarded' | 'skipped' | 'failed'
+
+export function applyPendingRestore(filename: string): PendingRestoreOutcome {
+  const intentPath = pendingRestoreIntent(filename)
+  if (!existsSync(intentPath)) {
+    return 'none'
+  }
+  let intent: PendingRestore
+  try {
+    intent = readPendingRestore(intentPath)
+  } catch {
+    rmSync(intentPath, { force: true })
+    console.error('Discarded invalid pending restore:', 'INVALID_INPUT')
+    return 'discarded'
+  }
+  const directoryPath = dirname(resolve(filename))
+  const staged = join(directoryPath, intent.staged)
+  if (dirname(staged) !== directoryPath) {
+    rmSync(intentPath, { force: true })
+    console.error(
+      'Discarded pending restore outside the catalog directory:',
+      'INVALID_INPUT',
+    )
+    return 'discarded'
+  }
+  if (existsSync(staged)) {
+    const stats = lstatSync(staged)
+    if (stats.isSymbolicLink() || !stats.isFile()) {
+      // A link is never followed and an unexpected entry is never removed.
+      rmSync(intentPath, { force: true })
+      console.error(
+        'Discarded pending restore with an invalid staged catalog:',
+        'INVALID_INPUT',
+      )
+      return 'discarded'
+    }
+    const actual = digest(staged)
+    if (
+      !actual ||
+      actual.bytes !== intent.bytes ||
+      actual.sha256 !== intent.sha256
+    ) {
+      // The staged copy no longer matches the intent, so it is not the verified
+      // catalog this intent describes. Neither it nor the intent is trusted.
+      rmSync(staged, { force: true })
+      rmSync(intentPath, { force: true })
+      console.error(
+        'Discarded pending restore with a changed catalog:',
+        'DB_INTEGRITY',
+      )
+      return 'discarded'
+    }
+    try {
+      replaceCatalog(filename, staged)
+    } catch {
+      // The intent stays so a restart can retry the same verified swap.
+      console.error('Pending restore could not be applied:', 'STORAGE_FAILED')
+      return 'failed'
+    }
+    rmSync(intentPath, { force: true })
+    // The swap is not yet a working restore: the catalog still has to open, which
+    // is the caller's next step.
+    console.error('Pending restore swapped the catalog:', 'RESTORE_SWAP')
+    return 'applied'
+  }
+  const current = digest(filename)
+  rmSync(intentPath, { force: true })
+  if (
+    current &&
+    current.bytes === intent.bytes &&
+    current.sha256 === intent.sha256
+  ) {
+    // The swap already happened and only the cleanup was interrupted.
+    console.error('Pending restore was already applied:', 'RESTORE_SWAP')
+    return 'applied'
+  }
+  // The staged copy is gone and the catalog is not the restored one, so the
+  // restore never happened. The current library stays as it is.
+  console.error('Pending restore kept the current library:', 'RESTORE_SKIPPED')
+  return 'skipped'
 }

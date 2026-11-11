@@ -2,7 +2,8 @@
 
 Read when changing library backups, restoration, migration protection, or recovery
 from catalog corruption. The rules below describe the complete agreed scope;
-the startup-only slice documented below is implemented. [Data Access](../data-access.md) owns storage and
+startup migration protection plus runtime creation, management and two-phase
+restoration are implemented as documented below. [Data Access](../data-access.md) owns storage and
 migration mechanics; [Operation Execution](operation-execution.md) owns confirmed
 operation reconciliation.
 
@@ -41,10 +42,60 @@ operation reconciliation.
   An interrupted catalog staging file is retained, not automatically replayed.
 - A corrupt current catalog or missing current referenced image blocks restoration
   because a verified protective copy cannot be made. Explicit damaged-state
-  preservation/recovery is **not implemented**. Settings backup creation,
-  management/deletion, normal-runtime restoration, and confirmed-operation or
-  analysis reconciliation also remain pending. The current implementation has
-  neither persisted analysis nor confirmed operations to restore.
+  preservation/recovery is **not implemented**. Confirmed-operation or analysis
+  reconciliation also remains pending. The current implementation has neither
+  persisted analysis nor confirmed operations to restore.
+
+## Implemented Runtime Creation, Management and Two-Phase Restore
+
+The database worker is the only catalog writer and answers one command at a time,
+so a capture issued there observes a consistent catalog without any renderer-side
+write barrier. The accepted cost is that queued commands wait for `VACUUM INTO`
+and the image copies. These are worker commands, not catalog dispatch actions,
+because they need the catalog file and managed storage.
+
+- `create-backup` writes a verified copy with the `manual` manifest kind. A kind
+  states why a copy exists, never whether it is valid; validity comes only from
+  verifying the copy. Audio and unreferenced managed images are never included.
+- `list-backups` is bounded: creation names folders with an ISO timestamp, so
+  folder-name order is age order and only the requested page's manifests are read.
+  A stored folder whose manifest cannot be read is counted in `skipped` and never
+  listed as a restorable copy.
+- `delete-backup` accepts only a direct child of managed storage that carries a
+  readable manifest. Links, paths outside managed storage and dot-prefixed staging
+  folders are refused. A user-chosen destination is not offered yet, so nothing
+  outside managed storage is removable.
+- `restore-backup` is phase one of a two-phase restore: it refuses while a pending
+  intent exists, verifies the selected copy, creates the mandatory `pre-restoration`
+  protective copy, stages the catalog as a dot-prefixed `.restore` sibling, verifies
+  and fsyncs it, publishes only missing immutable images without overwrite, then
+  records a pending intent holding the staged basename, source, date, bytes and
+  SHA-256. It swaps nothing and changes no live reference.
+- `applyPendingRestore` is phase two and runs at bootstrap before the catalog is
+  opened. A missing intent does nothing; an intent that does not parse or validate
+  is discarded, never allowed to block startup. A staged copy whose bytes match the
+  intent is renamed onto the catalog. When the staged copy is gone it distinguishes
+  "already applied" from "the restore never happened" by the recorded SHA-256 and
+  keeps the current library in the second case.
+- The catalog runs in SQLite's rollback-journal mode, so an interrupted write
+  leaves a hot `<catalog>-journal` describing pages that were only half written;
+  `<catalog>-wal` and `<catalog>-shm` are the equivalent sidecars in WAL mode.
+  Opening and closing the file is not enough: the journal is rolled back on the
+  first **access**, and a write-ahead log is checkpointed explicitly, refusing to
+  continue when the checkpoint reports itself busy.
+- A catalog that is absent, or that is not a database at all, cannot be kept: the
+  verified staged copy replaces it, so the swap proceeds. Recovery that is merely
+  blocked, by a read-only file or another connection, aborts the swap instead and
+  leaves every sidecar untouched, because they are still the library's only
+  rollback. Only after the catalog is settled are the sidecars removed, before the
+  rename and never after: renaming first would let SQLite replay foreign frames
+  onto the restored catalog.
+- A swap that cannot be applied stops startup with an explicit failure instead of
+  serving a session whose writes the next start discards. The intent stays, so a
+  restart retries the same verified swap.
+- Writes committed after phase one and before the restart are discarded by the
+  swap. That is inherent to restoring an earlier copy; the pre-restoration
+  protective copy captured the pre-phase-one state.
 - Node filesystem/worker tests validate migration gating, rollback copies, WAL,
   tampering, immutable-image conflicts, restoration and current-state protection
   on macOS. A separate instrumented packaged macOS smoke also covers startup,
@@ -116,7 +167,15 @@ operation reconciliation.
 
 Settings → Library exposes Create backup, Restore, and management of automatic
 copies. Show date, kind, size, and location; review selected copies before deletion.
-Visual layout and exact routes remain to be designed.
+Visual layout and exact routes remain to be designed. The worker commands and the
+`DbClient` methods exist; no IPC channel, preload surface or Settings screen does,
+and the delivery that added the commands stopped at that boundary.
+
+Remaining delivery contracts are damaged-state preservation and its `damaged`
+manifest kind, platform validation of durability and packaged interruption
+recovery, and reconciliation of restored confirmed operations and analysis once
+those exist. Windows directory flush is still skipped and needs packaged
+validation before durability can be claimed.
 
 Define archive/version manifests, consistency barriers, validation, safe staged
 publication/replacement, damaged-state preservation, disk-space checks, bounded

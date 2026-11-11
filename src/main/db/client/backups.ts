@@ -3,12 +3,14 @@ import type {
   BackupPage,
   BackupPageRequest,
   BackupSummary,
+  RestoreTicket,
 } from '../../../shared/domain/backup.ts'
 
 export interface BackupsCommands {
   createBackup(): Promise<BackupSummary>
   listBackups(input?: BackupPageRequest): Promise<BackupPage>
   deleteBackup(location: string): Promise<{ location: string }>
+  restoreBackup(location: string): Promise<RestoreTicket>
 }
 
 export function backupsCommands(request: ClientRequest): BackupsCommands {
@@ -23,6 +25,10 @@ export function backupsCommands(request: ClientRequest): BackupsCommands {
 
     async deleteBackup(location: string): Promise<{ location: string }> {
       return request({ action: 'delete-backup', location })
+    },
+
+    async restoreBackup(location: string): Promise<RestoreTicket> {
+      return request({ action: 'restore-backup', location })
     },
   }
 }
