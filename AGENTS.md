@@ -25,6 +25,7 @@ Load other guides only when relevant to the task:
 | [Feature Development](.agents/docs/feature-development.md)       | Adding or extending a feature end to end.                                            |
 | [UX Design](.agents/docs/ux-design.md)                           | Changing shared shell, navigation, selection/history, focus, or list presentation.   |
 | [UI Patterns](.agents/docs/ui-patterns.md)                       | Changing interactions, forms, dialogs, accessibility, or feedback.                   |
+| [Design Tokens](.agents/docs/design-tokens.md)                   | Changing token values, types, naming, or syncing tokens with Figma.                  |
 | [Data Access](.agents/docs/data-access.md)                       | Changing IPC, queries, mutations, persistence, or managed images.                    |
 | [Release Process](.agents/docs/release-process.md)               | Packaging, validating, or distributing releases.                                     |
 | [Beta Scope](.agents/docs/beta-scope.md)                         | Planning beta delivery, included workflows, acceptance gates, or platform readiness. |
