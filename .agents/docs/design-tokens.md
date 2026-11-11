@@ -118,16 +118,31 @@ The projection is generated. `tokens/**/*.json` stays in the repository format
 regardless of what Figma needs.
 
 The bridge then converts those flat values to what Figma actually stores: a
-number for `FLOAT`, `{ r, g, b, a }` for `COLOR`, and a `{ alias: "<path>" }`
+number for `FLOAT`, `{ r, g, b, a }` for `COLOR`, and a `{ alias: "<name>" }`
 marker for a reference. The plugin never sees DTCG. Tokens that cannot be a
 variable travel as styles instead: the `typography` composites become text
 styles and the `shadow` tokens become effect styles. `border.control` and the
 `font.family` array have no Figma representation at all.
 
-Figma holds a single collection named `Kiter`, and a variable's name **is** the
-token path with `/` separators: `color/slate/300`, `space/4`, `font/size/14`.
-Figma never sees the `primitives` / `semantic` split; ownership of a returning
-token is resolved by its path, never by a collection name.
+Figma holds a single collection named `Kiter`. A variable's name is the token
+path with `/` separators, **prefixed by the folder that owns the token**:
+`primitives/color/slate/300`, `primitives/space/4`,
+`semantic/color/action/primary`, `primitives/border/width/1`,
+`semantic/border/control`, `primitives/font/size/14`. Figma groups variables by
+their first name segment, so the folder is what stops `color/` from mixing a
+primitive scale with a semantic role, and the same for `border/`, `opacity/`,
+`radius/` and `shadow/`. The repository path itself never changes; only the
+name projection does.
+
+An alias marker carries the folder that owns its **target**, never the folder of
+the token holding the alias: `color.status.error` in `semantic/` projects to a
+reference to `primitives/color/red/400`. A target the repository does not declare
+keeps the bare path and is reported, so the reference dangles visibly in Figma
+instead of pointing somewhere plausible.
+
+Text and effect style names keep the unprefixed token path
+(`typography/body`, `shadow/black-28`); only variables and the bindings inside a
+style carry the prefix.
 
 ## Bringing a Figma change back
 
@@ -143,15 +158,20 @@ a direct write. The bridge automates the transport, not the decision.
    - only paths the payload carries are updated
    - a token missing from the payload is never deleted
    - `$description` never comes from Figma
-   - a path no file owns is reported and not written
+   - a name is accepted only when the folder it carries is the folder that
+     declares the rest of the path; a name that claims the wrong folder, or a
+     path no file owns, is reported and not written
    - every change is listed for review
 4. `pnpm tokens` regenerates the CSS, and the resulting diff is the review
    artifact: it shows the change in the language the application speaks.
 5. The pull request is reviewed like any other contract change.
 
-Token identity is its **path**. The repository is the mapping table: a path that
-exists today is updated where it already lives. Set names and Figma collection
-names are display concerns and are never used to decide where a token belongs.
+Token identity is its **path inside its folder**, and the folder in the Figma
+name is a claim the pull verifies instead of trusting: the first name segment
+must be the folder that declares the remaining path in `tokens/**/*.json`. A
+path that already exists is updated where it already lives; nothing is created,
+moved, or renamed. Collection names are a display concern and never decide where
+a token belongs.
 
 ## Verification
 

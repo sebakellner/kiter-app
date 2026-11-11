@@ -2,29 +2,21 @@ import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 import { encodeLeaf } from './inverse.mjs'
+import { folderOwners, TOKEN_FOLDERS, variableName } from './names.mjs'
 
 /**
- * Reads the canonical DTCG tree and returns the flattened payload Figma needs,
- * one object per token set. Files inside a set merge into a single tree.
+ * Reads the canonical DTCG tree and returns the flattened payload Figma needs.
+ * Files inside a folder merge into a single tree, and each folder keeps its own
+ * root group: Figma groups variables by their first name segment, so the folder
+ * in the name is what keeps `color/` from mixing a primitive scale with a
+ * semantic role. The repository path itself never changes.
  */
 export function projectTokens(repoRoot = process.cwd()) {
-  return {
-    primitives: projectTree(readTree(repoRoot, 'primitives')),
-    semantic: projectTree(readTree(repoRoot, 'semantic')),
+  const projected = {}
+  for (const folder of TOKEN_FOLDERS) {
+    projected[folder] = projectTree(readTree(repoRoot, folder))
   }
-}
-
-/**
- * Combines projected trees into the single tree the Figma document holds. Figma
- * cannot tell which repository set a variable belongs to, so both sets arrive
- * and leave as one tree.
- */
-export function mergeTokenTrees(...trees) {
-  const merged = {}
-  for (const tree of trees) {
-    mergeInto(merged, tree)
-  }
-  return merged
+  return projected
 }
 
 /**
@@ -36,17 +28,24 @@ export function mergeTokenTrees(...trees) {
  * Figma variable type, so it is left out instead of being pushed as one
  * variable per property. Nothing is dropped from the repository: the pull never
  * deletes a token the document does not carry.
+ *
+ * The folder roots of the projected tree become the first segment of every
+ * variable name, so a reference marker carries the folder that owns its target.
  */
 export function toFigmaTree(tree) {
+  return convertTree(tree, folderOwners(tree))
+}
+
+function convertTree(tree, owners) {
   const converted = {}
   for (const [key, value] of Object.entries(tree)) {
     if (isTokenLeaf(value)) {
-      const leaf = toFigmaLeaf(value)
+      const leaf = toFigmaLeaf(value, owners)
       if (leaf !== undefined) {
         converted[key] = leaf
       }
     } else if (isPlainObject(value)) {
-      const group = toFigmaTree(value)
+      const group = convertTree(value, owners)
       if (Object.keys(group).length > 0) {
         converted[key] = group
       }
@@ -57,7 +56,25 @@ export function toFigmaTree(tree) {
   return converted
 }
 
-function toFigmaLeaf(token) {
+/**
+ * The name a reference marker carries. An alias points at the token it names, so
+ * the marker takes the folder that owns that target, never the folder of the
+ * token holding the alias. A target no folder declares keeps the bare path and
+ * is reported: Figma then shows a dangling reference instead of a silently
+ * wrong one, and the pull leaves the repository untouched.
+ */
+function aliasTargetName(path, owners) {
+  const folder = owners.get(path)
+  if (folder === undefined) {
+    console.warn(
+      `token-bridge: alias target "${path}" is not a repository token`,
+    )
+    return path
+  }
+  return variableName(folder, path)
+}
+
+function toFigmaLeaf(token, owners) {
   // Shadows travel as effect styles instead. A composite has no variable type,
   // so the flattened CSS string would arrive as a STRING variable no designer
   // can apply. `token-bridge/src/styles.mjs` builds those styles.
@@ -68,7 +85,7 @@ function toFigmaLeaf(token) {
   if (typeof value === 'string') {
     const alias = /^\{([^{}]+)\}$/.exec(value)
     if (alias) {
-      return { alias: alias[1] }
+      return { alias: aliasTargetName(alias[1], owners) }
     }
   }
   if (isPlainObject(value)) {

@@ -1,6 +1,6 @@
 import { isDeepStrictEqual } from 'node:util'
 
-import { readRepositoryTree, textStyleAt, tokenLeaves } from './styles.mjs'
+import { readRepository, textStyleAt, tokenLeaves } from './styles.mjs'
 
 // Where the primitive a mappable property can point at lives. A property only
 // ever matches a token inside its own group: `fontSize: 14` is `font.size.14`,
@@ -37,7 +37,7 @@ const MAPPABLE = Object.keys(PRIMITIVE_GROUPS)
  * `pull-styles.mjs` applies.
  */
 export function matchTextStyles({ repoRoot, styles } = {}) {
-  const tree = readRepositoryTree(repoRoot)
+  const { tree, owners } = readRepository(repoRoot)
   const index = primitiveIndex(tree)
   const report = {
     changed: [],
@@ -55,7 +55,8 @@ export function matchTextStyles({ repoRoot, styles } = {}) {
     const name = typeof style.name === 'string' ? style.name.trim() : ''
     const path = toPath(name)
     const node = nodeAtPath(tree, path)
-    const produced = path.length === 0 ? undefined : textStyleAt(tree, path)
+    const produced =
+      path.length === 0 ? undefined : textStyleAt(tree, path, owners)
     if (!produced || !isTypographyLeaf(node)) {
       // No usable composite: either no token at that path, or a token the push
       // skips because it does not resolve to a complete style.

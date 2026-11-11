@@ -16,14 +16,14 @@ const CODE = fileURLToPath(new URL('./code.js', import.meta.url))
 const BINDING_VARIABLES = [
   {
     id: 'variable-font-size-14',
-    name: 'font/size/14',
+    name: 'primitives/font/size/14',
     resolvedType: 'FLOAT',
     variableCollectionId: 'collection',
     valuesByMode: {},
   },
   {
     id: 'variable-letter-spacing-normal',
-    name: 'font/letter-spacing/normal',
+    name: 'primitives/font/letter-spacing/normal',
     resolvedType: 'FLOAT',
     variableCollectionId: 'collection',
     valuesByMode: {},
@@ -31,7 +31,7 @@ const BINDING_VARIABLES = [
   // This name exists only in another collection: a push must never adopt it.
   {
     id: 'variable-foreign',
-    name: 'font/line-height/normal',
+    name: 'primitives/font/line-height/normal',
     resolvedType: 'FLOAT',
     variableCollectionId: 'other',
     valuesByMode: {},
@@ -52,7 +52,7 @@ function dynamicPageError(name) {
 function variablesFor(variant) {
   if (variant === 'no-variable') {
     return BINDING_VARIABLES.filter(
-      (variable) => variable.name !== 'font/letter-spacing/normal',
+      (variable) => variable.name !== 'primitives/font/letter-spacing/normal',
     )
   }
   return BINDING_VARIABLES
@@ -218,8 +218,8 @@ function stylesWithBindings() {
       {
         ...styles.text[0],
         bindings: {
-          fontSize: 'font/size/14',
-          letterSpacing: 'font/letter-spacing/normal',
+          fontSize: 'primitives/font/size/14',
+          letterSpacing: 'primitives/font/letter-spacing/normal',
         },
       },
     ],
@@ -228,10 +228,10 @@ function stylesWithBindings() {
 }
 
 test('does not adopt a same-named variable from another collection (R3-001)', async () => {
-  const bindings = { letterSpacing: 'font/line-height/normal' }
+  const bindings = { letterSpacing: 'primitives/font/line-height/normal' }
   const { posted } = await runPlugin({
     type: 'push',
-    tokens: { font: { 'line-height': { normal: 20 } } },
+    tokens: { primitives: { font: { 'line-height': { normal: 20 } } } },
     styles: { text: [{ ...styles.text[0], bindings }], effects: [] },
   })
 
@@ -261,8 +261,8 @@ test('binds the text style properties the payload carries a variable for', async
   const style = textStyles.created[0]
 
   assert.deepEqual(style.boundVariables, {
-    fontSize: 'font/size/14',
-    letterSpacing: 'font/letter-spacing/normal',
+    fontSize: 'primitives/font/size/14',
+    letterSpacing: 'primitives/font/letter-spacing/normal',
   })
   // Line height is deliberately not bound: the literal stays what the token
   // arithmetic produced.
@@ -312,7 +312,9 @@ test('reports no-variable and names the partially bound style', async () => {
   )
   const style = textStyles.created[0]
 
-  assert.deepEqual(style.boundVariables, { fontSize: 'font/size/14' })
+  assert.deepEqual(style.boundVariables, {
+    fontSize: 'primitives/font/size/14',
+  })
   assert.deepEqual(plain(style.letterSpacing), { unit: 'PIXELS', value: 0 })
   assert.deepEqual(plain(posted.styles.text.bindingIssues), [
     {
@@ -336,7 +338,7 @@ test('reports rejected and keeps the literal when Figma refuses a binding', asyn
   assert.equal(posted?.type, 'push-result')
   assert.equal(style.fontSize, 14)
   assert.deepEqual(style.boundVariables, {
-    letterSpacing: 'font/letter-spacing/normal',
+    letterSpacing: 'primitives/font/letter-spacing/normal',
   })
   assert.deepEqual(plain(posted.styles.text.bindingIssues), [
     { name: 'typography/body', property: 'fontSize', reason: 'rejected' },

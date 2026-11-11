@@ -4,50 +4,31 @@ import { join } from 'node:path'
 
 import { commitWrites } from './commit.mjs'
 import { mergePayload } from './merge.mjs'
+import { TOKEN_FOLDERS } from './names.mjs'
 import { serializeTokens } from './serialize.mjs'
 
-const TOKEN_FOLDERS = ['primitives', 'semantic']
-
 /**
- * Applies the single tree Figma returns to tokens/<folder>/*.json.
+ * Applies the tree Figma returns to tokens/<folder>/*.json.
  *
  * A token's identity is its path, and a file owns the top-level root keys it
- * declares. Figma cannot say which folder a variable belongs to, so the same
- * tree is merged into every folder: each folder takes the paths it declares and
- * a path that no folder declares is only reported once. Every file is rebuilt
- * from the merged tree using only the paths it already owned, so a pull rewrites
- * the files that changed, keeps the key order of each of them, and never
- * creates one.
+ * declares. Every variable name also carries the folder that owns it, and the
+ * payload keeps one root group per folder, so a name is merged into the folder
+ * it claims and only when that folder declares the path: ownership is validated,
+ * never guessed. Every file is rebuilt from the merged tree using only the paths
+ * it already owned, so a pull rewrites the files that changed, keeps the key
+ * order of each of them, and never creates one.
  */
 export async function applyPull({ repoRoot, payload, runBuild = runTokens }) {
   const tokens = normalizeTree(assertTokenTree(payload?.tokens))
   const files = TOKEN_FOLDERS.flatMap((folder) => readFolder(repoRoot, folder))
   const folderTrees = readFolderTrees(files)
-  // A semantic token legitimately aliases a primitive, so an alias is resolved
-  // against the paths both folders declare, not the folder being merged.
-  const knownPaths = tokenPaths(folderTrees)
-
-  const runs = TOKEN_FOLDERS.map((folder) => {
-    const { tree, report } = mergePayload(
-      { [folder]: folderTrees[folder] },
-      { [folder]: tokens },
-      { knownPaths },
-    )
-    return { folder, tree, report }
-  })
-  const merged = {
-    tree: {},
-    report: combineReports(runs.map((run) => run.report)),
-  }
-  for (const run of runs) {
-    merged.tree[run.folder] = run.tree[run.folder]
-  }
+  const { tree, report } = mergePayload(folderTrees, tokens)
 
   // Serialize everything before the first write. `commitWrites` writes the
   // files and runs the build, so a failed build restores them all.
   const pending = []
   for (const file of files) {
-    const next = reconstructFile(file, merged.tree[file.folder])
+    const next = reconstructFile(file, tree[file.folder])
     // Compare parsed values, not text: the dialect serializes a file the same
     // way the repository does, but a comparison that walks the tree is what
     // guarantees a pull that changes nothing never writes.
@@ -60,7 +41,7 @@ export async function applyPull({ repoRoot, payload, runBuild = runTokens }) {
     })
   }
   commitWrites(pending, repoRoot, runBuild)
-  return { report: merged.report, written: pending.map((file) => file.relPath) }
+  return { report, written: pending.map((file) => file.relPath) }
 }
 
 function readFolder(repoRoot, folder) {
@@ -99,31 +80,6 @@ function readFolderTrees(files) {
     mergeInto(trees[file.folder], file.data)
   }
   return trees
-}
-
-/**
- * Every token path the repository declares, across both folders. An alias is a
- * reference, so its target only has to exist somewhere in the repository.
- */
-function tokenPaths(folderTrees) {
-  const paths = new Set()
-  for (const tree of Object.values(folderTrees)) {
-    collectPaths(tree, [], paths)
-  }
-  return [...paths]
-}
-
-function collectPaths(node, path, paths) {
-  for (const [key, value] of Object.entries(node)) {
-    if (key.startsWith('$') || !isPlainObject(value)) {
-      continue
-    }
-    if (isTokenLeaf(value)) {
-      paths.add([...path, key].join('.'))
-      continue
-    }
-    collectPaths(value, [...path, key], paths)
-  }
 }
 
 function mergeInto(target, source) {
@@ -175,44 +131,6 @@ function reconstructNode(original, merged) {
   return next
 }
 
-/**
- * Combines the per-folder reports of the same tree. A change belongs to the
- * folder that declares the path, an addition to neither of them: only a path
- * that every folder rejected is reported, once.
- */
-function combineReports(reports) {
-  const changed = new Map()
-  const added = new Map()
-  const dangling = new Map()
-  let untouched = 0
-  for (const report of reports) {
-    untouched += report.untouched
-    for (const change of report.changed) {
-      if (!changed.has(change.path)) {
-        changed.set(change.path, change)
-      }
-    }
-    for (const path of report.added) {
-      added.set(path, (added.get(path) ?? 0) + 1)
-    }
-    // Every folder is merged from the same tree, so the same dangling alias is
-    // reported once per folder; the path identifies it.
-    for (const entry of report.dangling) {
-      if (!dangling.has(entry.path)) {
-        dangling.set(entry.path, entry)
-      }
-    }
-  }
-  return {
-    changed: [...changed.values()],
-    added: [...added]
-      .filter(([, count]) => count === reports.length)
-      .map(([path]) => path),
-    dangling: [...dangling.values()],
-    untouched,
-  }
-}
-
 function assertTokenTree(tokens) {
   if (!isPlainObject(tokens)) {
     throw new Error('payload.tokens must be an object')
@@ -224,10 +142,12 @@ function assertTokenTree(tokens) {
  * Adapts the tree the plugin sends to the shape the surgical merge walks. The
  * plugin only knows raw Figma values, so a node is a group unless it already
  * looks like a value. The alias marker the plugin sends becomes the
- * repository's `{group.token}` string, and a token wrapper is unwrapped so a
- * payload built from the projection also works.
+ * repository's `{group.token}` string, a token wrapper is unwrapped so a payload
+ * built from the projection also works, and the folder roots the names carry are
+ * kept as groups so the merge can check ownership. Exported because the
+ * round-trip test projects, converts and normalizes exactly like the server.
  */
-function normalizeTree(node) {
+export function normalizeTree(node) {
   const normalized = {}
   for (const [key, value] of Object.entries(node)) {
     if (key.startsWith('$')) {

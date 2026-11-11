@@ -5,7 +5,7 @@ import { dirname, join } from 'node:path'
 import test from 'node:test'
 import { fileURLToPath } from 'node:url'
 
-import { mergeTokenTrees, projectTokens, toFigmaTree } from './project.mjs'
+import { projectTokens, toFigmaTree } from './project.mjs'
 import { buildStyles } from './styles.mjs'
 
 const repoRoot = fileURLToPath(new URL('../..', import.meta.url))
@@ -17,8 +17,7 @@ function styleNamed(styles, name) {
 }
 
 function figmaTree() {
-  const { primitives, semantic } = projectTokens(repoRoot)
-  return toFigmaTree(mergeTokenTrees(primitives, semantic))
+  return toFigmaTree(projectTokens(repoRoot))
 }
 
 // Every scalar or object leaf of the projected tree, with its `/` path, so a
@@ -75,8 +74,8 @@ test('builds one text style per typography composite (S1)', () => {
     lineHeight: 21,
     letterSpacing: 0,
     bindings: {
-      fontSize: 'font/size/14',
-      letterSpacing: 'font/letter-spacing/normal',
+      fontSize: 'primitives/font/size/14',
+      letterSpacing: 'primitives/font/letter-spacing/normal',
     },
   })
   assert.deepEqual(styleNamed(text, 'typography/control-strong'), {
@@ -87,8 +86,8 @@ test('builds one text style per typography composite (S1)', () => {
     lineHeight: 20,
     letterSpacing: 0,
     bindings: {
-      fontSize: 'font/size/13',
-      letterSpacing: 'font/letter-spacing/normal',
+      fontSize: 'primitives/font/size/13',
+      letterSpacing: 'primitives/font/letter-spacing/normal',
     },
   })
 })
@@ -99,16 +98,19 @@ test('binds each aliased text style property to its token variable', () => {
   const { text } = buildStyles(repoRoot)
 
   assert.deepEqual(styleNamed(text, 'typography/body').bindings, {
-    fontSize: 'font/size/14',
-    letterSpacing: 'font/letter-spacing/normal',
+    fontSize: 'primitives/font/size/14',
+    letterSpacing: 'primitives/font/letter-spacing/normal',
   })
   assert.deepEqual(styleNamed(text, 'typography/display/large').bindings, {
-    fontSize: 'font/size/48',
-    letterSpacing: 'font/letter-spacing/normal',
+    fontSize: 'primitives/font/size/48',
+    letterSpacing: 'primitives/font/letter-spacing/normal',
   })
   // Every composite points at the same letter spacing token.
   for (const style of text) {
-    assert.equal(style.bindings.letterSpacing, 'font/letter-spacing/normal')
+    assert.equal(
+      style.bindings.letterSpacing,
+      'primitives/font/letter-spacing/normal',
+    )
     // Line height stays a literal: the style stores `fontSize x multiplier` and
     // no repository token holds that product.
     assert.equal(Object.hasOwn(style.bindings, 'lineHeight'), false)
@@ -152,7 +154,7 @@ test('gives a literal-valued property no binding', (t) => {
 
   const style = styleNamed(buildStyles(root).text, 'typography/body')
 
-  assert.deepEqual(style.bindings, { fontSize: 'font/size/14' })
+  assert.deepEqual(style.bindings, { fontSize: 'primitives/font/size/14' })
   assert.equal(Object.hasOwn(style.bindings, 'letterSpacing'), false)
   // The literals still reach Figma as values, they simply bind nothing.
   assert.equal(style.fontSize, 14)
@@ -250,7 +252,8 @@ test('resolves a shadow alias to the composite it references', () => {
 test('pushes styles instead of shadow string variables (S3)', () => {
   const tree = figmaTree()
 
-  assert.equal(Object.hasOwn(tree, 'shadow'), false)
+  assert.equal(Object.hasOwn(tree.primitives, 'shadow'), false)
+  assert.equal(Object.hasOwn(tree.semantic, 'shadow'), false)
   assert.deepEqual(
     leafEntries(tree).filter((entry) =>
       typeof entry.value === 'string'
@@ -260,17 +263,62 @@ test('pushes styles instead of shadow string variables (S3)', () => {
     [],
   )
 
-  // Everything else still travels as a variable.
-  assert.deepEqual(tree.color.slate['300'], {
+  // Everything else still travels as a variable, grouped by the folder that
+  // owns it.
+  assert.deepEqual(tree.primitives.color.slate['300'], {
     r: 191 / 255,
     g: 192 / 255,
     b: 194 / 255,
     a: 1,
   })
-  assert.equal(tree.space['4'], 16)
-  assert.equal(tree.radius['8'], 8)
-  assert.equal(tree.opacity['50'], 0.5)
-  assert.deepEqual(tree.color.action.primary, { alias: 'color.yellow.500' })
+  assert.equal(tree.primitives.space['4'], 16)
+  assert.equal(tree.primitives.radius['8'], 8)
+  assert.equal(tree.primitives.opacity['50'], 0.5)
+  assert.deepEqual(tree.semantic.color.action.primary, {
+    alias: 'primitives/color/yellow/500',
+  })
+})
+
+// Figma groups variables by the first name segment, so the folder has to be the
+// first segment: `color/` would otherwise mix a primitive scale with a semantic
+// role, and the same happens to `border/`, `opacity/`, `radius/` and `shadow/`.
+test('names every variable after the folder that owns its token (S11)', () => {
+  const names = new Set(leafEntries(figmaTree()).map((entry) => entry.path))
+
+  for (const name of [
+    'primitives/color/slate/300',
+    'semantic/color/action/primary',
+    'semantic/color/status/error',
+    'primitives/space/4',
+    'primitives/border/width/1',
+    'primitives/font/size/14',
+  ]) {
+    assert.ok(names.has(name), `expected a variable named ${name}`)
+  }
+  // No variable is named after a bare token path any more.
+  for (const name of names) {
+    assert.match(name, /^(primitives|semantic)\//)
+  }
+})
+
+// A reference belongs to the folder that owns its target, not to the folder of
+// the token holding it: `color.status.error` lives in `semantic/` and points at
+// a primitive.
+test('points every alias at the folder that owns its target (S11)', () => {
+  const tree = figmaTree()
+
+  assert.deepEqual(tree.semantic.color.status.error, {
+    alias: 'primitives/color/red/400',
+  })
+  assert.deepEqual(tree.semantic.color.action.primary, {
+    alias: 'primitives/color/yellow/500',
+  })
+  for (const entry of leafEntries(tree)) {
+    if (typeof entry.value.alias !== 'string') {
+      continue
+    }
+    assert.match(entry.value.alias, /^(primitives|semantic)\//)
+  }
 })
 
 test('lists text styles in scale order (S3)', () => {

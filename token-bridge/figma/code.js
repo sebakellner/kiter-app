@@ -1,7 +1,7 @@
 // Runs in the Figma plugin sandbox: document access only, no network. A
-// variable's name is its token path with `/` separators, and the payload is one
-// tree for the whole document: Figma cannot tell which repository folder a
-// variable belongs to.
+// variable's name is the token path with `/` separators, prefixed by the folder
+// that owns the token (`primitives/color/slate/300`), and the payload is one
+// tree for the whole document with that folder as its root group.
 figma.showUI(__html__, { width: 420, height: 400, title: 'Kiter Token Bridge' })
 
 const COLLECTION_NAME = 'Kiter'
@@ -669,7 +669,8 @@ function isKiterCollection(variable, collection) {
   return variable.variableCollectionId === collection.id
 }
 
-// `path.to.token` -> `path/to/token`: the name is the path.
+// `primitives.path.to.token` -> `primitives/path/to/token`: the name is the
+// folder plus the token path.
 function toName(path) {
   return path.split('.').filter(Boolean).join('/')
 }

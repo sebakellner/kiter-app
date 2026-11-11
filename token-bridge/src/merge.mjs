@@ -1,6 +1,7 @@
 import { isDeepStrictEqual } from 'node:util'
 
 import { encodeLeaf } from './inverse.mjs'
+import { folderOwners, referenceOf, variableName } from './names.mjs'
 import { projectLeafValue } from './project.mjs'
 
 const ALIAS = /^\{([^{}]+)\}$/
@@ -10,64 +11,76 @@ const ALIAS = /^\{([^{}]+)\}$/
  * the payload carries are updated; nothing is deleted, inserted, or documented
  * from Figma.
  *
- * `knownPaths` is every token path the repository declares, combined across its
- * folders. An alias the payload carries is written only when its target is one
- * of them: a dangling alias would break the build, so the existing token stays
+ * The payload keeps one root group per folder, because every variable name
+ * carries the folder that owns its token. That claim is verified instead of
+ * trusted: a leaf is written only when the folder it names declares the path,
+ * so a name that points a semantic token at a primitive path (or the other way
+ * round) is reported and left alone. The bridge never guesses ownership, never
+ * creates a token, and never deletes or renames one.
+ *
+ * An alias is written only when the folder its reference carries owns the
+ * target: a dangling alias would break the build, so the existing token stays
  * and the pair is reported as `dangling`.
  */
-export function mergePayload(repoTree, payloadBySet, options) {
-  const tree = structuredClone(repoTree)
+export function mergePayload(folderTrees, payloadTree) {
+  const tree = structuredClone(folderTrees)
   const report = { changed: [], added: [], dangling: [], untouched: 0 }
-  const knownPaths = options?.knownPaths
-    ? new Set(options.knownPaths)
-    : undefined
-  const setNames = new Set([
-    ...Object.keys(isPlainObject(tree) ? tree : {}),
-    ...Object.keys(isPlainObject(payloadBySet) ? payloadBySet : {}),
-  ])
-  for (const setName of [...setNames].sort()) {
-    mergeSet(tree[setName], payloadBySet?.[setName], report, knownPaths)
-  }
-  return { tree, report }
-}
-
-function mergeSet(repoSet, payloadSet, report, knownPaths) {
+  const owners = folderOwners(tree)
   const present = new Set()
-  if (isPlainObject(payloadSet)) {
-    walkLeaves(payloadSet, [], (path, payloadLeaf) => {
-      const tokenPath = path.join('.')
-      present.add(tokenPath)
-      const repoLeaf = nodeAtPath(repoSet, path)
-      if (!isTokenLeaf(repoLeaf)) {
-        report.added.push(tokenPath)
-        return
-      }
-      // The payload may carry the projected vocabulary or a raw Figma value.
-      // Encoding first and projecting the result compares both spellings in the
-      // language of the projection, so a raw `{ r, g, b, a }` that reproduces
-      // the repository token is a no-op instead of a rewrite.
-      const from = projectLeafValue(repoLeaf)
-      const encoded = encodeLeaf(repoLeaf, payloadLeaf.$value)
-      const alias = aliasOf(encoded)
-      if (alias !== undefined && knownPaths && !knownPaths.has(alias)) {
-        report.dangling.push({ path: tokenPath, alias })
-        return
-      }
-      const to = projectLeafValue({ ...repoLeaf, $value: encoded })
-      if (isDeepStrictEqual(from, to)) {
-        return
-      }
-      report.changed.push({ path: tokenPath, from, to })
-      repoLeaf.$value = encoded
-    })
+  for (const [folder, payloadSet] of Object.entries(
+    isPlainObject(payloadTree) ? payloadTree : {},
+  )) {
+    if (isPlainObject(payloadSet)) {
+      mergeSet(tree, folder, payloadSet, report, owners, present)
+    }
   }
-  if (isPlainObject(repoSet)) {
-    walkLeaves(repoSet, [], (path) => {
-      if (!present.has(path.join('.'))) {
+  for (const folder of Object.keys(tree)) {
+    walkLeaves(tree[folder], [], (path) => {
+      if (!present.has(variableName(folder, path.join('.')))) {
         report.untouched += 1
       }
     })
   }
+  return { tree, report }
+}
+
+function mergeSet(tree, folder, payloadSet, report, owners, present) {
+  const repoSet = tree[folder]
+  walkLeaves(payloadSet, [], (path, payloadLeaf) => {
+    const tokenPath = path.join('.')
+    const name = variableName(folder, tokenPath)
+    const repoLeaf = nodeAtPath(repoSet, path)
+    if (owners.get(tokenPath) !== folder || !isTokenLeaf(repoLeaf)) {
+      // A name the repository does not have under the folder it claims: a new
+      // token, a legacy name without a folder, or a path that belongs to the
+      // other folder. All three are reported and never written.
+      report.added.push(name)
+      return
+    }
+    present.add(name)
+    // The payload may carry the projected vocabulary or a raw Figma value.
+    // Encoding first and projecting the result compares both spellings in the
+    // language of the projection, so a raw `{ r, g, b, a }` that reproduces
+    // the repository token is a no-op instead of a rewrite.
+    const from = projectLeafValue(repoLeaf)
+    const encoded = encodeLeaf(repoLeaf, payloadLeaf.$value)
+    const alias = aliasOf(encoded)
+    let value = encoded
+    if (alias !== undefined) {
+      const reference = referenceOf(alias, owners)
+      if (reference === undefined) {
+        report.dangling.push({ path: tokenPath, alias })
+        return
+      }
+      value = `{${reference}}`
+    }
+    const to = projectLeafValue({ ...repoLeaf, $value: value })
+    if (isDeepStrictEqual(from, to)) {
+      return
+    }
+    report.changed.push({ path: tokenPath, from, to })
+    repoLeaf.$value = value
+  })
 }
 
 function walkLeaves(node, path, visit) {
