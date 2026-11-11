@@ -37,7 +37,7 @@ Never edit it directly.
 ## The bridge
 
 `pnpm tokens:bridge` starts a server on `127.0.0.1:4747` and the development
-plugin at `figma/tokens-bridge/` talks to it. Both directions move one token
+plugin at `token-bridge/figma/` talks to it. Both directions move one token
 tree: the plugin only reads and writes Figma, and the server owns every
 canonical shape.
 
@@ -180,7 +180,7 @@ load completely.
 The bridge has its own suite:
 
 ```bash
-node --test tests/bridge/*.test.mjs
+node --test token-bridge/src/*.test.mjs token-bridge/figma/*.test.mjs
 ```
 
 The required test is idempotency: project, inverse project, and diff against the

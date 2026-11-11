@@ -14,7 +14,7 @@ export default defineConfig(
       'test-results/**',
       'playwright-report/**',
       '.kiter-dev/**',
-      'figma/**',
+      'token-bridge/figma/**',
     ],
   },
   tseslint.configs.recommended,
@@ -46,7 +46,12 @@ export default defineConfig(
     },
   },
   {
-    files: ['tests/**/*.mjs', 'src/**/*.test.mjs', 'scripts/**/*.mjs'],
+    files: [
+      'tests/**/*.mjs',
+      'src/**/*.test.mjs',
+      'scripts/**/*.mjs',
+      'token-bridge/**/*.mjs',
+    ],
     rules: {
       '@typescript-eslint/explicit-function-return-type': 'off',
     },

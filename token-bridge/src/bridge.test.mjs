@@ -4,9 +4,9 @@ import { fileURLToPath } from 'node:url'
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { encodeLeaf } from '../../scripts/tokens-bridge/inverse.mjs'
-import { mergePayload } from '../../scripts/tokens-bridge/merge.mjs'
-import { projectTokens } from '../../scripts/tokens-bridge/project.mjs'
+import { encodeLeaf } from './inverse.mjs'
+import { mergePayload } from './merge.mjs'
+import { projectTokens } from './project.mjs'
 
 const repoRoot = fileURLToPath(new URL('../..', import.meta.url))
 

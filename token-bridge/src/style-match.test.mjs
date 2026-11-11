@@ -15,9 +15,9 @@ import { dirname, join } from 'node:path'
 import test from 'node:test'
 import { fileURLToPath } from 'node:url'
 
-import { applyStylePull } from '../../scripts/tokens-bridge/pull-styles.mjs'
-import { serializeTokens } from '../../scripts/tokens-bridge/serialize.mjs'
-import { matchTextStyles } from '../../scripts/tokens-bridge/style-match.mjs'
+import { applyStylePull } from './pull-styles.mjs'
+import { serializeTokens } from './serialize.mjs'
+import { matchTextStyles } from './style-match.mjs'
 
 const repoRoot = fileURLToPath(new URL('../..', import.meta.url))
 

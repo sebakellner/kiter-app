@@ -11,11 +11,8 @@ import { dirname, join } from 'node:path'
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { applyPull } from '../../scripts/tokens-bridge/pull.mjs'
-import {
-  mergeTokenTrees,
-  projectTokens,
-} from '../../scripts/tokens-bridge/project.mjs'
+import { applyPull } from './pull.mjs'
+import { mergeTokenTrees, projectTokens } from './project.mjs'
 
 const FOLDERS = ['primitives', 'semantic']
 
