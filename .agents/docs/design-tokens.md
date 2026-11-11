@@ -41,10 +41,10 @@ plugin at `figma/tokens-bridge/` talks to it. Both directions move one token
 tree: the plugin only reads and writes Figma, and the server owns every
 canonical shape.
 
-| Action | Transport    | Effect                                                                                               |
-| ------ | ------------ | ---------------------------------------------------------------------------------------------------- |
-| Push   | `GET /push`  | project `tokens/`, convert to raw Figma values, create or update variables in the `Kiter` collection |
-| Pull   | `POST /pull` | read the local variables, merge surgically into `tokens/`, then run `pnpm tokens` for the CSS        |
+| Action | Transport    | Effect                                                                                                       |
+| ------ | ------------ | ------------------------------------------------------------------------------------------------------------ |
+| Push   | `GET /push`  | project `tokens/`, create or update the variables in the `Kiter` collection, then the text and effect styles |
+| Pull   | `POST /pull` | read the local variables, merge surgically into `tokens/`, then run `pnpm tokens` for the CSS                |
 
 Nothing is ever deleted or renamed in Figma, and nothing is ever deleted from
 the repository. A Figma change arrives as a pull request whose CSS diff is the
@@ -137,9 +137,10 @@ regardless of what Figma needs.
 
 The bridge then converts those flat values to what Figma actually stores: a
 number for `FLOAT`, `{ r, g, b, a }` for `COLOR`, and a `{ alias: "<path>" }`
-marker for a reference. The plugin never sees DTCG. Composite tokens
-(`typography`, `border`) and the `font.family` array have no variable equivalent
-and are not pushed.
+marker for a reference. The plugin never sees DTCG. Tokens that cannot be a
+variable travel as styles instead: the `typography` composites become text
+styles and the `shadow` tokens become effect styles. `border.control` and the
+`font.family` array have no Figma representation at all.
 
 ## Bringing a Figma change back
 
@@ -187,11 +188,13 @@ nothing.
 
 ## Known limitations
 
-- Composite tokens (`typography`, `border`: 12 tokens) and the `font.family`
-  array have no variable equivalent and are not pushed. Figma sees 97 of the 110
-  tokens; the other 13 are repository-only.
-- `shadow` composites have no variable either. The projection flattens them to a
-  CSS string, and no effect style is written yet.
+- Styles are **push-only**. A designer edit of a text or effect style in Figma
+  is overwritten by the next push and never pulled; only variables round-trip.
+- `border.control` and the `font.family` array have no Figma representation, so
+  Figma sees 108 of the 110 tokens. `border` has no style type and the family
+  array only exists to compose the text styles.
+- Figma holds whole pixels for line height, so `typography/section` becomes 23px
+  where CSS renders 22.5px.
 - Group `$description` never reaches Figma. Read it in the repository.
 - Section placement in Tokens Studio does not match DTCG types, by decision.
 - A pull that changes a token file can also change that file's key order and
