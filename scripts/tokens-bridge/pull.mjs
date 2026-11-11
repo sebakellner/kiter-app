@@ -230,10 +230,7 @@ function isRawValue(value) {
  * makes `pnpm format:check` fail after any pull.
  */
 function serialize(value, filepath) {
-  return format(`${JSON.stringify(value, null, 2)}\n`, {
-    filepath,
-    objectWrap: 'collapse',
-  })
+  return format(`${JSON.stringify(value, null, 2)}\n`, { filepath })
 }
 
 function runTokens(repoRoot) {
