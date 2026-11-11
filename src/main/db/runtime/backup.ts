@@ -852,9 +852,19 @@ export function publishRestoreImages(
         if (!isUnsupportedLink(error)) {
           throw error
         }
-        // Same-directory rename: atomic, and the temporary name is gone only when
-        // the target has the full verified bytes.
-        renameSync(temporary, target)
+        // Renaming would replace an existing destination, which the link never
+        // does, so this branch copies exclusively instead: an image already
+        // published by another attempt is never overwritten, whatever its bytes.
+        // The copy is verified again under its final name, and a copy that fails
+        // verification is removed rather than left as a managed image.
+        copyFileSync(temporary, target, constants.COPYFILE_EXCL)
+        try {
+          syncFile(target)
+          verifyFile(target, image, IMAGE_MAX_BYTES)
+        } catch (verification) {
+          rmSync(target, { force: true })
+          throw verification
+        }
       }
     } finally {
       if (existsSync(temporary)) {

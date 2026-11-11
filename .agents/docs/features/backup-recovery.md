@@ -36,8 +36,9 @@ operation reconciliation.
   catalog, verifies/publishes missing immutable images without overwrite, then
   replaces the catalog by same-directory rename. Existing image conflicts block
   replacement. Publication links each verified temporary copy into place; a
-  filesystem that refuses links (exFAT, FAT, some network volumes) gets that copy
-  renamed instead, so the never-overwrite rule holds everywhere. Preview and temporary audio authorization are not restored; source
+  filesystem that refuses links (exFAT, FAT, some network volumes) copies it in
+  exclusively instead and re-verifies it under its final name, so the
+  never-overwrite rule holds everywhere. Preview and temporary audio authorization are not restored; source
   access still requires current-folder discovery and authorization.
 - Interruption before catalog replacement leaves current references usable;
   after replacement the restored catalog references already-published images.

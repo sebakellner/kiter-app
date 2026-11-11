@@ -2185,4 +2185,32 @@ test('an image is published without hard links when the filesystem refuses them'
     (await readdir(fresh)).filter((name) => name.endsWith('.tmp')),
     [],
   )
+
+  // A second publication must not rewrite what is already there: the fallback
+  // copies exclusively, because a rename would replace an existing image.
+  const before = new Map<string, string>()
+  for (const image of manifest.images) {
+    before.set(
+      image.name,
+      createHash('sha256')
+        .update(await readFile(join(fresh, image.name)))
+        .digest('hex'),
+    )
+  }
+  publishRestoreImages(
+    { ...f.storage, imagesDirectory: fresh },
+    backup,
+    manifest,
+    () => {
+      throw new Error('the link must not be attempted for a published image')
+    },
+  )
+  for (const image of manifest.images) {
+    assert.equal(
+      createHash('sha256')
+        .update(await readFile(join(fresh, image.name)))
+        .digest('hex'),
+      before.get(image.name),
+    )
+  }
 })
