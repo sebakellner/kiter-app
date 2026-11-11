@@ -61,6 +61,13 @@ import {
   isPackListPage,
   isPackSamplesPage,
 } from '@shared/ipc/packs'
+import {
+  BACKUP_CHANNELS,
+  isBackupLocationResult,
+  isBackupPage,
+  isBackupSummary,
+  isRestoreTicket,
+} from '@shared/ipc/backup'
 
 // Custom APIs for renderer
 const api: Api = {
@@ -343,6 +350,30 @@ const api: Api = {
         ipcRenderer.removeListener(LIBRARY_CHANNELS.dragError, handler)
       }
     },
+  },
+  backup: {
+    create: async () =>
+      requireIpcResult(
+        await ipcRenderer.invoke(BACKUP_CHANNELS.create),
+        isBackupSummary,
+      ),
+    list: async (request = {}) =>
+      requireIpcResult(
+        await ipcRenderer.invoke(BACKUP_CHANNELS.list, request),
+        isBackupPage,
+      ),
+    delete: async (request) =>
+      requireIpcResult(
+        await ipcRenderer.invoke(BACKUP_CHANNELS.delete, request),
+        isBackupLocationResult,
+      ),
+    // Phase one only: the catalog is replaced by the next start, so the reply
+    // carries `restartRequired` instead of claiming the restore is done.
+    restore: async (request) =>
+      requireIpcResult(
+        await ipcRenderer.invoke(BACKUP_CHANNELS.restore, request),
+        isRestoreTicket,
+      ),
   },
 }
 
