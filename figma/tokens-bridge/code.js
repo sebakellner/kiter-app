@@ -257,15 +257,24 @@ async function writeTokens(tree) {
 
 async function ensureCollection() {
   const collections = await figma.variables.getLocalVariableCollectionsAsync()
-  for (const collection of collections) {
+  const existing = findCollection(collections)
+  if (existing) {
+    return existing
+  }
+  const created = figma.variables.createVariableCollection(COLLECTION_NAME)
+  modeIdOf(created)
+  return created
+}
+
+// A collection the push can write into: the Kiter one, with at least one mode.
+function findCollection(collections) {
+  for (const collection of collections || []) {
     const modes = collection.modes || []
     if (collection.name === COLLECTION_NAME && modes.length > 0) {
       return collection
     }
   }
-  const created = figma.variables.createVariableCollection(COLLECTION_NAME)
-  modeIdOf(created)
-  return created
+  return undefined
 }
 
 function modeIdOf(collection) {
@@ -291,7 +300,17 @@ async function writeStyles(styles) {
 }
 
 async function writeTextStyles(entries) {
-  const counts = { created: 0, updated: 0, skipped: 0, skippedNames: [] }
+  const counts = {
+    created: 0,
+    updated: 0,
+    skipped: 0,
+    skippedNames: [],
+    // Additive to the counts above: a style can be written and still carry a
+    // literal where the panel expects a variable.
+    bindings: bindingCounts(),
+    partiallyBoundNames: [],
+    bindingIssues: [],
+  }
   const list = Array.isArray(entries) ? entries : []
   if (list.length === 0) {
     return counts
@@ -301,6 +320,9 @@ async function writeTextStyles(entries) {
   for (const style of await figma.getLocalTextStylesAsync()) {
     byName[style.name] = style
   }
+  // The variables were just written by this same push, so they are read again
+  // here instead of keeping a second name table alive across the two passes.
+  const variables = await variablesByName()
   for (const entry of list) {
     const name = trimName(entry)
     if (!name || typeof entry.fontSize !== 'number') {
@@ -321,8 +343,9 @@ async function writeTextStyles(entries) {
       continue
     }
     const existing = byName[name]
+    let style
     try {
-      const style = existing || figma.createTextStyle()
+      style = existing || figma.createTextStyle()
       style.fontName = fontName
       style.fontSize = entry.fontSize
       style.lineHeight = {
@@ -339,6 +362,9 @@ async function writeTextStyles(entries) {
       skipStyle(counts, name)
       continue
     }
+    // The literals are written first, so a binding that is missing, refused or
+    // rejected leaves a usable style instead of an empty one.
+    recordBindings(counts, name, await bindTextStyle(style, entry, variables))
     if (existing) {
       counts.updated += 1
       continue
@@ -346,6 +372,126 @@ async function writeTextStyles(entries) {
     counts.created += 1
   }
   return counts
+}
+
+// The properties this bridge can bind, each with its outcome counters. A
+// payload may name another property, so the counters are also created on
+// demand by `countOf`.
+function bindingCounts() {
+  return {
+    fontSize: { bound: 0, failed: 0 },
+    letterSpacing: { bound: 0, failed: 0 },
+  }
+}
+
+/**
+ * Binds the properties the payload names a variable for. `lineHeight` never
+ * arrives here: the style stores `fontSize x multiplier` in pixels and the
+ * repository has no token for that product, so the literal stays on purpose.
+ *
+ * Every guard is per property and none of them aborts the batch: a missing API,
+ * a missing variable and a refusal all keep the literal and are reported, so the
+ * next push shows what actually happened in the document.
+ */
+async function bindTextStyle(style, entry, variables) {
+  const outcome = { bound: [], failed: [] }
+  const bindings = isPlainObject(entry.bindings) ? entry.bindings : {}
+  for (const property of Object.keys(bindings)) {
+    const variableName = bindings[property]
+    if (typeof variableName !== 'string' || variableName.trim() === '') {
+      continue
+    }
+    if (typeof style.setBoundVariable !== 'function') {
+      outcome.failed.push({ property, reason: 'no-api' })
+      continue
+    }
+    const variable = variables.get(toName(variableName.trim()))
+    if (!variable) {
+      outcome.failed.push({ property, reason: 'no-variable' })
+      continue
+    }
+    try {
+      // Awaited so an implementation that answers with a promise is reported
+      // like a rejection instead of passing for a success.
+      await style.setBoundVariable(property, variable)
+      outcome.bound.push(property)
+    } catch {
+      outcome.failed.push({ property, reason: 'rejected' })
+    }
+  }
+  return outcome
+}
+
+function recordBindings(counts, name, outcome) {
+  for (const property of outcome.bound) {
+    countOf(counts.bindings, property).bound += 1
+  }
+  for (const failure of outcome.failed) {
+    countOf(counts.bindings, failure.property).failed += 1
+    counts.bindingIssues.push({
+      name,
+      property: failure.property,
+      reason: failure.reason,
+    })
+  }
+  // A partially bound style is one that kept at least one literal while another
+  // property points at a variable. A style nothing bound is not partial, but its
+  // reasons are already in `bindingIssues`.
+  if (
+    name &&
+    outcome.bound.length > 0 &&
+    outcome.failed.length > 0 &&
+    counts.partiallyBoundNames.indexOf(name) === -1
+  ) {
+    counts.partiallyBoundNames.push(name)
+  }
+}
+
+function countOf(bindings, property) {
+  if (!Object.prototype.hasOwnProperty.call(bindings, property)) {
+    bindings[property] = { bound: 0, failed: 0 }
+  }
+  return bindings[property]
+}
+
+// The variables this push wrote, by name. The Kiter copy of a duplicated name
+// wins, exactly like the variable push does, so the binding points at the
+// variable the panel sees.
+async function variablesByName() {
+  const byName = new Map()
+  if (
+    !figma.variables ||
+    typeof figma.variables.getLocalVariablesAsync !== 'function'
+  ) {
+    return byName
+  }
+  let collectionId
+  try {
+    const collections =
+      typeof figma.variables.getLocalVariableCollectionsAsync === 'function'
+        ? await figma.variables.getLocalVariableCollectionsAsync()
+        : []
+    const collection = findCollection(collections)
+    collectionId = collection ? collection.id : undefined
+  } catch {
+    collectionId = undefined
+  }
+  let variables
+  try {
+    variables = await figma.variables.getLocalVariablesAsync()
+  } catch {
+    return byName
+  }
+  for (const variable of variables) {
+    if (
+      !byName.has(variable.name) ||
+      (collectionId !== undefined &&
+        variable.variableCollectionId === collectionId)
+    ) {
+      byName.set(variable.name, variable)
+    }
+  }
+  return byName
 }
 
 async function writeEffectStyles(entries) {
