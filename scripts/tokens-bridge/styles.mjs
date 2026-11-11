@@ -32,7 +32,12 @@ function buildTextStyles(tree, leaves) {
       styles.push(style)
     }
   }
-  return styles
+  // Figma keeps the order styles were created in, so the scale order is fixed
+  // here and the panel reads top to bottom as a type scale.
+  return styles.sort(
+    (left, right) =>
+      left.fontSize - right.fontSize || left.name.localeCompare(right.name),
+  )
 }
 
 function buildEffectStyles(tree, leaves) {
@@ -46,7 +51,7 @@ function buildEffectStyles(tree, leaves) {
       styles.push(style)
     }
   }
-  return styles
+  return styles.sort((left, right) => left.name.localeCompare(right.name))
 }
 
 /**
