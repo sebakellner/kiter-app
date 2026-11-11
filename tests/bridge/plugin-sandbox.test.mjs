@@ -317,3 +317,99 @@ test('reports rejected and keeps the literal when Figma refuses a binding', asyn
     letterSpacing: { bound: 1, failed: 0 },
   })
 })
+
+// The reverse direction: a Figma text style is flattened to the raw values the
+// server compares. Figma stores a font weight as a style name and a line height
+// as `{ unit, value }`, so both are translated here, before they leave Figma.
+async function runReadTextStyles(styles) {
+  let handler
+  const posts = []
+  const figma = {
+    showUI: () => {},
+    closePlugin: () => {},
+    ui: {
+      postMessage: (value) => posts.push(value),
+      set onmessage(fn) {
+        handler = fn
+      },
+      get onmessage() {
+        return handler
+      },
+    },
+    getLocalTextStylesAsync: async () => styles,
+    variables: {
+      getLocalVariableCollectionsAsync: async () => [],
+      getLocalVariablesAsync: async () => [],
+    },
+  }
+
+  vm.runInNewContext(readFileSync(CODE, 'utf8'), {
+    figma,
+    __html__: '<html></html>',
+  })
+  await handler({ type: 'pull-styles' })
+  const result = posts.find((message) => message.type === 'pull-styles-result')
+  assert.ok(result, 'the plugin answers with the local text styles')
+  return plain(result.styles)
+}
+
+test('reads text styles as pixel values and numeric weights', async () => {
+  const styles = await runReadTextStyles([
+    {
+      name: 'typography/body',
+      fontName: { family: 'Instrument Sans', style: 'Regular' },
+      fontSize: 14,
+      lineHeight: { unit: 'PIXELS', value: 21 },
+      letterSpacing: { unit: 'PIXELS', value: 0 },
+    },
+    {
+      name: 'typography/control-strong',
+      fontName: { family: 'Instrument Sans', style: 'SemiBold' },
+      fontSize: 13,
+      lineHeight: { unit: 'PIXELS', value: 20 },
+      letterSpacing: { unit: 'PIXELS', value: 0 },
+    },
+  ])
+
+  assert.deepEqual(styles, [
+    {
+      name: 'typography/body',
+      fontFamily: 'Instrument Sans',
+      fontSize: 14,
+      fontWeight: 400,
+      lineHeight: 21,
+      letterSpacing: 0,
+    },
+    {
+      name: 'typography/control-strong',
+      fontFamily: 'Instrument Sans',
+      fontSize: 13,
+      fontWeight: 600,
+      lineHeight: 20,
+      letterSpacing: 0,
+    },
+  ])
+})
+
+test('reports an unknown weight and a non-pixel line height unchanged', async () => {
+  const styles = await runReadTextStyles([
+    {
+      name: 'typography/display/large',
+      fontName: { family: 'Instrument Sans', style: 'Black' },
+      fontSize: 48,
+      lineHeight: { unit: 'PERCENT', value: 120 },
+      letterSpacing: { unit: 'PERCENT', value: 2 },
+    },
+  ])
+
+  // -1 matches no weight token, and the raw objects match no primitive either:
+  // both are reported by the server instead of being guessed.
+  assert.deepEqual(styles[0], {
+    name: 'typography/display/large',
+    fontFamily: 'Instrument Sans',
+    fontSize: 48,
+    fontWeight: -1,
+    lineHeight: { unit: 'PERCENT', value: 120 },
+    letterSpacing: { unit: 'PERCENT', value: 2 },
+  })
+})

@@ -22,6 +22,11 @@ figma.ui.onmessage = async (message) => {
       figma.ui.postMessage({ type: 'pull-result', tokens })
       return
     }
+    if (message.type === 'pull-styles') {
+      const styles = await readTextStyles()
+      figma.ui.postMessage({ type: 'pull-styles-result', styles })
+      return
+    }
     if (message.type === 'push') {
       const variables = await writeTokens(message.tokens)
       const styles = await writeStyles(message.styles)
@@ -123,6 +128,42 @@ async function readValue(variable, modeId, pathById) {
   }
   // BOOLEAN and anything Figma adds later has no token shape.
   return undefined
+}
+
+// Every local text style becomes one flattened record. The style stores resolved
+// values, so the server has to invert the composite by value; this function only
+// translates Figma's own shapes and never decides whether a value is writable.
+//
+// A style whose line height or letter spacing is not in pixels is reported with
+// the raw `{ unit, value }` object, which matches no primitive and is therefore
+// reported instead of written.
+async function readTextStyles() {
+  const styles = await figma.getLocalTextStylesAsync()
+  const records = []
+  for (const style of styles) {
+    const fontName = style.fontName || {}
+    records.push({
+      name: style.name,
+      fontFamily: typeof fontName.family === 'string' ? fontName.family : '',
+      fontSize: style.fontSize,
+      fontWeight:
+        WEIGHT_VALUES[fontName.style] === undefined
+          ? -1
+          : WEIGHT_VALUES[fontName.style],
+      lineHeight: pixelOrRaw(style.lineHeight),
+      letterSpacing: pixelOrRaw(style.letterSpacing),
+    })
+  }
+  return records
+}
+
+// A style keeps these values as `{ unit, value }`. Only a pixel value is a number
+// the repository can compare, so anything else travels raw.
+function pixelOrRaw(spacing) {
+  if (!isPlainObject(spacing)) {
+    return spacing
+  }
+  return spacing.unit === 'PIXELS' ? spacing.value : spacing
 }
 
 async function aliasTargetPath(id, pathById) {
@@ -286,9 +327,10 @@ function modeIdOf(collection) {
 }
 
 // Typography and shadow composites have no variable type, so they are written
-// as styles. Styles are push-only in this unit: the repository overwrites what
-// Figma holds and never reads a style back. Nothing is deleted, and an existing
-// style keeps the name it already has unless the payload carries that name.
+// as styles. Writing is what this direction owns: a text style can come back
+// through `readTextStyles`, but an effect style is still push-only. Nothing is
+// deleted, and an existing style keeps the name it already has unless the
+// payload carries that name.
 //
 // `skippedNames` is additive to the reported counts: the panel names the styles
 // it could not write, because a silent skip hides a missing text style.
@@ -554,6 +596,16 @@ const WEIGHT_STYLES = {
   500: 'Medium',
   600: 'SemiBold',
   700: 'Bold',
+}
+
+// The reverse cut, for reading a style back. An unknown style name maps to
+// nothing, so the style is reported as an unmatched weight instead of borrowing
+// one.
+const WEIGHT_VALUES = {
+  Regular: 400,
+  Medium: 500,
+  SemiBold: 600,
+  Bold: 700,
 }
 
 // A family the payload does not name cannot be loaded, so the style is skipped
