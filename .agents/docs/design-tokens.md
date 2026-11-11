@@ -190,6 +190,10 @@ nothing.
 
 - Styles are **push-only**. A designer edit of a text or effect style in Figma
   is overwritten by the next push and never pulled; only variables round-trip.
+- A text style binds `fontSize` and `letterSpacing` to their token variables, so
+  those two follow the primitive inside Figma. `lineHeight` stays literal: the
+  style stores `fontSize × multiplier` and no token holds that product.
+  `fontFamily` is not bound because its token is a fallback array.
 - `border.control` and the `font.family` array have no Figma representation, so
   Figma sees 108 of the 110 tokens. `border` has no style type and the family
   array only exists to compose the text styles.
