@@ -2,9 +2,8 @@ import { spawnSync } from 'node:child_process'
 import { readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
-import { format } from 'prettier'
-
 import { mergePayload } from './merge.mjs'
+import { serializeTokens } from './serialize.mjs'
 
 const TOKEN_FOLDERS = ['primitives', 'semantic']
 
@@ -39,20 +38,20 @@ export async function applyPull({ repoRoot, payload, runBuild = runTokens }) {
     merged.tree[run.folder] = run.tree[run.folder]
   }
 
-  // Serialize everything before the first write: a failure while rebuilding or
-  // formatting leaves the tree untouched instead of half written.
+  // Serialize everything before the first write: a failure while rebuilding
+  // leaves the tree untouched instead of half written.
   const pending = []
   for (const file of files) {
     const next = reconstructFile(file, merged.tree[file.folder])
-    // Compare parsed values, not text: the repository uses `objectWrap:
-    // preserve`, so re-serializing an unchanged file would still differ from
-    // its source wrapping and rewrite every file on a no-op pull.
+    // Compare parsed values, not text: the dialect serializes a file the same
+    // way the repository does, but a comparison that walks the tree is what
+    // guarantees a pull that changes nothing never writes.
     if (deepEqual(next, file.data)) {
       continue
     }
     pending.push({
       ...file,
-      serialized: await serialize(next, file.absolutePath),
+      serialized: serializeTokens(next),
     })
   }
   for (const file of pending) {
@@ -222,15 +221,6 @@ function isRawValue(value) {
     return true
   }
   return ['r', 'g', 'b'].every((channel) => typeof value[channel] === 'number')
-}
-
-/**
- * Serializes with Prettier so a pull writes the formatting the repository
- * already uses. Plain JSON.stringify reformats 9 of the 13 token files and
- * makes `pnpm format:check` fail after any pull.
- */
-function serialize(value, filepath) {
-  return format(`${JSON.stringify(value, null, 2)}\n`, { filepath })
 }
 
 function runTokens(repoRoot) {
