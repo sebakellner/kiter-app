@@ -1,0 +1,111 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      body {
+        margin: 0;
+        padding: 16px;
+        background: #15171a;
+        color: #ffffff;
+        font:
+          12px/1.5 'Instrument Sans',
+          -apple-system,
+          system-ui,
+          sans-serif;
+      }
+      h1 {
+        margin: 0 0 4px;
+        font-size: 13px;
+        font-weight: 600;
+      }
+      .hint {
+        margin: 0 0 12px;
+        color: #bfc0c2;
+      }
+      button {
+        padding: 6px 12px;
+        border: 1px solid #94969a;
+        border-radius: 4px;
+        background: #ffc800;
+        color: #292d34;
+        font: inherit;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      pre {
+        margin: 12px 0 0;
+        padding: 8px;
+        border-radius: 4px;
+        background: #08090a;
+        color: #bfc0c2;
+        font:
+          11px/1.4 ui-monospace,
+          monospace;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+      section {
+        margin-top: 12px;
+      }
+      li {
+        color: #bfc0c2;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Kiter Token Bridge</h1>
+    <p class="hint">Prueba de humo: red local y lectura de variables.</p>
+    <button id="probe">Probar localhost</button>
+    <pre id="log">Sin probar todavía.</pre>
+    <section id="document"></section>
+
+    <script>
+      const ENDPOINT = 'http://localhost:4747/health'
+      const log = document.getElementById('log')
+      const documentSection = document.getElementById('document')
+      const append = (line) => {
+        log.textContent += line + '\n'
+      }
+
+      document.getElementById('probe').addEventListener('click', async () => {
+        log.textContent = 'GET ' + ENDPOINT + '\n'
+        try {
+          const response = await fetch(ENDPOINT)
+          append('HTTP ' + response.status)
+          const body = await response.json()
+          append(JSON.stringify(body, null, 2))
+          append('')
+          append('✓ el plugin puede hablar con localhost')
+        } catch (error) {
+          append('✗ falló: ' + error.message)
+          append('')
+          append('¿Está corriendo `pnpm tokens:bridge`?')
+        }
+      })
+
+      window.onmessage = (event) => {
+        const message = event.data.pluginMessage
+        if (!message || message.type !== 'document') {
+          return
+        }
+        if (!message.supported) {
+          documentSection.textContent =
+            'figma.variables no está disponible en este archivo.'
+          return
+        }
+        const items = message.collections
+          .map((entry) => '<li>' + entry.name + ': ' + entry.count + '</li>')
+          .join('')
+        documentSection.innerHTML =
+          '<h1>Variables locales: ' +
+          message.total +
+          '</h1><ul>' +
+          items +
+          '</ul>'
+      }
+
+      parent.postMessage({ pluginMessage: { type: 'describe' } }, '*')
+    </script>
+  </body>
+</html>
