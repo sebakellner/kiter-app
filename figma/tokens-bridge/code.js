@@ -286,7 +286,7 @@ function modeIdOf(collection) {
 async function writeStyles(styles) {
   return {
     text: await writeTextStyles(styles && styles.text),
-    effects: writeEffectStyles(styles && styles.effects),
+    effects: await writeEffectStyles(styles && styles.effects),
   }
 }
 
@@ -297,7 +297,8 @@ async function writeTextStyles(entries) {
     return counts
   }
   const byName = {}
-  for (const style of figma.getLocalTextStyles()) {
+  // documentAccess: dynamic-page forbids the synchronous style accessors.
+  for (const style of await figma.getLocalTextStylesAsync()) {
     byName[style.name] = style
   }
   for (const entry of list) {
@@ -347,14 +348,14 @@ async function writeTextStyles(entries) {
   return counts
 }
 
-function writeEffectStyles(entries) {
+async function writeEffectStyles(entries) {
   const counts = { created: 0, updated: 0, skipped: 0, skippedNames: [] }
   const list = Array.isArray(entries) ? entries : []
   if (list.length === 0) {
     return counts
   }
   const byName = {}
-  for (const style of figma.getLocalEffectStyles()) {
+  for (const style of await figma.getLocalEffectStylesAsync()) {
     byName[style.name] = style
   }
   for (const entry of list) {
