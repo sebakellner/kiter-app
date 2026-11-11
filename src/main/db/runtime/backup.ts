@@ -802,10 +802,29 @@ export function stageRestoreCatalog(
 // blocks the replacement, and a missing one is copied under a temporary name,
 // verified, and linked into place so a partial copy never becomes a managed
 // image. Published images are additive and harmless if the restore stops later.
+// Hard links publish an immutable image atomically: the bytes already exist,
+// verified and flushed, under a temporary name, and linking refuses to overwrite.
+// A filesystem without them (exFAT, FAT, some network volumes) refuses with EXDEV or
+// EPERM, and there the verified temporary copy is renamed into place instead. The
+// rule is unchanged either way: a partial copy never becomes a managed image.
+function isUnsupportedLink(error: unknown): boolean {
+  const code = isRecord(error) ? error.code : undefined
+  return (
+    code === 'EXDEV' ||
+    code === 'EPERM' ||
+    code === 'ENOTSUP' ||
+    code === 'EMLINK' ||
+    code === 'EACCES'
+  )
+}
+
 export function publishRestoreImages(
   storage: BackupStorage,
   folder: string,
   manifest: BackupManifest,
+  // Test seam: the non-hard-link branch cannot be reached on demand, because every
+  // CI filesystem supports links inside one directory. Defaults to the real call.
+  link: (from: string, to: string) => void = linkSync,
 ): void {
   const imagesDirectory = managedImages(storage)
   checkSpace(
@@ -827,7 +846,16 @@ export function publishRestoreImages(
       )
       verifyFile(temporary, image, IMAGE_MAX_BYTES)
       syncFile(temporary)
-      linkSync(temporary, target)
+      try {
+        link(temporary, target)
+      } catch (error) {
+        if (!isUnsupportedLink(error)) {
+          throw error
+        }
+        // Same-directory rename: atomic, and the temporary name is gone only when
+        // the target has the full verified bytes.
+        renameSync(temporary, target)
+      }
     } finally {
       if (existsSync(temporary)) {
         unlinkSync(temporary)

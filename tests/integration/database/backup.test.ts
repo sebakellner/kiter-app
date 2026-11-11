@@ -24,6 +24,7 @@ import {
   pendingRestoreIntent,
   preserveDamagedCatalog,
   protectiveBackupCause,
+  publishRestoreImages,
   readBackupManifest,
   restoreBackup,
   serializeBackupManifest,
@@ -2142,4 +2143,46 @@ test('a blocked replacement of a header-valid corrupt catalog keeps its journal'
   )
   assert.deepEqual(await readFile(f.filename), corrupted)
   assert.deepEqual(await readFile(`${f.filename}-journal`), journal)
+})
+
+// exFAT, FAT and some network volumes refuse hard links. The verified temporary copy
+// is renamed into place instead, and the never-overwrite rule still holds.
+test('an image is published without hard links when the filesystem refuses them', async (t) => {
+  const f = await fixture(t)
+  await addAvatar(f)
+  const backup = createProtectiveBackup(
+    f.connection.native,
+    f.filename,
+    migrationsFolder,
+    f.storage,
+  )
+  const manifest = readBackupManifest(backup)
+  assert.notEqual(manifest.images.length, 0)
+  const fresh = join(dirname(f.storage.imagesDirectory), 'no-link-images')
+  await mkdir(fresh, { recursive: true })
+
+  publishRestoreImages(
+    { ...f.storage, imagesDirectory: fresh },
+    backup,
+    manifest,
+    () => {
+      const error = new Error(
+        'EXDEV: cross-device link not permitted',
+      ) as NodeJS.ErrnoException
+      error.code = 'EXDEV'
+      throw error
+    },
+  )
+
+  for (const image of manifest.images) {
+    const published = await readFile(join(fresh, image.name))
+    assert.equal(
+      createHash('sha256').update(published).digest('hex'),
+      image.sha256,
+    )
+  }
+  assert.deepEqual(
+    (await readdir(fresh)).filter((name) => name.endsWith('.tmp')),
+    [],
+  )
 })
