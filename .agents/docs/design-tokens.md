@@ -179,7 +179,7 @@ load completely.
 The bridge has its own suite:
 
 ```bash
-node --test tests/bridge/bridge.test.mjs tests/bridge/pull.test.mjs
+node --test tests/bridge/*.test.mjs
 ```
 
 The required test is idempotency: project, inverse project, and diff against the
@@ -197,10 +197,12 @@ nothing.
   where CSS renders 22.5px.
 - Group `$description` never reaches Figma. Read it in the repository.
 - Section placement in Tokens Studio does not match DTCG types, by decision.
-- A pull that changes a token file can also change that file's key order and
-  object wrapping: `JSON.parse` reorders integer-like keys and the repository
-  uses `objectWrap: preserve`, so no serializer reproduces a file byte for byte.
-  A pull that changes nothing writes nothing, and that is tested.
+- The bridge writes with an explicit serializer that reproduces this
+  repository's dialect byte for byte: `$description` first, integer keys
+  ascending, groups expanded, token leaves inline at most 80 columns wide. All
+  thirteen token files round-trip exactly, so a pull only ever diffs values. The
+  one exception is a group hand-written inline: `prettier --check` accepts it,
+  but the next pull touching that file expands that group once.
 - Colors are 8-bit. An edit off the `n / 255` grid snaps to the nearest byte.
 
 ## Provenance
