@@ -3,6 +3,7 @@ import { join } from 'path'
 import { is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { LIFECYCLE_CHANNELS } from '../shared/ipc/lifecycle'
+import { windowChromeOptions } from './window-chrome'
 
 export function createWindow(): void {
   // Create the browser window.
@@ -11,6 +12,7 @@ export function createWindow(): void {
     height: 800,
     show: false,
     autoHideMenuBar: true,
+    ...windowChromeOptions(process.platform),
     ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),

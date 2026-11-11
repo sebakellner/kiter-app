@@ -145,8 +145,13 @@ folder selection preserves the current view, folder, and preview.
 The layout component receives regions through props and does not call the bridge.
 Feature-owned components and hooks coordinate library operations. Catalog data
 remains behind the typed preload API; router state is not catalog persistence.
-The initial shell uses the native title bar and browser audio controls. Custom
-window-header integration, inspector editing, and full transport remain planned.
+The shell hides the native title bar and draws its own header band, so the window
+chrome is part of the layout. `src/main/window-chrome.ts` owns the per-platform
+window options and `src/shared/window-chrome.ts` owns the band height and the
+macOS traffic-light geometry the renderer reuses, which keeps the Windows caption
+overlay and the header from drifting apart. The header band is the drag region and
+every control inside it opts out with `-webkit-app-region: no-drag`. Inspector
+editing and full transport remain planned.
 Samples/Favorites requery their saved bounded page, clamp empty out-of-range pages,
 and restore selection only if the ID remains in the results. Focus and scroll are
 restored after loading, respecting compact inspector boundaries; unavailable
