@@ -40,11 +40,11 @@ operation reconciliation.
   after replacement the restored catalog references already-published images.
   Startup image reconciliation handles generated unreferenced images/temps.
   An interrupted catalog staging file is retained, not automatically replayed.
-- A corrupt current catalog or missing current referenced image blocks restoration
-  because a verified protective copy cannot be made. Explicit damaged-state
-  preservation/recovery is **not implemented**. Confirmed-operation or analysis
-  reconciliation also remains pending. The current implementation has neither
-  persisted analysis nor confirmed operations to restore.
+- A corrupt current catalog, or a missing current referenced image, blocks a _verified_
+  protective copy. Its damaged state is preserved first, as described under
+  [Preserved Damaged Libraries](#preserved-damaged-libraries). Confirmed-operation
+  or analysis reconciliation also remains pending. The current implementation has
+  neither persisted analysis nor confirmed operations to restore.
 
 ## Implemented Runtime Creation, Management and Two-Phase Restore
 
@@ -60,7 +60,8 @@ because they need the catalog file and managed storage.
 - `list-backups` is bounded: creation names folders with an ISO timestamp, so
   folder-name order is age order and only the requested page's manifests are read.
   A stored folder whose manifest cannot be read is counted in `skipped` and never
-  listed as a restorable copy.
+  listed as a restorable copy. A preserved damaged library is listed with
+  `restorable: false`; every other entry is a copy a restore may be asked to verify.
 - `delete-backup` accepts only a direct child of managed storage that carries a
   readable manifest. Links, paths outside managed storage and dot-prefixed staging
   folders are refused. A user-chosen destination is not offered yet, so nothing
@@ -83,13 +84,22 @@ because they need the catalog file and managed storage.
   Opening and closing the file is not enough: the journal is rolled back on the
   first **access**, and a write-ahead log is checkpointed explicitly, refusing to
   continue when the checkpoint reports itself busy.
-- A catalog that is absent, or that is not a database at all, cannot be kept: the
-  verified staged copy replaces it, so the swap proceeds. Recovery that is merely
-  blocked, by a read-only file or another connection, aborts the swap instead and
-  leaves every sidecar untouched, because they are still the library's only
-  rollback. Only after the catalog is settled are the sidecars removed, before the
-  rename and never after: renaming first would let SQLite replay foreign frames
-  onto the restored catalog.
+- A catalog that is absent cannot be kept, so the verified staged copy replaces it
+  and the swap proceeds. A catalog that is **damaged** is preserved first, inside
+  the swap and before any sidecar is removed; if that preservation fails the swap
+  is refused. Recovery that is merely blocked, by a read-only file or another
+  connection, aborts the swap too and leaves every sidecar untouched, because they
+  are still the library's only rollback. Only after the catalog is settled are the
+  sidecars removed, before the rename and never after: renaming first would let
+  SQLite replay foreign frames onto the restored catalog.
+- Damage is decided from the bytes before the catalog is opened in the bootstrap
+  path: a file without the SQLite header cannot be opened, and SQLite deletes
+  `-journal` and `-wal` when that open fails. Reading it first would destroy the
+  evidence preservation exists to keep. A valid header does not prove the body is
+  readable, and the read that discovers that deletes the sidecars too, so they are
+  copied into staging **before** the settle opens anything. The copies are what a
+  damaged artifact keeps; a clean settle discards them. If preservation fails after
+  such a read, the copies go back where a manual recovery looks for them.
 - A swap that cannot be applied stops startup with an explicit failure instead of
   serving a session whose writes the next start discards. The intent stays, so a
   restart retries the same verified swap.
@@ -102,6 +112,69 @@ because they need the catalog file and managed storage.
   migration protection, backup-location failure/retry, restoration and durable
   Favorites; see [Release Process](../release-process.md#local-packaged-recovery-smoke).
   Windows recovery remains unvalidated.
+
+### Protective Copy Failure Causes
+
+A protective copy reports the cause that produced it, so a caller can ask "is this
+library damaged?" or "is the disk full?" instead of matching on one message. The
+causes are `catalog-corrupt` (the catalog cannot be read as a database),
+`catalog-invalid` (readable, but it fails stored-catalog validation),
+`image-unavailable` (a referenced immutable image is gone), `image-invalid` (a
+managed image path exists but cannot be used: a linked or unusable image directory,
+an entry that is not a readable regular file, or a failed copy),
+`insufficient-space`, `invalid-storage` (the backup storage directory is not a
+usable directory), `manifest-too-large`, and `capture-failed` (the catalog could
+not be captured, including a failed `VACUUM INTO`).
+
+The taxonomy stays inside the main process: each surface presents one message, and
+no renderer receives a cause list; a surface that words the same failure
+differently keeps the cause instead of dropping it. Only `catalog-corrupt` and
+`image-unavailable` are treated as a damaged library; every other cause keeps
+blocking the migration or replacement, because waiting loses nothing. A readable
+catalog that merely fails validation also keeps blocking for the same reason, and
+so does an unusable image path: a linked image directory or an image entry that is
+not a regular file is a condition to fix, not damage, and replacing a healthy
+catalog for it would throw away working data.
+
+## Preserved Damaged Libraries
+
+A current library that cannot form a verified protective copy because it is damaged
+may still be replaced, but only after its damaged state is preserved. If that
+preservation fails, replacement is blocked: the catalog, the intent and the staged
+copy stay exactly as they were and a restart retries.
+
+- The artifact is a managed folder named `<timestamp>-<uuid>`, published by the
+  same staging rename as a backup. It holds `manifest.json`, `catalog.sqlite`, and
+  the catalog's `-journal`, `-wal` and `-shm` sidecars when present. The sidecars
+  are copied because they are the only manual recovery a damaged library has left;
+  losing them defeats the purpose of preserving anything.
+- `catalog.sqlite` is a raw copy, never `VACUUM INTO`: producing a vacuumed catalog
+  is exactly what a damaged one cannot do. Hashes are recorded as evidence of what
+  was kept and are never re-verified, because nothing can vouch for the contents.
+- A zero-byte `catalog.sqlite` is legitimate evidence when the sidecars carry the
+  recovery, so the catalog entry may be empty for `kind: 'damaged'` only; every
+  restorable kind still requires a catalog. The sidecars are copied before the
+  catalog is opened, because the open that decides damage is what deletes them.
+- The artifact is read back through the same manifest reader that listing and
+  deletion use, before it is renamed into place. An artifact nothing could list or
+  delete would hide the only copy of the library the swap is about to discard, so
+  that check fails the preservation and blocks the swap instead of publishing it.
+- The manifest carries `kind: 'damaged'` and an explicit `verified: false`, and no
+  schema version because nothing could read the catalog. Both directions are
+  enforced: a damaged artifact can never be read as a valid copy, and only a damaged
+  artifact may be unverified.
+- Preservation runs inside both catalog-replacement paths: the startup restore and
+  the bootstrap swap that applies a pending restore. It happens before any sidecar
+  is removed and before the rename, so the artifact holds the bytes that were
+  replaced. A blocked swap is acceptable: the catalog, the intent and the staged
+  copy stay as they were. An artifact that cannot be read back is not.
+- The artifact is visible in `backup:list` with `restorable: false`, so management
+  can review and delete it. Preserving silently would be indistinguishable from
+  deleting. `backup:restore` on its location is refused with `INVALID_INPUT`, and
+  every restore path re-verifies the copy it is given, so the artifact is never
+  accepted as a backup.
+- A runtime restore request still blocks when the current library cannot form a
+  verified copy; preservation covers the two replacement paths, not phase one.
 
 ## Backup Contents and Creation
 
@@ -147,7 +220,9 @@ because they need the catalog file and managed storage.
   blocks replacement. If current data is corrupt and cannot form a validated
   backup, allow explicitly confirmed recovery only after preserving a recoverable
   copy of the damaged state, clearly marked unvalidated. If preservation also
-  fails, block replacement. Never label damaged evidence a valid backup.
+  fails, block replacement. Never label damaged evidence a valid backup. The
+  implemented artifact, its visibility and its refusal are owned by
+  [Preserved Damaged Libraries](#preserved-damaged-libraries).
 - Restore catalog and managed images consistently and retain the protective copy.
   Restoration failure must preserve recoverable current data and report an
   accurate recoverable state, never silently reset or claim partial success.
@@ -171,14 +246,13 @@ Visual layout and exact routes remain to be designed. The worker commands and th
 `DbClient` methods exist; no IPC channel, preload surface or Settings screen does,
 and the delivery that added the commands stopped at that boundary.
 
-Remaining delivery contracts are damaged-state preservation and its `damaged`
-manifest kind, platform validation of durability and packaged interruption
-recovery, and reconciliation of restored confirmed operations and analysis once
-those exist. Windows directory flush is still skipped and needs packaged
-validation before durability can be claimed.
+Remaining delivery contracts are platform validation of durability and packaged
+interruption recovery, and reconciliation of restored confirmed operations and
+analysis once those exist. Windows directory flush is still skipped and needs
+packaged validation before durability can be claimed.
 
 Define archive/version manifests, consistency barriers, validation, safe staged
-publication/replacement, damaged-state preservation, disk-space checks, bounded
-management queries, authorization, IPC, failure recovery, and platform validation
-before delivery. These contracts must fulfill the agreed rules without implying
-that current migration rollback or operation journals already provide backups.
+publication/replacement, disk-space checks, bounded management queries,
+authorization, IPC, failure recovery, and platform validation before delivery.
+These contracts must fulfill the agreed rules without implying that current
+migration rollback or operation journals already provide backups.

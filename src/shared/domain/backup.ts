@@ -3,8 +3,11 @@ import { MAX_PAGE_LIMIT, requirePage } from './pagination.ts'
 import { isRecord } from './validation.ts'
 
 // A backup kind states why the copy exists, never whether it is valid. Validity
-// is established only by verifying the copy itself.
-export type BackupKind = 'pre-migration' | 'pre-restoration' | 'manual'
+// is established only by verifying the copy itself. The `damaged` kind is the
+// exception that proves the rule: it marks an artifact that preserves a library
+// which could not be verified, so it is never presented or accepted as a backup.
+export type BackupKind =
+  'pre-migration' | 'pre-restoration' | 'manual' | 'damaged'
 
 export interface BackupSummary {
   location: string
@@ -15,6 +18,9 @@ export interface BackupSummary {
   imageBytes: number
   imageCount: number
   totalBytes: number
+  // A damaged artifact is visible in management so it can be reviewed and
+  // deleted, but it is never a copy that may be restored.
+  restorable: boolean
 }
 
 // Stored folders on this page that are not readable backups. They are counted
@@ -50,6 +56,7 @@ const kinds: readonly BackupKind[] = [
   'pre-migration',
   'pre-restoration',
   'manual',
+  'damaged',
 ]
 
 function isByteCount(value: unknown): value is number {
@@ -68,16 +75,21 @@ export function isBackupSummary(value: unknown): value is BackupSummary {
     typeof value.createdAt === 'string' &&
     Number.isFinite(Date.parse(value.createdAt)) &&
     isBackupKind(value.kind) &&
+    typeof value.restorable === 'boolean' &&
+    value.restorable === (value.kind !== 'damaged') &&
     typeof value.schemaVersion === 'number' &&
     Number.isSafeInteger(value.schemaVersion) &&
-    value.schemaVersion >= 1 &&
     isByteCount(value.catalogBytes) &&
     isByteCount(value.imageBytes) &&
     isByteCount(value.imageCount) &&
     isByteCount(value.totalBytes) &&
     value.totalBytes === value.catalogBytes + value.imageBytes &&
-    // A copy without a catalog is not a backup.
-    value.catalogBytes > 0
+    // A restorable copy always carries a catalog. A damaged artifact records
+    // whatever bytes the broken library still had, which can be none, and has no
+    // schema version because nothing could read it.
+    (value.restorable
+      ? value.catalogBytes > 0 && value.schemaVersion >= 1
+      : value.schemaVersion === 0)
   )
 }
 

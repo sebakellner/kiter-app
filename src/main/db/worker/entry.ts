@@ -40,17 +40,6 @@ try {
     throw new DbError('INVALID_INPUT', 'Invalid database configuration.')
   }
   mkdirSync(dirname(options.filename), { recursive: true })
-  // A restore staged by the previous session completes before the catalog is
-  // opened. An unreadable intent is discarded, never allowed to block startup,
-  // but a swap that could not be applied has to stop here: serving a session
-  // would let the next start discard its work without telling anyone.
-  const pendingRestore = applyPendingRestore(options.filename)
-  if (pendingRestore === 'failed') {
-    throw new DbError(
-      'STORAGE_FAILED',
-      'A pending library restore could not be applied. Restart Kiter to retry.',
-    )
-  }
   const storage = {
     backupDirectory:
       typeof options.backupDirectory === 'string'
@@ -60,6 +49,18 @@ try {
       typeof options.imagesDirectory === 'string'
         ? options.imagesDirectory
         : join(dirname(options.filename), '..', 'library', 'images'),
+  }
+  // A restore staged by the previous session completes before the catalog is
+  // opened. An unreadable intent is discarded, never allowed to block startup,
+  // but a swap that could not be applied has to stop here: serving a session
+  // would let the next start discard its work without telling anyone. A current
+  // catalog that is damaged is preserved into managed storage by that swap.
+  const pendingRestore = applyPendingRestore(options.filename, storage)
+  if (pendingRestore === 'failed') {
+    throw new DbError(
+      'STORAGE_FAILED',
+      'A pending library restore could not be applied. Restart Kiter to retry.',
+    )
   }
   if (typeof options.restoreFrom === 'string') {
     restoreBackup(
