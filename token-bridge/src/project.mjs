@@ -60,7 +60,7 @@ export function toFigmaTree(tree) {
 function toFigmaLeaf(token) {
   // Shadows travel as effect styles instead. A composite has no variable type,
   // so the flattened CSS string would arrive as a STRING variable no designer
-  // can apply. `scripts/tokens-bridge/styles.mjs` builds those styles.
+  // can apply. `token-bridge/src/styles.mjs` builds those styles.
   if (token.$type === 'shadow') {
     return undefined
   }

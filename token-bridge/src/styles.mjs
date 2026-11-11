@@ -8,9 +8,9 @@ const ALIAS = /^\{([^{}]+)\}$/
  * Builds the two token families that cannot be Figma variables: typography
  * composites become text styles and shadow composites become effect styles.
  *
- * Styles are push-only. A designer edit in Figma does not come back yet; the
- * repository stays the single source of truth, so this module only reads
- * `tokens/**\/*.json` and never writes.
+ * A text style comes back from Figma through `style-match.mjs`, which compares
+ * it against exactly these values. Effect styles are still push-only. This
+ * module only reads `tokens/**\/*.json` and never writes.
  */
 export function buildStyles(repoRoot = process.cwd()) {
   const tree = readRepositoryTree(repoRoot)
@@ -59,6 +59,9 @@ function buildEffectStyles(tree, leaves) {
  * single family in Figma, `lineHeight` is a unitless multiplier that Figma
  * stores in pixels, and `letterSpacing` is a DTCG dimension whose numeric part
  * is the pixel value.
+ *
+ * `bindings` names the variable each bindable property should point at, so the
+ * style stops carrying a second copy of a value the variables already own.
  */
 function toTextStyle(tree, leaf) {
   const value = leaf.token.$value
@@ -86,9 +89,48 @@ function toTextStyle(tree, leaf) {
     fontFamily,
     fontSize,
     fontWeight,
+    // Figma stores a line height in pixels and the repository stores a
+    // multiplier, so this literal is the product and has no variable to bind
+    // to. Binding it would need a token for e.g. 21px that does not exist.
     lineHeight: Math.round(fontSize * multiplier),
     letterSpacing,
+    bindings: textBindings(value),
   }
+}
+
+/**
+ * The variable names a text style binds, taken from the composite's own aliases
+ * so a binding can never drift from the token it came from. A property holding
+ * a literal has no variable to point at and gets no entry; `fontFamily` is out
+ * of scope because its token is a fallback array the push does not turn into a
+ * variable.
+ */
+function textBindings(value) {
+  const bindings = {}
+  const fontSize = aliasName(value.fontSize)
+  if (fontSize) {
+    bindings.fontSize = fontSize
+  }
+  const letterSpacing = aliasName(value.letterSpacing)
+  if (letterSpacing) {
+    bindings.letterSpacing = letterSpacing
+  }
+  return bindings
+}
+
+// `{font.size.14}` -> `font/size/14`: a Figma variable is named after its path.
+function aliasName(value) {
+  const alias = aliasOf(value)
+  return alias === undefined ? undefined : alias.split('.').join('/')
+}
+
+// The reference a DTCG alias string carries, or undefined for a literal.
+function aliasOf(value) {
+  if (typeof value !== 'string') {
+    return undefined
+  }
+  const match = ALIAS.exec(value.trim())
+  return match ? match[1] : undefined
 }
 
 /**
@@ -156,14 +198,11 @@ function styleName(path) {
  * including an already resolved one, is returned as is.
  */
 function resolveValue(tree, value) {
-  if (typeof value !== 'string') {
+  const alias = aliasOf(value)
+  if (alias === undefined) {
     return value
   }
-  const alias = ALIAS.exec(value.trim())
-  if (!alias) {
-    return value
-  }
-  const target = nodeAtPath(tree, alias[1].split('.'))
+  const target = nodeAtPath(tree, alias.split('.'))
   return isTokenLeaf(target) ? target.$value : value
 }
 
@@ -189,7 +228,7 @@ function toNumber(value) {
   return undefined
 }
 
-function readRepositoryTree(repoRoot) {
+export function readRepositoryTree(repoRoot) {
   const tree = {}
   for (const folder of TOKEN_FOLDERS) {
     mergeInto(tree, readFolder(repoRoot, folder))
@@ -207,6 +246,24 @@ function readFolder(repoRoot, folder) {
     mergeInto(tree, JSON.parse(readFileSync(join(directory, name), 'utf8')))
   }
   return tree
+}
+
+/**
+ * The text style the push would produce for one token path, or `undefined` when
+ * the repository has no complete composite there. The reverse direction uses it
+ * so both directions share one resolution rule and one rounding rule.
+ */
+export function textStyleAt(tree, path) {
+  const node = nodeAtPath(tree, path)
+  if (!isTokenLeaf(node)) {
+    return undefined
+  }
+  return toTextStyle(tree, { path, token: node })
+}
+
+/** Every token leaf with its path, in repository order. */
+export function tokenLeaves(tree) {
+  return flattenLeaves(tree, [], [])
 }
 
 // Leaves keep repository order: primitives first, then semantic, so a style is

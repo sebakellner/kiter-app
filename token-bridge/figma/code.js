@@ -22,6 +22,11 @@ figma.ui.onmessage = async (message) => {
       figma.ui.postMessage({ type: 'pull-result', tokens })
       return
     }
+    if (message.type === 'pull-styles') {
+      const styles = await readTextStyles()
+      figma.ui.postMessage({ type: 'pull-styles-result', styles })
+      return
+    }
     if (message.type === 'push') {
       const variables = await writeTokens(message.tokens)
       const styles = await writeStyles(message.styles)
@@ -125,6 +130,42 @@ async function readValue(variable, modeId, pathById) {
   return undefined
 }
 
+// Every local text style becomes one flattened record. The style stores resolved
+// values, so the server has to invert the composite by value; this function only
+// translates Figma's own shapes and never decides whether a value is writable.
+//
+// A style whose line height or letter spacing is not in pixels is reported with
+// the raw `{ unit, value }` object, which matches no primitive and is therefore
+// reported instead of written.
+async function readTextStyles() {
+  const styles = await figma.getLocalTextStylesAsync()
+  const records = []
+  for (const style of styles) {
+    const fontName = style.fontName || {}
+    records.push({
+      name: style.name,
+      fontFamily: typeof fontName.family === 'string' ? fontName.family : '',
+      fontSize: style.fontSize,
+      fontWeight:
+        WEIGHT_VALUES[fontName.style] === undefined
+          ? -1
+          : WEIGHT_VALUES[fontName.style],
+      lineHeight: pixelOrRaw(style.lineHeight),
+      letterSpacing: pixelOrRaw(style.letterSpacing),
+    })
+  }
+  return records
+}
+
+// A style keeps these values as `{ unit, value }`. Only a pixel value is a number
+// the repository can compare, so anything else travels raw.
+function pixelOrRaw(spacing) {
+  if (!isPlainObject(spacing)) {
+    return spacing
+  }
+  return spacing.unit === 'PIXELS' ? spacing.value : spacing
+}
+
 async function aliasTargetPath(id, pathById) {
   if (pathById[id]) {
     return pathById[id]
@@ -179,9 +220,9 @@ async function writeTokens(tree) {
 
   const byName = {}
   for (const variable of variables) {
-    // Two collections can declare the same name. The Kiter copy wins, so a push
-    // updates it instead of creating a duplicate, and never renames anything.
-    if (!byName[variable.name] || isKiterCollection(variable, collection)) {
+    // A same-named variable in another collection cannot take this collection's
+    // mode id, so adopting it would skip the write: only the Kiter copy is used.
+    if (isKiterCollection(variable, collection)) {
       byName[variable.name] = variable
     }
   }
@@ -257,15 +298,24 @@ async function writeTokens(tree) {
 
 async function ensureCollection() {
   const collections = await figma.variables.getLocalVariableCollectionsAsync()
-  for (const collection of collections) {
+  const existing = findCollection(collections)
+  if (existing) {
+    return existing
+  }
+  const created = figma.variables.createVariableCollection(COLLECTION_NAME)
+  modeIdOf(created)
+  return created
+}
+
+// A collection the push can write into: the Kiter one, with at least one mode.
+function findCollection(collections) {
+  for (const collection of collections || []) {
     const modes = collection.modes || []
     if (collection.name === COLLECTION_NAME && modes.length > 0) {
       return collection
     }
   }
-  const created = figma.variables.createVariableCollection(COLLECTION_NAME)
-  modeIdOf(created)
-  return created
+  return undefined
 }
 
 function modeIdOf(collection) {
@@ -277,9 +327,10 @@ function modeIdOf(collection) {
 }
 
 // Typography and shadow composites have no variable type, so they are written
-// as styles. Styles are push-only in this unit: the repository overwrites what
-// Figma holds and never reads a style back. Nothing is deleted, and an existing
-// style keeps the name it already has unless the payload carries that name.
+// as styles. Writing is what this direction owns: a text style can come back
+// through `readTextStyles`, but an effect style is still push-only. Nothing is
+// deleted, and an existing style keeps the name it already has unless the
+// payload carries that name.
 //
 // `skippedNames` is additive to the reported counts: the panel names the styles
 // it could not write, because a silent skip hides a missing text style.
@@ -291,7 +342,20 @@ async function writeStyles(styles) {
 }
 
 async function writeTextStyles(entries) {
-  const counts = { created: 0, updated: 0, skipped: 0, skippedNames: [] }
+  const counts = {
+    created: 0,
+    updated: 0,
+    skipped: 0,
+    skippedNames: [],
+    // Additive to the counts above: a skipped style keeps the reason it was
+    // skipped for, so a missing cut is not mistaken for a missing family.
+    skipReasons: [],
+    // Additive to the counts above: a style can be written and still carry a
+    // literal where the panel expects a variable.
+    bindings: bindingCounts(),
+    partiallyBoundNames: [],
+    bindingIssues: [],
+  }
   const list = Array.isArray(entries) ? entries : []
   if (list.length === 0) {
     return counts
@@ -301,10 +365,19 @@ async function writeTextStyles(entries) {
   for (const style of await figma.getLocalTextStylesAsync()) {
     byName[style.name] = style
   }
+  // The variables were just written by this same push, so they are read again
+  // here instead of keeping a second name table alive across the two passes.
+  const variables = await variablesByName()
   for (const entry of list) {
     const name = trimName(entry)
     if (!name || typeof entry.fontSize !== 'number') {
       skipStyle(counts, name)
+      continue
+    }
+    if (!hasWeightCut(entry.fontWeight)) {
+      // An unmapped weight would be written as `Regular`, pushing a different
+      // weight: it is skipped before any font is loaded.
+      skipStyle(counts, name, 'weight')
       continue
     }
     const fontName = fontNameOf(entry)
@@ -321,8 +394,9 @@ async function writeTextStyles(entries) {
       continue
     }
     const existing = byName[name]
+    let style
     try {
-      const style = existing || figma.createTextStyle()
+      style = existing || figma.createTextStyle()
       style.fontName = fontName
       style.fontSize = entry.fontSize
       style.lineHeight = {
@@ -339,6 +413,9 @@ async function writeTextStyles(entries) {
       skipStyle(counts, name)
       continue
     }
+    // The literals are written first, so a binding that is missing, refused or
+    // rejected leaves a usable style instead of an empty one.
+    recordBindings(counts, name, await bindTextStyle(style, entry, variables))
     if (existing) {
       counts.updated += 1
       continue
@@ -346,6 +423,122 @@ async function writeTextStyles(entries) {
     counts.created += 1
   }
   return counts
+}
+
+// The properties this bridge can bind, each with its outcome counters. A
+// payload may name another property, so the counters are also created on
+// demand by `countOf`.
+function bindingCounts() {
+  return {
+    fontSize: { bound: 0, failed: 0 },
+    letterSpacing: { bound: 0, failed: 0 },
+  }
+}
+
+/**
+ * Binds the properties the payload names a variable for. `lineHeight` never
+ * arrives here: the style stores `fontSize x multiplier` in pixels and the
+ * repository has no token for that product, so the literal stays on purpose.
+ *
+ * Every guard is per property and none of them aborts the batch: a missing API,
+ * a missing variable and a refusal all keep the literal and are reported, so the
+ * next push shows what actually happened in the document.
+ */
+async function bindTextStyle(style, entry, variables) {
+  const outcome = { bound: [], failed: [] }
+  const bindings = isPlainObject(entry.bindings) ? entry.bindings : {}
+  for (const property of Object.keys(bindings)) {
+    const variableName = bindings[property]
+    if (typeof variableName !== 'string' || variableName.trim() === '') {
+      continue
+    }
+    if (typeof style.setBoundVariable !== 'function') {
+      outcome.failed.push({ property, reason: 'no-api' })
+      continue
+    }
+    const variable = variables.get(toName(variableName.trim()))
+    if (!variable) {
+      outcome.failed.push({ property, reason: 'no-variable' })
+      continue
+    }
+    try {
+      // Awaited so an implementation that answers with a promise is reported
+      // like a rejection instead of passing for a success.
+      await style.setBoundVariable(property, variable)
+      outcome.bound.push(property)
+    } catch {
+      outcome.failed.push({ property, reason: 'rejected' })
+    }
+  }
+  return outcome
+}
+
+function recordBindings(counts, name, outcome) {
+  for (const property of outcome.bound) {
+    countOf(counts.bindings, property).bound += 1
+  }
+  for (const failure of outcome.failed) {
+    countOf(counts.bindings, failure.property).failed += 1
+    counts.bindingIssues.push({
+      name,
+      property: failure.property,
+      reason: failure.reason,
+    })
+  }
+  // A partially bound style is one that kept at least one literal while another
+  // property points at a variable. A style nothing bound is not partial, but its
+  // reasons are already in `bindingIssues`.
+  if (
+    name &&
+    outcome.bound.length > 0 &&
+    outcome.failed.length > 0 &&
+    counts.partiallyBoundNames.indexOf(name) === -1
+  ) {
+    counts.partiallyBoundNames.push(name)
+  }
+}
+
+function countOf(bindings, property) {
+  if (!Object.prototype.hasOwnProperty.call(bindings, property)) {
+    bindings[property] = { bound: 0, failed: 0 }
+  }
+  return bindings[property]
+}
+
+// The variables this push can write, by name: only the Kiter collection, so a
+// binding never points at a same-named variable another collection owns.
+async function variablesByName() {
+  const byName = new Map()
+  if (
+    !figma.variables ||
+    typeof figma.variables.getLocalVariablesAsync !== 'function'
+  ) {
+    return byName
+  }
+  let collectionId
+  try {
+    const collections =
+      typeof figma.variables.getLocalVariableCollectionsAsync === 'function'
+        ? await figma.variables.getLocalVariableCollectionsAsync()
+        : []
+    const collection = findCollection(collections)
+    collectionId = collection ? collection.id : undefined
+  } catch {
+    collectionId = undefined
+  }
+  let variables
+  try {
+    variables = await figma.variables.getLocalVariablesAsync()
+  } catch {
+    return byName
+  }
+  for (const variable of variables) {
+    if (variable.variableCollectionId !== collectionId) {
+      continue
+    }
+    byName.set(variable.name, variable)
+  }
+  return byName
 }
 
 async function writeEffectStyles(entries) {
@@ -386,10 +579,13 @@ async function writeEffectStyles(entries) {
   return counts
 }
 
-function skipStyle(counts, name) {
+function skipStyle(counts, name, reason) {
   counts.skipped += 1
   if (name) {
     counts.skippedNames.push(name)
+  }
+  if (reason) {
+    counts.skipReasons.push({ name, reason })
   }
 }
 
@@ -410,6 +606,16 @@ const WEIGHT_STYLES = {
   700: 'Bold',
 }
 
+// The reverse cut, for reading a style back. An unknown style name maps to
+// nothing, so the style is reported as an unmatched weight instead of borrowing
+// one.
+const WEIGHT_VALUES = {
+  Regular: 400,
+  Medium: 500,
+  SemiBold: 600,
+  Bold: 700,
+}
+
 // A family the payload does not name cannot be loaded, so the style is skipped
 // instead of borrowing another family.
 function fontNameOf(entry) {
@@ -419,6 +625,16 @@ function fontNameOf(entry) {
     return undefined
   }
   return { family, style: WEIGHT_STYLES[entry.fontWeight] || 'Regular' }
+}
+
+// Only a weight the cut table maps can be written. An explicit weight without a
+// cut has no style name to load, and a fallback would silently write another
+// weight while still counting the style as created or updated.
+function hasWeightCut(weight) {
+  if (weight === undefined || weight === null) {
+    return true
+  }
+  return Object.hasOwn(WEIGHT_STYLES, weight)
 }
 
 function numberOr(value, fallback) {

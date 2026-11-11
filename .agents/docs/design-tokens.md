@@ -37,14 +37,15 @@ Never edit it directly.
 ## The bridge
 
 `pnpm tokens:bridge` starts a server on `127.0.0.1:4747` and the development
-plugin at `figma/tokens-bridge/` talks to it. Both directions move one token
+plugin at `token-bridge/figma/` talks to it. Both directions move one token
 tree: the plugin only reads and writes Figma, and the server owns every
 canonical shape.
 
-| Action | Transport    | Effect                                                                                                       |
-| ------ | ------------ | ------------------------------------------------------------------------------------------------------------ |
-| Push   | `GET /push`  | project `tokens/`, create or update the variables in the `Kiter` collection, then the text and effect styles |
-| Pull   | `POST /pull` | read the local variables, merge surgically into `tokens/`, then run `pnpm tokens` for the CSS                |
+| Action      | Transport           | Effect                                                                                                              |
+| ----------- | ------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| Push        | `GET /push`         | project `tokens/`, create or update the variables in the `Kiter` collection, then the text and effect styles        |
+| Pull        | `POST /pull`        | read the local variables, merge surgically into `tokens/`, then run `pnpm tokens` for the CSS                       |
+| Pull styles | `POST /pull-styles` | read the local text styles, match every property by value against a primitive, write only the composites that match |
 
 Nothing is ever deleted or renamed in Figma, and nothing is ever deleted from
 the repository. A Figma change arrives as a pull request whose CSS diff is the
@@ -179,7 +180,7 @@ load completely.
 The bridge has its own suite:
 
 ```bash
-node --test tests/bridge/bridge.test.mjs tests/bridge/pull.test.mjs
+node --test token-bridge/src/*.test.mjs token-bridge/figma/*.test.mjs
 ```
 
 The required test is idempotency: project, inverse project, and diff against the
@@ -188,8 +189,16 @@ nothing.
 
 ## Known limitations
 
-- Styles are **push-only**. A designer edit of a text or effect style in Figma
-  is overwritten by the next push and never pulled; only variables round-trip.
+- **Text styles round-trip; effect styles do not.** A text style comes back only
+  when every mappable property matches an existing primitive, and `lineHeight`
+  must agree with what the current composite produces. An unmatched size, a
+  diverged line height or an unknown name is reported and never written: the
+  bridge never invents a token. An effect style edit in Figma is still
+  overwritten by the next push.
+- A text style binds `fontSize` and `letterSpacing` to their token variables, so
+  those two follow the primitive inside Figma. `lineHeight` stays literal: the
+  style stores `fontSize × multiplier` and no token holds that product.
+  `fontFamily` is not bound because its token is a fallback array.
 - `border.control` and the `font.family` array have no Figma representation, so
   Figma sees 108 of the 110 tokens. `border` has no style type and the family
   array only exists to compose the text styles.
@@ -197,10 +206,12 @@ nothing.
   where CSS renders 22.5px.
 - Group `$description` never reaches Figma. Read it in the repository.
 - Section placement in Tokens Studio does not match DTCG types, by decision.
-- A pull that changes a token file can also change that file's key order and
-  object wrapping: `JSON.parse` reorders integer-like keys and the repository
-  uses `objectWrap: preserve`, so no serializer reproduces a file byte for byte.
-  A pull that changes nothing writes nothing, and that is tested.
+- The bridge writes with an explicit serializer that reproduces this
+  repository's dialect byte for byte: `$description` first, integer keys
+  ascending, groups expanded, token leaves inline at most 80 columns wide. All
+  thirteen token files round-trip exactly, so a pull only ever diffs values. The
+  one exception is a group hand-written inline: `prettier --check` accepts it,
+  but the next pull touching that file expands that group once.
 - Colors are 8-bit. An edit off the `n / 255` grid snaps to the nearest byte.
 
 ## Provenance

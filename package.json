@@ -7,7 +7,7 @@
   "homepage": "https://electron-vite.org",
   "scripts": {
     "tokens": "style-dictionary build",
-    "tokens:bridge": "node scripts/tokens-bridge/server.mjs",
+    "tokens:bridge": "node token-bridge/src/server.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "eslint --cache .",

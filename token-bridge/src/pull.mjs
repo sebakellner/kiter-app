@@ -1,10 +1,10 @@
 import { spawnSync } from 'node:child_process'
-import { readdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
-import { format } from 'prettier'
-
+import { commitWrites } from './commit.mjs'
 import { mergePayload } from './merge.mjs'
+import { serializeTokens } from './serialize.mjs'
 
 const TOKEN_FOLDERS = ['primitives', 'semantic']
 
@@ -23,11 +23,15 @@ export async function applyPull({ repoRoot, payload, runBuild = runTokens }) {
   const tokens = normalizeTree(assertTokenTree(payload?.tokens))
   const files = TOKEN_FOLDERS.flatMap((folder) => readFolder(repoRoot, folder))
   const folderTrees = readFolderTrees(files)
+  // A semantic token legitimately aliases a primitive, so an alias is resolved
+  // against the paths both folders declare, not the folder being merged.
+  const knownPaths = tokenPaths(folderTrees)
 
   const runs = TOKEN_FOLDERS.map((folder) => {
     const { tree, report } = mergePayload(
       { [folder]: folderTrees[folder] },
       { [folder]: tokens },
+      { knownPaths },
     )
     return { folder, tree, report }
   })
@@ -39,27 +43,23 @@ export async function applyPull({ repoRoot, payload, runBuild = runTokens }) {
     merged.tree[run.folder] = run.tree[run.folder]
   }
 
-  // Serialize everything before the first write: a failure while rebuilding or
-  // formatting leaves the tree untouched instead of half written.
+  // Serialize everything before the first write. `commitWrites` writes the
+  // files and runs the build, so a failed build restores them all.
   const pending = []
   for (const file of files) {
     const next = reconstructFile(file, merged.tree[file.folder])
-    // Compare parsed values, not text: the repository uses `objectWrap:
-    // preserve`, so re-serializing an unchanged file would still differ from
-    // its source wrapping and rewrite every file on a no-op pull.
+    // Compare parsed values, not text: the dialect serializes a file the same
+    // way the repository does, but a comparison that walks the tree is what
+    // guarantees a pull that changes nothing never writes.
     if (deepEqual(next, file.data)) {
       continue
     }
     pending.push({
       ...file,
-      serialized: await serialize(next, file.absolutePath),
+      serialized: serializeTokens(next),
     })
   }
-  for (const file of pending) {
-    writeFileSync(file.absolutePath, file.serialized)
-  }
-
-  runBuild(repoRoot)
+  commitWrites(pending, repoRoot, runBuild)
   return { report: merged.report, written: pending.map((file) => file.relPath) }
 }
 
@@ -99,6 +99,31 @@ function readFolderTrees(files) {
     mergeInto(trees[file.folder], file.data)
   }
   return trees
+}
+
+/**
+ * Every token path the repository declares, across both folders. An alias is a
+ * reference, so its target only has to exist somewhere in the repository.
+ */
+function tokenPaths(folderTrees) {
+  const paths = new Set()
+  for (const tree of Object.values(folderTrees)) {
+    collectPaths(tree, [], paths)
+  }
+  return [...paths]
+}
+
+function collectPaths(node, path, paths) {
+  for (const [key, value] of Object.entries(node)) {
+    if (key.startsWith('$') || !isPlainObject(value)) {
+      continue
+    }
+    if (isTokenLeaf(value)) {
+      paths.add([...path, key].join('.'))
+      continue
+    }
+    collectPaths(value, [...path, key], paths)
+  }
 }
 
 function mergeInto(target, source) {
@@ -158,6 +183,7 @@ function reconstructNode(original, merged) {
 function combineReports(reports) {
   const changed = new Map()
   const added = new Map()
+  const dangling = new Map()
   let untouched = 0
   for (const report of reports) {
     untouched += report.untouched
@@ -169,12 +195,20 @@ function combineReports(reports) {
     for (const path of report.added) {
       added.set(path, (added.get(path) ?? 0) + 1)
     }
+    // Every folder is merged from the same tree, so the same dangling alias is
+    // reported once per folder; the path identifies it.
+    for (const entry of report.dangling) {
+      if (!dangling.has(entry.path)) {
+        dangling.set(entry.path, entry)
+      }
+    }
   }
   return {
     changed: [...changed.values()],
     added: [...added]
       .filter(([, count]) => count === reports.length)
       .map(([path]) => path),
+    dangling: [...dangling.values()],
     untouched,
   }
 }
@@ -222,15 +256,6 @@ function isRawValue(value) {
     return true
   }
   return ['r', 'g', 'b'].every((channel) => typeof value[channel] === 'number')
-}
-
-/**
- * Serializes with Prettier so a pull writes the formatting the repository
- * already uses. Plain JSON.stringify reformats 9 of the 13 token files and
- * makes `pnpm format:check` fail after any pull.
- */
-function serialize(value, filepath) {
-  return format(`${JSON.stringify(value, null, 2)}\n`, { filepath })
 }
 
 function runTokens(repoRoot) {

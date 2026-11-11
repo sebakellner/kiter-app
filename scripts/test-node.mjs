@@ -7,6 +7,7 @@ for (const pattern of [
   'src/**/*.test.mjs',
   'tests/**/*.test.ts',
   'tests/**/*.test.mjs',
+  'token-bridge/**/*.test.mjs',
 ]) {
   for await (const file of glob(pattern)) {
     files.push(file)

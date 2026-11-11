@@ -5,6 +5,8 @@ import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 import { applyPull } from './pull.mjs'
+import { applyStylePull } from './pull-styles.mjs'
+import { ALLOWED_ORIGIN, failedBody, rejectionOf } from './guard.mjs'
 import { mergeTokenTrees, projectTokens, toFigmaTree } from './project.mjs'
 import { buildStyles } from './styles.mjs'
 
@@ -111,7 +113,43 @@ async function pullTokens(request, response) {
     })
     send(response, 200, { ok: true, report, written })
   } catch (error) {
-    send(response, 500, { ok: false, error: messageOf(error) })
+    send(response, 500, failedBody(error))
+  }
+}
+
+async function pullStyles(request, response) {
+  let raw
+  try {
+    raw = await readBody(request)
+  } catch (error) {
+    send(response, 413, { ok: false, error: messageOf(error) })
+    return
+  }
+
+  let body
+  try {
+    body = JSON.parse(raw)
+  } catch {
+    send(response, 400, { ok: false, error: 'invalid JSON body' })
+    return
+  }
+
+  if (!Array.isArray(body?.styles)) {
+    send(response, 400, {
+      ok: false,
+      error: 'body must include a styles array',
+    })
+    return
+  }
+
+  try {
+    const { report, written } = await applyStylePull({
+      repoRoot: REPO_ROOT,
+      styles: body.styles,
+    })
+    send(response, 200, { ok: true, report, written })
+  } catch (error) {
+    send(response, 500, failedBody(error))
   }
 }
 
@@ -131,9 +169,15 @@ const server = createServer((request, response) => {
     )
   })
 
-  response.setHeader('access-control-allow-origin', '*')
+  response.setHeader('access-control-allow-origin', ALLOWED_ORIGIN)
   response.setHeader('access-control-allow-methods', 'GET, POST, OPTIONS')
   response.setHeader('access-control-allow-headers', 'content-type')
+
+  const rejection = rejectionOf(request)
+  if (rejection) {
+    send(response, rejection.status, { ok: false, error: rejection.error })
+    return
+  }
 
   if (request.method === 'OPTIONS') {
     response.writeHead(204)
@@ -165,7 +209,17 @@ const server = createServer((request, response) => {
     pullTokens(request, response).catch((error) => {
       console.error(error)
       if (!response.headersSent) {
-        send(response, 500, { ok: false, error: messageOf(error) })
+        send(response, 500, failedBody(error))
+      }
+    })
+    return
+  }
+
+  if (request.method === 'POST' && request.url === '/pull-styles') {
+    pullStyles(request, response).catch((error) => {
+      console.error(error)
+      if (!response.headersSent) {
+        send(response, 500, failedBody(error))
       }
     })
     return
@@ -183,6 +237,6 @@ server.listen(PORT, HOST, () => {
   console.log(`Kiter token bridge en http://${HOST}:${PORT}`)
   console.log(`Repo: ${REPO_ROOT}`)
   console.log(
-    'En Figma: Plugins → Development → Import plugin from manifest → figma/tokens-bridge/manifest.json',
+    'En Figma: Plugins → Development → Import plugin from manifest → token-bridge/figma/manifest.json',
   )
 })

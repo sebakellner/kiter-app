@@ -11,11 +11,9 @@ import { dirname, join } from 'node:path'
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { applyPull } from '../../scripts/tokens-bridge/pull.mjs'
-import {
-  mergeTokenTrees,
-  projectTokens,
-} from '../../scripts/tokens-bridge/project.mjs'
+import { failedBody } from './guard.mjs'
+import { applyPull } from './pull.mjs'
+import { mergeTokenTrees, projectTokens } from './project.mjs'
 
 const FOLDERS = ['primitives', 'semantic']
 
@@ -185,7 +183,12 @@ test('writes nothing when the payload matches the repository (S8)', async (t) =>
 
   assert.deepEqual(written, [])
   assert.deepEqual(calls, [root])
-  assert.deepEqual(report, { changed: [], added: [], untouched: 0 })
+  assert.deepEqual(report, {
+    changed: [],
+    added: [],
+    dangling: [],
+    untouched: 0,
+  })
   assert.deepEqual(snapshot(root), before)
 })
 
@@ -363,6 +366,67 @@ test('keeps a token that the payload omits (S6)', async (t) => {
   assert.equal(report.untouched, 2)
   assert.deepEqual(report.added, [])
   assert.deepEqual(snapshot(root), before)
+})
+
+test('refuses an alias whose target no folder declares (R4-002)', async (t) => {
+  const root = createFixture(t)
+  const before = snapshot(root)
+  const { runBuild } = createBuildStub()
+  const payload = { tokens: projectTokenTree(root) }
+  payload.tokens.color.action.primary.$value = '{color.slate.950}'
+
+  const dangling = await applyPull({ repoRoot: root, payload, runBuild })
+
+  // A dangling alias would break the build, so the existing token stays and the
+  // pair is reported instead of written.
+  assert.deepEqual(dangling.report.dangling, [
+    { path: 'color.action.primary', alias: 'color.slate.950' },
+  ])
+  assert.deepEqual(dangling.report.changed, [])
+  assert.deepEqual(dangling.report.added, [])
+  assert.deepEqual(dangling.written, [])
+  assert.deepEqual(snapshot(root), before)
+
+  // A semantic token may alias a primitive: the combined repository resolves
+  // the target across both folders and the update lands normally.
+  payload.tokens.color.action.primary.$value = '{color.slate.900}'
+  const valid = await applyPull({ repoRoot: root, payload, runBuild })
+
+  assert.deepEqual(valid.report.dangling, [])
+  assert.deepEqual(valid.report.changed, [
+    {
+      path: 'color.action.primary',
+      from: '{color.white}',
+      to: '{color.slate.900}',
+    },
+  ])
+  assert.deepEqual(valid.written, ['tokens/semantic/color.json'])
+  const semantic = JSON.parse(
+    readFileSync(join(root, 'tokens/semantic/color.json'), 'utf8'),
+  )
+  assert.equal(semantic.color.action.primary.$value, '{color.slate.900}')
+})
+
+test('a failed build restores every written file and names it (R3-003)', async (t) => {
+  const root = createFixture(t)
+  const before = snapshot(root)
+  const payload = { tokens: projectTokenTree(root) }
+  payload.tokens.color.slate['900'].$value = '#000000'
+  const runBuild = () => {
+    throw new Error('pnpm tokens exited with code 1')
+  }
+
+  const error = await applyPull({ repoRoot: root, payload, runBuild }).catch(
+    (caught) => caught,
+  )
+
+  assert.deepEqual(snapshot(root), before)
+  assert.match(error.message, /rolled back tokens\/primitives\/color\.json/)
+  assert.deepEqual(failedBody(error), {
+    ok: false,
+    error: error.message,
+    rolledBack: ['tokens/primitives/color.json'],
+  })
 })
 
 test('pulling twice in a row produces byte-identical files (S8)', async (t) => {

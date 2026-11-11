@@ -3,25 +3,35 @@ import { isDeepStrictEqual } from 'node:util'
 import { encodeLeaf } from './inverse.mjs'
 import { projectLeafValue } from './project.mjs'
 
+const ALIAS = /^\{([^{}]+)\}$/
+
 /**
  * Merges the flattened payload back into the canonical tree. Only leaves that
  * the payload carries are updated; nothing is deleted, inserted, or documented
  * from Figma.
+ *
+ * `knownPaths` is every token path the repository declares, combined across its
+ * folders. An alias the payload carries is written only when its target is one
+ * of them: a dangling alias would break the build, so the existing token stays
+ * and the pair is reported as `dangling`.
  */
-export function mergePayload(repoTree, payloadBySet) {
+export function mergePayload(repoTree, payloadBySet, options) {
   const tree = structuredClone(repoTree)
-  const report = { changed: [], added: [], untouched: 0 }
+  const report = { changed: [], added: [], dangling: [], untouched: 0 }
+  const knownPaths = options?.knownPaths
+    ? new Set(options.knownPaths)
+    : undefined
   const setNames = new Set([
     ...Object.keys(isPlainObject(tree) ? tree : {}),
     ...Object.keys(isPlainObject(payloadBySet) ? payloadBySet : {}),
   ])
   for (const setName of [...setNames].sort()) {
-    mergeSet(tree[setName], payloadBySet?.[setName], report)
+    mergeSet(tree[setName], payloadBySet?.[setName], report, knownPaths)
   }
   return { tree, report }
 }
 
-function mergeSet(repoSet, payloadSet, report) {
+function mergeSet(repoSet, payloadSet, report, knownPaths) {
   const present = new Set()
   if (isPlainObject(payloadSet)) {
     walkLeaves(payloadSet, [], (path, payloadLeaf) => {
@@ -38,6 +48,11 @@ function mergeSet(repoSet, payloadSet, report) {
       // the repository token is a no-op instead of a rewrite.
       const from = projectLeafValue(repoLeaf)
       const encoded = encodeLeaf(repoLeaf, payloadLeaf.$value)
+      const alias = aliasOf(encoded)
+      if (alias !== undefined && knownPaths && !knownPaths.has(alias)) {
+        report.dangling.push({ path: tokenPath, alias })
+        return
+      }
       const to = projectLeafValue({ ...repoLeaf, $value: encoded })
       if (isDeepStrictEqual(from, to)) {
         return
@@ -81,6 +96,15 @@ function nodeAtPath(node, path) {
 
 function isTokenLeaf(node) {
   return isPlainObject(node) && Object.hasOwn(node, '$value')
+}
+
+// The token path a DTCG alias carries, or undefined for a literal value.
+function aliasOf(value) {
+  if (typeof value !== 'string') {
+    return undefined
+  }
+  const match = ALIAS.exec(value.trim())
+  return match ? match[1] : undefined
 }
 
 function isPlainObject(value) {

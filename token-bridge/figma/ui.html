@@ -25,6 +25,7 @@
       }
       .actions {
         display: flex;
+        flex-wrap: wrap;
         gap: 8px;
       }
       button {
@@ -63,6 +64,7 @@
     <div class="actions">
       <button id="push">Push repo → Figma</button>
       <button id="pull">Pull Figma → repo</button>
+      <button id="pull-styles">Pull styles → repo</button>
     </div>
     <pre id="log">Ready.</pre>
 
@@ -73,6 +75,7 @@
       const documentLine = document.getElementById('document')
       const pushButton = document.getElementById('push')
       const pullButton = document.getElementById('pull')
+      const pullStylesButton = document.getElementById('pull-styles')
 
       let lines = ['Ready.']
       let waiting = null
@@ -90,6 +93,7 @@
       function setBusy(busy) {
         pushButton.disabled = busy
         pullButton.disabled = busy
+        pullStylesButton.disabled = busy
       }
 
       function serverError(message) {
@@ -157,6 +161,33 @@
         return String(value)
       }
 
+      // A changed entry names the property and shows the reference it came from
+      // next to the one it becomes.
+      function appendStyleChanges(changed) {
+        for (const entry of changed) {
+          const current = entry.current || {}
+          const next = entry.next || {}
+          const differences = []
+          for (const property of Object.keys(next)) {
+            if (
+              describeValue(current[property]) === describeValue(next[property])
+            ) {
+              continue
+            }
+            differences.push(
+              property +
+                ': ' +
+                describeValue(current[property]) +
+                ' → ' +
+                describeValue(next[property]),
+            )
+          }
+          append(
+            '  ' + (entry.name || entry.path) + ': ' + differences.join('; '),
+          )
+        }
+      }
+
       function fail(label, error, hint) {
         append('✗ ' + label + ' failed: ' + error.message)
         if (hint) {
@@ -190,6 +221,54 @@
         }
       }
 
+      // A text style binds its size and letter spacing to the variables the
+      // tokens already own, so the style stops carrying a second copy of those
+      // values. A property that kept its literal is reported with its reason.
+      function appendBindings(counts) {
+        const bindings = counts.bindings || {}
+        const properties = Object.keys(bindings)
+        if (properties.length === 0) {
+          return
+        }
+        const parts = []
+        for (const property of properties) {
+          const entry = bindings[property] || {}
+          parts.push(
+            property +
+              ': ' +
+              (entry.bound || 0) +
+              ' bound, ' +
+              (entry.failed || 0) +
+              ' left as a literal',
+          )
+        }
+        append('Text style bindings: ' + parts.join('; '))
+
+        const issues = counts.bindingIssues || []
+        if (issues.length === 0) {
+          return
+        }
+        const partial = counts.partiallyBoundNames || []
+        const reasons = new Map()
+        for (const issue of issues) {
+          const name = issue.name || '(unnamed style)'
+          if (!reasons.has(name)) {
+            reasons.set(name, [])
+          }
+          reasons.get(name).push(issue.property + ' ' + issue.reason)
+        }
+        append('Text styles with unbound properties:')
+        for (const [name, entries] of reasons) {
+          append(
+            '  ' +
+              name +
+              ': ' +
+              entries.join(', ') +
+              (partial.indexOf(name) === -1 ? '' : ' (partially bound)'),
+          )
+        }
+      }
+
       async function push() {
         reset('GET ' + BASE + '/push')
         try {
@@ -214,6 +293,7 @@
           append('Figma variables: ' + countsLine(variables))
           append('Figma text styles: ' + countsLine(text))
           append('Figma effect styles: ' + countsLine(effects))
+          appendBindings(text)
           appendSkipped('text styles', text)
           appendSkipped('effect styles', effects)
           append('✓ Push done.')
@@ -256,6 +336,9 @@
             'written: ' + (written.length === 0 ? 'none' : written.join(', ')),
           )
           append(
+            'styles: push-only -- a text or effect style edited here does not come back',
+          )
+          append(
             '✓ Pull done: ' +
               changed.length +
               ' changed, ' +
@@ -264,6 +347,76 @@
           )
         } catch (error) {
           fail('Pull', error, error.server === true)
+        }
+      }
+
+      async function pullStyles() {
+        reset('Reading the local text styles…')
+        try {
+          const fromFigma = await ask(
+            { type: 'pull-styles' },
+            'pull-styles-result',
+          )
+          const styles = fromFigma.styles || []
+          append('Figma: ' + styles.length + ' text styles')
+          const body = await fetchJson('/pull-styles', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ styles }),
+          })
+          const report = body.report || {}
+          const changed = report.changed || []
+          const unchanged = report.unchanged || []
+          const unmatched = report.unmatched || []
+          const diverged = report.diverged || []
+          const missingToken = report.missingToken || []
+          append('changed: ' + changed.length)
+          appendStyleChanges(changed)
+          append('unchanged: ' + unchanged.length)
+          append('unmatched: ' + unmatched.length)
+          for (const entry of unmatched) {
+            append(
+              '  ' +
+                entry.name +
+                ': ' +
+                entry.property +
+                ' = ' +
+                describeValue(entry.value) +
+                ' has no primitive with that value',
+            )
+          }
+          append('diverged: ' + diverged.length)
+          for (const entry of diverged) {
+            append(
+              '  ' +
+                entry.name +
+                ': lineHeight ' +
+                describeValue(entry.actual) +
+                ' but the composite produces ' +
+                describeValue(entry.expected),
+            )
+          }
+          append('missing-token: ' + missingToken.length)
+          for (const name of missingToken) {
+            append('  ' + name + ': no typography token at that path')
+          }
+          const written = body.written || []
+          append(
+            'written: ' + (written.length === 0 ? 'none' : written.join(', ')),
+          )
+          const skipped =
+            unmatched.length + diverged.length + missingToken.length
+          append(
+            '✓ Styles pull done: ' +
+              changed.length +
+              ' changed, ' +
+              unchanged.length +
+              ' unchanged, ' +
+              skipped +
+              ' not written.',
+          )
+        } catch (error) {
+          fail('Styles pull', error, error.server === true)
         }
       }
 
@@ -317,6 +470,7 @@
 
       pushButton.addEventListener('click', withBusy(push))
       pullButton.addEventListener('click', withBusy(pull))
+      pullStylesButton.addEventListener('click', withBusy(pullStyles))
 
       parent.postMessage({ pluginMessage: { type: 'describe' } }, '*')
     </script>
