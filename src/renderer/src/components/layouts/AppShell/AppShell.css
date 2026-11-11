@@ -15,10 +15,56 @@
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  padding: var(--space-3) var(--space-6);
+  /*
+   * The header band replaces the native title bar: the band itself drags the
+   * window, and every control inside it opts out below. The start inset comes
+   * from the shared window-chrome module because macOS places its traffic
+   * lights inside this band.
+   */
+  padding-inline: var(--app-shell-header-start-inset, var(--space-6))
+    var(--space-6);
   background: var(--color-surface-soft);
   border-bottom: var(--border-width-1) var(--border-style-solid)
     var(--color-border-default);
+  -webkit-app-region: drag;
+  app-region: drag;
+}
+
+/*
+ * Windows draws its caption buttons over the right edge of the band. The window
+ * controls overlay reports the draggable area it leaves behind, so the header
+ * reserves exactly the button width plus a gap instead of guessing one.
+ */
+.app-shell[data-platform='win32'] .app-shell-header {
+  padding-inline-end: calc(
+    100% - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100%) +
+      var(--space-3)
+  );
+}
+
+/* A control inside the drag region must stay clickable, so it opts out. */
+.app-shell-header
+  :is(
+    a,
+    button,
+    input,
+    select,
+    textarea,
+    [role='button'],
+    [contenteditable='true']
+  ) {
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+}
+
+/*
+ * Global search owns a popover that renders inside the header rather than in a
+ * portal. Clearing the whole widget keeps the suggestion list clickable instead
+ * of turning it into a second drag handle.
+ */
+.app-shell-global-search {
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
 }
 
 .app-shell-brand {

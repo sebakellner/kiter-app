@@ -1,6 +1,7 @@
 import { useCallback, useEffectEvent, useLayoutEffect, useRef } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import { AppShell } from '@renderer/components/layouts/AppShell/AppShell'
+import type { WindowPlatform } from '@shared/window-chrome'
 import { PreviewPlayer } from '@renderer/features/library/components/PreviewPlayer/PreviewPlayer'
 import { useLibrarySession } from '@renderer/features/library/hooks/useLibrarySession'
 import { AppHeader } from './AppHeader'
@@ -14,6 +15,20 @@ import { useInspectorPanel } from './useInspectorPanel'
 import { useShellNavigation } from './useShellNavigation'
 import { useNavigationContext } from '@renderer/routes/navigationContext'
 import type { CatalogViewContext } from '@renderer/routes/navigationContext'
+
+type PlatformScope = { electron?: { process?: { platform?: string } } }
+
+/**
+ * The preload bridge always exposes the platform in the app. jsdom tests render
+ * this layout without a preload, so the shell falls back to neutral insets.
+ */
+function resolvePlatform(): WindowPlatform {
+  const scope = window as unknown as PlatformScope
+  const platform = scope.electron?.process?.platform
+  return platform === 'darwin' || platform === 'win32' || platform === 'linux'
+    ? platform
+    : 'unknown'
+}
 
 export function AppLayout(): React.JSX.Element {
   const { context, update } = useNavigationContext()
@@ -119,6 +134,7 @@ function AppLayoutContent({
 
   return (
     <AppShell
+      platform={resolvePlatform()}
       header={<AppHeader />}
       sidebar={<AppSidebar />}
       player={<PreviewPlayer preview={preview} />}

@@ -70,7 +70,11 @@ Permanent global player
 ```
 
 - Integrate the application header visually with the window title bar, respecting
-  native window controls and draggable regions on macOS and Windows.
+  native window controls and draggable regions on macOS and Windows. The header
+  band is the only title bar: it keeps a fixed height that the window options
+  share, macOS traffic lights sit inside it on the left, and Windows keeps its
+  native caption buttons on the right. Every control in the band leaves the drag
+  region so it stays clickable.
 - Keep Back/Forward, global search, Import, and the profile menu in the global
   header. The profile menu provides access to Profile and Settings.
 - Each view owns its title, local filters, and contextual actions within the
