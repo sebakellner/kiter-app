@@ -6,6 +6,7 @@ import { join } from 'node:path'
 
 import { applyPull } from './pull.mjs'
 import { mergeTokenTrees, projectTokens, toFigmaTree } from './project.mjs'
+import { buildStyles } from './styles.mjs'
 
 const PORT = Number(process.env.KITER_TOKENS_PORT ?? 4747)
 const HOST = '127.0.0.1'
@@ -151,8 +152,11 @@ const server = createServer((request, response) => {
 
   if (request.method === 'GET' && request.url === '/push') {
     const { primitives, semantic } = projectTokens(REPO_ROOT)
+    // Variables and styles travel together: shadows leave the token tree in
+    // `toFigmaTree` and arrive here as effect styles.
     send(response, 200, {
       tokens: toFigmaTree(mergeTokenTrees(primitives, semantic)),
+      styles: buildStyles(REPO_ROOT),
     })
     return
   }
