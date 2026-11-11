@@ -28,7 +28,7 @@ tokens/**/*.json          DTCG, canonical, reviewed in pull requests
         │
         ├─ pnpm tokens ──►  src/styles/tokens.css     generated, never edited by hand
         │
-        └─ projection ───►  Tokens Studio sets        consumed by design in Figma
+        └─ projection ───►  the `Kiter` collection in Figma
 ```
 
 `src/styles/tokens.css` is auto-generated from `config.json` (Style Dictionary).
@@ -49,8 +49,7 @@ canonical shape.
 
 Nothing is ever deleted or renamed in Figma, and nothing is ever deleted from
 the repository. A Figma change arrives as a pull request whose CSS diff is the
-review artifact. Tokens Studio is no longer part of the sync path; its column
-below records how the format behaves there, not how tokens travel.
+review artifact.
 
 ## Canonical format
 
@@ -70,45 +69,21 @@ The repository uses the W3C DTCG format with `usesDtcg: true`:
 
 ## Consumer guarantees
 
-Verified 2026-11-11 against Style Dictionary 5.8.0 and Tokens Studio for Figma
-2.13.2. Re-verify this table when either version changes.
+Verified 2026-11-11 against Style Dictionary 5.8.0. Re-verify this table when the
+version changes.
 
-| Token shape                   | Repository | Style Dictionary 5.8.0 | Tokens Studio 2.13.2                                                               |
-| ----------------------------- | ---------- | ---------------------- | ---------------------------------------------------------------------------------- |
-| `color` (object form)         | supported  | supported              | swatch renders, but the Figma variable is written as `0`; must be flattened        |
-| `color` (alias string)        | supported  | supported              | supported                                                                          |
-| `dimension` (`{value, unit}`) | supported  | supported              | renders in the plugin, but the Figma variable is written as `0`; must be flattened |
-| `number`, `fontWeight`        | supported  | supported              | supported                                                                          |
-| `fontFamily` (array)          | supported  | supported              | not a variable; materializes as a text style named after the font                  |
-| `strokeStyle`                 | supported  | supported              | no equivalent type; appears under `Other`                                          |
-| `typography` (composite)      | supported  | supported              | composite tokens are applied as text styles                                        |
-| `shadow` (composite)          | supported  | supported              | nested objects are not applied; must be flattened to a CSS string                  |
-| `border` (composite)          | supported  | supported              | see `shadow`; flatten before relying on it                                         |
-| group `$description`          | supported  | ignored                | appears under `Other`                                                              |
-
-## Vocabulary collisions
-
-Tokens Studio's token type list predates DTCG. Its sections are not DTCG types:
-
-| Tokens Studio section                                                               | DTCG type                        | Kiter tokens                                           |
-| ----------------------------------------------------------------------------------- | -------------------------------- | ------------------------------------------------------ |
-| `Color`                                                                             | `color`                          | 74                                                     |
-| `Spacing`, `Sizing`, `Border Radius`, `Border Width`, `Font Size`, `Letter Spacing` | `dimension`                      | space, radius, border width, font size, letter spacing |
-| `Line Height`, `Opacity`                                                            | `number`                         | font line height, opacity                              |
-| `Font Family`, `Font Weight`                                                        | `fontFamily`, `fontWeight`       | 1, 3                                                   |
-| `Border`, `Typography`, `Box Shadow`                                                | `border`, `typography`, `shadow` | 1, 11, 4                                               |
-| `Text Case`, `Text Decoration`                                                      | `string`                         | unused                                                 |
-
-**A token keeps its DTCG type in the projection.** `number` and `dimension` are
-correct by the specification, so opacity and radii are deliberately not remapped
-to `opacity`, `borderRadius`, or `spacing`. Remapping would add a rule in both
-directions and would let a designer's edit silently change a token's declared
-type. The resulting section placement in Tokens Studio is cosmetic.
-
-Figma holds a single collection named `Kiter`, and a variable's name **is** the
-token path with `/` separators: `color/slate/300`, `space/4`, `font/size/14`.
-Figma never sees the `primitives` / `semantic` split; ownership of a returning
-token is resolved by its path, never by a collection name.
+| Token shape                   | Repository | Style Dictionary 5.8.0 |
+| ----------------------------- | ---------- | ---------------------- |
+| `color` (object form)         | supported  | supported              |
+| `color` (alias string)        | supported  | supported              |
+| `dimension` (`{value, unit}`) | supported  | supported              |
+| `number`, `fontWeight`        | supported  | supported              |
+| `fontFamily` (array)          | supported  | supported              |
+| `strokeStyle`                 | supported  | supported              |
+| `typography` (composite)      | supported  | supported              |
+| `shadow` (composite)          | supported  | supported              |
+| `border` (composite)          | supported  | supported              |
+| group `$description`          | supported  | ignored                |
 
 ## Projection to Figma
 
@@ -125,11 +100,17 @@ The string forms are chosen because the reverse direction can rebuild the object
 form from them without guessing. Kiter's color components are exact 8-bit
 `n / 255` values, so hex to components is lossless in both directions.
 
+**A token keeps its DTCG type in the projection.** `number` and `dimension` are
+correct by the specification, so opacity and radii are deliberately not remapped
+to `opacity`, `borderRadius`, or `spacing`. Remapping would add a rule in both
+directions and would let a designer's edit silently change a token's declared
+type.
+
 What the projection must **not** do:
 
 - **Never drop a token.** Dropping one breaks every alias that references it. A
   useless Figma variable is cheaper than a broken reference.
-- **Never remap types.** See Vocabulary collisions.
+- **Never remap types.** A token keeps the type it declares.
 - **Never rewrite values it was not asked to rewrite.** Unchanged tokens must
   round-trip byte-identical, which is what the idempotency test checks.
 
@@ -142,6 +123,11 @@ marker for a reference. The plugin never sees DTCG. Tokens that cannot be a
 variable travel as styles instead: the `typography` composites become text
 styles and the `shadow` tokens become effect styles. `border.control` and the
 `font.family` array have no Figma representation at all.
+
+Figma holds a single collection named `Kiter`, and a variable's name **is** the
+token path with `/` separators: `color/slate/300`, `space/4`, `font/size/14`.
+Figma never sees the `primitives` / `semantic` split; ownership of a returning
+token is resolved by its path, never by a collection name.
 
 ## Bringing a Figma change back
 
@@ -173,9 +159,8 @@ names are display concerns and are never used to decide where a token belongs.
 pnpm tokens && git diff --exit-code src/styles/tokens.css   # the CSS is in sync
 ```
 
-Manual import checklist for a full round of Tokens Studio: 133 tokens total,
-**86 in `primitives`** and **47 in `semantic`**. A shortfall means a file did not
-load completely.
+A full bridge pull reports 133 tokens total, **86 in `primitives`** and **47 in
+`semantic`**. A shortfall in either folder means a file did not load completely.
 
 The bridge has its own suite:
 
@@ -205,7 +190,6 @@ nothing.
 - Figma holds whole pixels for line height, so `typography/section` becomes 23px
   where CSS renders 22.5px.
 - Group `$description` never reaches Figma. Read it in the repository.
-- Section placement in Tokens Studio does not match DTCG types, by decision.
 - The bridge writes with an explicit serializer that reproduces this
   repository's dialect byte for byte: `$description` first, integer keys
   ascending, groups expanded, token leaves inline at most 80 columns wide. All
@@ -216,6 +200,6 @@ nothing.
 
 ## Provenance
 
-Verified 2026-11-11 against Style Dictionary 5.8.0, Tokens Studio for Figma
-2.13.2, and the `tokens/` tree as committed on that date. Re-verify the consumer
-table before trusting it after a tool upgrade.
+Verified 2026-11-11 against Style Dictionary 5.8.0 and the `tokens/` tree as
+committed on that date. Re-verify the consumer table before trusting it after a
+tool upgrade.

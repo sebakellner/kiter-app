@@ -2,9 +2,10 @@
 
 The current visual foundation is dark-only and uses locally bundled Instrument
 Sans, with system fonts as fallback. Surfaces use opaque near-blacks and grays,
-with a single yellow accent (`#FFC800`) for actions, focus and selection indicators.
-Pink remains reserved for errors. Shared colors, radii, spacing and typography
-come from the generated tokens. `../../assets/base.css` applies global defaults;
+with a single yellow accent (`#FFC800`) for actions, focus and selection
+indicators. Red is reserved for errors; pink has no active role. Shared colors,
+radii, spacing and typography come from the generated tokens.
+`../../assets/base.css` applies global defaults;
 focus styling lives in `../../assets/main.css`.
 Component styles remain beside their owners; feature behavior does not belong
 in these primitives.
