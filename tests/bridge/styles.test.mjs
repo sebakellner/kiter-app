@@ -1,4 +1,7 @@
 import assert from 'node:assert/strict'
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { dirname, join } from 'node:path'
 import test from 'node:test'
 import { fileURLToPath } from 'node:url'
 
@@ -75,6 +78,10 @@ test('builds one text style per typography composite (S1)', () => {
     fontWeight: 400,
     lineHeight: 21,
     letterSpacing: 0,
+    bindings: {
+      fontSize: 'font/size/14',
+      letterSpacing: 'font/letter-spacing/normal',
+    },
   })
   assert.deepEqual(styleNamed(text, 'typography/control-strong'), {
     name: 'typography/control-strong',
@@ -83,8 +90,94 @@ test('builds one text style per typography composite (S1)', () => {
     fontWeight: 600,
     lineHeight: 20,
     letterSpacing: 0,
+    bindings: {
+      fontSize: 'font/size/13',
+      letterSpacing: 'font/letter-spacing/normal',
+    },
   })
 })
+
+// The style must not become a second source of truth for a size the repository
+// already owns: the property names the variable its own alias resolves to.
+test('binds each aliased text style property to its token variable', () => {
+  const { text } = buildStyles(repoRoot)
+
+  assert.deepEqual(styleNamed(text, 'typography/body').bindings, {
+    fontSize: 'font/size/14',
+    letterSpacing: 'font/letter-spacing/normal',
+  })
+  assert.deepEqual(styleNamed(text, 'typography/display/large').bindings, {
+    fontSize: 'font/size/48',
+    letterSpacing: 'font/letter-spacing/normal',
+  })
+  // Every composite points at the same letter spacing token.
+  for (const style of text) {
+    assert.equal(style.bindings.letterSpacing, 'font/letter-spacing/normal')
+    // Line height stays a literal: the style stores `fontSize x multiplier` and
+    // no repository token holds that product.
+    assert.equal(Object.hasOwn(style.bindings, 'lineHeight'), false)
+  }
+})
+
+test('gives a literal-valued property no binding', (t) => {
+  const root = createFixture(t, {
+    'tokens/primitives/typography.json': {
+      font: {
+        family: {
+          'instrument-sans': {
+            $value: ['Instrument Sans'],
+            $type: 'fontFamily',
+          },
+        },
+        size: {
+          14: { $value: { value: 14, unit: 'px' }, $type: 'dimension' },
+        },
+        weight: { 400: { $value: 400, $type: 'fontWeight' } },
+        'line-height': { normal: { $value: 1.5, $type: 'number' } },
+      },
+    },
+    // A composite that mixes an alias with literals: only the alias has a
+    // variable to point at.
+    'tokens/semantic/typography.json': {
+      typography: {
+        body: {
+          $type: 'typography',
+          $value: {
+            fontFamily: '{font.family.instrument-sans}',
+            fontSize: '{font.size.14}',
+            fontWeight: 400,
+            letterSpacing: { value: 1, unit: 'px' },
+            lineHeight: '{font.line-height.normal}',
+          },
+        },
+      },
+    },
+  })
+
+  const style = styleNamed(buildStyles(root).text, 'typography/body')
+
+  assert.deepEqual(style.bindings, { fontSize: 'font/size/14' })
+  assert.equal(Object.hasOwn(style.bindings, 'letterSpacing'), false)
+  // The literals still reach Figma as values, they simply bind nothing.
+  assert.equal(style.fontSize, 14)
+  assert.equal(style.letterSpacing, 1)
+  assert.equal(style.lineHeight, 21)
+})
+
+// Styles read `tokens/primitives` and `tokens/semantic` from the root they are
+// given, so a test repository is two folders and one file per folder.
+function createFixture(t, files) {
+  const root = mkdtempSync(join(tmpdir(), 'kiter-tokens-styles-'))
+  for (const [relPath, data] of Object.entries(files)) {
+    const file = join(root, relPath)
+    mkdirSync(dirname(file), { recursive: true })
+    writeFileSync(file, `${JSON.stringify(data, null, 2)}\n`)
+  }
+  t.after(() => {
+    rmSync(root, { recursive: true, force: true })
+  })
+  return root
+}
 
 test('multiplies the unitless line height by the font size', () => {
   const { text } = buildStyles(repoRoot)

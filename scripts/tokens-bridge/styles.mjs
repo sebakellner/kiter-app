@@ -59,6 +59,9 @@ function buildEffectStyles(tree, leaves) {
  * single family in Figma, `lineHeight` is a unitless multiplier that Figma
  * stores in pixels, and `letterSpacing` is a DTCG dimension whose numeric part
  * is the pixel value.
+ *
+ * `bindings` names the variable each bindable property should point at, so the
+ * style stops carrying a second copy of a value the variables already own.
  */
 function toTextStyle(tree, leaf) {
   const value = leaf.token.$value
@@ -86,9 +89,48 @@ function toTextStyle(tree, leaf) {
     fontFamily,
     fontSize,
     fontWeight,
+    // Figma stores a line height in pixels and the repository stores a
+    // multiplier, so this literal is the product and has no variable to bind
+    // to. Binding it would need a token for e.g. 21px that does not exist.
     lineHeight: Math.round(fontSize * multiplier),
     letterSpacing,
+    bindings: textBindings(value),
   }
+}
+
+/**
+ * The variable names a text style binds, taken from the composite's own aliases
+ * so a binding can never drift from the token it came from. A property holding
+ * a literal has no variable to point at and gets no entry; `fontFamily` is out
+ * of scope because its token is a fallback array the push does not turn into a
+ * variable.
+ */
+function textBindings(value) {
+  const bindings = {}
+  const fontSize = aliasName(value.fontSize)
+  if (fontSize) {
+    bindings.fontSize = fontSize
+  }
+  const letterSpacing = aliasName(value.letterSpacing)
+  if (letterSpacing) {
+    bindings.letterSpacing = letterSpacing
+  }
+  return bindings
+}
+
+// `{font.size.14}` -> `font/size/14`: a Figma variable is named after its path.
+function aliasName(value) {
+  const alias = aliasOf(value)
+  return alias === undefined ? undefined : alias.split('.').join('/')
+}
+
+// The reference a DTCG alias string carries, or undefined for a literal.
+function aliasOf(value) {
+  if (typeof value !== 'string') {
+    return undefined
+  }
+  const match = ALIAS.exec(value.trim())
+  return match ? match[1] : undefined
 }
 
 /**
@@ -156,14 +198,11 @@ function styleName(path) {
  * including an already resolved one, is returned as is.
  */
 function resolveValue(tree, value) {
-  if (typeof value !== 'string') {
+  const alias = aliasOf(value)
+  if (alias === undefined) {
     return value
   }
-  const alias = ALIAS.exec(value.trim())
-  if (!alias) {
-    return value
-  }
-  const target = nodeAtPath(tree, alias[1].split('.'))
+  const target = nodeAtPath(tree, alias.split('.'))
   return isTokenLeaf(target) ? target.$value : value
 }
 
