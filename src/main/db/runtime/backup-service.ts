@@ -19,6 +19,7 @@ import {
   backupRoot,
   createProtectiveBackup,
   pendingRestoreIntent,
+  ProtectiveBackupError,
   publishRestoreImages,
   readBackupManifest,
   stageRestoreCatalog,
@@ -49,6 +50,9 @@ function summarize(location: string, manifest: BackupManifest): BackupSummary {
     imageBytes,
     imageCount: manifest.images.length,
     totalBytes: manifest.catalog.bytes + imageBytes,
+    // Listing never verifies a copy, so this only distinguishes a damaged
+    // artifact from a copy a restore may be asked to verify.
+    restorable: manifest.verified,
   }
 }
 
@@ -68,10 +72,12 @@ export function createLibraryBackup(runtime: BackupRuntime): BackupSummary {
     )
   } catch (error) {
     // A startup failure says the library was not migrated. Nothing follows a
-    // manual request, so it must not claim a migration was prevented.
-    if (error instanceof DbError && error.code === 'BACKUP_FAILED') {
-      throw new DbError(
-        'BACKUP_FAILED',
+    // manual request, so it must not claim a migration was prevented. The cause
+    // still travels with the error: it is what tells a caller whether the library
+    // is damaged, and re-wrapping without it would end the taxonomy here.
+    if (error instanceof ProtectiveBackupError) {
+      throw new ProtectiveBackupError(
+        error.cause,
         'Unable to create a verified backup. The library was not changed. Retry or choose another location.',
       )
     }

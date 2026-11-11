@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { execFileSync, spawnSync } from 'node:child_process'
-import { randomUUID } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import { existsSync } from 'node:fs'
 import {
   cp,
@@ -16,11 +16,17 @@ import { basename, dirname, join } from 'node:path'
 import { test } from 'node:test'
 import Database from 'better-sqlite3'
 import { openDatabase } from '../../../src/main/db/runtime/connection.ts'
+import { createLibraryBackup } from '../../../src/main/db/runtime/backup-service.ts'
 import {
   applyPendingRestore,
+  checkSpace,
   createProtectiveBackup,
   pendingRestoreIntent,
+  preserveDamagedCatalog,
+  protectiveBackupCause,
+  readBackupManifest,
   restoreBackup,
+  serializeBackupManifest,
   verifyBackup,
 } from '../../../src/main/db/runtime/backup.ts'
 import { importFolder } from '../../../src/main/db/operations/sources/import.ts'
@@ -34,7 +40,10 @@ import { createTemporaryDirectory } from '../../support/filesystem/temporary-dir
 import { makeDiscoveredAudioFile } from '../../support/fixtures/source.ts'
 import { WorkerTransport } from '../../../src/main/db/client/worker-transport.ts'
 import type { LibrarySample } from '../../../src/shared/ipc/library.ts'
-import type { BackupStorage } from '../../../src/main/db/runtime/backup.ts'
+import type {
+  BackupManifest,
+  BackupStorage,
+} from '../../../src/main/db/runtime/backup.ts'
 
 async function fixture(
   t: Parameters<typeof createTemporaryDirectory>[0],
@@ -418,6 +427,195 @@ test('missing or linked managed images block migration rather than publishing in
   )
   assert.deepEqual(await readdir(f.storage.backupDirectory), [])
   assert.equal(await readFile(outside, 'utf8'), 'x')
+})
+
+// Every way a protective copy fails is reported with the cause that produced it,
+// so a caller can tell a damaged library from a full disk without parsing a
+// message. One test per cause keeps the taxonomy from collapsing back into a
+// single opaque failure.
+test('a protective backup reports a corrupt catalog as its own cause', async (t) => {
+  const f = await fixture(t)
+  f.connection.close()
+  await writeFile(f.filename, 'not a database')
+  assert.throws(
+    () =>
+      createProtectiveBackup(
+        new Database(f.filename),
+        f.filename,
+        migrationsFolder,
+        f.storage,
+      ),
+    { code: 'BACKUP_FAILED', cause: 'catalog-corrupt' },
+  )
+})
+
+test('a protective backup reports a readable but invalid catalog as its own cause', async (t) => {
+  const f = await fixture(t)
+  f.connection.native.exec('DELETE FROM user_preferences')
+  assert.throws(
+    () =>
+      createProtectiveBackup(
+        f.connection.native,
+        f.filename,
+        migrationsFolder,
+        f.storage,
+      ),
+    { code: 'BACKUP_FAILED', cause: 'catalog-invalid' },
+  )
+  // The database is intact, so nothing was staged or published.
+  assert.equal(existsSync(f.storage.backupDirectory), false)
+})
+
+test('a protective backup reports a missing referenced image as its own cause', async (t) => {
+  const f = await fixture(t)
+  const missing = randomUUID()
+  f.connection.native
+    .prepare('INSERT INTO image_assets VALUES (?, ?, ?, ?, ?, ?, ?)')
+    .run(missing, `${missing}.png`, 'image/png', 1, 1, 1, 'ready')
+  f.connection.native
+    .prepare('UPDATE user_profiles SET avatar_asset_id = ?')
+    .run(missing)
+  assert.throws(
+    () =>
+      createProtectiveBackup(
+        f.connection.native,
+        f.filename,
+        migrationsFolder,
+        f.storage,
+      ),
+    { code: 'BACKUP_FAILED', cause: 'image-unavailable' },
+  )
+  assert.deepEqual(await readdir(f.storage.backupDirectory), [])
+})
+
+test('a protective backup reports insufficient free space as its own cause', async (t) => {
+  const directory = await createTemporaryDirectory(t, 'backup')
+  // A full disk cannot be produced portably, so the size guard is exercised
+  // directly with a requirement no filesystem satisfies.
+  let failure: unknown
+  try {
+    checkSpace(directory.path, Number.MAX_SAFE_INTEGER)
+  } catch (error) {
+    failure = error
+  }
+  assert.equal(protectiveBackupCause(failure), 'insufficient-space')
+})
+
+test('a protective backup reports an invalid storage directory as its own cause', async (t) => {
+  const f = await fixture(t)
+  await writeFile(f.storage.backupDirectory, 'not a directory')
+  assert.throws(
+    () =>
+      createProtectiveBackup(
+        f.connection.native,
+        f.filename,
+        migrationsFolder,
+        f.storage,
+      ),
+    { code: 'BACKUP_FAILED', cause: 'invalid-storage' },
+  )
+})
+
+test('a protective backup reports an oversized manifest as its own cause', () => {
+  const image = {
+    name: 'x'.repeat(120),
+    bytes: 1,
+    sha256: 'a'.repeat(64),
+  }
+  const manifest: BackupManifest = {
+    format: 'kiter-backup',
+    version: 1,
+    createdAt: new Date().toISOString(),
+    kind: 'manual',
+    schemaVersion: 3,
+    catalog: { name: 'catalog.sqlite', bytes: 1, sha256: 'a'.repeat(64) },
+    images: Array.from({ length: 200_000 }, () => ({ ...image })),
+    verified: true,
+    sidecars: [],
+  }
+  // A manifest of that size cannot be produced from a test catalog, so the guard
+  // that bounds it is exercised directly.
+  let failure: unknown
+  try {
+    serializeBackupManifest(manifest)
+  } catch (error) {
+    failure = error
+  }
+  assert.equal(protectiveBackupCause(failure), 'manifest-too-large')
+})
+
+// The catch-all cause is the one every untagged failure lands in, so it needs its
+// own negative test: an uncapturable catalog is not a damaged library, and the
+// manual surface keeps its wording while the cause travels with the error.
+test('a protective backup reports an uncapturable catalog as its own cause', async (t) => {
+  const f = await fixture(t)
+  // VACUUM INTO cannot run inside a transaction, so the capture fails while the
+  // catalog stays readable: exactly the case the catch-all cause exists for.
+  f.connection.native.exec('BEGIN')
+  try {
+    assert.throws(
+      () =>
+        createLibraryBackup({
+          native: f.connection.native,
+          filename: f.filename,
+          migrationsFolder,
+          storage: f.storage,
+        }),
+      {
+        code: 'BACKUP_FAILED',
+        cause: 'capture-failed',
+        message:
+          'Unable to create a verified backup. The library was not changed. Retry or choose another location.',
+      },
+    )
+  } finally {
+    f.connection.native.exec('ROLLBACK')
+  }
+  // Nothing was staged or published for a copy that was never captured.
+  assert.deepEqual(await readdir(f.storage.backupDirectory), [])
+})
+
+// S4 replaces a library whose referenced image is gone. Every other image-path
+// failure is a condition to fix, so the boundary is pinned from the other side:
+// an unusable image directory must keep blocking instead of making a healthy
+// catalog replaceable.
+test('an unusable managed image entry blocks replacement instead of counting as damage', async (t) => {
+  const f = await fixture(t)
+  await addAvatar(f)
+  // The copy this restore applies references its own image only, so an unusable
+  // entry in the current library is never touched by image publication.
+  const backup = createProtectiveBackup(
+    f.connection.native,
+    f.filename,
+    migrationsFolder,
+    f.storage,
+  )
+  const unusable = await addAvatar(
+    f,
+    Buffer.from('reference that cannot be copied'),
+  )
+  await unlink(unusable.path)
+  await mkdir(unusable.path)
+  f.connection.close()
+  // The catalog is intact and the referenced entry is present but not a file, so
+  // this is a fixable condition: replacing the library would throw away working
+  // data for it, which is why it must keep blocking instead of counting as damage.
+  const before = await readFile(f.filename)
+  assert.throws(
+    () => restoreBackup(f.filename, backup, migrationsFolder, f.storage),
+    { code: 'BACKUP_FAILED', cause: 'image-invalid' },
+  )
+  assert.deepEqual(await readFile(f.filename), before)
+  assert.deepEqual(await stagedFiles(f.filename), [])
+  // Nothing was preserved, because nothing about this library is damaged.
+  const folders = (await readdir(f.storage.backupDirectory)).map((name) =>
+    join(f.storage.backupDirectory, name),
+  )
+  assert.equal(
+    folders.filter((folder) => readBackupManifest(folder).kind === 'damaged')
+      .length,
+    0,
+  )
 })
 
 test('worker startup protects pending migrations and restores before accepting commands', async (t) => {
@@ -1427,7 +1625,55 @@ test('a manifest naming anything but its own catalog entry is rejected', async (
   assert.deepEqual(await stagedFiles(f.filename), [])
 })
 
-test('a staged restore still applies when the current catalog is corrupt', async (t) => {
+test('a preserved damaged library keeps its raw catalog and sidecars and is never a restorable backup', async (t) => {
+  const directory = await createTemporaryDirectory(t, 'damaged')
+  const filename = join(directory.path, 'kiter.sqlite')
+  const storage = {
+    backupDirectory: join(directory.path, 'backups'),
+    imagesDirectory: join(directory.path, 'library', 'images'),
+  }
+  // Bytes no verified copy could be made from, plus the sidecars a manual
+  // recovery needs.
+  await writeFile(filename, 'raw damaged catalog bytes')
+  await writeFile(`${filename}-journal`, 'hot rollback journal')
+  await writeFile(`${filename}-wal`, 'uncheckpointed frames')
+  const folder = preserveDamagedCatalog(filename, storage)
+  assert.deepEqual((await readdir(folder)).sort(), [
+    'catalog.sqlite',
+    'catalog.sqlite-journal',
+    'catalog.sqlite-wal',
+    'manifest.json',
+  ])
+  // Copied raw: VACUUM INTO is exactly what a damaged catalog cannot do.
+  assert.equal(
+    await readFile(join(folder, 'catalog.sqlite'), 'utf8'),
+    'raw damaged catalog bytes',
+  )
+  assert.equal(
+    await readFile(join(folder, 'catalog.sqlite-journal'), 'utf8'),
+    'hot rollback journal',
+  )
+  const manifest = readBackupManifest(folder)
+  assert.equal(manifest.kind, 'damaged')
+  assert.equal(manifest.verified, false)
+  assert.equal(manifest.schemaVersion, 0)
+  assert.deepEqual(manifest.images, [])
+  assert.deepEqual(
+    manifest.sidecars.map((sidecar) => sidecar.name),
+    ['catalog.sqlite-journal', 'catalog.sqlite-wal'],
+  )
+  // Hashes are recorded as evidence, and nothing re-verifies them.
+  assert.equal(
+    manifest.catalog.bytes,
+    Buffer.byteLength('raw damaged catalog bytes'),
+  )
+  // It is marked, never accepted: no restore path may read it as a backup.
+  assert.throws(() => verifyBackup(folder, migrationsFolder), {
+    code: 'INVALID_INPUT',
+  })
+})
+
+test('a damaged library is not replaced when its damaged state cannot be preserved', async (t) => {
   const f = await fixture(t)
   const backup = createProtectiveBackup(
     f.connection.native,
@@ -1446,10 +1692,179 @@ test('a staged restore still applies when the current catalog is corrupt', async
   } finally {
     await transport.close()
   }
-  // This is the state a restore exists for: the live catalog is unreadable, so
-  // settling it must not block the swap for ever.
+  await writeFile(f.filename, 'not a database')
+  // Managed storage that cannot receive the artifact. Preservation fails, so the
+  // replacement must not happen.
+  const blocked = join(f.directory, 'blocked')
+  await writeFile(blocked, 'not a directory')
+  assert.equal(
+    applyPendingRestore(f.filename, {
+      backupDirectory: blocked,
+      imagesDirectory: f.storage.imagesDirectory,
+    }),
+    'failed',
+  )
+  assert.equal(await readFile(f.filename, 'utf8'), 'not a database')
+  // The intent and the verified staged copy stay, so a restart retries the swap.
+  assert.equal(existsSync(pendingRestoreIntent(f.filename)), true)
+  assert.equal((await stagedFiles(f.filename)).length, 1)
+})
+
+test('a current library whose referenced image is gone is preserved and then replaced', async (t) => {
+  const f = await fixture(t)
+  const avatar = await addAvatar(f)
+  const backup = createProtectiveBackup(
+    f.connection.native,
+    f.filename,
+    migrationsFolder,
+    f.storage,
+  )
+  // The live library references an image that managed storage no longer holds, so
+  // no verified protective copy of it can be created.
+  await unlink(avatar.path)
+  f.connection.close()
+  const before = await readFile(f.filename)
+  restoreBackup(f.filename, backup, migrationsFolder, f.storage)
+
+  const folders = (await readdir(f.storage.backupDirectory)).map((name) =>
+    join(f.storage.backupDirectory, name),
+  )
+  const preserved = folders.filter(
+    (folder) => readBackupManifest(folder).kind === 'damaged',
+  )
+  assert.equal(preserved.length, 1)
+  const artifact = readBackupManifest(preserved[0])
+  assert.equal(artifact.verified, false)
+  // The artifact is the pre-swap catalog byte for byte, not a VACUUM INTO of it.
+  assert.equal(
+    artifact.catalog.sha256,
+    createHash('sha256').update(before).digest('hex'),
+  )
+  // The replacement still completed: the restored catalog is in place and the
+  // image it references was published again.
+  assert.deepEqual(liveState(f.filename, f.sample.id), {
+    favorite: 1,
+    previewVolume: 0,
+    avatar: avatar.id,
+    images: [`${avatar.id}.png`],
+  })
+})
+
+test('a preserved damaged library is listed as not restorable and refused by restore', async (t) => {
+  const f = await fixture(t)
+  const copy = createProtectiveBackup(
+    f.connection.native,
+    f.filename,
+    migrationsFolder,
+    f.storage,
+  )
+  f.connection.close()
+  const phaseOne = await openWorker(f)
+  try {
+    const reply = await phaseOne.request({
+      action: 'restore-backup',
+      location: copy,
+    })
+    assert.equal(reply.action, 'restore-backup')
+  } finally {
+    await phaseOne.close()
+  }
   await writeFile(f.filename, 'not a database')
   assert.equal(applyPendingRestore(f.filename), 'applied')
+
+  const transport = await openWorker(f)
+  try {
+    const listed = await transport.request({
+      action: 'list-backups',
+      input: {},
+    })
+    assert.equal(listed.action, 'list-backups')
+    if (listed.action !== 'list-backups') {
+      return
+    }
+    const damaged = listed.result.items.find((item) => item.kind === 'damaged')
+    assert.ok(damaged, 'the preserved artifact is listed, not hidden')
+    // Preserving silently would be indistinguishable from deleting.
+    assert.equal(damaged.restorable, false)
+    assert.equal(damaged.schemaVersion, 0)
+    assert.equal(damaged.imageCount, 0)
+    const restorable = listed.result.items.filter(
+      (item) => item.kind !== 'damaged',
+    )
+    assert.ok(restorable.length > 0)
+    assert.ok(restorable.every((item) => item.restorable))
+
+    await assert.rejects(
+      transport.request({
+        action: 'restore-backup',
+        location: damaged.location,
+      }),
+      { code: 'INVALID_INPUT' },
+    )
+    // The refused request changed nothing at all.
+    assert.equal(existsSync(pendingRestoreIntent(f.filename)), false)
+    assert.deepEqual(await stagedFiles(f.filename), [])
+  } finally {
+    await transport.close()
+  }
+})
+
+test('a staged restore preserves an unreadable current catalog before replacing it', async (t) => {
+  const f = await fixture(t)
+  const backup = createProtectiveBackup(
+    f.connection.native,
+    f.filename,
+    migrationsFolder,
+    f.storage,
+  )
+  f.connection.close()
+  const transport = await openWorker(f)
+  try {
+    const reply = await transport.request({
+      action: 'restore-backup',
+      location: backup,
+    })
+    assert.equal(reply.action, 'restore-backup')
+  } finally {
+    await transport.close()
+  }
+  // This is the state a restore exists for: the live catalog is unreadable.
+  await writeFile(f.filename, 'not a database')
+  // A journal SQLite would delete on a failed open is the only manual recovery a
+  // damaged library has left, so preservation must reach it before the swap.
+  await writeFile(`${f.filename}-journal`, 'hot rollback journal')
+  assert.equal(applyPendingRestore(f.filename), 'applied')
+  const folders = (await readdir(f.storage.backupDirectory)).map((name) =>
+    join(f.storage.backupDirectory, name),
+  )
+  const preserved = folders.filter(
+    (folder) => readBackupManifest(folder).kind === 'damaged',
+  )
+  assert.equal(preserved.length, 1)
+  const artifact = readBackupManifest(preserved[0])
+  assert.equal(artifact.verified, false)
+  assert.equal(artifact.schemaVersion, 0)
+  // The artifact holds the bytes that were replaced, so it was written before
+  // the swap and not reconstructed from the restored catalog afterwards.
+  assert.equal(
+    await readFile(join(preserved[0], 'catalog.sqlite'), 'utf8'),
+    'not a database',
+  )
+  // Verified absent as a valid backup before the swap proceeded.
+  assert.throws(() => verifyBackup(preserved[0], migrationsFolder), {
+    code: 'INVALID_INPUT',
+  })
+  // The sidecar the library could not have recovered without reached the artifact.
+  assert.equal(artifact.verified, false)
+  assert.equal(
+    await readFile(join(preserved[0], 'catalog.sqlite-journal'), 'utf8'),
+    'hot rollback journal',
+  )
+  assert.deepEqual(
+    artifact.sidecars.map((sidecar) => sidecar.name),
+    ['catalog.sqlite-journal'],
+  )
+  assert.equal(existsSync(`${f.filename}-journal`), false)
   assert.deepEqual(liveState(f.filename, f.sample.id), {
     favorite: 1,
     previewVolume: 0,
@@ -1488,4 +1903,236 @@ test('a staged restore still applies when the current catalog is missing', async
     images: [],
   })
   assert.equal(existsSync(pendingRestoreIntent(f.filename)), false)
+})
+
+// The verifier's reproduction: a catalog truncated to nothing still carries the
+// journal that is the library's only manual recovery. Preserving it must publish an
+// artifact that `list-backups` can read and `delete-backup` can remove, or refuse the
+// swap. An artifact nothing can read hides the last copy of what was replaced.
+test('a zero-byte current catalog is preserved as a readable artifact or the swap is refused', async (t) => {
+  const f = await fixture(t)
+  const backup = createProtectiveBackup(
+    f.connection.native,
+    f.filename,
+    migrationsFolder,
+    f.storage,
+  )
+  f.connection.close()
+  const transport = await openWorker(f)
+  try {
+    const reply = await transport.request({
+      action: 'restore-backup',
+      location: backup,
+    })
+    assert.equal(reply.action, 'restore-backup')
+  } finally {
+    await transport.close()
+  }
+  const journal = Buffer.from('hot rollback journal')
+  await writeFile(f.filename, '')
+  await writeFile(`${f.filename}-journal`, journal)
+  const outcome = applyPendingRestore(f.filename)
+  if (outcome === 'failed') {
+    // A blocked replacement is acceptable; an invisible artifact is not.
+    assert.equal((await readFile(f.filename)).length, 0)
+    assert.equal(existsSync(pendingRestoreIntent(f.filename)), true)
+    return
+  }
+  assert.equal(outcome, 'applied')
+  const folders = (await readdir(f.storage.backupDirectory)).map((name) =>
+    join(f.storage.backupDirectory, name),
+  )
+  const preserved = folders.filter(
+    (folder) => readBackupManifest(folder).kind === 'damaged',
+  )
+  assert.equal(preserved.length, 1)
+  // The published artifact reads back even though its catalog is empty.
+  const artifact = readBackupManifest(preserved[0])
+  assert.equal(artifact.catalog.bytes, 0)
+  assert.equal(
+    artifact.catalog.sha256,
+    createHash('sha256').update(Buffer.alloc(0)).digest('hex'),
+  )
+  assert.deepEqual(
+    artifact.sidecars.map((sidecar) => sidecar.name),
+    ['catalog.sqlite-journal'],
+  )
+  // The preserved sidecar is the exact journal the library had, digest included.
+  assert.equal(
+    artifact.sidecars[0].sha256,
+    createHash('sha256').update(journal).digest('hex'),
+  )
+  assert.equal(artifact.sidecars[0].bytes, journal.length)
+  assert.deepEqual(
+    await readFile(join(preserved[0], 'catalog.sqlite-journal')),
+    journal,
+  )
+
+  const worker = await openWorker(f)
+  try {
+    const listed = await worker.request({ action: 'list-backups', input: {} })
+    assert.equal(listed.action, 'list-backups')
+    if (listed.action !== 'list-backups') {
+      return
+    }
+    // An unreadable artifact would be counted here and never shown.
+    assert.equal(listed.result.skipped, 0)
+    const item = listed.result.items.find(
+      (entry) => entry.location === preserved[0],
+    )
+    assert.ok(item, 'the preserved artifact is listed, not skipped')
+    assert.equal(item.restorable, false)
+    assert.equal(item.catalogBytes, 0)
+    const deleted = await worker.request({
+      action: 'delete-backup',
+      location: preserved[0],
+    })
+    assert.equal(deleted.action, 'delete-backup')
+  } finally {
+    await worker.close()
+  }
+  // Visible also means removable: the artifact is evidence, not litter.
+  assert.equal(existsSync(preserved[0]), false)
+})
+
+// A valid SQLite header does not prove the body is readable, and the open that
+// discovers that is what makes SQLite delete `-journal`. The sidecars are therefore
+// captured before anything opens the catalog, or the artifact keeps nothing.
+test('a header-valid corrupt catalog keeps its sidecars in the preserved artifact', async (t) => {
+  const f = await fixture(t)
+  const backup = createProtectiveBackup(
+    f.connection.native,
+    f.filename,
+    migrationsFolder,
+    f.storage,
+  )
+  f.connection.close()
+  const transport = await openWorker(f)
+  try {
+    const reply = await transport.request({
+      action: 'restore-backup',
+      location: backup,
+    })
+    assert.equal(reply.action, 'restore-backup')
+  } finally {
+    await transport.close()
+  }
+  // Keep the 100-byte header and destroy everything SQLite reads after it, so the
+  // damage is only found by opening the catalog and reading it.
+  const original = await readFile(f.filename)
+  const corrupted = Buffer.from(original)
+  corrupted.fill(0xff, 100)
+  await writeFile(f.filename, corrupted)
+  const journal = Buffer.from('hot rollback journal')
+  await writeFile(`${f.filename}-journal`, journal)
+
+  assert.equal(applyPendingRestore(f.filename), 'applied')
+  const folders = (await readdir(f.storage.backupDirectory)).map((name) =>
+    join(f.storage.backupDirectory, name),
+  )
+  const preserved = folders.filter(
+    (folder) => readBackupManifest(folder).kind === 'damaged',
+  )
+  assert.equal(preserved.length, 1)
+  const artifact = readBackupManifest(preserved[0])
+  // The journal is gone from the live catalog after the failed read, which is why
+  // the artifact needs a copy taken before it.
+  assert.equal(existsSync(`${f.filename}-journal`), false)
+  assert.deepEqual(
+    artifact.sidecars.map((sidecar) => sidecar.name),
+    ['catalog.sqlite-journal'],
+  )
+  assert.equal(
+    artifact.sidecars[0].sha256,
+    createHash('sha256').update(journal).digest('hex'),
+  )
+  assert.deepEqual(
+    await readFile(join(preserved[0], 'catalog.sqlite-journal')),
+    journal,
+  )
+  assert.deepEqual(
+    await readFile(join(preserved[0], 'catalog.sqlite')),
+    corrupted,
+  )
+})
+
+// The startup recovery dialog reaches the swap through restoreBackup, which has to
+// read the catalog to decide damage. That read happens before replaceCatalog, so the
+// sidecars must be captured before it or the artifact is preserved empty.
+test('the startup recovery swap preserves the journal of a header-valid corrupt catalog', async (t) => {
+  const f = await fixture(t)
+  const backup = createProtectiveBackup(
+    f.connection.native,
+    f.filename,
+    migrationsFolder,
+    f.storage,
+  )
+  const original = await readFile(f.filename)
+  const corrupted = Buffer.from(original)
+  corrupted.fill(0xff, 100)
+  f.connection.close()
+  await writeFile(f.filename, corrupted)
+  const journal = Buffer.from('hot rollback journal')
+  await writeFile(`${f.filename}-journal`, journal)
+
+  restoreBackup(f.filename, backup, migrationsFolder, f.storage)
+  const folders = (await readdir(f.storage.backupDirectory)).map((name) =>
+    join(f.storage.backupDirectory, name),
+  )
+  const preserved = folders.filter(
+    (folder) => readBackupManifest(folder).kind === 'damaged',
+  )
+  assert.equal(preserved.length, 1)
+  const artifact = readBackupManifest(preserved[0])
+  // The startup path opened the catalog before the swap, which deleted the live
+  // journal. The artifact still carries the bytes captured before that read.
+  assert.equal(existsSync(`${f.filename}-journal`), false)
+  assert.deepEqual(
+    artifact.sidecars.map((sidecar) => sidecar.name),
+    ['catalog.sqlite-journal'],
+  )
+  assert.equal(
+    artifact.sidecars[0].sha256,
+    createHash('sha256').update(journal).digest('hex'),
+  )
+  assert.deepEqual(
+    await readFile(join(preserved[0], 'catalog.sqlite-journal')),
+    journal,
+  )
+})
+
+// S4 blocks replacement when the damaged state cannot be preserved. The catalog has
+// already been read by then, so the journal has to be put back or the block costs the
+// library its only recovery data.
+test('a blocked replacement of a header-valid corrupt catalog keeps its journal', async (t) => {
+  const f = await fixture(t)
+  const backup = createProtectiveBackup(
+    f.connection.native,
+    f.filename,
+    migrationsFolder,
+    f.storage,
+  )
+  const original = await readFile(f.filename)
+  const corrupted = Buffer.from(original)
+  corrupted.fill(0xff, 100)
+  f.connection.close()
+  await writeFile(f.filename, corrupted)
+  const journal = Buffer.from('hot rollback journal')
+  await writeFile(`${f.filename}-journal`, journal)
+  // Preservation needs managed storage to publish into, so making that path a file
+  // is the portable way to make it fail after the catalog was already read. The
+  // source copy keeps its own directory, so verification still succeeds and the
+  // failure lands where S4 says a failure blocks the swap.
+  const brokenStorage = {
+    ...f.storage,
+    backupDirectory: join(dirname(f.filename), 'preserve-into-a-file'),
+  }
+  await writeFile(brokenStorage.backupDirectory, 'not a directory')
+
+  assert.throws(
+    () => restoreBackup(f.filename, backup, migrationsFolder, brokenStorage),
+    { code: 'BACKUP_FAILED' },
+  )
+  assert.deepEqual(await readFile(f.filename), corrupted)
+  assert.deepEqual(await readFile(`${f.filename}-journal`), journal)
 })
