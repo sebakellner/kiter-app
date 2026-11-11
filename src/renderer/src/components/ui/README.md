@@ -159,29 +159,54 @@ that rendered accessibility contrast has been validated.
 ### Color: name the job, not the shade
 
 [`semantic/color.json`](../../../../../tokens/semantic/color.json) is the UI
-palette contract. The six supplied HEX values are authoritative; RGB values in
+palette contract. The supplied HEX values are authoritative; RGB values in
 DTCG are normalized from them. CMYK, HSB and HSL copies are not stored as competing
 sources of truth.
 
-| Supplied primitive | HEX       | Design role                                   |
-| ------------------ | --------- | --------------------------------------------- |
-| `color.slate.900`  | `#292D34` | Base neutral; foreground on primary actions   |
-| `color.white`      | `#FFFFFF` | Primary text                                  |
-| `color.yellow.500` | `#FFC800` | Primary actions                               |
-| `color.pink.500`   | `#FD71AF` | Invalid control borders; basis for error text |
-| `color.cyan.500`   | `#49CCF9` | Retained palette primitive; no active UI role |
-| `color.violet.500` | `#7B68EE` | Retained palette primitive; no active UI role |
+| Supplied primitive | HEX       | Design role                                 |
+| ------------------ | --------- | ------------------------------------------- |
+| `color.slate.900`  | `#292D34` | Base neutral; foreground on primary actions |
+| `color.white`      | `#FFFFFF` | Primary text                                |
+| `color.yellow.500` | `#FFC800` | Primary actions                             |
+| `color.pink.500`   | `#FD71AF` | Retained palette primitive; no active role  |
+| `color.violet.500` | `#7B68EE` | Retained palette primitive; no active role  |
+
+`color.neutral` mirrors every `slate` step and is reserved: no semantic role uses
+it yet, so a later migration is a path swap rather than a new colour decision.
+
+Status roles own no value of their own. Each one aliases the `400` step of a
+family that never doubles as the brand accent:
+
+| Family        | 400 (text, icon) | 500 (border, indicator) | 900 (dark surface) |
+| ------------- | ---------------- | ----------------------- | ------------------ |
+| `color.red`   | `#FF6B6B`        | `#F0453F`               | `#2E1516`          |
+| `color.amber` | `#FFAA33`        | `#FF9500`               | `#613900`          |
+| `color.green` | `#6EE787`        | `#34D058`               | `#16301F`          |
+| `color.blue`  | `#5AB0FF`        | `#2E90FA`               | `#10233A`          |
+
+`color.status.{error,warning,info,success}` alias the `400` step and
+`color.border.error` aliases red `500`. Warning deliberately avoids yellow, so a
+warning never looks like the primary action. No component may reach for a status
+family directly: consume the semantic role so a palette change stays a one-line
+token edit.
 
 Keep the workspace predominantly slate and white. Yellow is the only visual
 accent, shared by primary actions, keyboard focus and selection indicators.
-Pink is reserved for errors, not decorative emphasis. Layout, type and alignment do not change with the
+Red is reserved for errors, not decorative emphasis. Layout, type and alignment do not change with the
 palette. Asset-specific colors are not part of the interface token palette.
 
 Supporting shades are explicit raw primitives derived by rounded sRGB channel
 mixing, not runtime color calculations: slate 950/975/990 mix 20/50/80% black into the base;
 850/800/700/500/300 mix 5/10/16/50/70% white. Yellow 400, pink 400 and violet 400
 mix 20% white into their supplied base colors. Violet 900 mixes 25% violet 500
-with 75% slate 900. The original six HEX values remain unchanged.
+with 75% slate 900. Amber follows the yellow family: 400 mixes 20% white into
+amber 500 and 900 mixes 38% of amber 500 with black. The supplied base colors
+remain unchanged.
+
+The red, green and blue ramps are new values rather than mixes of a supplied
+base: `400` is the readable text and icon step on dark surfaces, `500` the solid
+border and indicator step and `900` a saturated dark surface. They were reviewed
+as a token change, and the generated CSS diff is the record of the decision.
 
 The opaque dark extension is slate 975 (`#15171A`), slate 990 (`#08090A`) and
 `color.black` (`#000000`, the 100% black endpoint). The existing semantic surface
@@ -207,23 +232,25 @@ the surface behind them. Components should still consume semantic surface roles.
 | `color.surface`   | `page`, `soft`, `muted`, `field`, `selection`                                                          | Containers and selected backgrounds                        |
 | `color.text`      | `default`, `secondary`, `on-action`                                                                    | Foregrounds; `on-action` is for light primary action fills |
 | `color.action`    | `primary`, `primary-hover`, `secondary`, `secondary-hover`, `secondary-active`, `ghost`, `ghost-hover` | Interactive fills, not text colors                         |
-| `color.border`    | `default`, `control`, `hover`, `danger`                                                                | Separators, input boundaries, hover and invalid states     |
+| `color.border`    | `default`, `control`, `hover`, `error`                                                                 | Separators, input boundaries, hover and invalid states     |
 | `color.focus`     | `ring`                                                                                                 | Visible keyboard focus                                     |
 | `color.selection` | `indicator`                                                                                            | Selected-item marker, distinct from keyboard focus         |
-| `color.status`    | `danger`                                                                                               | Error text, paired with explanatory content                |
+| `color.status`    | `error`, `warning`, `info`, `success`                                                                  | Status text, paired with explanatory content               |
 | `color.backdrop`  | `inspector`, `dialog`                                                                                  | Scrims, not opaque surfaces                                |
 
 Equal values do not imply equal roles: surface and action colors must remain
 independently themeable aliases even when they share a primitive. Focus and
 selection must remain distinguishable without relying on color alone. Do not
-invent success/warning hues or a disabled opacity without reviewing the actual
+invent additional status hues or a disabled opacity without reviewing the actual
 state. Before applying tokens, validate foreground/background pairs: 4.5:1 for
 normal text and 3:1 for meaningful control boundaries and focus indicators against
 their adjacent colors. Decorative separators are not control boundaries.
 
-`color.status.danger` uses pink 400 (`#FD8DBF`) so small error text maintains at
-least 4.5:1 against all defined opaque dark surfaces. The original pink 500 remains
-the invalid-border color. `color.selection.indicator` and `color.focus.ring` use
+Status text uses the `400` step of its own family. Measured against the defined
+opaque surface roles (page `#08090A`, soft `#15171A`, muted and selection
+`#21242A`, hover `#292D34`, field `#000000`) the worst pair is error on hover at
+4.98:1; warning stays at or above 7.27:1, info 5.98:1 and success 8.85:1. The
+`500` steps are borders and indicators, never small text. `color.selection.indicator` and `color.focus.ring` use
 yellow 500 (`#FFC800`) against dark surfaces. Never use yellow as a selected
 background with white text; selection uses a neutral surface and yellow marker.
 `color.text.on-action` is for yellow primary fills, not every colored surface.

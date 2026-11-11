@@ -24,7 +24,7 @@
 }
 
 .ui-input[aria-invalid='true'] {
-  border-color: var(--color-border-danger);
+  border-color: var(--color-border-error);
 }
 
 .ui-input:disabled {

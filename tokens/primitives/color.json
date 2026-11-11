@@ -93,6 +93,99 @@
         }
       }
     },
+    "neutral": {
+      "$description": "Reserved neutral ramp. Every step duplicates slate and has no semantic consumer yet, so a later migration is a path swap instead of a new colour decision. Do not let the two families diverge.",
+      "300": {
+        "$type": "color",
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.7490196078431373, 0.7529411764705882, 0.7607843137254902
+          ],
+          "hex": "#BFC0C2"
+        }
+      },
+      "500": {
+        "$type": "color",
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.5803921568627451, 0.5882352941176471, 0.6039215686274509
+          ],
+          "hex": "#94969A"
+        }
+      },
+      "700": {
+        "$type": "color",
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.29411764705882354, 0.30980392156862746, 0.32941176470588235
+          ],
+          "hex": "#4B4F54"
+        }
+      },
+      "800": {
+        "$type": "color",
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.24313725490196078, 0.25882352941176473, 0.2823529411764706
+          ],
+          "hex": "#3E4248"
+        }
+      },
+      "850": {
+        "$type": "color",
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.20392156862745098, 0.2196078431372549, 0.24313725490196078
+          ],
+          "hex": "#34383E"
+        }
+      },
+      "900": {
+        "$type": "color",
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.1607843137254902, 0.17647058823529413, 0.20392156862745098
+          ],
+          "hex": "#292D34"
+        }
+      },
+      "950": {
+        "$type": "color",
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.12941176470588237, 0.1411764705882353, 0.16470588235294117
+          ],
+          "hex": "#21242A"
+        }
+      },
+      "975": {
+        "$type": "color",
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.08235294117647059, 0.09019607843137255, 0.10196078431372549
+          ],
+          "hex": "#15171A"
+        }
+      },
+      "990": {
+        "$type": "color",
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.03137254901960784, 0.03529411764705882, 0.0392156862745098
+          ],
+          "hex": "#08090A"
+        }
+      }
+    },
     "white": {
       "$type": "color",
       "$value": {
@@ -128,6 +221,33 @@
         }
       }
     },
+    "amber": {
+      "$description": "Warning hue, deliberately distinct from the yellow brand accent. Step 400 mixes 20% white into step 500 for status text and icons. Step 900 mixes 38% of step 500 with pure black for a saturated dark warning surface, matching the yellow family.",
+      "400": {
+        "$type": "color",
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [1, 0.6666666666666666, 0.2],
+          "hex": "#FFAA33"
+        }
+      },
+      "500": {
+        "$type": "color",
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [1, 0.5843137254901961, 0],
+          "hex": "#FF9500"
+        }
+      },
+      "900": {
+        "$type": "color",
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [0.3803921568627451, 0.2235294117647059, 0],
+          "hex": "#613900"
+        }
+      }
+    },
     "pink": {
       "$description": "The supplied #FD71AF is step 500. Step 400 mixes 20% white into it to support small error text on elevated dark surfaces.",
       "400": {
@@ -151,13 +271,98 @@
         }
       }
     },
-    "cyan": {
+    "red": {
+      "$description": "Error hue. Step 400 is the readable text and icon value on dark surfaces, step 500 the solid border and indicator value, step 900 a saturated dark surface.",
+      "400": {
+        "$type": "color",
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [1, 0.4196078431372549, 0.4196078431372549],
+          "hex": "#FF6B6B"
+        }
+      },
       "500": {
         "$type": "color",
         "$value": {
           "colorSpace": "srgb",
-          "components": [0.28627450980392155, 0.8, 0.9764705882352941],
-          "hex": "#49CCF9"
+          "components": [
+            0.9411764705882353, 0.27058823529411763, 0.24705882352941178
+          ],
+          "hex": "#F0453F"
+        }
+      },
+      "900": {
+        "$type": "color",
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.1803921568627451, 0.08235294117647059, 0.08627450980392157
+          ],
+          "hex": "#2E1516"
+        }
+      }
+    },
+    "green": {
+      "$description": "Success hue. Step 400 is the readable text and icon value on dark surfaces, step 500 the solid border and indicator value, step 900 a saturated dark surface.",
+      "400": {
+        "$type": "color",
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.43137254901960786, 0.9058823529411765, 0.5294117647058824
+          ],
+          "hex": "#6EE787"
+        }
+      },
+      "500": {
+        "$type": "color",
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.20392156862745098, 0.8156862745098039, 0.34509803921568627
+          ],
+          "hex": "#34D058"
+        }
+      },
+      "900": {
+        "$type": "color",
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.08627450980392157, 0.18823529411764706, 0.12156862745098039
+          ],
+          "hex": "#16301F"
+        }
+      }
+    },
+    "blue": {
+      "$description": "Informational hue. Step 400 is the readable text and icon value on dark surfaces, step 500 the solid border and indicator value, step 900 a saturated dark surface.",
+      "400": {
+        "$type": "color",
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [0.35294117647058826, 0.6901960784313725, 1],
+          "hex": "#5AB0FF"
+        }
+      },
+      "500": {
+        "$type": "color",
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.1803921568627451, 0.5647058823529412, 0.9803921568627451
+          ],
+          "hex": "#2E90FA"
+        }
+      },
+      "900": {
+        "$type": "color",
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.06274509803921569, 0.13725490196078433, 0.22745098039215686
+          ],
+          "hex": "#10233A"
         }
       }
     },

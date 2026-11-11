@@ -12,11 +12,11 @@ existing folders almost exactly:
 | ------------------------------------- | ---------------------- | --------------------------------------------- |
 | A primitive value                     | Design                 | `color.slate.900`, `space.4`, `font.size.14`  |
 | A semantic role's mapping             | Design and engineering | `color.action.primary` → `{color.yellow.400}` |
-| Adding, removing, or renaming a token | Engineering            | a new `color.status-warning`                  |
+| Adding, removing, or renaming a token | Engineering            | a new `color.border-warning`                  |
 | A token `$description`                | Engineering            | the intent notes on `color.slate`             |
 
 A token is a contract before it is a value. `semantic/` is mostly relationships:
-27 of its 44 tokens are color aliases with no value of their own. Changing an
+30 of its 47 tokens are color aliases with no value of their own. Changing an
 alias changes intent, so it is reviewed like code.
 
 ## Source of truth
@@ -92,7 +92,7 @@ Tokens Studio's token type list predates DTCG. Its sections are not DTCG types:
 
 | Tokens Studio section                                                               | DTCG type                        | Kiter tokens                                           |
 | ----------------------------------------------------------------------------------- | -------------------------------- | ------------------------------------------------------ |
-| `Color`                                                                             | `color`                          | 51                                                     |
+| `Color`                                                                             | `color`                          | 74                                                     |
 | `Spacing`, `Sizing`, `Border Radius`, `Border Width`, `Font Size`, `Letter Spacing` | `dimension`                      | space, radius, border width, font size, letter spacing |
 | `Line Height`, `Opacity`                                                            | `number`                         | font line height, opacity                              |
 | `Font Family`, `Font Weight`                                                        | `fontFamily`, `fontWeight`       | 1, 3                                                   |
@@ -173,8 +173,8 @@ names are display concerns and are never used to decide where a token belongs.
 pnpm tokens && git diff --exit-code src/styles/tokens.css   # the CSS is in sync
 ```
 
-Manual import checklist for a full round of Tokens Studio: 110 tokens total,
-**66 in `primitives`** and **44 in `semantic`**. A shortfall means a file did not
+Manual import checklist for a full round of Tokens Studio: 133 tokens total,
+**86 in `primitives`** and **47 in `semantic`**. A shortfall means a file did not
 load completely.
 
 The bridge has its own suite:
@@ -200,7 +200,7 @@ nothing.
   style stores `fontSize × multiplier` and no token holds that product.
   `fontFamily` is not bound because its token is a fallback array.
 - `border.control` and the `font.family` array have no Figma representation, so
-  Figma sees 108 of the 110 tokens. `border` has no style type and the family
+  Figma sees 131 of the 133 tokens. `border` has no style type and the family
   array only exists to compose the text styles.
 - Figma holds whole pixels for line height, so `typography/section` becomes 23px
   where CSS renders 22.5px.
