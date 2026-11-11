@@ -25,6 +25,7 @@
       }
       .actions {
         display: flex;
+        flex-wrap: wrap;
         gap: 8px;
       }
       button {
@@ -63,6 +64,7 @@
     <div class="actions">
       <button id="push">Push repo → Figma</button>
       <button id="pull">Pull Figma → repo</button>
+      <button id="pull-styles">Pull styles → repo</button>
     </div>
     <pre id="log">Ready.</pre>
 
@@ -73,6 +75,7 @@
       const documentLine = document.getElementById('document')
       const pushButton = document.getElementById('push')
       const pullButton = document.getElementById('pull')
+      const pullStylesButton = document.getElementById('pull-styles')
 
       let lines = ['Ready.']
       let waiting = null
@@ -90,6 +93,7 @@
       function setBusy(busy) {
         pushButton.disabled = busy
         pullButton.disabled = busy
+        pullStylesButton.disabled = busy
       }
 
       function serverError(message) {
@@ -155,6 +159,33 @@
           return JSON.stringify(value)
         }
         return String(value)
+      }
+
+      // A changed entry names the property and shows the reference it came from
+      // next to the one it becomes.
+      function appendStyleChanges(changed) {
+        for (const entry of changed) {
+          const current = entry.current || {}
+          const next = entry.next || {}
+          const differences = []
+          for (const property of Object.keys(next)) {
+            if (
+              describeValue(current[property]) === describeValue(next[property])
+            ) {
+              continue
+            }
+            differences.push(
+              property +
+                ': ' +
+                describeValue(current[property]) +
+                ' → ' +
+                describeValue(next[property]),
+            )
+          }
+          append(
+            '  ' + (entry.name || entry.path) + ': ' + differences.join('; '),
+          )
+        }
       }
 
       function fail(label, error, hint) {
@@ -319,6 +350,76 @@
         }
       }
 
+      async function pullStyles() {
+        reset('Reading the local text styles…')
+        try {
+          const fromFigma = await ask(
+            { type: 'pull-styles' },
+            'pull-styles-result',
+          )
+          const styles = fromFigma.styles || []
+          append('Figma: ' + styles.length + ' text styles')
+          const body = await fetchJson('/pull-styles', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ styles }),
+          })
+          const report = body.report || {}
+          const changed = report.changed || []
+          const unchanged = report.unchanged || []
+          const unmatched = report.unmatched || []
+          const diverged = report.diverged || []
+          const missingToken = report.missingToken || []
+          append('changed: ' + changed.length)
+          appendStyleChanges(changed)
+          append('unchanged: ' + unchanged.length)
+          append('unmatched: ' + unmatched.length)
+          for (const entry of unmatched) {
+            append(
+              '  ' +
+                entry.name +
+                ': ' +
+                entry.property +
+                ' = ' +
+                describeValue(entry.value) +
+                ' has no primitive with that value',
+            )
+          }
+          append('diverged: ' + diverged.length)
+          for (const entry of diverged) {
+            append(
+              '  ' +
+                entry.name +
+                ': lineHeight ' +
+                describeValue(entry.actual) +
+                ' but the composite produces ' +
+                describeValue(entry.expected),
+            )
+          }
+          append('missing-token: ' + missingToken.length)
+          for (const name of missingToken) {
+            append('  ' + name + ': no typography token at that path')
+          }
+          const written = body.written || []
+          append(
+            'written: ' + (written.length === 0 ? 'none' : written.join(', ')),
+          )
+          const skipped =
+            unmatched.length + diverged.length + missingToken.length
+          append(
+            '✓ Styles pull done: ' +
+              changed.length +
+              ' changed, ' +
+              unchanged.length +
+              ' unchanged, ' +
+              skipped +
+              ' not written.',
+          )
+        } catch (error) {
+          fail('Styles pull', error, error.server === true)
+        }
+      }
+
       function renderDocument(message) {
         if (!message.supported) {
           documentLine.textContent =
@@ -369,6 +470,7 @@
 
       pushButton.addEventListener('click', withBusy(push))
       pullButton.addEventListener('click', withBusy(pull))
+      pullStylesButton.addEventListener('click', withBusy(pullStyles))
 
       parent.postMessage({ pluginMessage: { type: 'describe' } }, '*')
     </script>

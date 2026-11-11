@@ -8,9 +8,9 @@ const ALIAS = /^\{([^{}]+)\}$/
  * Builds the two token families that cannot be Figma variables: typography
  * composites become text styles and shadow composites become effect styles.
  *
- * Styles are push-only. A designer edit in Figma does not come back yet; the
- * repository stays the single source of truth, so this module only reads
- * `tokens/**\/*.json` and never writes.
+ * A text style comes back from Figma through `style-match.mjs`, which compares
+ * it against exactly these values. Effect styles are still push-only. This
+ * module only reads `tokens/**\/*.json` and never writes.
  */
 export function buildStyles(repoRoot = process.cwd()) {
   const tree = readRepositoryTree(repoRoot)
@@ -228,7 +228,7 @@ function toNumber(value) {
   return undefined
 }
 
-function readRepositoryTree(repoRoot) {
+export function readRepositoryTree(repoRoot) {
   const tree = {}
   for (const folder of TOKEN_FOLDERS) {
     mergeInto(tree, readFolder(repoRoot, folder))
@@ -246,6 +246,24 @@ function readFolder(repoRoot, folder) {
     mergeInto(tree, JSON.parse(readFileSync(join(directory, name), 'utf8')))
   }
   return tree
+}
+
+/**
+ * The text style the push would produce for one token path, or `undefined` when
+ * the repository has no complete composite there. The reverse direction uses it
+ * so both directions share one resolution rule and one rounding rule.
+ */
+export function textStyleAt(tree, path) {
+  const node = nodeAtPath(tree, path)
+  if (!isTokenLeaf(node)) {
+    return undefined
+  }
+  return toTextStyle(tree, { path, token: node })
+}
+
+/** Every token leaf with its path, in repository order. */
+export function tokenLeaves(tree) {
+  return flattenLeaves(tree, [], [])
 }
 
 // Leaves keep repository order: primitives first, then semantic, so a style is

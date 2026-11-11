@@ -5,6 +5,7 @@ import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 import { applyPull } from './pull.mjs'
+import { applyStylePull } from './pull-styles.mjs'
 import { mergeTokenTrees, projectTokens, toFigmaTree } from './project.mjs'
 import { buildStyles } from './styles.mjs'
 
@@ -115,6 +116,42 @@ async function pullTokens(request, response) {
   }
 }
 
+async function pullStyles(request, response) {
+  let raw
+  try {
+    raw = await readBody(request)
+  } catch (error) {
+    send(response, 413, { ok: false, error: messageOf(error) })
+    return
+  }
+
+  let body
+  try {
+    body = JSON.parse(raw)
+  } catch {
+    send(response, 400, { ok: false, error: 'invalid JSON body' })
+    return
+  }
+
+  if (!Array.isArray(body?.styles)) {
+    send(response, 400, {
+      ok: false,
+      error: 'body must include a styles array',
+    })
+    return
+  }
+
+  try {
+    const { report, written } = await applyStylePull({
+      repoRoot: REPO_ROOT,
+      styles: body.styles,
+    })
+    send(response, 200, { ok: true, report, written })
+  } catch (error) {
+    send(response, 500, { ok: false, error: messageOf(error) })
+  }
+}
+
 function messageOf(error) {
   return error instanceof Error ? error.message : String(error)
 }
@@ -163,6 +200,16 @@ const server = createServer((request, response) => {
 
   if (request.method === 'POST' && request.url === '/pull') {
     pullTokens(request, response).catch((error) => {
+      console.error(error)
+      if (!response.headersSent) {
+        send(response, 500, { ok: false, error: messageOf(error) })
+      }
+    })
+    return
+  }
+
+  if (request.method === 'POST' && request.url === '/pull-styles') {
+    pullStyles(request, response).catch((error) => {
       console.error(error)
       if (!response.headersSent) {
         send(response, 500, { ok: false, error: messageOf(error) })
