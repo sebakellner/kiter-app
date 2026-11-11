@@ -100,6 +100,7 @@ async function runPlugin(message, variant = 'bound') {
   assert.ok(VARIANTS.includes(variant), `unknown variant ${variant}`)
   const textStyles = styleStore(variant)
   const effectStyles = styleStore(variant)
+  const loadedFonts = []
   let handler
   let posted
   const figma = {
@@ -116,7 +117,9 @@ async function runPlugin(message, variant = 'bound') {
         return handler
       },
     },
-    loadFontAsync: async () => {},
+    loadFontAsync: async (fontName) => {
+      loadedFonts.push(fontName)
+    },
     getLocalTextStyles: () => {
       throw dynamicPageError('getLocalTextStyles')
     },
@@ -174,7 +177,7 @@ async function runPlugin(message, variant = 'bound') {
     'the plugin registers a message handler',
   )
   await handler(message)
-  return { posted, textStyles, effectStyles }
+  return { posted, textStyles, effectStyles, loadedFonts }
 }
 
 const styles = {
@@ -345,6 +348,38 @@ test('reports rejected and keeps the literal when Figma refuses a binding', asyn
     fontSize: { bound: 0, failed: 1 },
     letterSpacing: { bound: 1, failed: 0 },
   })
+})
+
+test('skips a weight with no Figma cut before loading its font (R3-002)', async () => {
+  const { posted, textStyles, loadedFonts } = await runPlugin({
+    type: 'push',
+    tokens: {},
+    styles: {
+      text: [
+        { ...styles.text[0], fontWeight: 800 },
+        { ...styles.text[0], name: 'typography/strong', fontWeight: 600 },
+      ],
+      effects: [],
+    },
+  })
+
+  // Weight 800 has no cut, so the style is skipped: writing `Regular` for it
+  // would push a different weight and still count it as created.
+  assert.equal(posted?.type, 'push-result')
+  assert.deepEqual(plain(loadedFonts), [
+    { family: 'Instrument Sans', style: 'SemiBold' },
+  ])
+  assert.equal(posted.styles.text.created, 1)
+  assert.equal(posted.styles.text.updated, 0)
+  assert.equal(posted.styles.text.skipped, 1)
+  assert.deepEqual(plain(posted.styles.text.skippedNames), ['typography/body'])
+  assert.deepEqual(plain(posted.styles.text.skipReasons), [
+    { name: 'typography/body', reason: 'weight' },
+  ])
+  assert.deepEqual(
+    plain(textStyles.created.map((style) => [style.name, style.fontName])),
+    [['typography/strong', { family: 'Instrument Sans', style: 'SemiBold' }]],
+  )
 })
 
 // The reverse direction: a Figma text style is flattened to the raw values the

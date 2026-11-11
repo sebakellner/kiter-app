@@ -72,7 +72,12 @@ test('projecting and merging the inverse payload reproduces tokens/ (S8)', () =>
 
   assert.deepEqual(tree, canonical)
   assert.deepEqual(mergeInput, canonical)
-  assert.deepEqual(report, { changed: [], added: [], untouched: 0 })
+  assert.deepEqual(report, {
+    changed: [],
+    added: [],
+    dangling: [],
+    untouched: 0,
+  })
 })
 
 test('flattens shadow composites to CSS strings and rebuilds them (S3)', () => {

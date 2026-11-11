@@ -23,11 +23,15 @@ export async function applyPull({ repoRoot, payload, runBuild = runTokens }) {
   const tokens = normalizeTree(assertTokenTree(payload?.tokens))
   const files = TOKEN_FOLDERS.flatMap((folder) => readFolder(repoRoot, folder))
   const folderTrees = readFolderTrees(files)
+  // A semantic token legitimately aliases a primitive, so an alias is resolved
+  // against the paths both folders declare, not the folder being merged.
+  const knownPaths = tokenPaths(folderTrees)
 
   const runs = TOKEN_FOLDERS.map((folder) => {
     const { tree, report } = mergePayload(
       { [folder]: folderTrees[folder] },
       { [folder]: tokens },
+      { knownPaths },
     )
     return { folder, tree, report }
   })
@@ -97,6 +101,31 @@ function readFolderTrees(files) {
   return trees
 }
 
+/**
+ * Every token path the repository declares, across both folders. An alias is a
+ * reference, so its target only has to exist somewhere in the repository.
+ */
+function tokenPaths(folderTrees) {
+  const paths = new Set()
+  for (const tree of Object.values(folderTrees)) {
+    collectPaths(tree, [], paths)
+  }
+  return [...paths]
+}
+
+function collectPaths(node, path, paths) {
+  for (const [key, value] of Object.entries(node)) {
+    if (key.startsWith('$') || !isPlainObject(value)) {
+      continue
+    }
+    if (isTokenLeaf(value)) {
+      paths.add([...path, key].join('.'))
+      continue
+    }
+    collectPaths(value, [...path, key], paths)
+  }
+}
+
 function mergeInto(target, source) {
   for (const [key, value] of Object.entries(source)) {
     if (isPlainObject(value) && isPlainObject(target[key])) {
@@ -154,6 +183,7 @@ function reconstructNode(original, merged) {
 function combineReports(reports) {
   const changed = new Map()
   const added = new Map()
+  const dangling = new Map()
   let untouched = 0
   for (const report of reports) {
     untouched += report.untouched
@@ -165,12 +195,20 @@ function combineReports(reports) {
     for (const path of report.added) {
       added.set(path, (added.get(path) ?? 0) + 1)
     }
+    // Every folder is merged from the same tree, so the same dangling alias is
+    // reported once per folder; the path identifies it.
+    for (const entry of report.dangling) {
+      if (!dangling.has(entry.path)) {
+        dangling.set(entry.path, entry)
+      }
+    }
   }
   return {
     changed: [...changed.values()],
     added: [...added]
       .filter(([, count]) => count === reports.length)
       .map(([path]) => path),
+    dangling: [...dangling.values()],
     untouched,
   }
 }

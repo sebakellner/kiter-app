@@ -347,6 +347,9 @@ async function writeTextStyles(entries) {
     updated: 0,
     skipped: 0,
     skippedNames: [],
+    // Additive to the counts above: a skipped style keeps the reason it was
+    // skipped for, so a missing cut is not mistaken for a missing family.
+    skipReasons: [],
     // Additive to the counts above: a style can be written and still carry a
     // literal where the panel expects a variable.
     bindings: bindingCounts(),
@@ -369,6 +372,12 @@ async function writeTextStyles(entries) {
     const name = trimName(entry)
     if (!name || typeof entry.fontSize !== 'number') {
       skipStyle(counts, name)
+      continue
+    }
+    if (!hasWeightCut(entry.fontWeight)) {
+      // An unmapped weight would be written as `Regular`, pushing a different
+      // weight: it is skipped before any font is loaded.
+      skipStyle(counts, name, 'weight')
       continue
     }
     const fontName = fontNameOf(entry)
@@ -570,10 +579,13 @@ async function writeEffectStyles(entries) {
   return counts
 }
 
-function skipStyle(counts, name) {
+function skipStyle(counts, name, reason) {
   counts.skipped += 1
   if (name) {
     counts.skippedNames.push(name)
+  }
+  if (reason) {
+    counts.skipReasons.push({ name, reason })
   }
 }
 
@@ -613,6 +625,16 @@ function fontNameOf(entry) {
     return undefined
   }
   return { family, style: WEIGHT_STYLES[entry.fontWeight] || 'Regular' }
+}
+
+// Only a weight the cut table maps can be written. An explicit weight without a
+// cut has no style name to load, and a fallback would silently write another
+// weight while still counting the style as created or updated.
+function hasWeightCut(weight) {
+  if (weight === undefined || weight === null) {
+    return true
+  }
+  return Object.hasOwn(WEIGHT_STYLES, weight)
 }
 
 function numberOr(value, fallback) {
