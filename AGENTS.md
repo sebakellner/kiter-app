@@ -27,6 +27,7 @@ Load other guides only when relevant to the task:
 | [UI Patterns](.agents/docs/ui-patterns.md)                       | Changing interactions, forms, dialogs, accessibility, or feedback.                   |
 | [Data Access](.agents/docs/data-access.md)                       | Changing IPC, queries, mutations, persistence, or managed images.                    |
 | [Release Process](.agents/docs/release-process.md)               | Packaging, validating, or distributing releases.                                     |
+| [Open Decisions](.agents/docs/open-decisions.md)                 | Planning a delivery slice or assessing beta readiness: what is still undefined.      |
 | [Beta Scope](.agents/docs/beta-scope.md)                         | Planning beta delivery, included workflows, acceptance gates, or platform readiness. |
 
 ### Feature Contracts

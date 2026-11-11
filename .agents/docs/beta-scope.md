@@ -119,6 +119,10 @@ and recovery guarantees remain mandatory regardless of implementation order.
   distribution, update/recovery approach, and the beta feedback/reporting channel
   before publication. Publish known limitations and tested-platform evidence.
 
+[Open Decisions](open-decisions.md) tracks each decision and validation that is
+still open for these gates, with the evidence that closes it. Recording an
+approved decision there does not complete a row or change this scope.
+
 ## Outside This Beta's Approved Scope
 
 Accounts, cloud sync, multiple Libraries/profiles, Kits, Tags, named favorite
