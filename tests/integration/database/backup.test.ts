@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
+import { existsSync } from 'node:fs'
 import {
   cp,
   mkdir,
@@ -8,7 +9,7 @@ import {
   symlink,
   writeFile,
 } from 'node:fs/promises'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import { test } from 'node:test'
 import Database from 'better-sqlite3'
 import { openDatabase } from '../../../src/main/db/runtime/connection.ts'
@@ -423,4 +424,247 @@ test('damaged current catalogs are preserved instead of being replaced by a vali
   )
   assert.deepEqual(await readFile(f.filename), before)
   assert.equal((await readdir(f.storage.backupDirectory)).length, 1)
+})
+
+test('a runtime backup command captures the catalog and only referenced images', async (t) => {
+  const f = await fixture(t)
+  await mkdir(f.storage.imagesDirectory, { recursive: true })
+  const covered = randomUUID()
+  const unreferenced = randomUUID()
+  const cover = Buffer.from('saved immutable cover')
+  await writeFile(join(f.storage.imagesDirectory, `${covered}.png`), cover)
+  await writeFile(
+    join(f.storage.imagesDirectory, `${unreferenced}.png`),
+    'not referenced',
+  )
+  f.connection.native
+    .prepare('INSERT INTO image_assets VALUES (?, ?, ?, ?, ?, ?, ?)')
+    .run(covered, `${covered}.png`, 'image/png', cover.length, 1, 1, 'ready')
+  f.connection.native
+    .prepare('UPDATE user_profiles SET avatar_asset_id = ?')
+    .run(covered)
+  f.connection.close()
+  const transport = await WorkerTransport.open(f.filename, {
+    workerPath: new URL(
+      '../../../src/main/db/worker/entry.ts',
+      import.meta.url,
+    ),
+    migrationsFolder,
+    ...f.storage,
+  })
+  try {
+    const reply = await transport.request({ action: 'create-backup' })
+    assert.equal(reply.action, 'create-backup')
+    if (reply.action !== 'create-backup') {
+      return
+    }
+    const { result } = reply
+    assert.equal(result.kind, 'manual')
+    assert.equal(result.totalBytes, result.catalogBytes + result.imageBytes)
+    assert.equal(result.imageCount, 1)
+    const manifest = verifyBackup(result.location, migrationsFolder)
+    assert.equal(manifest.kind, 'manual')
+    assert.equal(manifest.createdAt, result.createdAt)
+    assert.deepEqual(
+      manifest.images.map((image) => image.name),
+      [`${covered}.png`],
+    )
+    // Audio and unreferenced managed images are never part of a backup.
+    assert.deepEqual((await readdir(result.location)).sort(), [
+      'catalog.sqlite',
+      'images',
+      'manifest.json',
+    ])
+    assert.deepEqual(await readdir(join(result.location, 'images')), [
+      `${covered}.png`,
+    ])
+  } finally {
+    await transport.close()
+  }
+  // Capturing saved data changes nothing in the live library.
+  const live = new Database(f.filename, { readonly: true })
+  try {
+    assert.equal(
+      live
+        .prepare('SELECT favorite FROM samples WHERE id = ?')
+        .pluck()
+        .get(f.sample.id),
+      1,
+    )
+    assert.equal(
+      live.prepare('SELECT preview_volume FROM user_preferences').pluck().get(),
+      0,
+    )
+    assert.equal(
+      live.prepare('SELECT avatar_asset_id FROM user_profiles').pluck().get(),
+      covered,
+    )
+  } finally {
+    live.close()
+  }
+})
+
+test('runtime backup listing is bounded, newest first, and counts unreadable folders', async (t) => {
+  const f = await fixture(t)
+  createProtectiveBackup(
+    f.connection.native,
+    f.filename,
+    migrationsFolder,
+    f.storage,
+  )
+  createProtectiveBackup(
+    f.connection.native,
+    f.filename,
+    migrationsFolder,
+    f.storage,
+  )
+  // Folder names are timestamp-prefixed, so a leading digit that sorts before
+  // them places this damaged entry last in newest-first order.
+  const broken = join(f.storage.backupDirectory, '0000-broken')
+  await mkdir(broken, { recursive: true })
+  await writeFile(join(broken, 'manifest.json'), '{"format":"other"}')
+  f.connection.close()
+  const transport = await WorkerTransport.open(f.filename, {
+    workerPath: new URL(
+      '../../../src/main/db/worker/entry.ts',
+      import.meta.url,
+    ),
+    migrationsFolder,
+    ...f.storage,
+  })
+  try {
+    const all = await transport.request({
+      action: 'list-backups',
+      input: {},
+    })
+    assert.equal(all.action, 'list-backups')
+    if (all.action !== 'list-backups') {
+      return
+    }
+    // Stored folders are counted; only readable backups are listed.
+    assert.equal(all.result.total, 3)
+    assert.equal(all.result.items.length, 2)
+    assert.equal(all.result.skipped, 1)
+    assert.equal(all.result.limit, 50)
+    assert.equal(all.result.offset, 0)
+    for (const item of all.result.items) {
+      assert.equal(item.kind, 'pre-migration')
+      verifyBackup(item.location, migrationsFolder)
+    }
+    const names = all.result.items.map((item) => item.location)
+    assert.deepEqual(
+      [...names].sort().reverse(),
+      names,
+      'listed copies are newest first',
+    )
+
+    const first = await transport.request({
+      action: 'list-backups',
+      input: { limit: 1 },
+    })
+    assert.equal(first.action, 'list-backups')
+    if (first.action !== 'list-backups') {
+      return
+    }
+    assert.deepEqual(
+      first.result.items.map((item) => item.location),
+      [names[0]],
+    )
+    const second = await transport.request({
+      action: 'list-backups',
+      input: { limit: 1, offset: 1 },
+    })
+    assert.equal(second.action, 'list-backups')
+    if (second.action !== 'list-backups') {
+      return
+    }
+    assert.deepEqual(
+      second.result.items.map((item) => item.location),
+      [names[1]],
+    )
+    const damaged = await transport.request({
+      action: 'list-backups',
+      input: { limit: 1, offset: 2 },
+    })
+    assert.equal(damaged.action, 'list-backups')
+    if (damaged.action !== 'list-backups') {
+      return
+    }
+    assert.deepEqual(damaged.result.items, [])
+    assert.equal(damaged.result.skipped, 1)
+    assert.equal(damaged.result.total, 3)
+  } finally {
+    await transport.close()
+  }
+})
+
+test('runtime deletion removes exactly the requested managed copy and refuses anything else', async (t) => {
+  const f = await fixture(t)
+  const kept = createProtectiveBackup(
+    f.connection.native,
+    f.filename,
+    migrationsFolder,
+    f.storage,
+  )
+  const removed = createProtectiveBackup(
+    f.connection.native,
+    f.filename,
+    migrationsFolder,
+    f.storage,
+  )
+  const outside = join(dirname(f.storage.backupDirectory), 'outside-copy')
+  await mkdir(outside, { recursive: true })
+  await writeFile(join(outside, 'manifest.json'), '{"format":"other"}')
+  const broken = join(f.storage.backupDirectory, '0000-broken')
+  await mkdir(broken, { recursive: true })
+  await writeFile(join(broken, 'manifest.json'), '{"format":"other"}')
+  const link = join(f.storage.backupDirectory, '0001-link')
+  await symlink(kept, link)
+  f.connection.close()
+  const transport = await WorkerTransport.open(f.filename, {
+    workerPath: new URL(
+      '../../../src/main/db/worker/entry.ts',
+      import.meta.url,
+    ),
+    migrationsFolder,
+    ...f.storage,
+  })
+  try {
+    // A folder outside managed storage is never deleted, even when named.
+    await assert.rejects(
+      transport.request({ action: 'delete-backup', location: outside }),
+      { code: 'INVALID_INPUT' },
+    )
+    assert.equal(existsSync(outside), true)
+    // Managed storage is not enough: a folder without a readable manifest is
+    // not a copy this command may remove.
+    await assert.rejects(
+      transport.request({ action: 'delete-backup', location: broken }),
+      { code: 'UNSUPPORTED_FORMAT' },
+    )
+    assert.equal(existsSync(broken), true)
+    // A link is refused instead of following or removing its target.
+    await assert.rejects(
+      transport.request({ action: 'delete-backup', location: link }),
+      { code: 'INVALID_INPUT' },
+    )
+    assert.equal(existsSync(kept), true)
+
+    const reply = await transport.request({
+      action: 'delete-backup',
+      location: removed,
+    })
+    assert.equal(reply.action, 'delete-backup')
+    assert.equal(existsSync(removed), false)
+    // Other copies are untouched and still verifiable.
+    assert.equal(existsSync(kept), true)
+    verifyBackup(kept, migrationsFolder)
+
+    await assert.rejects(
+      transport.request({ action: 'delete-backup', location: removed }),
+      { code: 'NOT_FOUND' },
+    )
+  } finally {
+    await transport.close()
+  }
 })

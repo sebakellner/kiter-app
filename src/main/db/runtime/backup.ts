@@ -22,6 +22,8 @@ import {
 import { basename, dirname, join, resolve } from 'node:path'
 import Database from 'better-sqlite3'
 import { isEntityId, isRecord } from '../../../shared/domain/validation.ts'
+import type { BackupKind } from '../../../shared/domain/backup.ts'
+import { isBackupKind } from '../../../shared/domain/backup.ts'
 import { IMAGE_MAX_BYTES } from '../../../shared/domain/imageAsset.ts'
 import { DbError } from '../errors.ts'
 import { inspectMigrations } from './migrate.ts'
@@ -38,11 +40,11 @@ interface BackupFile {
   sha256: string
 }
 
-interface BackupManifest {
+export interface BackupManifest {
   format: 'kiter-backup'
   version: 1
   createdAt: string
-  kind: 'pre-migration' | 'pre-restoration'
+  kind: BackupKind
   schemaVersion: number
   catalog: BackupFile
   images: BackupFile[]
@@ -152,7 +154,7 @@ function validImageName(name: string): boolean {
   return match !== null && isEntityId(match[1])
 }
 
-function readManifest(folder: string): BackupManifest {
+export function readBackupManifest(folder: string): BackupManifest {
   const filename = join(folder, 'manifest.json')
   fingerprint(filename, MANIFEST_LIMIT)
   const value: unknown = JSON.parse(readFileSync(filename, 'utf8'))
@@ -170,7 +172,7 @@ function readManifest(folder: string): BackupManifest {
     value.version !== 1 ||
     typeof value.createdAt !== 'string' ||
     !Number.isFinite(Date.parse(value.createdAt)) ||
-    (value.kind !== 'pre-migration' && value.kind !== 'pre-restoration') ||
+    !isBackupKind(value.kind) ||
     typeof value.schemaVersion !== 'number' ||
     !Number.isSafeInteger(value.schemaVersion) ||
     value.schemaVersion < 1 ||
@@ -216,6 +218,12 @@ function verifyFile(
   }
 }
 
+// Managed backup storage is the only place this application creates or removes
+// copies, so callers never resolve it themselves.
+export function backupRoot(storage: BackupStorage): string {
+  return directory(storage.backupDirectory)
+}
+
 export function verifyBackup(
   folder: string,
   migrationsFolder: string,
@@ -223,7 +231,7 @@ export function verifyBackup(
   if (!lstatSync(folder).isDirectory() || lstatSync(folder).isSymbolicLink()) {
     throw new Error('Invalid backup directory.')
   }
-  const manifest = readManifest(folder)
+  const manifest = readBackupManifest(folder)
   verifyFile(join(folder, manifest.catalog.name), manifest.catalog)
   const catalog = new Database(join(folder, manifest.catalog.name), {
     readonly: true,
@@ -271,7 +279,7 @@ export function createProtectiveBackup(
   filename: string,
   migrationsFolder: string,
   storage?: BackupStorage,
-  kind: BackupManifest['kind'] = 'pre-migration',
+  kind: BackupKind = 'pre-migration',
 ): string {
   let staging: string | undefined
   try {

@@ -8,6 +8,11 @@ import { openDatabase } from '../runtime/connection.ts'
 import { dbFailure, DbError } from '../errors.ts'
 import { dispatchRequest } from './dispatch.ts'
 import { restoreBackup } from '../runtime/backup.ts'
+import { createLibraryBackup } from '../runtime/backup-service.ts'
+import {
+  deleteLibraryBackup,
+  listLibraryBackups,
+} from '../runtime/backup-service.ts'
 
 const port = parentPort
 if (!port) {
@@ -52,6 +57,12 @@ try {
   }
   connection = openDatabase(options.filename, options.migrationsFolder, storage)
   const database = connection
+  const runtime = {
+    native: database.native,
+    filename: options.filename,
+    migrationsFolder: options.migrationsFolder,
+    storage,
+  }
   port.on('message', (value: unknown) => {
     if (!isDbRequest(value)) {
       console.error('Database protocol failed:', 'PROTOCOL_ERROR')
@@ -77,7 +88,33 @@ try {
         port.close()
         return
       }
-      reply = dispatchRequest(database.db, value)
+      switch (value.action) {
+        // Backup commands own the catalog file and managed storage, so the
+        // worker answers them instead of catalog dispatch.
+        case 'create-backup':
+          reply = {
+            requestId: value.requestId,
+            action: value.action,
+            result: createLibraryBackup(runtime),
+          }
+          break
+        case 'list-backups':
+          reply = {
+            requestId: value.requestId,
+            action: value.action,
+            result: listLibraryBackups(runtime, value.input),
+          }
+          break
+        case 'delete-backup':
+          reply = {
+            requestId: value.requestId,
+            action: value.action,
+            result: deleteLibraryBackup(runtime, value.location),
+          }
+          break
+        default:
+          reply = dispatchRequest(database.db, value)
+      }
     } catch (error) {
       const failure = dbFailure(error)
       console.error('Database operation failed:', value.action, failure.code)

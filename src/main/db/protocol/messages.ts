@@ -15,6 +15,8 @@ import {
 } from '../../../shared/domain/profile.ts'
 import type { AssetRequest, AssetReply } from './assets.ts'
 import { isAssetRequest, isAssetReply } from './assets.ts'
+import type { BackupRequest, BackupReply } from './backups.ts'
+import { isBackupRequest, isBackupReply } from './backups.ts'
 import type { DiscoveredAudioFile } from '../../../shared/domain/source.ts'
 import { isDiscoveredAudioFile } from '../../../shared/domain/source.ts'
 import { isEntityId, isRecord } from '../../../shared/domain/validation.ts'
@@ -47,6 +49,7 @@ import {
 } from './imports.ts'
 
 export type DbRequest =
+  | (BackupRequest & { requestId: number })
   | (ImportPreparationRequest & { requestId: number })
   | (RecognitionRequest & { requestId: number })
   | (AssetRequest & { requestId: number })
@@ -68,6 +71,7 @@ export type DbRequest =
   | { requestId: number; action: 'close' }
 
 export type DbReply =
+  | (BackupReply & { requestId: number })
   | (ImportPreparationReply & { requestId: number })
   | (RecognitionReply & { requestId: number })
   | (AssetReply & { requestId: number })
@@ -164,6 +168,7 @@ export function isDbCommand(value: unknown): value is DbCommand {
       return true
     default:
       return (
+        isBackupRequest(value) ||
         isImportPreparationRequest(value) ||
         isRecognitionRequest(value) ||
         isClassificationRequest(value) ||
@@ -228,6 +233,7 @@ export function isDbReply(value: unknown): value is DbReply {
       return isFailure(value.failure)
     default:
       return (
+        isBackupReply(value) ||
         isImportPreparationReply(value) ||
         isRecognitionReply(value) ||
         isClassificationReply(value) ||

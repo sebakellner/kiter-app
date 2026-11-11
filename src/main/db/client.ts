@@ -22,6 +22,8 @@ import type { LibraryCommands } from './client/library.ts'
 import { libraryCommands } from './client/library.ts'
 import type { ProfileCommands } from './client/profile.ts'
 import { profileCommands } from './client/profile.ts'
+import type { BackupsCommands } from './client/backups.ts'
+import { backupsCommands } from './client/backups.ts'
 
 export type DbClient = ClientCore &
   ImportsCommands &
@@ -33,7 +35,8 @@ export type DbClient = ClientCore &
   SamplesCommands &
   AssetsCommands &
   LibraryCommands &
-  ProfileCommands
+  ProfileCommands &
+  BackupsCommands
 
 export const DbClient = {
   // `fromTransport` composes the worker transport, which tests can supply
@@ -52,6 +55,7 @@ export const DbClient = {
       ...assetsCommands(core.request),
       ...libraryCommands(core.request, transport),
       ...profileCommands(core.request, transport),
+      ...backupsCommands(core.request),
     }
   },
 
