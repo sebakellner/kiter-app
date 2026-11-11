@@ -24,8 +24,9 @@ operation reconciliation.
   manifest records schema version, date, kind, byte sizes and SHA-256 hashes.
   Integrity, migration-prefix compatibility, required saved records and exact
   referenced-image coverage are verified before publication. Files are flushed;
-  directory entries are also flushed on macOS. Windows directory flush behavior
-  and packaged interruption durability still require platform validation.
+  directory entries are also flushed on macOS. Windows directory flush is skipped,
+  so rename and link durability there is unverified; see the platform statement at
+  the end of this guide.
 - Copies are staged in uniquely owned `.pending` directories and published by
   same-directory rename. Failed attempts remove only their own staging folder;
   interruption can leave an unpublished folder, never an accepted valid backup.
@@ -34,7 +35,10 @@ operation reconciliation.
   pre-restoration backup of the current catalog/images, stages the selected
   catalog, verifies/publishes missing immutable images without overwrite, then
   replaces the catalog by same-directory rename. Existing image conflicts block
-  replacement. Preview and temporary audio authorization are not restored; source
+  replacement. Publication links each verified temporary copy into place; a
+  filesystem that refuses links (exFAT, FAT, some network volumes) copies it in
+  exclusively instead and re-verifies it under its final name, so the
+  never-overwrite rule holds everywhere. Preview and temporary audio authorization are not restored; source
   access still requires current-folder discovery and authorization.
 - Interruption before catalog replacement leaves current references usable;
   after replacement the restored catalog references already-published images.
@@ -111,7 +115,8 @@ because they need the catalog file and managed storage.
   on macOS. A separate instrumented packaged macOS smoke also covers startup,
   migration protection, backup-location failure/retry, restoration and durable
   Favorites; see [Release Process](../release-process.md#local-packaged-recovery-smoke).
-  Windows recovery remains unvalidated.
+  Windows recovery is exercised by the full suite and the desktop suites on
+  `windows-latest`, but not by a packaged installer on real hardware.
 
 ### Protective Copy Failure Causes
 
@@ -246,10 +251,15 @@ Visual layout and exact routes remain to be designed. The worker commands and th
 `DbClient` methods exist; no IPC channel, preload surface or Settings screen does,
 and the delivery that added the commands stopped at that boundary.
 
-Remaining delivery contracts are platform validation of durability and packaged
-interruption recovery, and reconciliation of restored confirmed operations and
-analysis once those exist. Windows directory flush is still skipped and needs
-packaged validation before durability can be claimed.
+Remaining delivery contract is reconciliation of restored confirmed operations and
+analysis once those exist. Platform validation is closed as a documented scope, not
+as an open task: the full node suite and both desktop suites run on `windows-latest`
+on every change, which covers the image publication path, both catalog-swap paths and
+the restore recovery cases on real Windows. Three things CI cannot establish, and
+which are limitations rather than pending work: directory flush is skipped on Windows,
+so rename and link durability under power loss is unverified; a packaged installer on
+real Windows hardware is not exercised; and publication on a non-NTFS volume is covered
+by the fallback above but has never run against a real exFAT or FAT device.
 
 Define archive/version manifests, consistency barriers, validation, safe staged
 publication/replacement, disk-space checks, bounded management queries,
