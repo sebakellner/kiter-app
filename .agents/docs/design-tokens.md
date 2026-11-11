@@ -34,6 +34,23 @@ tokens/**/*.json          DTCG, canonical, reviewed in pull requests
 `src/styles/tokens.css` is auto-generated from `config.json` (Style Dictionary).
 Never edit it directly.
 
+## The bridge
+
+`pnpm tokens:bridge` starts a server on `127.0.0.1:4747` and the development
+plugin at `figma/tokens-bridge/` talks to it. Both directions move one token
+tree: the plugin only reads and writes Figma, and the server owns every
+canonical shape.
+
+| Action | Transport    | Effect                                                                                               |
+| ------ | ------------ | ---------------------------------------------------------------------------------------------------- |
+| Push   | `GET /push`  | project `tokens/`, convert to raw Figma values, create or update variables in the `Kiter` collection |
+| Pull   | `POST /pull` | read the local variables, merge surgically into `tokens/`, then run `pnpm tokens` for the CSS        |
+
+Nothing is ever deleted or renamed in Figma, and nothing is ever deleted from
+the repository. A Figma change arrives as a pull request whose CSS diff is the
+review artifact. Tokens Studio is no longer part of the sync path; its column
+below records how the format behaves there, not how tokens travel.
+
 ## Canonical format
 
 The repository uses the W3C DTCG format with `usesDtcg: true`:
@@ -87,8 +104,10 @@ to `opacity`, `borderRadius`, or `spacing`. Remapping would add a rule in both
 directions and would let a designer's edit silently change a token's declared
 type. The resulting section placement in Tokens Studio is cosmetic.
 
-Figma collections are created per token type, not per set. Figma never sees the
-`primitives` / `semantic` split.
+Figma holds a single collection named `Kiter`, and a variable's name **is** the
+token path with `/` separators: `color/slate/300`, `space/4`, `font/size/14`.
+Figma never sees the `primitives` / `semantic` split; ownership of a returning
+token is resolved by its path, never by a collection name.
 
 ## Projection to Figma
 
@@ -116,24 +135,31 @@ What the projection must **not** do:
 The projection is generated. `tokens/**/*.json` stays in the repository format
 regardless of what Figma needs.
 
+The bridge then converts those flat values to what Figma actually stores: a
+number for `FLOAT`, `{ r, g, b, a }` for `COLOR`, and a `{ alias: "<path>" }`
+marker for a reference. The plugin never sees DTCG. Composite tokens
+(`typography`, `border`) and the `font.family` array have no variable equivalent
+and are not pushed.
+
 ## Bringing a Figma change back
 
 The repository is canonical, so a Figma edit arrives as a pull request, never as
-a direct write. Today this loop is manual; the rules below are the contract any
-automation must satisfy.
+a direct write. The bridge automates the transport, not the decision.
 
-1. Design edits tokens in Tokens Studio and applies them.
-2. Design exports the `primitives` and `semantic` sets as JSON.
-3. The export is inverse-projected: `"#BFC0C2"` and `"16px"` and shadow strings
-   become DTCG objects again, and the `fontFamily` fallback list is restored.
-4. The result is merged **surgically** into `tokens/**/*.json`:
-   - only leaves present in the export are updated
-   - a token missing from the export is never deleted
+1. Design edits variables in Figma and pulls from the plugin, which reads every
+   local variable into raw values and posts them to the server.
+2. The server inverse-projects them: raw numbers and color objects become DTCG
+   objects again, aliases become `{group.token}` references, and the
+   `fontFamily` fallback list is restored.
+3. The result is merged **surgically** into `tokens/**/*.json`:
+   - only paths the payload carries are updated
+   - a token missing from the payload is never deleted
    - `$description` never comes from Figma
+   - a path no file owns is reported and not written
    - every change is listed for review
-5. `pnpm tokens` regenerates the CSS, and the resulting diff is the review
+4. `pnpm tokens` regenerates the CSS, and the resulting diff is the review
    artifact: it shows the change in the language the application speaks.
-6. The pull request is reviewed like any other contract change.
+5. The pull request is reviewed like any other contract change.
 
 Token identity is its **path**. The repository is the mapping table: a path that
 exists today is updated where it already lives. Set names and Figma collection
@@ -149,20 +175,30 @@ Manual import checklist for a full round of Tokens Studio: 110 tokens total,
 **66 in `primitives`** and **44 in `semantic`**. A shortfall means a file did not
 load completely.
 
-Once the projection exists, the required test is idempotency: project, inverse
-project, and diff against the original files. It must be empty.
+The bridge has its own suite:
+
+```bash
+node --test tests/bridge/bridge.test.mjs tests/bridge/pull.test.mjs
+```
+
+The required test is idempotency: project, inverse project, and diff against the
+original files. It must be empty, and a pull that changes nothing must write
+nothing.
 
 ## Known limitations
 
-- `shadow` and `border` composites carry nested objects that Tokens Studio does
-  not apply. Shadow is flattened to a CSS string; border flattening is not yet
-  decided.
-- `font.family` cannot be a usable variable. It stays in the projection because
-  semantic typography aliases reference it.
+- Composite tokens (`typography`, `border`: 12 tokens) and the `font.family`
+  array have no variable equivalent and are not pushed. Figma sees 97 of the 110
+  tokens; the other 13 are repository-only.
+- `shadow` composites have no variable either. The projection flattens them to a
+  CSS string, and no effect style is written yet.
 - Group `$description` never reaches Figma. Read it in the repository.
 - Section placement in Tokens Studio does not match DTCG types, by decision.
-- The projection and inverse projection are manual today. No script exists yet,
-  so a token edit that skips the loop can drift until `pnpm tokens` is run.
+- A pull that changes a token file can also change that file's key order and
+  object wrapping: `JSON.parse` reorders integer-like keys and the repository
+  uses `objectWrap: preserve`, so no serializer reproduces a file byte for byte.
+  A pull that changes nothing writes nothing, and that is tested.
+- Colors are 8-bit. An edit off the `n / 255` grid snaps to the nearest byte.
 
 ## Provenance
 
