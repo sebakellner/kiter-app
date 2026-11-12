@@ -58,6 +58,41 @@ function variablesFor(variant) {
   return BINDING_VARIABLES
 }
 
+// The document is mutable state: the plugin creates, parks and removes
+// variables, so every later read in the same run has to see the difference.
+function variableStore(seed) {
+  const store = new Map()
+  let nextId = 0
+  const decorate = (record) => ({
+    ...record,
+    valuesByMode: { ...record.valuesByMode },
+    setValueForMode(modeId, value) {
+      this.valuesByMode[modeId] = value
+    },
+    remove() {
+      store.delete(this.id)
+    },
+  })
+  for (const record of seed) {
+    store.set(record.id, decorate(record))
+  }
+  return {
+    store,
+    create: (name, collection, resolvedType) => {
+      nextId += 1
+      const variable = decorate({
+        id: `created-variable-${nextId}`,
+        name,
+        resolvedType,
+        variableCollectionId: collection.id,
+        valuesByMode: {},
+      })
+      store.set(variable.id, variable)
+      return variable
+    },
+  }
+}
+
 function styleStore(variant) {
   const store = new Map()
   const created = []
@@ -96,11 +131,16 @@ function plain(value) {
   return JSON.parse(JSON.stringify(value))
 }
 
-async function runPlugin(message, variant = 'bound') {
+async function runPlugin(message, variant = 'bound', options = {}) {
   assert.ok(VARIANTS.includes(variant), `unknown variant ${variant}`)
   const textStyles = styleStore(variant)
   const effectStyles = styleStore(variant)
   const loadedFonts = []
+  // The document is state, not a fixed read: a push that parks or creates a
+  // variable has to be observable by the next read in the same run.
+  const variables = variableStore(
+    options.seedVariables || variablesFor(variant),
+  )
   let handler
   let posted
   const figma = {
@@ -153,17 +193,14 @@ async function runPlugin(message, variant = 'bound') {
           variableIds: [],
         },
       ],
-      getLocalVariablesAsync: async () => variablesFor(variant),
+      getLocalVariablesAsync: async () => [...variables.store.values()],
       createVariableCollection: () => ({
         id: 'collection',
         name: '',
         modes: [{ modeId: 'mode' }],
       }),
-      createVariable: () => ({
-        id: 'variable',
-        name: '',
-        setValueForMode: () => {},
-      }),
+      createVariable: (name, collection, resolvedType) =>
+        variables.create(name, collection, resolvedType),
     },
   }
 
@@ -177,7 +214,7 @@ async function runPlugin(message, variant = 'bound') {
     'the plugin registers a message handler',
   )
   await handler(message)
-  return { posted, textStyles, effectStyles, loadedFonts }
+  return { posted, textStyles, effectStyles, loadedFonts, variables }
 }
 
 const styles = {
@@ -227,20 +264,205 @@ function stylesWithBindings() {
   }
 }
 
+function today() {
+  return new Date().toISOString().slice(0, 10)
+}
+
 test('does not adopt a same-named variable from another collection (R3-001)', async () => {
   const bindings = { letterSpacing: 'primitives/font/line-height/normal' }
-  const { posted } = await runPlugin({
-    type: 'push',
-    tokens: { primitives: { font: { 'line-height': { normal: 20 } } } },
-    styles: { text: [{ ...styles.text[0], bindings }], effects: [] },
-  })
+  const { posted, variables } = await runPlugin(
+    {
+      type: 'push',
+      tokens: { primitives: { font: { 'line-height': { normal: 20 } } } },
+      styles: { text: [{ ...styles.text[0], bindings }], effects: [] },
+    },
+    'bound',
+    // Only the foreign variable exists, so nothing is stale and the push has to
+    // resolve the binding against the copy it creates in its own collection.
+    { seedVariables: [BINDING_VARIABLES[2]] },
+  )
 
-  // The Kiter variable is created; the foreign one is neither updated nor bound.
+  // The Kiter copy is created; the foreign one is neither updated nor bound.
   assert.equal(posted.variables.created, 1)
   assert.equal(posted.variables.updated, 0)
-  const issues = plain(posted.styles.text.bindingIssues)
-  assert.equal(issues.length, 1)
-  assert.equal(issues[0].reason, 'no-variable')
+  assert.equal(posted.variables.parked, 0)
+  const foreign = variables.store.get('variable-foreign')
+  assert.equal(foreign.variableCollectionId, 'other')
+  assert.deepEqual(plain(foreign.valuesByMode), {})
+  const copy = [...variables.store.values()].find(
+    (variable) =>
+      variable.name === 'primitives/font/line-height/normal' &&
+      variable.variableCollectionId === 'collection',
+  )
+  assert.ok(copy, 'the push creates its own copy of the colliding name')
+  assert.deepEqual(plain(posted.styles.text.bindings), {
+    fontSize: { bound: 0, failed: 0 },
+    letterSpacing: { bound: 1, failed: 0 },
+  })
+})
+
+test('parks a Kiter variable the push no longer names (S1, S2)', async () => {
+  const { posted, variables } = await runPlugin({
+    type: 'push',
+    tokens: { primitives: { font: { size: { '14': 14 } } } },
+    styles: { text: [], effects: [] },
+  })
+
+  const names = [...variables.store.values()].map((variable) => variable.name)
+  assert.equal(posted.variables.parked, 1)
+  assert.deepEqual(plain(posted.variables.parkedNames), [
+    `_stale/${today()}/primitives/font/letter-spacing/normal`,
+  ])
+  // The stale name leaves the live set; the foreign one is never touched.
+  assert.deepEqual(names.sort(), [
+    `_stale/${today()}/primitives/font/letter-spacing/normal`,
+    'primitives/font/line-height/normal',
+    'primitives/font/size/14',
+  ])
+})
+
+test('a parked variable keeps the value it had (S2)', async () => {
+  const { posted, variables } = await runPlugin(
+    {
+      type: 'push',
+      tokens: { primitives: { font: { size: { '14': 14 } } } },
+      styles: { text: [], effects: [] },
+    },
+    'bound',
+    {
+      seedVariables: [
+        {
+          id: 'variable-cyan',
+          name: 'primitives/color/cyan/400',
+          resolvedType: 'COLOR',
+          variableCollectionId: 'collection',
+          valuesByMode: { mode: { r: 0, g: 1, b: 1, a: 1 } },
+        },
+      ],
+    },
+  )
+
+  assert.equal(posted.variables.parked, 1)
+  const parked = [...variables.store.values()].find(
+    (variable) => variable.name.indexOf('_stale/') === 0,
+  )
+  assert.deepEqual(plain(parked.valuesByMode.mode), { r: 0, g: 1, b: 1, a: 1 })
+  assert.equal(variables.store.get('variable-cyan'), undefined)
+})
+
+test('a live alias follows its target into the parked set (S1)', async () => {
+  const { variables } = await runPlugin(
+    {
+      type: 'push',
+      tokens: {
+        semantic: { color: { status: { error: { alias: 'primitives.color.cyan.400' } } } },
+      },
+      styles: { text: [], effects: [] },
+    },
+    'bound',
+    {
+      seedVariables: [
+        {
+          id: 'variable-cyan',
+          name: 'primitives/color/cyan/400',
+          resolvedType: 'COLOR',
+          variableCollectionId: 'collection',
+          valuesByMode: { mode: { r: 0, g: 1, b: 1, a: 1 } },
+        },
+      ],
+    },
+  )
+
+  const parked = [...variables.store.values()].find(
+    (variable) => variable.name.indexOf('_stale/') === 0,
+  )
+  const live = [...variables.store.values()].find(
+    (variable) => variable.name === 'semantic/color/status/error',
+  )
+  assert.ok(parked, 'the target is parked')
+  assert.equal(live.valuesByMode.mode.id, parked.id)
+})
+
+test('an empty token tree parks nothing (S5)', async () => {
+  const { posted } = await runPlugin({
+    type: 'push',
+    tokens: {},
+    styles: { text: [], effects: [] },
+  })
+
+  assert.equal(posted.variables.parked, 0)
+  assert.deepEqual(plain(posted.variables.parkedNames), [])
+})
+
+function parkedSeed() {
+  return [
+    {
+      id: 'variable-old',
+      name: '_stale/2020-01-01/primitives/color/cyan/400',
+      resolvedType: 'COLOR',
+      variableCollectionId: 'collection',
+      valuesByMode: { mode: { r: 0, g: 1, b: 1, a: 1 } },
+    },
+    {
+      id: 'variable-fresh',
+      name: `_stale/${today()}/primitives/color/red/500`,
+      resolvedType: 'COLOR',
+      variableCollectionId: 'collection',
+      valuesByMode: { mode: { r: 1, g: 0, b: 0, a: 1 } },
+    },
+    {
+      id: 'variable-live',
+      name: 'primitives/font/size/14',
+      resolvedType: 'FLOAT',
+      variableCollectionId: 'collection',
+      valuesByMode: { mode: 14 },
+    },
+    {
+      id: 'variable-foreign-parked',
+      name: '_stale/2020-01-01/primitives/color/blue/400',
+      resolvedType: 'COLOR',
+      variableCollectionId: 'other',
+      valuesByMode: {},
+    },
+  ]
+}
+
+test('offers only parked names past the window (S2)', async () => {
+  const { posted } = await runPlugin(
+    { type: 'purge-plan' },
+    'bound',
+    { seedVariables: parkedSeed() },
+  )
+
+  assert.deepEqual(plain(posted.plan.names), [
+    '_stale/2020-01-01/primitives/color/cyan/400',
+  ])
+  assert.equal(posted.plan.windowDays, 14)
+})
+
+test('purges only the parked names it was asked for (S2, S4)', async () => {
+  const { posted, variables } = await runPlugin(
+    {
+      type: 'purge',
+      names: [
+        '_stale/2020-01-01/primitives/color/cyan/400',
+        'primitives/font/size/14',
+        '_stale/2020-01-01/primitives/color/blue/400',
+      ],
+    },
+    'bound',
+    { seedVariables: parkedSeed() },
+  )
+
+  assert.equal(posted.counts.removed, 1)
+  // A live name and a name from another collection are reported, not removed.
+  assert.deepEqual(plain(posted.counts.skippedNames).sort(), [
+    '_stale/2020-01-01/primitives/color/blue/400',
+    'primitives/font/size/14',
+  ])
+  assert.equal(variables.store.get('variable-old'), undefined)
+  assert.ok(variables.store.get('variable-live'))
+  assert.ok(variables.store.get('variable-foreign-parked'))
 })
 
 test('writes styles with the async accessors required by dynamic-page', async () => {

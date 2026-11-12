@@ -4,9 +4,10 @@ A local bridge between the Kiter design tokens and Figma. `tokens/**/*.json` sta
 canonical; the bridge only transports values in both directions.
 
 The server is a dependency-free Node HTTP server that owns the canonical shapes.
-The Figma plugin only reads and writes Figma. Nothing is ever deleted in Figma or
-in the repository: a Figma change arrives as a pull request whose regenerated CSS
-diff is the review artifact.
+The Figma plugin only reads and writes Figma. A pull never deletes anything in
+the repository: a Figma change arrives as a pull request whose regenerated CSS
+diff is the review artifact. A push does overwrite the Figma variable set — see
+[Stale variables](#stale-variables).
 
 ## Variable names
 
@@ -35,6 +36,23 @@ guesses ownership, never creates a token, and never deletes or renames one. Text
 and effect style names keep their current form (`typography/body`,
 `shadow/black-28`); only variables and the bindings inside styles use the
 prefixed name.
+
+## Stale variables
+
+A push carries the whole set, not a delta. A variable already in the Kiter
+collection whose name the projected tree no longer produces is **parked**: it is
+copied to `_stale/<YYYY-MM-DD>/<original name>` with its value and the original
+is removed, so a rename in the repository cannot leave a dangling name behind.
+Parking never touches another collection, never touches a name the tree still
+produces, and never runs on an empty tree.
+
+The push result reports `parked` and `parkedNames`, and the panel lists every
+name it moved. Parking is reversible: the value is still under `_stale/`.
+
+Deleting is a separate decision. `Purge parked variables` lists the parked names
+older than **14 days**, and only a second click removes them. A name that is not
+a parked variable of the Kiter collection is reported instead of deleted, and
+text and effect styles are never parked or deleted.
 
 ## Endpoints
 

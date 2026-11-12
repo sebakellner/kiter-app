@@ -33,6 +33,20 @@ figma.ui.onmessage = async (message) => {
       figma.ui.postMessage({ type: 'push-result', variables, styles })
       return
     }
+    if (message.type === 'purge-plan') {
+      figma.ui.postMessage({
+        type: 'purge-plan-result',
+        plan: await planPurge(Date.now()),
+      })
+      return
+    }
+    if (message.type === 'purge') {
+      figma.ui.postMessage({
+        type: 'purge-result',
+        counts: await purgeParked(message.names),
+      })
+      return
+    }
     if (message.type === 'close') {
       figma.closePlugin()
     }
@@ -227,7 +241,7 @@ async function writeTokens(tree) {
     }
   }
 
-  const counts = { created: 0, updated: 0, skipped: 0 }
+  const counts = { created: 0, updated: 0, skipped: 0, parked: 0, parkedNames: [] }
   const aliases = []
 
   for (const pair of flattenTree(tree)) {
@@ -254,8 +268,9 @@ async function writeTokens(tree) {
       continue
     }
     if (existing.resolvedType !== resolvedType) {
-      // Never delete or rename: a variable of another type is left alone and
-      // reported, so the mismatch is visible in the panel.
+      // Never delete or rename here: a same-named variable of another type is
+      // left alone and reported, so the mismatch is visible in the panel.
+      // Parking is a separate path and only covers names the tree dropped.
       counts.skipped += 1
       continue
     }
@@ -293,6 +308,174 @@ async function writeTokens(tree) {
     counts.updated += 1
   }
 
+  // The repository is the whole set, not a delta: a variable this collection
+  // still holds but the tree no longer names is parked, never deleted. The
+  // value stays recoverable until a confirmed purge removes it.
+  const parked = parkStaleVariables(tree, collection, modeId, byName)
+  counts.parked = parked.length
+  counts.parkedNames = parked
+
+  return counts
+}
+
+// A parked name carries the date it was parked, so a purge needs no side
+// journal a clone or a reinstall could lose. `_stale/` is therefore reserved,
+// and a variable that is already parked is never parked a second time.
+const PARKED_PREFIX = '_stale/'
+
+/**
+ * Moves every variable the pushed tree no longer names out of the live set.
+ *
+ * Nothing outside this collection is touched, and an empty tree parks nothing:
+ * a push that carried nothing to compare against must not be readable as a
+ * repository-wide overwrite.
+ */
+function parkStaleVariables(tree, collection, modeId, byName) {
+  const wanted = new Set(flattenTree(tree).map((pair) => toName(pair.name)))
+  if (wanted.size === 0) {
+    return []
+  }
+
+  const stale = []
+  for (const name of Object.keys(byName)) {
+    if (name.indexOf(PARKED_PREFIX) === 0 || wanted.has(name)) {
+      continue
+    }
+    stale.push(byName[name])
+  }
+  if (stale.length === 0) {
+    return []
+  }
+
+  const prefix = `${PARKED_PREFIX}${new Date().toISOString().slice(0, 10)}/`
+  const parkedById = new Map()
+  const parkedNames = []
+  for (const variable of stale) {
+    const parkedName = prefix + variable.name
+    const copy =
+      byName[parkedName] ||
+      figma.variables.createVariable(
+        parkedName,
+        collection,
+        variable.resolvedType,
+      )
+    parkedById.set(variable.id, copy)
+    parkedNames.push(parkedName)
+  }
+
+  // Values travel once every copy exists: a stale variable may alias another
+  // one that is being parked in this same run, and that target only has its new
+  // id by now.
+  for (const variable of stale) {
+    const value = (variable.valuesByMode || {})[modeId]
+    if (value === undefined) {
+      continue
+    }
+    parkedById
+      .get(variable.id)
+      .setValueForMode(modeId, remapAlias(value, parkedById))
+  }
+
+  // A live variable may still point at a name that just moved. Repointing it at
+  // the parked copy keeps the parking from leaving a dangling reference.
+  for (const name of Object.keys(byName)) {
+    if (name.indexOf(PARKED_PREFIX) === 0) {
+      continue
+    }
+    const variable = byName[name]
+    if (parkedById.has(variable.id)) {
+      continue
+    }
+    const value = (variable.valuesByMode || {})[modeId]
+    const repointed = remapAlias(value, parkedById)
+    if (repointed !== value) {
+      variable.setValueForMode(modeId, repointed)
+    }
+  }
+
+  for (const variable of stale) {
+    variable.remove()
+  }
+
+  return parkedNames
+}
+
+function remapAlias(value, parkedById) {
+  if (!isPlainObject(value) || value.type !== ALIAS_TYPE) {
+    return value
+  }
+  const target = parkedById.get(value.id)
+  return target ? { type: ALIAS_TYPE, id: target.id } : value
+}
+
+// Parking is recoverable, purging is not: a parked variable waits this long
+// before it becomes eligible, so an accidental rename stays undoable long
+// enough to notice it.
+const PURGE_WINDOW_DAYS = 14
+const DAY_MS = 24 * 60 * 60 * 1000
+
+function parkedDateOf(name) {
+  const match = /^_stale\/(\d{4}-\d{2}-\d{2})\//.exec(String(name || ''))
+  return match ? match[1] : undefined
+}
+
+async function kiterCollection() {
+  const collections = await figma.variables.getLocalVariableCollectionsAsync()
+  return findCollection(collections)
+}
+
+/**
+ * The parked variables a purge may delete: only names this plugin parked, and
+ * only ones older than the window. Nothing here mutates the document.
+ */
+async function planPurge(now) {
+  const collection = await kiterCollection()
+  if (!collection) {
+    return { names: [], windowDays: PURGE_WINDOW_DAYS }
+  }
+  const cutoff = now - PURGE_WINDOW_DAYS * DAY_MS
+  const names = []
+  for (const variable of await figma.variables.getLocalVariablesAsync()) {
+    if (!isKiterCollection(variable, collection)) {
+      continue
+    }
+    const date = parkedDateOf(variable.name)
+    if (!date || Date.parse(date) > cutoff) {
+      continue
+    }
+    names.push(variable.name)
+  }
+  names.sort()
+  return { names, windowDays: PURGE_WINDOW_DAYS }
+}
+
+/**
+ * Deletes the requested parked variables. A name that is not a parked variable
+ * of this collection is reported instead of removed, so a stale panel can never
+ * turn a typo into the deletion of a live variable.
+ */
+async function purgeParked(requested) {
+  const counts = { removed: 0, skipped: 0, skippedNames: [] }
+  const collection = await kiterCollection()
+  if (!collection) {
+    return counts
+  }
+  const allowed = new Set(Array.isArray(requested) ? requested : [])
+  for (const variable of await figma.variables.getLocalVariablesAsync()) {
+    if (!allowed.has(variable.name)) {
+      continue
+    }
+    if (
+      !isKiterCollection(variable, collection) ||
+      !parkedDateOf(variable.name)
+    ) {
+      counts.skipped += 1
+      counts.skippedNames.push(variable.name)
+      continue
+    }
+    variable.remove()
+    counts.removed += 1
+  }
   return counts
 }
 
