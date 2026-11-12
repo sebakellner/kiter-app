@@ -15,7 +15,7 @@ const ALIAS = /^\{([^{}]+)\}$/
  * carries the folder that owns its token. That claim is verified instead of
  * trusted: a leaf is written only when the folder it names declares the path,
  * so a name that points a semantic token at a primitive path (or the other way
- * round) is reported and left alone. The bridge never guesses ownership, never
+ * round) is reported and left alone. The pull never guesses ownership, never
  * creates a token, and never deletes or renames one.
  *
  * An alias is written only when the folder its reference carries owns the

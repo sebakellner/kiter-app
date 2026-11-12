@@ -65,6 +65,7 @@
       <button id="push">Push repo → Figma</button>
       <button id="pull">Pull Figma → repo</button>
       <button id="pull-styles">Pull styles → repo</button>
+      <button id="purge">Purge parked variables</button>
     </div>
     <pre id="log">Ready.</pre>
 
@@ -76,11 +77,16 @@
       const pushButton = document.getElementById('push')
       const pullButton = document.getElementById('pull')
       const pullStylesButton = document.getElementById('pull-styles')
+      const purgeButton = document.getElementById('purge')
 
       let lines = ['Ready.']
       let waiting = null
 
       function reset(line) {
+        // A confirmation belongs to the plan the panel is showing. Any other
+        // action drops it, so a stale click can never purge a list that is no
+        // longer on screen.
+        clearPurgeConfirmation()
         lines = [line]
         log.textContent = lines.join('\n')
       }
@@ -94,6 +100,7 @@
         pushButton.disabled = busy
         pullButton.disabled = busy
         pullStylesButton.disabled = busy
+        purgeButton.disabled = busy
       }
 
       function serverError(message) {
@@ -188,6 +195,75 @@
         }
       }
 
+      // Deleting cannot be undone from the plugin, so the button asks for the
+      // plan first and only the second click removes anything.
+      async function purgePlan() {
+        reset('Reading the parked variables…')
+        try {
+          const result = await ask({ type: 'purge-plan' }, 'purge-plan-result')
+          const plan = result.plan || {}
+          const names = plan.names || []
+          const windowDays = plan.windowDays || 0
+          if (names.length === 0) {
+            append(
+              'Parked for more than ' +
+                windowDays +
+                ' days: none. A parked variable is only purged after that.',
+            )
+            append('✓ Nothing to purge.')
+            return
+          }
+          append(
+            'Parked for more than ' + windowDays + ' days: ' + names.length,
+          )
+          for (const name of names) {
+            append('  ' + name)
+          }
+          append(
+            'A purge is irreversible: it also unbinds whatever still uses it.',
+          )
+          purgeButton.textContent = 'Confirm purge (' + names.length + ')'
+          purgeButton.dataset.names = JSON.stringify(names)
+          return
+        } catch (error) {
+          fail('Purge plan', error, error.server === true)
+        }
+      }
+
+      async function confirmPurge() {
+        const names = JSON.parse(purgeButton.dataset.names || '[]')
+        reset('Purging ' + names.length + ' parked variables…')
+        clearPurgeConfirmation()
+        try {
+          const result = await ask({ type: 'purge', names }, 'purge-result')
+          const counts = result.counts || {}
+          append('Purged: ' + (counts.removed || 0))
+          const skipped = counts.skippedNames || []
+          if (skipped.length > 0) {
+            append('Not purged (missing, not parked, or too recent):')
+            for (const name of skipped) {
+              append('  ' + name)
+            }
+          }
+          append('✓ Purge done.')
+        } catch (error) {
+          fail('Purge', error, error.server === true)
+        }
+      }
+
+      function clearPurgeConfirmation() {
+        purgeButton.textContent = 'Purge parked variables'
+        delete purgeButton.dataset.names
+      }
+
+      async function purge() {
+        if (purgeButton.dataset.names) {
+          await confirmPurge()
+          return
+        }
+        await purgePlan()
+      }
+
       function fail(label, error, hint) {
         append('✗ ' + label + ' failed: ' + error.message)
         if (hint) {
@@ -200,14 +276,28 @@
       }
 
       function countsLine(counts) {
-        return (
-          (counts.created || 0) +
-          ' created, ' +
-          (counts.updated || 0) +
-          ' updated, ' +
-          (counts.skipped || 0) +
-          ' skipped'
-        )
+        const parts = [
+          (counts.created || 0) + ' created',
+          (counts.updated || 0) + ' updated',
+          (counts.skipped || 0) + ' skipped',
+        ]
+        if (typeof counts.parked === 'number') {
+          parts.push(counts.parked + ' parked')
+        }
+        return parts.join(', ')
+      }
+
+      // Parking renames the variable to `_stale/<date>/…` instead of copying it:
+      // the id and every mode's value stay, so nothing that points at it breaks.
+      function appendParked(counts) {
+        const names = counts.parkedNames || []
+        if (names.length === 0) {
+          return
+        }
+        append('Parked as stale (renamed, keeps its id and values):')
+        for (const name of names) {
+          append('  ' + name)
+        }
       }
 
       function appendSkipped(label, counts) {
@@ -291,6 +381,7 @@
           const text = styleCount(written, 'text')
           const effects = styleCount(written, 'effects')
           append('Figma variables: ' + countsLine(variables))
+          appendParked(variables)
           append('Figma text styles: ' + countsLine(text))
           append('Figma effect styles: ' + countsLine(effects))
           appendBindings(text)
@@ -473,6 +564,7 @@
       pushButton.addEventListener('click', withBusy(push))
       pullButton.addEventListener('click', withBusy(pull))
       pullStylesButton.addEventListener('click', withBusy(pullStyles))
+      purgeButton.addEventListener('click', withBusy(purge))
 
       parent.postMessage({ pluginMessage: { type: 'describe' } }, '*')
     </script>
