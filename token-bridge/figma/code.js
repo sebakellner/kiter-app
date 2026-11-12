@@ -241,7 +241,13 @@ async function writeTokens(tree) {
     }
   }
 
-  const counts = { created: 0, updated: 0, skipped: 0, parked: 0, parkedNames: [] }
+  const counts = {
+    created: 0,
+    updated: 0,
+    skipped: 0,
+    parked: 0,
+    parkedNames: [],
+  }
   const aliases = []
 
   for (const pair of flattenTree(tree)) {

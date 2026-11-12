@@ -304,7 +304,7 @@ test('does not adopt a same-named variable from another collection (R3-001)', as
 test('parks a Kiter variable the push no longer names (S1, S2)', async () => {
   const { posted, variables } = await runPlugin({
     type: 'push',
-    tokens: { primitives: { font: { size: { '14': 14 } } } },
+    tokens: { primitives: { font: { size: { 14: 14 } } } },
     styles: { text: [], effects: [] },
   })
 
@@ -325,7 +325,7 @@ test('a parked variable keeps the value it had (S2)', async () => {
   const { posted, variables } = await runPlugin(
     {
       type: 'push',
-      tokens: { primitives: { font: { size: { '14': 14 } } } },
+      tokens: { primitives: { font: { size: { 14: 14 } } } },
       styles: { text: [], effects: [] },
     },
     'bound',
@@ -355,7 +355,9 @@ test('a live alias follows its target into the parked set (S1)', async () => {
     {
       type: 'push',
       tokens: {
-        semantic: { color: { status: { error: { alias: 'primitives.color.cyan.400' } } } },
+        semantic: {
+          color: { status: { error: { alias: 'primitives.color.cyan.400' } } },
+        },
       },
       styles: { text: [], effects: [] },
     },
@@ -428,11 +430,9 @@ function parkedSeed() {
 }
 
 test('offers only parked names past the window (S2)', async () => {
-  const { posted } = await runPlugin(
-    { type: 'purge-plan' },
-    'bound',
-    { seedVariables: parkedSeed() },
-  )
+  const { posted } = await runPlugin({ type: 'purge-plan' }, 'bound', {
+    seedVariables: parkedSeed(),
+  })
 
   assert.deepEqual(plain(posted.plan.names), [
     '_stale/2020-01-01/primitives/color/cyan/400',
