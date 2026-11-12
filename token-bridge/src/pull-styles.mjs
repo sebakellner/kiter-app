@@ -3,10 +3,9 @@ import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 import { commitWrites } from './commit.mjs'
+import { TOKEN_FOLDERS } from './names.mjs'
 import { serializeTokens } from './serialize.mjs'
 import { matchTextStyles } from './style-match.mjs'
-
-const TOKEN_FOLDERS = ['primitives', 'semantic']
 
 /**
  * Writes the text style changes back into the repository. Matching decides what
