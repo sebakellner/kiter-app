@@ -219,7 +219,9 @@
           for (const name of names) {
             append('  ' + name)
           }
-          append('Nothing owns these names any more.')
+          append(
+            'A purge re-checks references and skips any name a live variable or style still uses.',
+          )
           purgeButton.textContent = 'Confirm purge (' + names.length + ')'
           purgeButton.dataset.names = JSON.stringify(names)
           return
@@ -238,7 +240,7 @@
           append('Purged: ' + (counts.removed || 0))
           const skipped = counts.skippedNames || []
           if (skipped.length > 0) {
-            append('Not purged (not a parked variable):')
+            append('Not purged (still referenced, not parked, or gone):')
             for (const name of skipped) {
               append('  ' + name)
             }
@@ -282,6 +284,9 @@
         if (typeof counts.parked === 'number') {
           parts.push(counts.parked + ' parked')
         }
+        if (typeof counts.retained === 'number') {
+          parts.push(counts.retained + ' retained')
+        }
         return parts.join(', ')
       }
 
@@ -294,6 +299,20 @@
           return
         }
         append('Parked as stale (recoverable until purged):')
+        for (const name of names) {
+          append('  ' + name)
+        }
+      }
+
+      // A stale name something still references is not parked: moving it would
+      // leave that reference pointing at the parked copy, so the push keeps it
+      // live and names it here.
+      function appendRetained(counts) {
+        const names = counts.retainedNames || []
+        if (names.length === 0) {
+          return
+        }
+        append('Kept live (still referenced by a variable or style):')
         for (const name of names) {
           append('  ' + name)
         }
@@ -381,6 +400,7 @@
           const effects = styleCount(written, 'effects')
           append('Figma variables: ' + countsLine(variables))
           appendParked(variables)
+          appendRetained(variables)
           append('Figma text styles: ' + countsLine(text))
           append('Figma effect styles: ' + countsLine(effects))
           appendBindings(text)
