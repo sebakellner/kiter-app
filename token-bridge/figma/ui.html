@@ -83,6 +83,10 @@
       let waiting = null
 
       function reset(line) {
+        // A confirmation belongs to the plan the panel is showing. Any other
+        // action drops it, so a stale click can never purge a list that is no
+        // longer on screen.
+        clearPurgeConfirmation()
         lines = [line]
         log.textContent = lines.join('\n')
       }
