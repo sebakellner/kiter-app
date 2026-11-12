@@ -135,7 +135,6 @@ async function runPlugin(message, variant = 'bound', options = {}) {
   assert.ok(VARIANTS.includes(variant), `unknown variant ${variant}`)
   const textStyles = styleStore(variant)
   const effectStyles = styleStore(variant)
-  for (const s of options.seedTextStyles || []) textStyles.store.set(s.name, s)
   const loadedFonts = []
   // The document is state, not a fixed read: a push that parks or creates a
   // variable has to be observable by the next read in the same run.
@@ -278,8 +277,6 @@ const seeded = (name, value, collection = 'collection') => ({
   valuesByMode: { mode: value },
 })
 
-const aliasTo = (id) => ({ type: 'VARIABLE_ALIAS', id })
-
 test('does not adopt a same-named variable from another collection (R3-001)', async () => {
   const bindings = { letterSpacing: 'primitives/font/line-height/normal' }
   const { posted, variables } = await runPlugin(
@@ -333,7 +330,7 @@ test('parks a Kiter variable the push no longer names (S1, S2)', async () => {
   ])
 })
 
-test('a parked variable keeps the value it had (S2)', async () => {
+test('a parked multi-mode variable keeps every mode value (S2)', async () => {
   const { posted, variables } = await runPlugin(
     {
       type: 'push',
@@ -348,57 +345,49 @@ test('a parked variable keeps the value it had (S2)', async () => {
           name: 'primitives/color/cyan/400',
           resolvedType: 'COLOR',
           variableCollectionId: 'collection',
-          valuesByMode: { mode: { r: 0, g: 1, b: 1, a: 1 } },
+          valuesByMode: {
+            mode: { r: 0, g: 1, b: 1, a: 1 },
+            'mode-dark': { r: 0, g: 0.6, b: 0.6, a: 1 },
+          },
         },
       ],
     },
   )
 
   assert.equal(posted.variables.parked, 1)
-  const parked = [...variables.store.values()].find(
-    (variable) => variable.name.indexOf('_stale/') === 0,
-  )
-  assert.deepEqual(plain(parked.valuesByMode.mode), { r: 0, g: 1, b: 1, a: 1 })
-  assert.equal(variables.store.get('variable-cyan'), undefined)
+  // A rename copies nothing, so every mode survives: the old copy carried one
+  // mode's value and removed the original with the rest.
+  assert.deepEqual(plain(variables.store.get('variable-cyan').valuesByMode), {
+    mode: { r: 0, g: 1, b: 1, a: 1 },
+    'mode-dark': { r: 0, g: 0.6, b: 0.6, a: 1 },
+  })
 })
 
-// A parked copy is not a target: a stale variable a live alias, another
-// collection's alias or a style binding still uses stays live under its name.
-test('keeps a stale variable anything still references (R1-002, R3-001, R4-001, R4-002)', async () => {
+// Parking renames, so a stale variable keeps its id: an alias, a style binding
+// or a layer binding that points at it still resolves.
+test('parks a stale variable by renaming it (S1, S2, R1-002)', async () => {
   const cyan = seeded('primitives/color/cyan/400', { r: 0, g: 1, b: 1, a: 1 })
-  const spacing = seeded('primitives/font/letter-spacing/normal', 0)
+  const size = seeded('primitives/font/size/14', 14)
+  const older = seeded('_stale/2020-01-01/primitives/color/red/500', 1)
   const { posted, variables } = await runPlugin(
     {
       type: 'push',
-      tokens: {
-        semantic: {
-          color: { status: { error: { alias: 'primitives.color.cyan.400' } } },
-        },
-      },
+      tokens: { primitives: { font: { size: { 14: 12 } } } },
       styles: { text: [], effects: [] },
     },
     'bound',
-    {
-      seedVariables: [
-        cyan,
-        spacing,
-        seeded('other/letter-spacing', aliasTo(spacing.id), 'other'),
-      ],
-      seedTextStyles: [
-        {
-          name: 'typography/body',
-          boundVariables: { letterSpacing: aliasTo(spacing.id) },
-        },
-      ],
-    },
+    { seedVariables: [cyan, size, older] },
   )
 
-  const counts = plain(posted.variables)
-  const names = [...variables.store.values()].map((variable) => variable.name)
-  assert.equal(counts.parked, 0)
-  assert.deepEqual(counts.retainedNames, [cyan.name, spacing.name])
-  assert.ok(names.includes(cyan.name) && names.includes(spacing.name))
-  assert.equal(names.filter((name) => name.startsWith('_stale/')).length, 0)
+  const parkedName = `_stale/${today()}/primitives/color/cyan/400`
+  assert.equal(posted.variables.parked, 1)
+  assert.deepEqual(plain(posted.variables.parkedNames), [parkedName])
+  // Same id, new name.
+  assert.equal(variables.store.get(cyan.id).name, parkedName)
+  // A name the tree still produces keeps its live name, and a name already
+  // parked is not renamed a second time.
+  assert.equal(variables.store.get(size.id).name, size.name)
+  assert.equal(variables.store.get(older.id).name, older.name)
 })
 
 test('an empty token tree parks nothing (S5)', async () => {
@@ -457,6 +446,7 @@ test('offers only parked names past the window (S2)', async () => {
 })
 
 test('purges only the parked names it was asked for (S2, S4)', async () => {
+  const missing = '_stale/2020-01-01/primitives/color/magenta/400'
   const { posted, variables } = await runPlugin(
     {
       type: 'purge',
@@ -464,6 +454,7 @@ test('purges only the parked names it was asked for (S2, S4)', async () => {
         '_stale/2020-01-01/primitives/color/cyan/400',
         'primitives/font/size/14',
         '_stale/2020-01-01/primitives/color/blue/400',
+        missing,
       ],
     },
     'bound',
@@ -471,41 +462,16 @@ test('purges only the parked names it was asked for (S2, S4)', async () => {
   )
 
   assert.equal(posted.counts.removed, 1)
-  // A live name and a name from another collection are reported, not removed.
+  // A live name, a name from another collection and a name that is gone are
+  // reported, not removed.
   assert.deepEqual(plain(posted.counts.skippedNames).sort(), [
     '_stale/2020-01-01/primitives/color/blue/400',
+    missing,
     'primitives/font/size/14',
   ])
   assert.equal(variables.store.get('variable-old'), undefined)
   assert.ok(variables.store.get('variable-live'))
   assert.ok(variables.store.get('variable-foreign-parked'))
-})
-
-// One call proves both halves of R3: a reference still blocks a purge, and every
-// other requested name comes back reported instead of vanishing.
-test('a purge skips a referenced copy and reports the rest (S2, R3-002, R3-003)', async () => {
-  const cyan = '_stale/2020-01-01/primitives/color/cyan/400'
-  const free = `_stale/${today()}/primitives/color/red/500`
-  const missing = '_stale/2020-01-01/primitives/color/magenta/400'
-  const { posted, variables } = await runPlugin(
-    { type: 'purge', names: [cyan, free, missing, 'primitives/font/size/14'] },
-    'bound',
-    {
-      seedVariables: [
-        ...parkedSeed(),
-        seeded('semantic/color/status/error', aliasTo('variable-old')),
-      ],
-    },
-  )
-
-  assert.equal(posted.counts.removed, 1)
-  assert.deepEqual(plain(posted.counts.skippedNames).sort(), [
-    cyan,
-    missing,
-    'primitives/font/size/14',
-  ])
-  assert.ok(variables.store.get('variable-old'), 'the referenced copy survives')
-  assert.equal(variables.store.get('variable-fresh'), undefined)
 })
 
 test('writes styles with the async accessors required by dynamic-page', async () => {

@@ -41,20 +41,16 @@ prefixed name.
 
 A push carries the whole set, not a delta. A variable already in the Kiter
 collection whose name the projected tree no longer produces is **parked**: it is
-copied to `_stale/<YYYY-MM-DD>/<original name>` with its value and the original
-is removed, so a rename in the repository cannot leave a dangling name behind.
-Parking never touches another collection, never touches a name the tree still
-produces, and never runs on an empty tree.
+renamed to `_stale/<YYYY-MM-DD>/<original name>`, so it keeps its id, every
+mode's value and every alias, style binding and layer binding that points at it.
+Nothing is copied or deleted. Parking never touches another collection, a name
+the tree still produces, an already parked name, or an empty tree, and the push
+result reports `parked`/`parkedNames`.
 
-The push result reports `parked`/`parkedNames` and `retainedNames`, and the
-panel lists each. A stale name a live alias or a style binding still uses is
-never parked but retained, and a purge re-checks references too. Parking is
-reversible: the value is still under `_stale/`.
-
-Deleting is a separate decision. `Purge parked variables` lists the parked names
-older than **14 days**, and only a second click removes them. A name that is not
-a parked variable of the Kiter collection is reported instead of deleted, and
-text and effect styles are never parked or deleted.
+Deleting is the only irreversible step. `Purge parked variables` lists the parked
+names older than **14 days** and removes them on a second click, which also drops
+the binding wherever a layer or style applies the variable. A name that is
+missing or not parked in the Kiter collection is reported, never deleted.
 
 ## Endpoints
 

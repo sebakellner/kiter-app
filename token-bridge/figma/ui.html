@@ -219,7 +219,9 @@
           for (const name of names) {
             append('  ' + name)
           }
-          append('A purge re-checks references and skips a name still in use.')
+          append(
+            'A purge is irreversible: it also unbinds whatever still uses it.',
+          )
           purgeButton.textContent = 'Confirm purge (' + names.length + ')'
           purgeButton.dataset.names = JSON.stringify(names)
           return
@@ -238,7 +240,7 @@
           append('Purged: ' + (counts.removed || 0))
           const skipped = counts.skippedNames || []
           if (skipped.length > 0) {
-            append('Not purged (still referenced, not parked, or gone):')
+            append('Not purged (missing, not parked, or too recent):')
             for (const name of skipped) {
               append('  ' + name)
             }
@@ -285,27 +287,14 @@
         return parts.join(', ')
       }
 
-      // Parking is the reversible half of the overwrite: the value stays under
-      // `_stale/<date>/…` until a confirmed purge removes it, so every push
-      // names what it moved out of the live set instead of staying silent.
+      // Parking renames the variable to `_stale/<date>/…` instead of copying it:
+      // the id and every mode's value stay, so nothing that points at it breaks.
       function appendParked(counts) {
         const names = counts.parkedNames || []
         if (names.length === 0) {
           return
         }
-        append('Parked as stale (recoverable until purged):')
-        for (const name of names) {
-          append('  ' + name)
-        }
-      }
-
-      // A retained name is kept live and named here instead of parked.
-      function appendRetained(counts) {
-        const names = counts.retainedNames || []
-        if (names.length === 0) {
-          return
-        }
-        append('Kept live (still referenced by a variable or style):')
+        append('Parked as stale (renamed, keeps its id and values):')
         for (const name of names) {
           append('  ' + name)
         }
@@ -393,7 +382,6 @@
           const effects = styleCount(written, 'effects')
           append('Figma variables: ' + countsLine(variables))
           appendParked(variables)
-          appendRetained(variables)
           append('Figma text styles: ' + countsLine(text))
           append('Figma effect styles: ' + countsLine(effects))
           appendBindings(text)

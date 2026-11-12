@@ -315,35 +315,13 @@ async function writeTokens(tree) {
   }
 
   // The repository is the whole set, not a delta: a variable this collection
-  // still holds but the tree no longer names is parked, never deleted. The
-  // value stays recoverable until a confirmed purge removes it. A stale name
-  // something still references is kept live instead.
-  const parked = await parkStaleVariables(tree, collection, modeId, byName)
+  // still holds but the tree no longer names is parked, never deleted. Parking
+  // renames it, so its id and every mode stay intact until a purge.
+  const parked = await parkStaleVariables(tree, collection, byName)
   counts.parked = parked.parkedNames.length
   counts.parkedNames = parked.parkedNames
-  counts.retainedNames = parked.retainedNames
 
   return counts
-}
-
-// Every id a live alias or a style binding still points at, in any collection.
-async function referencedVariableIds() {
-  const ids = new Set()
-  const holders = [
-    ...(await figma.variables.getLocalVariablesAsync()),
-    ...(await figma.getLocalTextStylesAsync()),
-    ...(await figma.getLocalEffectStylesAsync()),
-  ]
-  for (const holder of holders) {
-    for (const map of [holder.valuesByMode, holder.boundVariables]) {
-      for (const value of Object.values(map || {})) {
-        if (isPlainObject(value) && value.type === ALIAS_TYPE) {
-          ids.add(value.id)
-        }
-      }
-    }
-  }
-  return ids
 }
 
 // A parked name carries the date it was parked, so a purge needs no side
@@ -352,73 +330,40 @@ async function referencedVariableIds() {
 const PARKED_PREFIX = '_stale/'
 
 /**
- * Moves every variable the pushed tree no longer names out of the live set.
+ * Moves every variable the pushed tree no longer names out of the live set by
+ * renaming it: the id survives, so every alias, style and layer binding that
+ * points at it still resolves, and no value is copied, so every mode keeps its
+ * own. Nothing is created or removed.
  *
  * Nothing outside this collection is touched, and an empty tree parks nothing:
  * a push that carried nothing to compare against must not be readable as a
- * repository-wide overwrite. A stale variable still referenced is retained.
+ * repository-wide overwrite.
  */
-async function parkStaleVariables(tree, collection, modeId, byName) {
+async function parkStaleVariables(tree, collection, byName) {
   const wanted = new Set(flattenTree(tree).map((pair) => toName(pair.name)))
   if (wanted.size === 0) {
-    return { parkedNames: [], retainedNames: [] }
+    return { parkedNames: [] }
   }
 
-  // A reference is never broken by parking: the target stays live instead.
-  const referenced = await referencedVariableIds()
-  const stale = []
-  const retainedNames = []
+  const prefix = `${PARKED_PREFIX}${new Date().toISOString().slice(0, 10)}/`
+  const parkedNames = []
   for (const name of Object.keys(byName)) {
     if (name.indexOf(PARKED_PREFIX) === 0 || wanted.has(name)) {
       continue
     }
     const variable = byName[name]
-    if (referenced.has(variable.id)) {
-      retainedNames.push(name)
+    if (!isKiterCollection(variable, collection)) {
       continue
     }
-    stale.push(variable)
+    variable.name = prefix + name
+    parkedNames.push(variable.name)
   }
-  retainedNames.sort()
-  if (stale.length === 0) {
-    return { parkedNames: [], retainedNames }
-  }
+  parkedNames.sort()
 
-  // Values travel once every copy exists: a stale variable may alias another
-  // one that is being parked in this same run, and that target only has its new
-  // id by now.
-  const prefix = `${PARKED_PREFIX}${new Date().toISOString().slice(0, 10)}/`
-  const parkedById = new Map()
-  const parkedNames = []
-  for (const variable of stale) {
-    const parkedName = prefix + variable.name
-    const copy =
-      byName[parkedName] ||
-      figma.variables.createVariable(
-        parkedName,
-        collection,
-        variable.resolvedType,
-      )
-    parkedById.set(variable.id, copy)
-    parkedNames.push(parkedName)
-  }
-
-  for (const variable of stale) {
-    const value = (variable.valuesByMode || {})[modeId]
-    if (value === undefined) {
-      continue
-    }
-    parkedById.get(variable.id).setValueForMode(modeId, value)
-  }
-
-  for (const variable of stale) {
-    variable.remove()
-  }
-
-  return { parkedNames, retainedNames }
+  return { parkedNames }
 }
 
-// Parking is recoverable, purging is not: a parked variable waits this long
+// Parking is reversible, purging is not: a parked variable waits this long
 // before it becomes eligible, so an accidental rename stays undoable long
 // enough to notice it.
 const PURGE_WINDOW_DAYS = 14
@@ -460,9 +405,12 @@ async function planPurge(now) {
 }
 
 /**
- * Deletes the requested parked variables after re-checking references: a copy
- * something still uses, and a requested name that is missing or not parked
- * here, are reported instead of removed.
+ * Deletes the requested parked variables: only names under `_stale/` of the
+ * Kiter collection, and only past the window. A requested name that is missing
+ * or not a parked variable here is reported, not silently ignored.
+ *
+ * Deleting also removes the binding wherever a layer or a style still applies
+ * the variable; the panel states that cost before the confirmation.
  */
 async function purgeParked(requested) {
   const counts = { removed: 0, skipped: 0, skippedNames: [] }
@@ -471,16 +419,17 @@ async function purgeParked(requested) {
   if (!collection) {
     return { removed: 0, skipped: allowed.size, skippedNames: [...allowed] }
   }
-  const referenced = await referencedVariableIds()
+  const cutoff = Date.now() - PURGE_WINDOW_DAYS * DAY_MS
   for (const variable of await figma.variables.getLocalVariablesAsync()) {
     if (!allowed.has(variable.name)) {
       continue
     }
     allowed.delete(variable.name)
+    const date = parkedDateOf(variable.name)
     if (
       !isKiterCollection(variable, collection) ||
-      !parkedDateOf(variable.name) ||
-      referenced.has(variable.id)
+      !date ||
+      Date.parse(date) > cutoff
     ) {
       counts.skipped += 1
       counts.skippedNames.push(variable.name)
