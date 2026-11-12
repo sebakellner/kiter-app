@@ -710,3 +710,66 @@ test('reports an unknown weight and a non-pixel line height unchanged', async ()
     letterSpacing: { unit: 'PERCENT', value: 2 },
   })
 })
+
+test('a second park on the same day does not collide (R3-002)', async () => {
+  const cyan = { mode: { r: 0, g: 1, b: 1, a: 1 } }
+  const { posted } = await runPlugin(
+    {
+      type: 'push',
+      tokens: { primitives: { font: { size: { 14: 14 } } } },
+      styles: { text: [], effects: [] },
+    },
+    'bound',
+    {
+      seedVariables: [
+        {
+          id: 'variable-parked-today',
+          name: `_stale/${today()}/primitives/color/cyan/400`,
+          resolvedType: 'COLOR',
+          variableCollectionId: 'collection',
+          valuesByMode: cyan,
+        },
+        {
+          id: 'variable-cyan-again',
+          name: 'primitives/color/cyan/400',
+          resolvedType: 'COLOR',
+          variableCollectionId: 'collection',
+          valuesByMode: cyan,
+        },
+      ],
+    },
+  )
+
+  assert.deepEqual(plain(posted.variables.parkedNames), [
+    `_stale/${today()}/primitives/color/cyan/400-2`,
+  ])
+})
+
+test('the boundary day of the purge window is not eligible (R3-004)', async () => {
+  const day = (offset) =>
+    new Date(Date.now() - offset * 24 * 60 * 60 * 1000)
+      .toISOString()
+      .slice(0, 10)
+  const { posted } = await runPlugin({ type: 'purge-plan' }, 'bound', {
+    seedVariables: [
+      {
+        id: 'variable-boundary',
+        name: `_stale/${day(14)}/primitives/color/cyan/400`,
+        resolvedType: 'COLOR',
+        variableCollectionId: 'collection',
+        valuesByMode: {},
+      },
+      {
+        id: 'variable-older',
+        name: `_stale/${day(15)}/primitives/color/red/500`,
+        resolvedType: 'COLOR',
+        variableCollectionId: 'collection',
+        valuesByMode: {},
+      },
+    ],
+  })
+
+  assert.deepEqual(plain(posted.plan.names), [
+    `_stale/${day(15)}/primitives/color/red/500`,
+  ])
+})

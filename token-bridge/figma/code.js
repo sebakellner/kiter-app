@@ -346,6 +346,7 @@ async function parkStaleVariables(tree, collection, byName) {
   }
 
   const prefix = `${PARKED_PREFIX}${new Date().toISOString().slice(0, 10)}/`
+  const taken = new Set(Object.keys(byName))
   const parkedNames = []
   for (const name of Object.keys(byName)) {
     if (name.indexOf(PARKED_PREFIX) === 0 || wanted.has(name)) {
@@ -355,8 +356,15 @@ async function parkStaleVariables(tree, collection, byName) {
     if (!isKiterCollection(variable, collection)) {
       continue
     }
-    variable.name = prefix + name
-    parkedNames.push(variable.name)
+    // A name removed, re-added and removed again on the same day would land on
+    // the copy parked earlier, so a taken destination gets a numeric suffix.
+    let destination = prefix + name
+    for (let suffix = 2; taken.has(destination); suffix += 1) {
+      destination = `${prefix}${name}-${suffix}`
+    }
+    taken.add(destination)
+    variable.name = destination
+    parkedNames.push(destination)
   }
   parkedNames.sort()
 
@@ -368,6 +376,17 @@ async function parkStaleVariables(tree, collection, byName) {
 // enough to notice it.
 const PURGE_WINDOW_DAYS = 14
 const DAY_MS = 24 * 60 * 60 * 1000
+
+function dayOf(ms) {
+  return new Date(ms).toISOString().slice(0, 10)
+}
+
+// A parked name carries only its date, so the window counts whole days and
+// refuses the boundary day: a variable parked late on day D waits until D+15,
+// never a partial 14 days.
+function outsidePurgeWindow(date, now) {
+  return Boolean(date) && date < dayOf(now - PURGE_WINDOW_DAYS * DAY_MS)
+}
 
 function parkedDateOf(name) {
   const match = /^_stale\/(\d{4}-\d{2}-\d{2})\//.exec(String(name || ''))
@@ -388,14 +407,13 @@ async function planPurge(now) {
   if (!collection) {
     return { names: [], windowDays: PURGE_WINDOW_DAYS }
   }
-  const cutoff = now - PURGE_WINDOW_DAYS * DAY_MS
   const names = []
   for (const variable of await figma.variables.getLocalVariablesAsync()) {
     if (!isKiterCollection(variable, collection)) {
       continue
     }
     const date = parkedDateOf(variable.name)
-    if (!date || Date.parse(date) > cutoff) {
+    if (!outsidePurgeWindow(date, now)) {
       continue
     }
     names.push(variable.name)
@@ -419,7 +437,7 @@ async function purgeParked(requested) {
   if (!collection) {
     return { removed: 0, skipped: allowed.size, skippedNames: [...allowed] }
   }
-  const cutoff = Date.now() - PURGE_WINDOW_DAYS * DAY_MS
+  const now = Date.now()
   for (const variable of await figma.variables.getLocalVariablesAsync()) {
     if (!allowed.has(variable.name)) {
       continue
@@ -428,8 +446,7 @@ async function purgeParked(requested) {
     const date = parkedDateOf(variable.name)
     if (
       !isKiterCollection(variable, collection) ||
-      !date ||
-      Date.parse(date) > cutoff
+      !outsidePurgeWindow(date, now)
     ) {
       counts.skipped += 1
       counts.skippedNames.push(variable.name)
