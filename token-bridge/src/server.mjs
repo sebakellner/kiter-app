@@ -7,13 +7,13 @@ import { join } from 'node:path'
 import { applyPull } from './pull.mjs'
 import { applyStylePull } from './pull-styles.mjs'
 import { ALLOWED_ORIGIN, failedBody, rejectionOf } from './guard.mjs'
-import { mergeTokenTrees, projectTokens, toFigmaTree } from './project.mjs'
+import { TOKEN_FOLDERS } from './names.mjs'
+import { projectTokens, toFigmaTree } from './project.mjs'
 import { buildStyles } from './styles.mjs'
 
 const PORT = Number(process.env.KITER_TOKENS_PORT ?? 4747)
 const HOST = '127.0.0.1'
 const REPO_ROOT = process.cwd()
-const TOKEN_FOLDERS = ['primitives', 'semantic']
 const MAX_BODY_BYTES = 5 * 1024 * 1024
 
 function countLeaves(node) {
@@ -195,11 +195,11 @@ const server = createServer((request, response) => {
   }
 
   if (request.method === 'GET' && request.url === '/push') {
-    const { primitives, semantic } = projectTokens(REPO_ROOT)
     // Variables and styles travel together: shadows leave the token tree in
-    // `toFigmaTree` and arrive here as effect styles.
+    // `toFigmaTree` and arrive here as effect styles. Every variable name keeps
+    // the folder that owns its token as its first segment.
     send(response, 200, {
-      tokens: toFigmaTree(mergeTokenTrees(primitives, semantic)),
+      tokens: toFigmaTree(projectTokens(REPO_ROOT)),
       styles: buildStyles(REPO_ROOT),
     })
     return

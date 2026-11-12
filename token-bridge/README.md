@@ -8,6 +8,34 @@ The Figma plugin only reads and writes Figma. Nothing is ever deleted in Figma o
 in the repository: a Figma change arrives as a pull request whose regenerated CSS
 diff is the review artifact.
 
+## Variable names
+
+A repository token path never changes. Its Figma **variable name** does carry the
+folder that owns the token:
+
+| Token path             | Folder       | Variable name                   |
+| ---------------------- | ------------ | ------------------------------- |
+| `color.slate.300`      | `primitives` | `primitives/color/slate/300`    |
+| `color.action.primary` | `semantic`   | `semantic/color/action/primary` |
+| `space.4`              | `primitives` | `primitives/space/4`            |
+| `border.width.1`       | `primitives` | `primitives/border/width/1`     |
+| `border.control`       | `semantic`   | `semantic/border/control`       |
+| `font.size.14`         | `primitives` | `primitives/font/size/14`       |
+
+Figma groups variables by their first name segment, so the folder keeps
+`color/`, `border/`, `opacity/`, `radius/` and `shadow/` from mixing a primitive
+scale with a semantic role. An alias marker carries the folder that owns the
+**target** token, so `semantic/color/status/error` points at
+`primitives/color/red/400`.
+
+A pull splits the first name segment off as the folder and accepts the name only
+when that folder declares the remaining path in `tokens/**/*.json`. A name whose
+folder does not own the path is reported and not written: the bridge never
+guesses ownership, never creates a token, and never deletes or renames one. Text
+and effect style names keep their current form (`typography/body`,
+`shadow/black-28`); only variables and the bindings inside styles use the
+prefixed name.
+
 ## Endpoints
 
 | Endpoint            | Direction    | Effect                                                                   |

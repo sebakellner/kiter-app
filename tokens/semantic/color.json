@@ -1,6 +1,6 @@
 {
   "color": {
-    "$description": "Near-black workspace with opaque slate surfaces and a single yellow accent for primary actions, keyboard focus and selection indicators. Pink is reserved for error states. Values reference primitives only.",
+    "$description": "Near-black workspace with opaque slate surfaces and a single yellow accent for primary actions, keyboard focus and selection indicators. Status roles reuse the red, amber, blue and green families, and warning never reuses the yellow accent. Values reference primitives only.",
     "action": {
       "primary": { "$value": "{color.yellow.500}", "$type": "color" },
       "primary-hover": { "$value": "{color.yellow.400}", "$type": "color" },
@@ -28,7 +28,7 @@
       "default": { "$value": "{color.slate.700}", "$type": "color" },
       "control": { "$value": "{color.slate.500}", "$type": "color" },
       "hover": { "$value": "{color.slate.300}", "$type": "color" },
-      "danger": { "$value": "{color.pink.500}", "$type": "color" }
+      "error": { "$value": "{color.red.500}", "$type": "color" }
     },
     "focus": {
       "ring": { "$value": "{color.yellow.500}", "$type": "color" }
@@ -37,7 +37,10 @@
       "indicator": { "$value": "{color.yellow.500}", "$type": "color" }
     },
     "status": {
-      "danger": { "$value": "{color.pink.400}", "$type": "color" }
+      "error": { "$value": "{color.red.400}", "$type": "color" },
+      "warning": { "$value": "{color.amber.400}", "$type": "color" },
+      "info": { "$value": "{color.blue.400}", "$type": "color" },
+      "success": { "$value": "{color.green.400}", "$type": "color" }
     },
     "waveform": {
       "default": { "$value": "{color.slate.300}", "$type": "color" }

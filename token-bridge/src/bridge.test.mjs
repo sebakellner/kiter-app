@@ -7,7 +7,8 @@ import test from 'node:test'
 import { rejectionOf } from './guard.mjs'
 import { encodeLeaf } from './inverse.mjs'
 import { mergePayload } from './merge.mjs'
-import { projectTokens } from './project.mjs'
+import { projectTokens, toFigmaTree } from './project.mjs'
+import { normalizeTree } from './pull.mjs'
 
 const repoRoot = fileURLToPath(new URL('../..', import.meta.url))
 const SERVER_URL = new URL('./server.mjs', import.meta.url)
@@ -65,10 +66,12 @@ function groupDescriptionPaths(node, prefix = []) {
 
 test('projecting and merging the inverse payload reproduces tokens/ (S8)', () => {
   const canonical = readRepoTree()
-  const projected = projectTokens(repoRoot)
+  // The whole pipeline, in the order the bridge runs it: project, convert to
+  // what Figma stores, then normalize what the plugin sends back.
+  const payload = normalizeTree(toFigmaTree(projectTokens(repoRoot)))
   const mergeInput = readRepoTree()
 
-  const { tree, report } = mergePayload(mergeInput, projected)
+  const { tree, report } = mergePayload(mergeInput, payload)
 
   assert.deepEqual(tree, canonical)
   assert.deepEqual(mergeInput, canonical)
@@ -76,7 +79,9 @@ test('projecting and merging the inverse payload reproduces tokens/ (S8)', () =>
     changed: [],
     added: [],
     dangling: [],
-    untouched: 0,
+    // The 16 tokens no variable can hold: 11 typography composites, 4 shadow
+    // composites and the font family list.
+    untouched: 16,
   })
 })
 
@@ -293,7 +298,8 @@ test('reports payload tokens that the repository does not have', () => {
   const { tree, report } = mergePayload(canonical, payload)
 
   assert.deepEqual(tree, canonical)
-  assert.deepEqual(report.added, ['color.slate.301'])
+  // The report names the variable, so the folder the name claims is visible.
+  assert.deepEqual(report.added, ['primitives/color/slate/301'])
   assert.deepEqual(report.changed, [])
 })
 

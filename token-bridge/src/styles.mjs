@@ -1,7 +1,8 @@
 import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
-const TOKEN_FOLDERS = ['primitives', 'semantic']
+import { folderOwners, TOKEN_FOLDERS, variableName } from './names.mjs'
+
 const ALIAS = /^\{([^{}]+)\}$/
 
 /**
@@ -13,21 +14,21 @@ const ALIAS = /^\{([^{}]+)\}$/
  * module only reads `tokens/**\/*.json` and never writes.
  */
 export function buildStyles(repoRoot = process.cwd()) {
-  const tree = readRepositoryTree(repoRoot)
+  const { tree, owners } = readRepository(repoRoot)
   const leaves = flattenLeaves(tree, [], [])
   return {
-    text: buildTextStyles(tree, leaves),
+    text: buildTextStyles(tree, leaves, owners),
     effects: buildEffectStyles(tree, leaves),
   }
 }
 
-function buildTextStyles(tree, leaves) {
+function buildTextStyles(tree, leaves, owners) {
   const styles = []
   for (const leaf of leaves) {
     if (leaf.token.$type !== 'typography') {
       continue
     }
-    const style = toTextStyle(tree, leaf)
+    const style = toTextStyle(tree, leaf, owners)
     if (style) {
       styles.push(style)
     }
@@ -63,7 +64,7 @@ function buildEffectStyles(tree, leaves) {
  * `bindings` names the variable each bindable property should point at, so the
  * style stops carrying a second copy of a value the variables already own.
  */
-function toTextStyle(tree, leaf) {
+function toTextStyle(tree, leaf, owners) {
   const value = leaf.token.$value
   if (!isPlainObject(value)) {
     return undefined
@@ -94,7 +95,7 @@ function toTextStyle(tree, leaf) {
     // to. Binding it would need a token for e.g. 21px that does not exist.
     lineHeight: Math.round(fontSize * multiplier),
     letterSpacing,
-    bindings: textBindings(value),
+    bindings: textBindings(value, owners),
   }
 }
 
@@ -105,23 +106,28 @@ function toTextStyle(tree, leaf) {
  * of scope because its token is a fallback array the push does not turn into a
  * variable.
  */
-function textBindings(value) {
+function textBindings(value, owners) {
   const bindings = {}
-  const fontSize = aliasName(value.fontSize)
+  const fontSize = aliasName(value.fontSize, owners)
   if (fontSize) {
     bindings.fontSize = fontSize
   }
-  const letterSpacing = aliasName(value.letterSpacing)
+  const letterSpacing = aliasName(value.letterSpacing, owners)
   if (letterSpacing) {
     bindings.letterSpacing = letterSpacing
   }
   return bindings
 }
 
-// `{font.size.14}` -> `font/size/14`: a Figma variable is named after its path.
-function aliasName(value) {
+// `{font.size.14}` -> `primitives/font/size/14`: a binding names the variable,
+// and the variable name starts with the folder that owns the target token.
+function aliasName(value, owners) {
   const alias = aliasOf(value)
-  return alias === undefined ? undefined : alias.split('.').join('/')
+  if (alias === undefined) {
+    return undefined
+  }
+  const folder = owners.get(alias)
+  return folder === undefined ? undefined : variableName(folder, alias)
 }
 
 // The reference a DTCG alias string carries, or undefined for a literal.
@@ -229,11 +235,24 @@ function toNumber(value) {
 }
 
 export function readRepositoryTree(repoRoot) {
+  return readRepository(repoRoot).tree
+}
+
+/**
+ * The repository tree, with both folders combined, plus the folder each token
+ * path belongs to. A style name carries no folder, but the variable a binding
+ * names does, so the owner has to travel with the tree.
+ */
+export function readRepository(repoRoot = process.cwd()) {
+  const folderTrees = {}
+  for (const folder of TOKEN_FOLDERS) {
+    folderTrees[folder] = readFolder(repoRoot, folder)
+  }
   const tree = {}
   for (const folder of TOKEN_FOLDERS) {
-    mergeInto(tree, readFolder(repoRoot, folder))
+    mergeInto(tree, folderTrees[folder])
   }
-  return tree
+  return { tree, owners: folderOwners(folderTrees) }
 }
 
 function readFolder(repoRoot, folder) {
@@ -253,12 +272,12 @@ function readFolder(repoRoot, folder) {
  * the repository has no complete composite there. The reverse direction uses it
  * so both directions share one resolution rule and one rounding rule.
  */
-export function textStyleAt(tree, path) {
+export function textStyleAt(tree, path, owners) {
   const node = nodeAtPath(tree, path)
   if (!isTokenLeaf(node)) {
     return undefined
   }
-  return toTextStyle(tree, { path, token: node })
+  return toTextStyle(tree, { path, token: node }, owners)
 }
 
 /** Every token leaf with its path, in repository order. */

@@ -25,7 +25,7 @@
 }
 
 .collection-form textarea[aria-invalid='true'] {
-  border-color: var(--color-border-danger);
+  border-color: var(--color-border-error);
 }
 
 .collection-form textarea:disabled {
@@ -52,7 +52,7 @@
 }
 
 .collection-form [role='alert'] {
-  color: var(--color-status-danger);
+  color: var(--color-status-error);
 }
 
 .collection-form section[aria-label] {

@@ -23,7 +23,7 @@
 }
 
 .ui-toast[data-variant='error'] {
-  border-color: var(--color-border-danger);
+  border-color: var(--color-border-error);
 }
 
 .ui-toast > .ui-button {

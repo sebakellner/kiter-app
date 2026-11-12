@@ -328,9 +328,11 @@
                 describeValue(change.to),
             )
           }
-          append('added: ' + added.length)
+          append('not written: ' + added.length)
           for (const path of added) {
-            append('  ' + path)
+            append(
+              '  ' + path + ' -- the folder in this name owns no such token',
+            )
           }
           append(
             'written: ' + (written.length === 0 ? 'none' : written.join(', ')),
@@ -343,7 +345,7 @@
               changed.length +
               ' changed, ' +
               added.length +
-              ' added.',
+              ' not written.',
           )
         } catch (error) {
           fail('Pull', error, error.server === true)

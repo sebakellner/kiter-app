@@ -90,7 +90,7 @@
 
 .app-shell-global-search-error p {
   margin: var(--space-0);
-  color: var(--color-status-danger);
+  color: var(--color-status-error);
   overflow-wrap: anywhere;
 }
 
