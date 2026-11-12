@@ -125,14 +125,6 @@ function styleStore(variant) {
   }
 }
 
-// A seeded style carries the shape Figma returns from `boundVariables`:
-// `{field: { type: 'VARIABLE_ALIAS', id }}`.
-function seedStyles(store, records) {
-  for (const record of records || []) {
-    store.store.set(record.name, { fontSize: 0, ...record })
-  }
-}
-
 // The plugin runs in another realm, so its objects have another `Object`
 // prototype and a strict deep equal would fail on identity alone.
 function plain(value) {
@@ -143,8 +135,7 @@ async function runPlugin(message, variant = 'bound', options = {}) {
   assert.ok(VARIANTS.includes(variant), `unknown variant ${variant}`)
   const textStyles = styleStore(variant)
   const effectStyles = styleStore(variant)
-  seedStyles(textStyles, options.seedTextStyles)
-  seedStyles(effectStyles, options.seedEffectStyles)
+  for (const s of options.seedTextStyles || []) textStyles.store.set(s.name, s)
   const loadedFonts = []
   // The document is state, not a fixed read: a push that parks or creates a
   // variable has to be observable by the next read in the same run.
@@ -278,10 +269,7 @@ function today() {
   return new Date().toISOString().slice(0, 10)
 }
 
-// A seeded variable of any collection. Its name doubles as its id, so an alias
-// can point at it by name.
-// A seeded variable of any collection. Its name doubles as its id, so an alias
-// can point at it by name.
+// A seeded variable of any collection: its name doubles as its id.
 const seeded = (name, value, collection = 'collection') => ({
   id: name,
   name,
@@ -291,17 +279,6 @@ const seeded = (name, value, collection = 'collection') => ({
 })
 
 const aliasTo = (id) => ({ type: 'VARIABLE_ALIAS', id })
-
-// Pushes one tree against the seeded document and returns the push counts with
-// the live variable store.
-async function pushTree(tokens, seedVariables, extra = {}) {
-  const { posted, variables } = await runPlugin(
-    { type: 'push', tokens, styles: { text: [], effects: [] } },
-    'bound',
-    { seedVariables, ...extra },
-  )
-  return { counts: plain(posted.variables), variables }
-}
 
 test('does not adopt a same-named variable from another collection (R3-001)', async () => {
   const bindings = { letterSpacing: 'primitives/font/line-height/normal' }
@@ -385,38 +362,28 @@ test('a parked variable keeps the value it had (S2)', async () => {
   assert.equal(variables.store.get('variable-cyan'), undefined)
 })
 
-// A parked copy records a value, it is not a target: a stale variable a live
-// alias still uses stays live, because a later purge of the copy would break
-// the alias.
-test('keeps a stale variable a live alias still uses (S1)', async () => {
+// A parked copy is not a target: a stale variable a live alias, another
+// collection's alias or a style binding still uses stays live under its name.
+test('keeps a stale variable anything still references (R1-002, R3-001, R4-001, R4-002)', async () => {
   const cyan = seeded('primitives/color/cyan/400', { r: 0, g: 1, b: 1, a: 1 })
-  const { counts, variables } = await pushTree(
-    {
-      semantic: {
-        color: { status: { error: { alias: 'primitives.color.cyan.400' } } },
-      },
-    },
-    [cyan],
-  )
-
-  assert.equal(counts.parked, 0)
-  assert.deepEqual(counts.parkedNames, [])
-  assert.deepEqual(counts.retainedNames, [cyan.name])
-  const parked = [...variables.store.values()].filter((variable) =>
-    variable.name.startsWith('_stale/'),
-  )
-  assert.deepEqual(plain(parked), [], 'nothing is copied under _stale/')
-  assert.deepEqual(plain(variables.store.get(cyan.id).valuesByMode), {
-    mode: { r: 0, g: 1, b: 1, a: 1 },
-  })
-})
-
-test('keeps a stale variable a text style is bound to (R3-001)', async () => {
   const spacing = seeded('primitives/font/letter-spacing/normal', 0)
-  const { counts, variables } = await pushTree(
-    { primitives: { font: { size: { 14: 14 } } } },
-    [spacing],
+  const { posted, variables } = await runPlugin(
     {
+      type: 'push',
+      tokens: {
+        semantic: {
+          color: { status: { error: { alias: 'primitives.color.cyan.400' } } },
+        },
+      },
+      styles: { text: [], effects: [] },
+    },
+    'bound',
+    {
+      seedVariables: [
+        cyan,
+        spacing,
+        seeded('other/letter-spacing', aliasTo(spacing.id), 'other'),
+      ],
       seedTextStyles: [
         {
           name: 'typography/body',
@@ -426,22 +393,12 @@ test('keeps a stale variable a text style is bound to (R3-001)', async () => {
     },
   )
 
+  const counts = plain(posted.variables)
+  const names = [...variables.store.values()].map((variable) => variable.name)
   assert.equal(counts.parked, 0)
-  assert.deepEqual(counts.retainedNames, [spacing.name])
-  assert.ok(variables.store.get(spacing.id))
-})
-
-// Another collection is never written, but its alias is still a reference.
-test('keeps a stale variable another collection aliases (S1)', async () => {
-  const spacing = seeded('primitives/font/letter-spacing/normal', 0)
-  const foreign = seeded('other/letter-spacing', aliasTo(spacing.id), 'other')
-  const { counts } = await pushTree(
-    { primitives: { font: { size: { 14: 14 } } } },
-    [spacing, foreign],
-  )
-
-  assert.equal(counts.parked, 0)
-  assert.deepEqual(counts.retainedNames, [spacing.name])
+  assert.deepEqual(counts.retainedNames, [cyan.name, spacing.name])
+  assert.ok(names.includes(cyan.name) && names.includes(spacing.name))
+  assert.equal(names.filter((name) => name.startsWith('_stale/')).length, 0)
 })
 
 test('an empty token tree parks nothing (S5)', async () => {
@@ -524,49 +481,31 @@ test('purges only the parked names it was asked for (S2, S4)', async () => {
   assert.ok(variables.store.get('variable-foreign-parked'))
 })
 
-test('a purge skips a parked variable a live alias still references (S2)', async () => {
-  const parked = seeded('_stale/2020-01-01/primitives/color/cyan/400', {
-    r: 0,
-    g: 1,
-    b: 1,
-    a: 1,
-  })
+// One call proves both halves of R3: a reference still blocks a purge, and every
+// other requested name comes back reported instead of vanishing.
+test('a purge skips a referenced copy and reports the rest (S2, R3-002, R3-003)', async () => {
+  const cyan = '_stale/2020-01-01/primitives/color/cyan/400'
+  const free = `_stale/${today()}/primitives/color/red/500`
+  const missing = '_stale/2020-01-01/primitives/color/magenta/400'
   const { posted, variables } = await runPlugin(
-    { type: 'purge', names: [parked.name] },
+    { type: 'purge', names: [cyan, free, missing, 'primitives/font/size/14'] },
     'bound',
     {
       seedVariables: [
-        parked,
-        seeded('semantic/color/status/error', aliasTo(parked.id)),
+        ...parkedSeed(),
+        seeded('semantic/color/status/error', aliasTo('variable-old')),
       ],
     },
-  )
-
-  assert.equal(posted.counts.removed, 0)
-  assert.deepEqual(plain(posted.counts.skippedNames), [parked.name])
-  assert.ok(variables.store.get(parked.id), 'the referenced copy survives')
-})
-
-test('a purge reports a missing name and a name that is not parked (S2)', async () => {
-  const missing = '_stale/2020-01-01/primitives/color/magenta/400'
-  const { posted } = await runPlugin(
-    {
-      type: 'purge',
-      names: [
-        '_stale/2020-01-01/primitives/color/cyan/400',
-        missing,
-        'primitives/font/size/14',
-      ],
-    },
-    'bound',
-    { seedVariables: parkedSeed() },
   )
 
   assert.equal(posted.counts.removed, 1)
   assert.deepEqual(plain(posted.counts.skippedNames).sort(), [
+    cyan,
     missing,
     'primitives/font/size/14',
   ])
+  assert.ok(variables.store.get('variable-old'), 'the referenced copy survives')
+  assert.equal(variables.store.get('variable-fresh'), undefined)
 })
 
 test('writes styles with the async accessors required by dynamic-page', async () => {

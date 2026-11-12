@@ -321,35 +321,27 @@ async function writeTokens(tree) {
   const parked = await parkStaleVariables(tree, collection, modeId, byName)
   counts.parked = parked.parkedNames.length
   counts.parkedNames = parked.parkedNames
-  counts.retained = parked.retainedNames.length
   counts.retainedNames = parked.retainedNames
 
   return counts
 }
 
-/**
- * Every variable id something in the document still references.
- *
- * An alias held by a variable in any collection counts, and so does a text or
- * effect style binding. A parked copy is not a stand-in for a live target, so
- * parking and purging both consult this.
- */
+// Every id a live alias or a style binding still points at, in any collection.
 async function referencedVariableIds() {
   const ids = new Set()
-  const collect = (value) => {
-    if (isPlainObject(value) && value.type === ALIAS_TYPE && value.id) {
-      ids.add(value.id)
-    }
-  }
-  for (const variable of await figma.variables.getLocalVariablesAsync()) {
-    Object.values(variable.valuesByMode || {}).forEach(collect)
-  }
-  const styles = [
+  const holders = [
+    ...(await figma.variables.getLocalVariablesAsync()),
     ...(await figma.getLocalTextStylesAsync()),
     ...(await figma.getLocalEffectStylesAsync()),
   ]
-  for (const style of styles) {
-    Object.values(style.boundVariables || {}).forEach(collect)
+  for (const holder of holders) {
+    for (const map of [holder.valuesByMode, holder.boundVariables]) {
+      for (const value of Object.values(map || {})) {
+        if (isPlainObject(value) && value.type === ALIAS_TYPE) {
+          ids.add(value.id)
+        }
+      }
+    }
   }
   return ids
 }
@@ -364,9 +356,7 @@ const PARKED_PREFIX = '_stale/'
  *
  * Nothing outside this collection is touched, and an empty tree parks nothing:
  * a push that carried nothing to compare against must not be readable as a
- * repository-wide overwrite. A stale variable a live alias or a style binding
- * still uses is retained instead — with its name and value, never copied —
- * because a reference to a parked copy would break on the next purge.
+ * repository-wide overwrite. A stale variable still referenced is retained.
  */
 async function parkStaleVariables(tree, collection, modeId, byName) {
   const wanted = new Set(flattenTree(tree).map((pair) => toName(pair.name)))
@@ -374,6 +364,7 @@ async function parkStaleVariables(tree, collection, modeId, byName) {
     return { parkedNames: [], retainedNames: [] }
   }
 
+  // A reference is never broken by parking: the target stays live instead.
   const referenced = await referencedVariableIds()
   const stale = []
   const retainedNames = []
@@ -393,8 +384,9 @@ async function parkStaleVariables(tree, collection, modeId, byName) {
     return { parkedNames: [], retainedNames }
   }
 
-  // Values travel once every copy exists, and a copy carries the raw value the
-  // stale variable held: nothing is ever pointed at a parked copy.
+  // Values travel once every copy exists: a stale variable may alias another
+  // one that is being parked in this same run, and that target only has its new
+  // id by now.
   const prefix = `${PARKED_PREFIX}${new Date().toISOString().slice(0, 10)}/`
   const parkedById = new Map()
   const parkedNames = []
@@ -468,31 +460,23 @@ async function planPurge(now) {
 }
 
 /**
- * Deletes the requested parked variables, re-checking references at deletion
- * time: a parked copy a live variable or style still points at is reported
- * instead of removed, so a purge can never break a live reference.
- *
- * A name that is not a parked variable of this collection, or that no longer
- * exists, is reported too, so a stale panel can never turn a typo into the
- * deletion of a live variable and no requested name vanishes from the result.
+ * Deletes the requested parked variables after re-checking references: a copy
+ * something still uses, and a requested name that is missing or not parked
+ * here, are reported instead of removed.
  */
 async function purgeParked(requested) {
   const counts = { removed: 0, skipped: 0, skippedNames: [] }
   const allowed = new Set(Array.isArray(requested) ? requested : [])
   const collection = await kiterCollection()
   if (!collection) {
-    // Nothing can be proved parked here, so every request is reported.
-    counts.skipped = allowed.size
-    counts.skippedNames = [...allowed]
-    return counts
+    return { removed: 0, skipped: allowed.size, skippedNames: [...allowed] }
   }
   const referenced = await referencedVariableIds()
-  const present = new Set()
   for (const variable of await figma.variables.getLocalVariablesAsync()) {
     if (!allowed.has(variable.name)) {
       continue
     }
-    present.add(variable.name)
+    allowed.delete(variable.name)
     if (
       !isKiterCollection(variable, collection) ||
       !parkedDateOf(variable.name) ||
@@ -505,11 +489,10 @@ async function purgeParked(requested) {
     variable.remove()
     counts.removed += 1
   }
+  // A name that matched nothing is reported too, so no request is dropped.
   for (const name of allowed) {
-    if (!present.has(name)) {
-      counts.skipped += 1
-      counts.skippedNames.push(name)
-    }
+    counts.skipped += 1
+    counts.skippedNames.push(name)
   }
   return counts
 }

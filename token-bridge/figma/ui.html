@@ -219,9 +219,7 @@
           for (const name of names) {
             append('  ' + name)
           }
-          append(
-            'A purge re-checks references and skips any name a live variable or style still uses.',
-          )
+          append('A purge re-checks references and skips a name still in use.')
           purgeButton.textContent = 'Confirm purge (' + names.length + ')'
           purgeButton.dataset.names = JSON.stringify(names)
           return
@@ -284,9 +282,6 @@
         if (typeof counts.parked === 'number') {
           parts.push(counts.parked + ' parked')
         }
-        if (typeof counts.retained === 'number') {
-          parts.push(counts.retained + ' retained')
-        }
         return parts.join(', ')
       }
 
@@ -304,9 +299,7 @@
         }
       }
 
-      // A stale name something still references is not parked: moving it would
-      // leave that reference pointing at the parked copy, so the push keeps it
-      // live and names it here.
+      // A retained name is kept live and named here instead of parked.
       function appendRetained(counts) {
         const names = counts.retainedNames || []
         if (names.length === 0) {
