@@ -46,19 +46,15 @@ is removed, so a rename in the repository cannot leave a dangling name behind.
 Parking never touches another collection, never touches a name the tree still
 produces, and never runs on an empty tree.
 
-A stale variable something still references is never parked: another variable's
-alias, in any collection, or a text or effect style binding. The push reports
-such a name as **retained** and leaves it live instead.
-
-The push result reports `parked`/`parkedNames` and `retained`/`retainedNames`,
-and the panel lists every name in each. Parking is reversible: the value is still
-under `_stale/`.
+The push result reports `parked`/`parkedNames` and `retainedNames`, and the
+panel lists each. A stale name a live alias or a style binding still uses is
+never parked but retained, and a purge re-checks references too. Parking is
+reversible: the value is still under `_stale/`.
 
 Deleting is a separate decision. `Purge parked variables` lists the parked names
-older than **14 days**, and only a second click removes them. The purge re-checks
-references and reports instead of deleting: a name a live variable or style
-still uses, one that is not a parked variable of the Kiter collection, and one
-that no longer exists. Text and effect styles are never parked or deleted.
+older than **14 days**, and only a second click removes them. A name that is not
+a parked variable of the Kiter collection is reported instead of deleted, and
+text and effect styles are never parked or deleted.
 
 ## Endpoints
 
